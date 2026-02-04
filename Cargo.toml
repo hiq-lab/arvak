@@ -1,0 +1,79 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/*",
+    "adapters/*",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/hiq-project/hiq"
+keywords = ["quantum", "hpc", "compiler", "qasm", "orchestration"]
+categories = ["science", "compilers", "simulation"]
+
+[workspace.dependencies]
+# Internal crates
+hiq-ir = { path = "crates/hiq-ir" }
+hiq-qasm3 = { path = "crates/hiq-qasm3" }
+hiq-compile = { path = "crates/hiq-compile" }
+hiq-hal = { path = "crates/hiq-hal" }
+hiq-sched = { path = "crates/hiq-sched" }
+
+# Async runtime
+tokio = { version = "1.43", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Graph algorithms
+petgraph = "0.7"
+
+# Numeric
+num-complex = { version = "0.4", features = ["serde"] }
+ndarray = "0.16"
+
+# Parsing
+logos = "0.14"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+indicatif = "0.17"
+console = "0.15"
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# Hashing
+rustc-hash = "2.1"
+
+# UUID generation
+uuid = { version = "1.11", features = ["v4"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Testing
+proptest = "1.5"
+criterion = "0.5"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+lto = "thin"

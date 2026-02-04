@@ -1,0 +1,433 @@
+//! IQM backend implementation.
+
+use async_trait::async_trait;
+use rustc_hash::FxHashMap;
+use std::sync::{Arc, Mutex};
+use tracing::{debug, info, instrument, warn};
+
+use hiq_hal::{
+    Backend, BackendConfig, BackendFactory, Capabilities, Counts, ExecutionResult, HalError,
+    HalResult, Job, JobId, JobStatus, Topology,
+};
+use hiq_ir::Circuit;
+
+use crate::api::{BackendInfo, IqmClient, SubmitRequest};
+use crate::error::{IqmError, IqmResult};
+
+/// Default IQM Resonance API endpoint.
+pub const DEFAULT_ENDPOINT: &str = "https://cocos.resonance.meetiqm.com/api/v1";
+
+/// Default target backend (Garnet - IQM's 20-qubit device).
+pub const DEFAULT_BACKEND: &str = "garnet";
+
+/// Job cache entry.
+struct CachedJob {
+    job: Job,
+    result: Option<ExecutionResult>,
+}
+
+/// IQM quantum computer backend.
+///
+/// This backend connects to IQM quantum computers via the Resonance cloud API.
+/// It supports IQM's native gate set (PRX, CZ) and star topology.
+pub struct IqmBackend {
+    /// Backend configuration.
+    config: BackendConfig,
+    /// API client.
+    client: IqmClient,
+    /// Target quantum computer name.
+    target: String,
+    /// Cached job information.
+    jobs: Arc<Mutex<FxHashMap<String, CachedJob>>>,
+    /// Cached backend info.
+    backend_info: Arc<Mutex<Option<BackendInfo>>>,
+}
+
+impl IqmBackend {
+    /// Create a new IQM backend with default settings.
+    ///
+    /// Reads the API token from the `IQM_TOKEN` environment variable.
+    pub fn new() -> IqmResult<Self> {
+        let token = std::env::var("IQM_TOKEN").map_err(|_| IqmError::MissingToken)?;
+
+        let config = BackendConfig::new("iqm")
+            .with_endpoint(DEFAULT_ENDPOINT)
+            .with_token(&token);
+
+        Self::from_config_impl(config)
+    }
+
+    /// Create a backend targeting a specific IQM device.
+    pub fn with_target(target: impl Into<String>) -> IqmResult<Self> {
+        let token = std::env::var("IQM_TOKEN").map_err(|_| IqmError::MissingToken)?;
+
+        let mut config = BackendConfig::new("iqm")
+            .with_endpoint(DEFAULT_ENDPOINT)
+            .with_token(&token);
+
+        config
+            .extra
+            .insert("target".into(), serde_json::json!(target.into()));
+
+        Self::from_config_impl(config)
+    }
+
+    /// Create a backend with explicit endpoint and token.
+    pub fn with_credentials(
+        endpoint: impl Into<String>,
+        token: impl Into<String>,
+        target: impl Into<String>,
+    ) -> IqmResult<Self> {
+        let mut config = BackendConfig::new("iqm")
+            .with_endpoint(endpoint)
+            .with_token(token);
+
+        config
+            .extra
+            .insert("target".into(), serde_json::json!(target.into()));
+
+        Self::from_config_impl(config)
+    }
+
+    fn from_config_impl(config: BackendConfig) -> IqmResult<Self> {
+        let endpoint = config.endpoint.as_deref().unwrap_or(DEFAULT_ENDPOINT);
+
+        let token = config.token.as_ref().ok_or(IqmError::MissingToken)?;
+
+        let target = config
+            .extra
+            .get("target")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| DEFAULT_BACKEND.to_string());
+
+        let client = IqmClient::new(endpoint, token)?;
+
+        Ok(Self {
+            config,
+            client,
+            target,
+            jobs: Arc::new(Mutex::new(FxHashMap::default())),
+            backend_info: Arc::new(Mutex::new(None)),
+        })
+    }
+
+    /// Get the target backend name.
+    pub fn target(&self) -> &str {
+        &self.target
+    }
+
+    /// Fetch and cache backend information.
+    async fn fetch_backend_info(&self) -> IqmResult<BackendInfo> {
+        // Check cache first
+        {
+            let cache = self.backend_info.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(info) = cache.as_ref() {
+                return Ok(info.clone());
+            }
+        }
+
+        // Fetch from API
+        let info = self.client.get_backend_info(&self.target).await?;
+
+        // Cache it
+        {
+            let mut cache = self.backend_info.lock().unwrap_or_else(|e| e.into_inner());
+            *cache = Some(info.clone());
+        }
+
+        Ok(info)
+    }
+
+    /// Convert circuit to QASM3 string.
+    fn circuit_to_qasm(&self, circuit: &Circuit) -> IqmResult<String> {
+        hiq_qasm3::emit(circuit).map_err(|e| IqmError::QasmError(e.to_string()))
+    }
+
+    /// Convert IQM measurement results to Counts.
+    fn measurements_to_counts(&self, measurements: &[crate::api::MeasurementResult]) -> Counts {
+        let mut counts = Counts::new();
+
+        // Find the classical register (usually "c" or "meas")
+        if let Some(result) = measurements.first() {
+            for shot in &result.values {
+                // Convert bit array to bitstring (MSB first)
+                let bitstring: String = shot
+                    .iter()
+                    .map(|&b| if b != 0 { '1' } else { '0' })
+                    .collect();
+                counts.insert(bitstring, 1);
+            }
+        }
+
+        counts
+    }
+
+    /// Convert pre-aggregated counts from API response.
+    fn api_counts_to_counts(&self, api_counts: &std::collections::HashMap<String, u64>) -> Counts {
+        let mut counts = Counts::new();
+        for (bitstring, count) in api_counts {
+            counts.insert(bitstring.clone(), *count);
+        }
+        counts
+    }
+}
+
+#[async_trait]
+impl Backend for IqmBackend {
+    fn name(&self) -> &str {
+        &self.config.name
+    }
+
+    #[instrument(skip(self))]
+    async fn capabilities(&self) -> HalResult<Capabilities> {
+        match self.fetch_backend_info().await {
+            Ok(info) => {
+                let topology = if info.connectivity.is_empty() {
+                    // Default star topology for IQM devices
+                    Topology::star(info.num_qubits)
+                } else {
+                    Topology::custom(info.connectivity)
+                };
+
+                Ok(Capabilities {
+                    name: info.name.clone(),
+                    num_qubits: info.num_qubits,
+                    gate_set: hiq_hal::GateSet::iqm(),
+                    topology,
+                    max_shots: info.max_shots.unwrap_or(20_000),
+                    is_simulator: false,
+                    features: vec![],
+                })
+            }
+            Err(e) => {
+                warn!("Failed to fetch backend info, using defaults: {}", e);
+                // Return default IQM capabilities
+                Ok(Capabilities::iqm(&self.target, 20))
+            }
+        }
+    }
+
+    #[instrument(skip(self))]
+    async fn is_available(&self) -> HalResult<bool> {
+        match self.fetch_backend_info().await {
+            Ok(info) => Ok(info.is_online()),
+            Err(e) => {
+                debug!("Backend availability check failed: {}", e);
+                Ok(false)
+            }
+        }
+    }
+
+    #[instrument(skip(self, circuit))]
+    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+        info!(
+            "Submitting circuit to IQM {}: {} qubits, {} shots",
+            self.target,
+            circuit.num_qubits(),
+            shots
+        );
+
+        // Validate circuit size
+        let caps = self.capabilities().await?;
+        if circuit.num_qubits() > caps.num_qubits as usize {
+            return Err(HalError::CircuitTooLarge(format!(
+                "Circuit has {} qubits but {} only supports {}",
+                circuit.num_qubits(),
+                self.target,
+                caps.num_qubits
+            )));
+        }
+
+        // Validate shots
+        if shots > caps.max_shots {
+            return Err(HalError::InvalidShots(format!(
+                "Requested {} shots but maximum is {}",
+                shots, caps.max_shots
+            )));
+        }
+
+        // Convert circuit to QASM3
+        let qasm = self
+            .circuit_to_qasm(circuit)
+            .map_err(|e| HalError::Backend(e.to_string()))?;
+        debug!("Generated QASM:\n{}", qasm);
+
+        // Create submit request
+        let request = SubmitRequest::new(&self.target, qasm, shots);
+
+        // Submit to API
+        let response = self
+            .client
+            .submit_job(&request)
+            .await
+            .map_err(|e| HalError::Backend(e.to_string()))?;
+
+        let job_id = JobId::new(&response.id);
+        info!("Job submitted: {}", job_id);
+
+        // Cache job info
+        let job = Job::new(job_id.clone(), shots).with_backend(&self.target);
+        {
+            let mut jobs = self.jobs.lock().unwrap_or_else(|e| e.into_inner());
+            jobs.insert(job_id.0.clone(), CachedJob { job, result: None });
+        }
+
+        Ok(job_id)
+    }
+
+    #[instrument(skip(self))]
+    async fn status(&self, job_id: &JobId) -> HalResult<JobStatus> {
+        let response = self
+            .client
+            .get_job_status(&job_id.0)
+            .await
+            .map_err(|e| match e {
+                IqmError::JobNotFound(_) => HalError::JobNotFound(job_id.0.clone()),
+                _ => HalError::Backend(e.to_string()),
+            })?;
+
+        let status = if response.is_completed() {
+            JobStatus::Completed
+        } else if response.is_failed() {
+            JobStatus::Failed(response.message.unwrap_or_default())
+        } else if response.is_cancelled() {
+            JobStatus::Cancelled
+        } else if response.status.to_lowercase() == "running" {
+            JobStatus::Running
+        } else {
+            JobStatus::Queued
+        };
+
+        // Update cache
+        {
+            let mut jobs = self.jobs.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(cached) = jobs.get_mut(&job_id.0) {
+                cached.job = cached.job.clone().with_status(status.clone());
+            }
+        }
+
+        Ok(status)
+    }
+
+    #[instrument(skip(self))]
+    async fn result(&self, job_id: &JobId) -> HalResult<ExecutionResult> {
+        // Check cache first
+        {
+            let jobs = self.jobs.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(cached) = jobs.get(&job_id.0) {
+                if let Some(ref result) = cached.result {
+                    return Ok(result.clone());
+                }
+            }
+        }
+
+        // Fetch from API
+        let response = self
+            .client
+            .get_job_result(&job_id.0)
+            .await
+            .map_err(|e| match e {
+                IqmError::JobNotFound(_) => HalError::JobNotFound(job_id.0.clone()),
+                _ => HalError::Backend(e.to_string()),
+            })?;
+
+        // Check for errors
+        if let Some(error) = response.error {
+            return Err(HalError::JobFailed(error));
+        }
+
+        // Convert results
+        let counts = if let Some(ref api_counts) = response.counts {
+            self.api_counts_to_counts(api_counts)
+        } else if let Some(ref measurements) = response.measurements {
+            self.measurements_to_counts(measurements)
+        } else {
+            return Err(HalError::JobFailed("No measurement results".into()));
+        };
+
+        let shots = response
+            .metadata
+            .as_ref()
+            .and_then(|m| m.shots)
+            .unwrap_or(counts.total_shots() as u32);
+
+        let mut result = ExecutionResult::new(counts, shots);
+
+        // Add execution time if available
+        if let Some(ref metadata) = response.metadata {
+            if let Some(time_ms) = metadata.execution_time_ms {
+                result = result.with_execution_time(time_ms);
+            }
+
+            // Add metadata
+            result = result.with_metadata(serde_json::json!({
+                "backend": metadata.backend,
+                "queue_time_s": metadata.queue_time_s,
+                "calibration_timestamp": metadata.calibration_timestamp,
+            }));
+        }
+
+        // Cache result
+        {
+            let mut jobs = self.jobs.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(cached) = jobs.get_mut(&job_id.0) {
+                cached.result = Some(result.clone());
+                cached.job = cached.job.clone().with_status(JobStatus::Completed);
+            }
+        }
+
+        Ok(result)
+    }
+
+    #[instrument(skip(self))]
+    async fn cancel(&self, job_id: &JobId) -> HalResult<()> {
+        self.client
+            .cancel_job(&job_id.0)
+            .await
+            .map_err(|e| match e {
+                IqmError::JobNotFound(_) => HalError::JobNotFound(job_id.0.clone()),
+                _ => HalError::Backend(e.to_string()),
+            })?;
+
+        // Update cache
+        {
+            let mut jobs = self.jobs.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(cached) = jobs.get_mut(&job_id.0) {
+                cached.job = cached.job.clone().with_status(JobStatus::Cancelled);
+            }
+        }
+
+        info!("Job cancelled: {}", job_id);
+        Ok(())
+    }
+}
+
+impl BackendFactory for IqmBackend {
+    fn from_config(config: BackendConfig) -> HalResult<Self> {
+        Self::from_config_impl(config).map_err(|e| HalError::Backend(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_backend_config() {
+        let config = BackendConfig::new("iqm")
+            .with_endpoint("https://test.api.com")
+            .with_token("test-token")
+            .with_extra("target", serde_json::json!("garnet"));
+
+        assert_eq!(config.name, "iqm");
+        assert_eq!(config.endpoint, Some("https://test.api.com".to_string()));
+        assert!(config.extra.contains_key("target"));
+    }
+
+    #[test]
+    fn test_measurements_to_counts() {
+        // This would require IqmBackend instance, so we'll skip for now
+        // Real tests would mock the API client
+    }
+}

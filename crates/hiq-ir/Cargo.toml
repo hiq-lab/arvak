@@ -1,0 +1,21 @@
+[package]
+name = "hiq-ir"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "HIQ circuit intermediate representation"
+keywords = ["quantum", "circuit", "ir", "dag"]
+categories = ["science", "data-structures"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+petgraph = { workspace = true }
+num-complex = { workspace = true }
+thiserror = { workspace = true }
+rustc-hash = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

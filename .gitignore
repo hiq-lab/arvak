@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Rust
+target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,373 @@
+{
+  "metadata": {
+    "repository": "HIQ",
+    "review_date": "2026-02-04",
+    "toolchain": "rustc 1.93.0",
+    "edition": "2024",
+    "total_lines": 10337,
+    "total_files": 53,
+    "tests_passing": 89,
+    "clippy_warnings": 0,
+    "unsafe_blocks": 0
+  },
+  "summary": {
+    "blockers": 0,
+    "majors": 3,
+    "minors": 8,
+    "nits": 5,
+    "overall_assessment": "Production-ready foundation with minor API polish needed before 1.0"
+  },
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "major",
+      "lens": "A",
+      "title": "Error Types Lack Context for Debugging",
+      "location": {
+        "file": "crates/hiq-ir/src/error.rs",
+        "lines": "8-40"
+      },
+      "description": "Error types use raw IDs without positional context, making debugging difficult for users.",
+      "recommendation": "Include operation context in errors (e.g., op_index field).",
+      "evidence": {
+        "source": "RS-API",
+        "section": "C-GOOD-ERR",
+        "description": "Error messages should be clear and actionable"
+      },
+      "effort": "medium"
+    },
+    {
+      "id": "M2",
+      "severity": "major",
+      "lens": "C",
+      "title": "Parser Silently Ignores Unsupported Constructs",
+      "location": {
+        "file": "crates/hiq-qasm3/src/parser.rs",
+        "lines": "770-798"
+      },
+      "description": "Control flow statements return errors but some assignments silently succeed doing nothing.",
+      "recommendation": "Return a clear Unimplemented error variant with the construct name.",
+      "evidence": {
+        "source": "RS-BOOK",
+        "section": "Error Handling",
+        "description": "Functions should not silently ignore failures"
+      },
+      "effort": "low"
+    },
+    {
+      "id": "M3",
+      "severity": "major",
+      "lens": "C",
+      "title": "Missing Qubit Count Validation in DAG",
+      "location": {
+        "file": "crates/hiq-ir/src/dag.rs",
+        "lines": "159-228"
+      },
+      "description": "The apply method validates qubits exist but doesn't validate that gate qubit count matches the instruction qubit count.",
+      "recommendation": "Add explicit arity validation comparing gate.num_qubits() to instruction.qubits.len().",
+      "evidence": {
+        "source": "RS-API",
+        "section": "C-VALIDATE",
+        "description": "APIs should validate invariants at boundaries"
+      },
+      "effort": "low"
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "lens": "A",
+      "title": "Missing #[must_use] on Builder Methods",
+      "location": {
+        "file": "crates/hiq-ir/src/gate.rs",
+        "lines": "270-279, 334-343"
+      },
+      "description": "Builder pattern methods that return Self should be marked #[must_use] to prevent accidental discarding.",
+      "recommendation": "Add #[must_use] attribute to all builder methods.",
+      "evidence": {
+        "source": "RS-CLIPPY",
+        "section": "must_use_candidate",
+        "description": "Builder methods should be marked must_use"
+      },
+      "effort": "trivial"
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "lens": "A",
+      "title": "Inconsistent Return Types in Circuit API",
+      "location": {
+        "file": "crates/hiq-ir/src/circuit.rs",
+        "lines": "420-481"
+      },
+      "description": "Accessor methods have inconsistent return patterns (owned vs ref vs slice).",
+      "recommendation": "Document the accessor pattern explicitly in module docs.",
+      "evidence": {
+        "source": "RS-API",
+        "section": "C-CONV",
+        "description": "Conversion methods should follow consistent naming"
+      },
+      "effort": "low"
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "lens": "B",
+      "title": "FxHashMap Iteration Order Non-Deterministic",
+      "location": {
+        "file": "crates/hiq-ir/src/dag.rs",
+        "lines": "364-371"
+      },
+      "description": "qubits() and clbits() iterate over FxHashMap keys with non-deterministic order.",
+      "recommendation": "Use IndexMap or sort output for reproducibility.",
+      "evidence": {
+        "source": "RS-PERF",
+        "section": "Hash Tables",
+        "description": "Use appropriate map types for determinism requirements"
+      },
+      "effort": "medium"
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "lens": "D",
+      "title": "Dead Code Markers Suggest Incomplete Features",
+      "location": {
+        "file": "crates/hiq-qasm3/src/parser.rs",
+        "lines": "19"
+      },
+      "description": "Several #[allow(dead_code)] annotations indicate planned but unfinished functionality.",
+      "recommendation": "Remove dead code or track completion in issues.",
+      "evidence": {
+        "source": "RS-CLIPPY",
+        "section": "dead_code",
+        "description": "Unused code should be removed or gated behind features"
+      },
+      "effort": "low"
+    },
+    {
+      "id": "m5",
+      "severity": "minor",
+      "lens": "A",
+      "title": "Missing Clone Derive on PassManager",
+      "location": {
+        "file": "crates/hiq-compile/src/manager.rs",
+        "lines": "13-16"
+      },
+      "description": "PassManager cannot be cloned because it holds Box<dyn Pass>.",
+      "recommendation": "Use Arc<dyn Pass> or document non-clonability.",
+      "evidence": {
+        "source": "RS-API",
+        "section": "C-COMMON-TRAITS",
+        "description": "Consider implementing Clone where sensible"
+      },
+      "effort": "medium"
+    },
+    {
+      "id": "m6",
+      "severity": "minor",
+      "lens": "B",
+      "title": "Statevector Memory Grows Exponentially",
+      "location": {
+        "file": "adapters/hiq-adapter-sim/src/statevector.rs",
+        "lines": "18-26"
+      },
+      "description": "Statevector allocates 2^n complex numbers with no safeguard.",
+      "recommendation": "Add maximum qubit check (e.g., 26 qubits = 1GB).",
+      "evidence": {
+        "source": "RS-PERF",
+        "section": "Heap Allocations",
+        "description": "Avoid unbounded allocations"
+      },
+      "effort": "low"
+    },
+    {
+      "id": "m7",
+      "severity": "minor",
+      "lens": "B",
+      "title": "Topology is_connected Does Linear Scan",
+      "location": {
+        "file": "crates/hiq-hal/src/capability.rs",
+        "lines": "216-220"
+      },
+      "description": "is_connected does O(E) scan for each query, called frequently in routing.",
+      "recommendation": "Build adjacency set on construction for O(1) lookups.",
+      "evidence": {
+        "source": "RS-PERF",
+        "section": "Data Structures",
+        "description": "Choose data structures appropriate for access patterns"
+      },
+      "effort": "medium"
+    },
+    {
+      "id": "m8",
+      "severity": "minor",
+      "lens": "A",
+      "title": "Missing Documentation on Public Types",
+      "location": {
+        "file": "crates/hiq-compile/src/property.rs",
+        "lines": "all"
+      },
+      "description": "Several public types lack crate-level documentation or examples.",
+      "recommendation": "Add # Examples sections to key types.",
+      "evidence": {
+        "source": "RS-API",
+        "section": "C-EXAMPLE",
+        "description": "Public items should have examples"
+      },
+      "effort": "medium"
+    },
+    {
+      "id": "n1",
+      "severity": "nit",
+      "lens": "D",
+      "title": "Consider #[non_exhaustive] on Public Enums",
+      "location": {
+        "file": "crates/hiq-ir/src/error.rs",
+        "lines": "8"
+      },
+      "description": "Public enums should be #[non_exhaustive] for future-proofing.",
+      "recommendation": "Add #[non_exhaustive] to IrError, TopologyKind.",
+      "evidence": {
+        "source": "RS-API",
+        "section": "C-STRUCT-PRIVATE",
+        "description": "Use non_exhaustive for future-proofing"
+      },
+      "effort": "trivial"
+    },
+    {
+      "id": "n3",
+      "severity": "nit",
+      "lens": "B",
+      "title": "Consider Cow<str> for Gate Names",
+      "location": {
+        "file": "crates/hiq-ir/src/gate.rs",
+        "lines": "248"
+      },
+      "description": "CustomGate::name is always owned, causing allocation for standard gate conversions.",
+      "recommendation": "Use Cow<'static, str> if allocation-free paths are needed.",
+      "evidence": {
+        "source": "RS-PERF",
+        "section": "String Handling",
+        "description": "Use Cow for mixed owned/borrowed strings"
+      },
+      "effort": "low"
+    },
+    {
+      "id": "n4",
+      "severity": "nit",
+      "lens": "D",
+      "title": "Test Helpers Should Be in Separate Module",
+      "location": {
+        "file": "adapters/hiq-adapter-sim/src/statevector.rs",
+        "lines": "474-476"
+      },
+      "description": "approx_eq helper is defined inline in tests.",
+      "recommendation": "Consider a test_utils module for shared test infrastructure.",
+      "evidence": {
+        "source": "RS-CARGO",
+        "section": "Test Organization",
+        "description": "Organize test utilities for reuse"
+      },
+      "effort": "trivial"
+    },
+    {
+      "id": "n5",
+      "severity": "nit",
+      "lens": "C",
+      "title": "Use expect Instead of unwrap with Messages",
+      "location": {
+        "file": "crates/hiq-ir/src/dag.rs",
+        "lines": "233-234"
+      },
+      "description": "toposort result handled with unwrap_or_default(), silently returns empty on cycle.",
+      "recommendation": "Use expect with a message or propagate the error.",
+      "evidence": {
+        "source": "RS-CLIPPY",
+        "section": "unwrap_used",
+        "description": "Prefer expect for clearer panic messages"
+      },
+      "effort": "trivial"
+    }
+  ],
+  "risks": [
+    {
+      "id": "R1",
+      "description": "Parser incomplete for control flow",
+      "severity": "medium",
+      "likelihood": "high",
+      "mitigation": "Document limitations; implement gradually"
+    },
+    {
+      "id": "R2",
+      "description": "No circuit validation before compilation",
+      "severity": "medium",
+      "likelihood": "medium",
+      "mitigation": "Add validation pass or builder-time checks"
+    },
+    {
+      "id": "R3",
+      "description": "Statevector exponential memory",
+      "severity": "high",
+      "likelihood": "low",
+      "mitigation": "Document qubit limits; add safeguards"
+    },
+    {
+      "id": "R4",
+      "description": "Custom gates skip simulation",
+      "severity": "low",
+      "likelihood": "medium",
+      "mitigation": "Document behavior; add matrix support"
+    },
+    {
+      "id": "R5",
+      "description": "HashMap iteration order non-deterministic",
+      "severity": "low",
+      "likelihood": "low",
+      "mitigation": "Use IndexMap for reproducible outputs"
+    }
+  ],
+  "architecture_notes": [
+    {
+      "topic": "Gate Representation",
+      "recommendation": "Current enum approach works but consider trait-based for extensibility",
+      "trade_off": "More flexible but loses exhaustive pattern matching"
+    },
+    {
+      "topic": "Circuit Validation",
+      "recommendation": "Add Circuit::validate() method",
+      "trade_off": "Extra API surface but catches errors earlier"
+    },
+    {
+      "topic": "Parsing Architecture",
+      "recommendation": "Separate parsing from lowering (AST intermediate)",
+      "trade_off": "More code but enables transformations and better error recovery"
+    },
+    {
+      "topic": "Feature Gating",
+      "recommendation": "Consider feature-gating simulation backends",
+      "trade_off": "More build configurations but smaller binaries when unneeded"
+    }
+  ],
+  "refactor_plan": {
+    "week_1": {
+      "theme": "API Polish",
+      "tasks": [
+        {"days": "1-2", "task": "Add #[must_use] to builder methods", "effort": "S"},
+        {"days": "2", "task": "Add #[non_exhaustive] to enums", "effort": "XS"},
+        {"days": "3", "task": "Implement qubit arity validation", "effort": "S"},
+        {"days": "4", "task": "Add context to error types", "effort": "M"},
+        {"days": "5", "task": "Document PropertySet with examples", "effort": "S"}
+      ]
+    },
+    "week_2": {
+      "theme": "Robustness",
+      "tasks": [
+        {"days": "1", "task": "Add max qubit check to Statevector", "effort": "XS"},
+        {"days": "2", "task": "Build adjacency set in Topology", "effort": "M"},
+        {"days": "3", "task": "Return error for unimplemented QASM", "effort": "S"},
+        {"days": "4", "task": "Add Circuit::validate()", "effort": "M"},
+        {"days": "5", "task": "Clean up dead code", "effort": "S"}
+      ]
+    }
+  }
+}
