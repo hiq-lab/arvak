@@ -34,6 +34,7 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 | Simulator (`hiq-adapter-sim`) | ✅ Complete | Statevector simulation |
 | IQM Adapter (`hiq-adapter-iqm`) | ✅ Complete | Resonance API integration |
 | IBM Adapter (`hiq-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
+| QDMI Adapter (`hiq-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack integration |
 | HPC Scheduler (`hiq-sched`) | ✅ Complete | SLURM & PBS integration, workflows, persistence |
 | Python Bindings (`hiq-python`) | ✅ Complete | PyO3 bindings for circuits & compilation |
 | Demos | ✅ Complete | Grover, VQE, QAOA examples |
@@ -82,9 +83,10 @@ HIQ/
 │   ├── hiq-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── hiq-auto/        # Automatic uncomputation
 ├── adapters/
-│   ├── hiq-adapter-sim/ # Local statevector simulator
-│   ├── hiq-adapter-iqm/ # IQM Resonance API adapter
-│   └── hiq-adapter-ibm/ # IBM Quantum API adapter
+│   ├── hiq-adapter-sim/  # Local statevector simulator
+│   ├── hiq-adapter-iqm/  # IQM Resonance API adapter
+│   ├── hiq-adapter-ibm/  # IBM Quantum API adapter
+│   └── hiq-adapter-qdmi/ # QDMI (Munich Quantum Software Stack) adapter
 ├── demos/               # Demo applications (Grover, VQE, QAOA)
 └── examples/            # Example QASM circuits
 ```
@@ -367,6 +369,7 @@ cargo run --bin demo_qaoa     # Quantum Approximate Optimization
 | IBM Quantum | ✅ | `IBM_QUANTUM_TOKEN` | Cloud API (Qiskit Runtime) |
 | IQM LUMI | ✅ | OIDC | On-premise (CSC Finland) |
 | IQM LRZ | ✅ | OIDC | On-premise (Germany) |
+| QDMI (MQSS) | ✅ | Token/OIDC | Any QDMI-compliant device |
 
 ## Compilation Targets
 
@@ -478,6 +481,26 @@ cargo test -- --nocapture
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
 
+## QDMI Integration (Munich Quantum Software Stack)
+
+HIQ provides native integration with [QDMI](https://github.com/Munich-Quantum-Software-Stack/QDMI), the Quantum Device Management Interface from the Munich Quantum Software Stack (MQSS).
+
+```rust
+use hiq_adapter_qdmi::QdmiBackend;
+use hiq_hal::Backend;
+
+let backend = QdmiBackend::new()
+    .with_token("your-api-token")
+    .with_base_url("https://qdmi.lrz.de");
+
+// Access any QDMI-compliant device
+let caps = backend.capabilities().await?;
+let job_id = backend.submit(&circuit, 1000).await?;
+let result = backend.wait(&job_id).await?;
+```
+
+This integration allows HIQ to access quantum devices at European HPC centers through the standardized QDMI interface, complementing HIQ's existing IQM and IBM adapters.
+
 ## Acknowledgments
 
 HIQ builds on ideas from:
@@ -485,6 +508,7 @@ HIQ builds on ideas from:
 - [Qiskit](https://qiskit.org/) — Circuit representation and transpiler architecture
 - [Qrisp](https://qrisp.eu/) — High-level abstractions and automatic uncomputation
 - [XACC](https://github.com/eclipse-xacc/xacc) — HPC integration patterns
+- [QDMI](https://github.com/Munich-Quantum-Software-Stack/QDMI) — Munich Quantum Software Stack device interface
 
 ## Contributing
 
