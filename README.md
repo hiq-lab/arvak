@@ -343,7 +343,7 @@ sbatch slurm/vqe_workflow.sh
 **Features:**
 - UCCSD ansatz for H2 molecule
 - Jordan-Wigner transformed Hamiltonian
-- COBYLA derivative-free optimizer
+- Nelder-Mead derivative-free optimizer (converges to chemical accuracy)
 - SLURM job scripts for LUMI-G (GPU) and LUMI-Q (quantum)
 - Python visualization for results
 
