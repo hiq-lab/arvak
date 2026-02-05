@@ -4,6 +4,7 @@ members = [
     "crates/*",
     "adapters/*",
     "demos",
+    "demos/lumi-hybrid",
 ]
 
 [workspace.package]

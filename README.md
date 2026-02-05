@@ -88,6 +88,7 @@ HIQ/
 │   ├── hiq-adapter-ibm/  # IBM Quantum API adapter
 │   └── hiq-adapter-qdmi/ # QDMI (Munich Quantum Software Stack) adapter
 ├── demos/               # Demo applications (Grover, VQE, QAOA)
+│   └── lumi-hybrid/     # LUMI quantum-HPC hybrid VQE demo
 └── examples/            # Example QASM circuits
 ```
 
@@ -322,6 +323,31 @@ cargo run --bin demo_grover   # Grover's search algorithm
 cargo run --bin demo_vqe      # Variational Quantum Eigensolver
 cargo run --bin demo_qaoa     # Quantum Approximate Optimization
 ```
+
+### LUMI Hybrid Demo
+
+The `demos/lumi-hybrid/` directory contains a complete quantum-HPC hybrid workflow example using VQE (Variational Quantum Eigensolver) for H2 molecule ground state energy calculation:
+
+```bash
+# Local simulation
+cargo run -p lumi-hybrid -- --shots 1000 --iterations 20
+
+# Bond distance scan
+cargo run -p lumi-hybrid -- --mode bond-scan --start 0.5 --end 2.0 --points 10
+
+# On LUMI (via SLURM)
+cd demos/lumi-hybrid
+sbatch slurm/vqe_workflow.sh
+```
+
+**Features:**
+- UCCSD ansatz for H2 molecule
+- Jordan-Wigner transformed Hamiltonian
+- COBYLA derivative-free optimizer
+- SLURM job scripts for LUMI-G (GPU) and LUMI-Q (quantum)
+- Python visualization for results
+
+See [demos/lumi-hybrid/README.md](demos/lumi-hybrid/README.md) for detailed setup instructions.
 
 ## Supported Gates
 
