@@ -26,8 +26,9 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 | Simulator (`hiq-adapter-sim`) | ✅ Complete | Statevector simulation |
 | IQM Adapter (`hiq-adapter-iqm`) | ✅ Complete | Resonance API integration |
 | IBM Adapter (`hiq-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
-| HPC Scheduler (`hiq-sched`) | 🚧 Planned | Slurm/PBS integration |
-| Python Bindings | 🚧 Planned | PyO3 bindings |
+| HPC Scheduler (`hiq-sched`) | ✅ Complete | Slurm integration, workflows, persistence |
+| Python Bindings (`hiq-python`) | ✅ Complete | PyO3 bindings for circuits & compilation |
+| Demos | ✅ Complete | Grover, VQE, QAOA examples |
 
 ## Architecture
 
@@ -38,12 +39,17 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 └──────────────────────────┬──────────────────────────────────────────────┘
                            │ PyO3 bindings (planned)
 ┌──────────────────────────▼──────────────────────────────────────────────┐
+│                    hiq-python (PyO3)                                     │
+│              Circuit building, compilation, QASM export                  │
+└──────────────────────────┬──────────────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────────────┐
 │                    hiq-core (Rust)                                       │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌───────────┐         │
 │  │  hiq-ir    │  │ hiq-compile│  │  hiq-hal   │  │ hiq-sched │         │
 │  │            │  │            │  │            │  │           │         │
-│  │ Circuit IR │  │ Pass mgr   │  │ Backend    │  │ Slurm/PBS │         │
-│  │ QASM3 parse│  │ Optimizer  │  │ abstraction│  │ interface │         │
+│  │ Circuit IR │  │ Pass mgr   │  │ Backend    │  │ Slurm     │         │
+│  │ QASM3 parse│  │ Optimizer  │  │ abstraction│  │ Workflows │         │
 │  └────────────┘  └────────────┘  └────────────┘  └───────────┘         │
 └──────────────────────────┬──────────────────────────────────────────────┘
                            │
@@ -62,11 +68,14 @@ HIQ/
 │   ├── hiq-qasm3/       # OpenQASM 3.0 parser and emitter
 │   ├── hiq-compile/     # Compilation pass manager
 │   ├── hiq-hal/         # Hardware abstraction layer
-│   └── hiq-cli/         # Command-line interface
+│   ├── hiq-cli/         # Command-line interface
+│   ├── hiq-python/      # Python bindings (PyO3)
+│   └── hiq-sched/       # HPC job scheduler (Slurm, workflows)
 ├── adapters/
 │   ├── hiq-adapter-sim/ # Local statevector simulator
 │   ├── hiq-adapter-iqm/ # IQM Resonance API adapter
 │   └── hiq-adapter-ibm/ # IBM Quantum API adapter
+├── demos/               # Demo applications (Grover, VQE, QAOA)
 └── examples/            # Example QASM circuits
 ```
 
@@ -208,6 +217,48 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
+### Python API
+
+```bash
+# Install from source
+cd crates/hiq-python
+pip install maturin
+maturin develop
+```
+
+```python
+from hiq import Circuit, compile_circuit, to_qasm3
+
+# Build a Bell state circuit
+circuit = Circuit(2)
+circuit.h(0)
+circuit.cx(0, 1)
+circuit.measure_all()
+
+print(f"Qubits: {circuit.num_qubits()}, Depth: {circuit.depth()}")
+
+# Compile for IQM hardware
+compiled = compile_circuit(circuit, target="iqm", optimization_level=2)
+
+# Export to QASM3
+qasm = to_qasm3(compiled)
+print(qasm)
+```
+
+### Demo Applications
+
+The `demos/` directory contains example quantum algorithms:
+
+```bash
+# Run all demos
+cargo run --bin demo_all
+
+# Run specific algorithms
+cargo run --bin demo_grover   # Grover's search algorithm
+cargo run --bin demo_vqe      # Variational Quantum Eigensolver
+cargo run --bin demo_qaoa     # Quantum Approximate Optimization
+```
+
 ## Supported Gates
 
 ### Single-Qubit Gates
@@ -294,15 +345,17 @@ cargo test -- --nocapture
 - [x] Layout and routing passes
 - [x] Basis translation
 - [x] IBM adapter
-- [ ] Python bindings
+- [x] Python bindings (PyO3)
 
-### Phase 3: HPC Integration (Next)
-- [ ] Slurm adapter
+### Phase 3: HPC Integration ✅
+- [x] Slurm adapter
+- [x] Workflow orchestration
+- [x] Job persistence (JSON/SQLite)
+- [x] Demo applications (VQE, QAOA, Grover)
 - [ ] PBS adapter
-- [ ] Large circuit handling
 - [ ] LUMI deployment testing
 
-### Phase 4: Production
+### Phase 4: Production (Next)
 - [ ] Advanced optimization passes
 - [ ] Qrisp-like features
 - [ ] Full documentation
