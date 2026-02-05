@@ -1,9 +1,9 @@
 //! Error types for the dashboard API.
 
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::Serialize;
 

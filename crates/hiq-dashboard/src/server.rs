@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use axum::{
-    http::{header, StatusCode},
+    Router,
+    http::{StatusCode, header},
     response::{Html, IntoResponse},
     routing::{get, post},
-    Router,
 };
 use tower_http::{
     compression::CompressionLayer,
@@ -32,8 +32,14 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/backends", get(api::backends::list_backends))
         .route("/backends/{name}", get(api::backends::get_backend))
         // Job management routes
-        .route("/jobs", get(api::jobs::list_jobs).post(api::jobs::create_job))
-        .route("/jobs/{id}", get(api::jobs::get_job).delete(api::jobs::delete_job))
+        .route(
+            "/jobs",
+            get(api::jobs::list_jobs).post(api::jobs::create_job),
+        )
+        .route(
+            "/jobs/{id}",
+            get(api::jobs::get_job).delete(api::jobs::delete_job),
+        )
         .route("/jobs/{id}/result", get(api::jobs::get_job_result));
 
     // Static file routes

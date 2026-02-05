@@ -9,17 +9,9 @@ use serde::Serialize;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum DashboardEvent {
     /// Job status changed.
-    JobStatusChanged {
-        job_id: String,
-        status: String,
-    },
+    JobStatusChanged { job_id: String, status: String },
     /// Job completed with results.
-    JobCompleted {
-        job_id: String,
-    },
+    JobCompleted { job_id: String },
     /// Backend availability changed.
-    BackendStatusChanged {
-        backend: String,
-        available: bool,
-    },
+    BackendStatusChanged { backend: String, available: bool },
 }

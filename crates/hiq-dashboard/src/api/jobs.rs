@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Query, State},
     Json,
+    extract::{Path, Query, State},
 };
 use hiq_sched::{
     CircuitSpec, JobFilter, Priority, ScheduledJob, ScheduledJobId, ScheduledJobStatus,
@@ -196,7 +196,9 @@ pub async fn get_job_result(
 fn job_to_summary(job: ScheduledJob) -> JobSummary {
     let status_details = match &job.status {
         ScheduledJobStatus::SlurmQueued { slurm_job_id }
-        | ScheduledJobStatus::SlurmRunning { slurm_job_id } => Some(format!("SLURM: {}", slurm_job_id)),
+        | ScheduledJobStatus::SlurmRunning { slurm_job_id } => {
+            Some(format!("SLURM: {}", slurm_job_id))
+        }
         ScheduledJobStatus::QuantumSubmitted { quantum_job_id, .. }
         | ScheduledJobStatus::QuantumRunning { quantum_job_id, .. } => {
             Some(format!("Quantum: {}", quantum_job_id.0))
@@ -223,7 +225,9 @@ fn job_to_summary(job: ScheduledJob) -> JobSummary {
 fn job_to_details(job: &ScheduledJob) -> JobDetails {
     let status_details = match &job.status {
         ScheduledJobStatus::SlurmQueued { slurm_job_id }
-        | ScheduledJobStatus::SlurmRunning { slurm_job_id } => Some(format!("SLURM: {}", slurm_job_id)),
+        | ScheduledJobStatus::SlurmRunning { slurm_job_id } => {
+            Some(format!("SLURM: {}", slurm_job_id))
+        }
         ScheduledJobStatus::QuantumSubmitted { quantum_job_id, .. }
         | ScheduledJobStatus::QuantumRunning { quantum_job_id, .. } => {
             Some(format!("Quantum: {}", quantum_job_id.0))
@@ -251,7 +255,11 @@ fn job_to_details(job: &ScheduledJob) -> JobDetails {
         created_at: job.created_at.to_rfc3339(),
         submitted_at: job.submitted_at.map(|t| t.to_rfc3339()),
         completed_at: job.completed_at.map(|t| t.to_rfc3339()),
-        metadata: job.metadata.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        metadata: job
+            .metadata
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
     }
 }
 

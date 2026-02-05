@@ -2,11 +2,13 @@
 
 use std::sync::Arc;
 
-use axum::{extract::State, Json};
+use axum::{Json, extract::State};
 use hiq_compile::{BasisGates, CouplingMap, PassManagerBuilder};
 use hiq_ir::Circuit;
 
-use crate::dto::{CircuitVisualization, CompileRequest, CompileResponse, CompilationStats, VisualizeRequest};
+use crate::dto::{
+    CircuitVisualization, CompilationStats, CompileRequest, CompileResponse, VisualizeRequest,
+};
 use crate::error::ApiError;
 use crate::state::AppState;
 
@@ -75,11 +77,17 @@ pub async fn compile(
 }
 
 /// Get coupling map and basis gates for a target backend.
-fn get_target_config(target: &str, num_qubits: usize) -> Result<(CouplingMap, BasisGates), ApiError> {
+fn get_target_config(
+    target: &str,
+    num_qubits: usize,
+) -> Result<(CouplingMap, BasisGates), ApiError> {
     match target.to_lowercase().as_str() {
         "iqm" | "iqm5" => {
             // IQM 5-qubit star topology
-            Ok((CouplingMap::star(5.max(num_qubits as u32)), BasisGates::iqm()))
+            Ok((
+                CouplingMap::star(5.max(num_qubits as u32)),
+                BasisGates::iqm(),
+            ))
         }
         "iqm20" => {
             // IQM 20-qubit device (simplified as star for now)
@@ -87,7 +95,10 @@ fn get_target_config(target: &str, num_qubits: usize) -> Result<(CouplingMap, Ba
         }
         "ibm" | "ibm5" => {
             // IBM 5-qubit linear topology
-            Ok((CouplingMap::linear(5.max(num_qubits as u32)), BasisGates::ibm()))
+            Ok((
+                CouplingMap::linear(5.max(num_qubits as u32)),
+                BasisGates::ibm(),
+            ))
         }
         "ibm27" => {
             // IBM 27-qubit device (simplified as linear)
@@ -95,15 +106,24 @@ fn get_target_config(target: &str, num_qubits: usize) -> Result<(CouplingMap, Ba
         }
         "simulator" | "sim" => {
             // Simulator - fully connected, universal gates
-            Ok((CouplingMap::full(num_qubits as u32), BasisGates::universal()))
+            Ok((
+                CouplingMap::full(num_qubits as u32),
+                BasisGates::universal(),
+            ))
         }
         "linear" => {
             // Generic linear topology
-            Ok((CouplingMap::linear(num_qubits as u32), BasisGates::universal()))
+            Ok((
+                CouplingMap::linear(num_qubits as u32),
+                BasisGates::universal(),
+            ))
         }
         "star" => {
             // Generic star topology
-            Ok((CouplingMap::star(num_qubits as u32), BasisGates::universal()))
+            Ok((
+                CouplingMap::star(num_qubits as u32),
+                BasisGates::universal(),
+            ))
         }
         _ => Err(ApiError::BadRequest(format!(
             "Unknown target '{}'. Supported targets: iqm, iqm5, iqm20, ibm, ibm5, ibm27, simulator, linear, star",

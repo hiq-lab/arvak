@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use hiq_dashboard::{create_router, AppState, DashboardConfig};
+use hiq_dashboard::{AppState, DashboardConfig, create_router};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

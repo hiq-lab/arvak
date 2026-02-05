@@ -375,9 +375,7 @@ fn instruction_to_view(instruction: &Instruction) -> OperationView {
         InstructionKind::Measure => ("measure".to_string(), "M".to_string()),
         InstructionKind::Reset => ("reset".to_string(), "|0⟩".to_string()),
         InstructionKind::Barrier => ("barrier".to_string(), "║".to_string()),
-        InstructionKind::Delay { duration } => {
-            ("delay".to_string(), format!("D({})", duration))
-        }
+        InstructionKind::Delay { duration } => ("delay".to_string(), format!("D({})", duration)),
     };
 
     OperationView {
@@ -432,7 +430,12 @@ fn format_standard_gate_label(gate: &hiq_ir::StandardGate) -> String {
         Ry(p) => format!("RY({})", format_param(p)),
         Rz(p) => format!("RZ({})", format_param(p)),
         P(p) => format!("P({})", format_param(p)),
-        U(t, p, l) => format!("U({},{},{})", format_param(t), format_param(p), format_param(l)),
+        U(t, p, l) => format!(
+            "U({},{},{})",
+            format_param(t),
+            format_param(p),
+            format_param(l)
+        ),
         CRx(p) => format!("CRX({})", format_param(p)),
         CRy(p) => format!("CRY({})", format_param(p)),
         CRz(p) => format!("CRZ({})", format_param(p)),
