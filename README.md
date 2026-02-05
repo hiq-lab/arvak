@@ -1,8 +1,14 @@
 # HIQ: Rust-Native Quantum Compilation Stack
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hiq-project/hiq/releases/tag/v1.0.0)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green.svg)](LICENSE)
+
 **HPC-Integrated Quantum Orchestration Platform**
 
 HIQ is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides fast compilation, first-class HPC scheduler integration, and unified access to quantum backends including IQM and IBM Quantum.
+
+> **v1.0.0 Released!** See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Vision
 
@@ -461,12 +467,12 @@ cargo test -- --nocapture
 - [x] OIDC authentication for LUMI/LRZ
 - [x] LUMI integration tests
 
-### Phase 4: Production (In Progress)
+### Phase 4: Production ✅
 - [x] Advanced optimization passes (1q optimization, CX cancellation, commutative cancellation)
 - [x] Qrisp-like quantum types (QuantumInt, QuantumFloat, QuantumArray)
 - [x] Automatic uncomputation framework (gate inversion, context management)
-- [ ] Full documentation
-- [ ] 1.0 release
+- [x] Full documentation
+- [x] **v1.0.0 release**
 
 ## License
 
@@ -484,6 +490,10 @@ HIQ builds on ideas from:
 - [Qiskit](https://qiskit.org/) — Circuit representation and transpiler architecture
 - [Qrisp](https://qrisp.eu/) — High-level abstractions and automatic uncomputation
 - [XACC](https://github.com/eclipse-xacc/xacc) — HPC integration patterns
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Contact
 
