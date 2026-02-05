@@ -117,8 +117,8 @@ pub mod workflow;
 // Re-exports
 pub use error::{SchedError, SchedResult};
 pub use job::{
-    CircuitSpec, Priority, ResourceRequirements, ScheduledJob, ScheduledJobId, ScheduledJobStatus,
-    TopologyPreference,
+    CircuitSpec, JobFilter, Priority, ResourceRequirements, ScheduledJob, ScheduledJobId,
+    ScheduledJobStatus, TopologyPreference,
 };
 pub use matcher::{MatchResult, ResourceMatcher};
 pub use pbs::{PbsAdapter, PbsConfig};

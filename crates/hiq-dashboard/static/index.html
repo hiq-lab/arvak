@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIQ Dashboard</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>HIQ Dashboard</h1>
+        <nav>
+            <a href="#" data-view="circuits" class="active">Circuits</a>
+            <a href="#" data-view="backends">Backends</a>
+            <a href="#" data-view="jobs">Jobs</a>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Circuits View -->
+        <section id="circuits-view" class="view active">
+            <div class="panel input-panel">
+                <h2>Circuit Input</h2>
+                <div class="input-group">
+                    <label for="qasm-input">QASM3 Source:</label>
+                    <textarea id="qasm-input" rows="12" placeholder="Enter QASM3 code here...">OPENQASM 3.0;
+include "stdgates.inc";
+
+qubit[2] q;
+bit[2] c;
+
+h q[0];
+cx q[0], q[1];
+
+c = measure q;</textarea>
+                </div>
+                <div class="input-group">
+                    <label for="target-select">Compilation Target:</label>
+                    <select id="target-select">
+                        <option value="">-- No compilation --</option>
+                        <option value="iqm">IQM (Star topology, PRX+CZ)</option>
+                        <option value="ibm">IBM (Linear topology, SX+RZ+CX)</option>
+                        <option value="simulator">Simulator (Full connectivity)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="opt-level">Optimization Level:</label>
+                    <select id="opt-level">
+                        <option value="0">0 - No optimization</option>
+                        <option value="1" selected>1 - Light optimization</option>
+                        <option value="2">2 - Moderate optimization</option>
+                        <option value="3">3 - Heavy optimization</option>
+                    </select>
+                </div>
+                <div class="button-group">
+                    <button id="visualize-btn" class="primary">Visualize</button>
+                    <button id="compile-btn" class="secondary">Compile</button>
+                    <button id="clear-btn">Clear</button>
+                </div>
+            </div>
+
+            <div class="panel circuit-panel">
+                <h2>Circuit Diagram</h2>
+                <div id="circuit-info" class="info-bar"></div>
+                <div id="circuit-container">
+                    <p class="placeholder">Enter QASM3 code and click "Visualize" to see the circuit diagram.</p>
+                </div>
+            </div>
+
+            <!-- Compilation Results (shown after compile) -->
+            <div id="compile-results" class="panel full-width" style="display: none;">
+                <h2>Compilation Results</h2>
+                <div id="compile-stats" class="info-bar"></div>
+                <div class="comparison-container">
+                    <div class="comparison-panel">
+                        <h3>Before Compilation</h3>
+                        <div id="circuit-before"></div>
+                    </div>
+                    <div class="comparison-panel">
+                        <h3>After Compilation</h3>
+                        <div id="circuit-after"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Compiled QASM3:</label>
+                    <textarea id="compiled-qasm" rows="8" readonly></textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- Backends View -->
+        <section id="backends-view" class="view">
+            <div class="panel full-width">
+                <h2>Backend Status</h2>
+                <button id="refresh-backends-btn">Refresh</button>
+                <div id="backends-container">
+                    <p class="placeholder">Loading backends...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Jobs View (placeholder for Phase 2) -->
+        <section id="jobs-view" class="view">
+            <div class="panel full-width">
+                <h2>Job Queue</h2>
+                <div class="button-group">
+                    <button id="refresh-jobs-btn">Refresh</button>
+                </div>
+                <div id="jobs-container">
+                    <p class="placeholder">Job management coming soon...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>HIQ Dashboard v<span id="version">1.0.0</span></p>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>

@@ -36,6 +36,7 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 | IBM Adapter (`hiq-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
 | QDMI Adapter (`hiq-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack integration |
 | HPC Scheduler (`hiq-sched`) | ✅ Complete | SLURM & PBS integration, workflows, persistence |
+| Dashboard (`hiq-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
 | Python Bindings (`hiq-python`) | ✅ Complete | PyO3 bindings for circuits & compilation |
 | Demos | ✅ Complete | Grover, VQE, QAOA examples |
 
@@ -60,6 +61,11 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 │  │ Circuit IR │  │ Pass mgr   │  │ Backend    │  │ SLURM/PBS │         │
 │  │ QASM3 parse│  │ Optimizer  │  │ abstraction│  │ Workflows │         │
 │  └────────────┘  └────────────┘  └────────────┘  └───────────┘         │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────┐       │
+│  │                    hiq-dashboard                             │       │
+│  │    Circuit Viz │ Compilation │ Job Monitoring │ Results      │       │
+│  └─────────────────────────────────────────────────────────────┘       │
 └──────────────────────────┬──────────────────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────────────────┐
@@ -80,6 +86,7 @@ HIQ/
 │   ├── hiq-cli/         # Command-line interface
 │   ├── hiq-python/      # Python bindings (PyO3)
 │   ├── hiq-sched/       # HPC job scheduler (SLURM, PBS, workflows)
+│   ├── hiq-dashboard/   # Web dashboard for visualization & monitoring
 │   ├── hiq-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── hiq-auto/        # Automatic uncomputation
 ├── adapters/
@@ -348,6 +355,41 @@ sbatch slurm/vqe_workflow.sh
 - Python visualization for results
 
 See [demos/lumi-hybrid/README.md](demos/lumi-hybrid/README.md) for detailed setup instructions.
+
+### Web Dashboard
+
+HIQ includes a web-based dashboard for circuit visualization, compilation, and job monitoring:
+
+```bash
+# Run the dashboard with simulator backend
+cargo run -p hiq-dashboard --features with-simulator
+
+# Dashboard available at http://localhost:3000
+```
+
+**Features:**
+
+- **Circuit Visualization**: Enter QASM3 code and see interactive circuit diagrams rendered with D3.js
+- **Compilation**: Compile circuits for different targets (IQM, IBM, Simulator) with configurable optimization levels
+- **Before/After Comparison**: Side-by-side view showing circuit transformations after compilation
+- **Backend Status**: View registered backends and their capabilities (qubits, native gates, topology)
+- **Job Monitoring**: Track job status, view QASM code, and inspect execution results
+- **Result Histograms**: Interactive D3.js histograms showing measurement probabilities
+
+**API Endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check and version info |
+| `/api/circuits/visualize` | POST | Parse QASM3 and return visualization data |
+| `/api/circuits/compile` | POST | Compile circuit for target with before/after |
+| `/api/backends` | GET | List all registered backends |
+| `/api/backends/:name` | GET | Get detailed backend info |
+| `/api/jobs` | GET | List jobs (with filtering) |
+| `/api/jobs` | POST | Create a new job |
+| `/api/jobs/:id` | GET | Get job details |
+| `/api/jobs/:id` | DELETE | Cancel/delete a job |
+| `/api/jobs/:id/result` | GET | Get job execution results |
 
 ## Supported Gates
 
