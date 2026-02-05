@@ -37,7 +37,7 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 │                    Python SDK Layer                                      │
 │              (Qiskit, Qrisp, user scripts)                              │
 └──────────────────────────┬──────────────────────────────────────────────┘
-                           │ PyO3 bindings (planned)
+                           │ PyO3 bindings
 ┌──────────────────────────▼──────────────────────────────────────────────┐
 │                    hiq-python (PyO3)                                     │
 │              Circuit building, compilation, QASM export                  │
