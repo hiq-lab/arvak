@@ -22,5 +22,5 @@ pub fn execute() {
         "Repository: {}",
         style("https://github.com/hiq-project/hiq").underlined()
     );
-    println!("License:    {}", style("MIT OR Apache-2.0").dim());
+    println!("License:    {}", style("Apache-2.0").dim());
 }

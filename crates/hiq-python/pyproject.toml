@@ -4,16 +4,15 @@ build-backend = "maturin"
 
 [project]
 name = "hiq"
-version = "0.1.0"
+version = "1.0.0"
 description = "Rust-native quantum compilation platform"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT OR Apache-2.0" }
+license = { text = "Apache-2.0" }
 keywords = ["quantum", "compiler", "qasm", "circuit"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",

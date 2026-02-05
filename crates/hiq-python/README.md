@@ -57,4 +57,4 @@ qft = hiq.Circuit.qft(4)
 
 ## License
 
-MIT OR Apache-2.0
+Apache-2.0

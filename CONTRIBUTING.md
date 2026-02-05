@@ -257,7 +257,7 @@ Releases are managed by maintainers:
 ## License
 
 By contributing, you agree that your contributions will be licensed under
-the same license as the project (MIT OR Apache-2.0).
+the Apache License, Version 2.0.
 
 ---
 

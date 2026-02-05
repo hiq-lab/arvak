@@ -13,10 +13,10 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
-rust-version = "1.83"
-license = "MIT OR Apache-2.0"
+rust-version = "1.85"
+license = "Apache-2.0"
 repository = "https://github.com/hiq-project/hiq"
 keywords = ["quantum", "hpc", "compiler", "qasm", "orchestration"]
 categories = ["science", "compilers", "simulation"]
