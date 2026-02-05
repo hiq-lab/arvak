@@ -19,3 +19,8 @@ rustc-hash = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "circuit_bench"
+harness = false
