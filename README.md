@@ -23,6 +23,8 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 | Compilation (`hiq-compile`) | ✅ Complete | Pass manager, layout, routing, optimization |
 | HAL (`hiq-hal`) | ✅ Complete | Backend trait, capabilities, job management |
 | CLI (`hiq-cli`) | ✅ Complete | compile, run, backends commands |
+| Quantum Types (`hiq-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
+| Auto-Uncompute (`hiq-auto`) | ✅ Complete | Automatic ancilla uncomputation |
 | Simulator (`hiq-adapter-sim`) | ✅ Complete | Statevector simulation |
 | IQM Adapter (`hiq-adapter-iqm`) | ✅ Complete | Resonance API integration |
 | IBM Adapter (`hiq-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
@@ -70,7 +72,9 @@ HIQ/
 │   ├── hiq-hal/         # Hardware abstraction layer
 │   ├── hiq-cli/         # Command-line interface
 │   ├── hiq-python/      # Python bindings (PyO3)
-│   └── hiq-sched/       # HPC job scheduler (SLURM, PBS, workflows)
+│   ├── hiq-sched/       # HPC job scheduler (SLURM, PBS, workflows)
+│   ├── hiq-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
+│   └── hiq-auto/        # Automatic uncomputation
 ├── adapters/
 │   ├── hiq-adapter-sim/ # Local statevector simulator
 │   ├── hiq-adapter-iqm/ # IQM Resonance API adapter
@@ -245,6 +249,58 @@ qasm = to_qasm3(compiled)
 print(qasm)
 ```
 
+### Quantum Types (Qrisp-inspired)
+
+```rust
+use hiq_types::{QuantumInt, QuantumFloat, QuantumArray};
+use hiq_ir::Circuit;
+
+fn main() -> anyhow::Result<()> {
+    let mut circuit = Circuit::new("arithmetic");
+
+    // Create quantum integers
+    let a = QuantumInt::<4>::new(&mut circuit);  // 4-bit integer [0, 15]
+    let b = QuantumInt::<4>::new(&mut circuit);
+
+    // Initialize values
+    a.initialize(5, &mut circuit)?;  // a = |5⟩
+    b.initialize(3, &mut circuit)?;  // b = |3⟩
+
+    // Create quantum floats (sign + mantissa + exponent)
+    let x = QuantumFloat::<4, 3>::new(&mut circuit);  // 4-bit mantissa, 3-bit exponent
+
+    // Create quantum arrays
+    let arr = QuantumArray::<4, 8>::new(&mut circuit);  // 4 elements, 8 qubits each
+
+    Ok(())
+}
+```
+
+### Automatic Uncomputation
+
+```rust
+use hiq_auto::{UncomputeContext, uncompute};
+use hiq_ir::Circuit;
+
+fn main() -> anyhow::Result<()> {
+    let mut circuit = Circuit::new("with_uncompute");
+
+    // Mark the start of computation (tracks ops from this point)
+    let ctx = UncomputeContext::begin(&circuit)
+        .with_label("ancilla_block");
+
+    // Perform operations on ancilla qubits
+    circuit.h(QubitId(0))?;
+    circuit.cx(QubitId(0), QubitId(1))?;
+
+    // Automatically uncompute - appends inverse operations
+    uncompute(&mut circuit, ctx)?;
+
+    // Circuit now has: H, CX, CX†, H† (ancillas back to |0⟩)
+    Ok(())
+}
+```
+
 ### Demo Applications
 
 The `demos/` directory contains example quantum algorithms:
@@ -405,9 +461,10 @@ cargo test -- --nocapture
 - [x] OIDC authentication for LUMI/LRZ
 - [x] LUMI integration tests
 
-### Phase 4: Production (Next)
-- [ ] Advanced optimization passes
-- [ ] Qrisp-like features
+### Phase 4: Production (In Progress)
+- [x] Advanced optimization passes (1q optimization, CX cancellation, commutative cancellation)
+- [x] Qrisp-like quantum types (QuantumInt, QuantumFloat, QuantumArray)
+- [x] Automatic uncomputation framework (gate inversion, context management)
 - [ ] Full documentation
 - [ ] 1.0 release
 

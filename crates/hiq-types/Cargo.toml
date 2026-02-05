@@ -1,0 +1,18 @@
+[package]
+name = "hiq-types"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "High-level quantum types for HIQ (QuantumFloat, QuantumInt)"
+keywords = ["quantum", "types", "float", "integer", "high-level"]
+categories = ["science", "data-structures"]
+
+[dependencies]
+hiq-ir = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

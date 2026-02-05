@@ -7,11 +7,13 @@
 //! - PassManager for orchestrating compilation
 //! - PropertySet for sharing data between passes
 //! - Built-in passes for layout, routing, and basis translation
+//! - Optimization passes for gate cancellation and merging
 
 pub mod error;
 pub mod manager;
 pub mod pass;
 pub mod property;
+pub mod unitary;
 
 // Built-in passes
 pub mod passes;

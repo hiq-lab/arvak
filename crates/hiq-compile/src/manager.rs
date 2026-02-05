@@ -140,7 +140,7 @@ impl PassManagerBuilder {
 
         // Add optimization passes based on level
         if self.optimization_level >= 1 {
-            pm.add_pass(Optimize1qGates);
+            pm.add_pass(Optimize1qGates::new());
         }
 
         (pm, self.properties)

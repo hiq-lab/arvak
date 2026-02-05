@@ -6,6 +6,6 @@ mod routing;
 mod translation;
 
 pub use layout::TrivialLayout;
-pub use optimization::Optimize1qGates;
+pub use optimization::{CancelCX, CommutativeCancellation, OneQubitBasis, Optimize1qGates};
 pub use routing::BasicRouting;
 pub use translation::BasisTranslation;

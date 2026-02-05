@@ -22,6 +22,8 @@ hiq-qasm3 = { path = "crates/hiq-qasm3" }
 hiq-compile = { path = "crates/hiq-compile" }
 hiq-hal = { path = "crates/hiq-hal" }
 hiq-sched = { path = "crates/hiq-sched" }
+hiq-types = { path = "crates/hiq-types" }
+hiq-auto = { path = "crates/hiq-auto" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
