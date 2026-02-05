@@ -223,7 +223,10 @@ impl PyCircuit {
         qubit: &Bound<'_, PyAny>,
     ) -> PyResult<Py<Self>> {
         let qid = to_qubit_id(qubit)?;
-        slf.borrow_mut(py).inner.rx(theta, qid).map_err(ir_to_py_err)?;
+        slf.borrow_mut(py)
+            .inner
+            .rx(theta, qid)
+            .map_err(ir_to_py_err)?;
         Ok(slf)
     }
 
@@ -239,7 +242,10 @@ impl PyCircuit {
         qubit: &Bound<'_, PyAny>,
     ) -> PyResult<Py<Self>> {
         let qid = to_qubit_id(qubit)?;
-        slf.borrow_mut(py).inner.ry(theta, qid).map_err(ir_to_py_err)?;
+        slf.borrow_mut(py)
+            .inner
+            .ry(theta, qid)
+            .map_err(ir_to_py_err)?;
         Ok(slf)
     }
 
@@ -255,7 +261,10 @@ impl PyCircuit {
         qubit: &Bound<'_, PyAny>,
     ) -> PyResult<Py<Self>> {
         let qid = to_qubit_id(qubit)?;
-        slf.borrow_mut(py).inner.rz(theta, qid).map_err(ir_to_py_err)?;
+        slf.borrow_mut(py)
+            .inner
+            .rz(theta, qid)
+            .map_err(ir_to_py_err)?;
         Ok(slf)
     }
 
@@ -271,7 +280,10 @@ impl PyCircuit {
         qubit: &Bound<'_, PyAny>,
     ) -> PyResult<Py<Self>> {
         let qid = to_qubit_id(qubit)?;
-        slf.borrow_mut(py).inner.p(theta, qid).map_err(ir_to_py_err)?;
+        slf.borrow_mut(py)
+            .inner
+            .p(theta, qid)
+            .map_err(ir_to_py_err)?;
         Ok(slf)
     }
 
@@ -316,7 +328,10 @@ impl PyCircuit {
     ) -> PyResult<Py<Self>> {
         let ctrl = to_qubit_id(control)?;
         let tgt = to_qubit_id(target)?;
-        slf.borrow_mut(py).inner.cx(ctrl, tgt).map_err(ir_to_py_err)?;
+        slf.borrow_mut(py)
+            .inner
+            .cx(ctrl, tgt)
+            .map_err(ir_to_py_err)?;
         Ok(slf)
     }
 
@@ -329,7 +344,10 @@ impl PyCircuit {
     ) -> PyResult<Py<Self>> {
         let ctrl = to_qubit_id(control)?;
         let tgt = to_qubit_id(target)?;
-        slf.borrow_mut(py).inner.cy(ctrl, tgt).map_err(ir_to_py_err)?;
+        slf.borrow_mut(py)
+            .inner
+            .cy(ctrl, tgt)
+            .map_err(ir_to_py_err)?;
         Ok(slf)
     }
 
@@ -342,7 +360,10 @@ impl PyCircuit {
     ) -> PyResult<Py<Self>> {
         let ctrl = to_qubit_id(control)?;
         let tgt = to_qubit_id(target)?;
-        slf.borrow_mut(py).inner.cz(ctrl, tgt).map_err(ir_to_py_err)?;
+        slf.borrow_mut(py)
+            .inner
+            .cz(ctrl, tgt)
+            .map_err(ir_to_py_err)?;
         Ok(slf)
     }
 

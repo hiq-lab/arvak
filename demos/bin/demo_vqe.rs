@@ -8,7 +8,9 @@ use hiq_demos::problems::{
     beh2_hamiltonian, exact_ground_state_energy, h2_hamiltonian, h2o_hamiltonian, lih_hamiltonian,
 };
 use hiq_demos::runners::VqeRunner;
-use hiq_demos::{create_progress_bar, print_header, print_info, print_result, print_section, print_success};
+use hiq_demos::{
+    create_progress_bar, print_header, print_info, print_result, print_section, print_success,
+};
 
 #[derive(Parser, Debug)]
 #[command(name = "demo-vqe")]
@@ -42,12 +44,31 @@ fn main() {
         &str,
         Option<f64>,
     ) = match args.molecule.to_lowercase().as_str() {
-        "h2" => (h2_hamiltonian(), "H₂ (Hydrogen)", exact_ground_state_energy("h2")),
-        "lih" => (lih_hamiltonian(), "LiH (Lithium Hydride)", exact_ground_state_energy("lih")),
-        "beh2" => (beh2_hamiltonian(), "BeH₂ (Beryllium Hydride)", exact_ground_state_energy("beh2")),
-        "h2o" => (h2o_hamiltonian(), "H₂O (Water)", exact_ground_state_energy("h2o")),
+        "h2" => (
+            h2_hamiltonian(),
+            "H₂ (Hydrogen)",
+            exact_ground_state_energy("h2"),
+        ),
+        "lih" => (
+            lih_hamiltonian(),
+            "LiH (Lithium Hydride)",
+            exact_ground_state_energy("lih"),
+        ),
+        "beh2" => (
+            beh2_hamiltonian(),
+            "BeH₂ (Beryllium Hydride)",
+            exact_ground_state_energy("beh2"),
+        ),
+        "h2o" => (
+            h2o_hamiltonian(),
+            "H₂O (Water)",
+            exact_ground_state_energy("h2o"),
+        ),
         _ => {
-            eprintln!("Unknown molecule: {}. Available: h2, lih, beh2, h2o", args.molecule);
+            eprintln!(
+                "Unknown molecule: {}. Available: h2, lih, beh2, h2o",
+                args.molecule
+            );
             std::process::exit(1);
         }
     };
@@ -91,7 +112,10 @@ fn main() {
     pb.finish_with_message("Optimization complete");
 
     print_section("Results");
-    print_result("Optimal energy", format!("{:.6} Hartree", result.optimal_energy));
+    print_result(
+        "Optimal energy",
+        format!("{:.6} Hartree", result.optimal_energy),
+    );
     print_result("Iterations", result.iterations);
     print_result("Circuit evaluations", result.circuit_evaluations);
     print_result("Converged", if result.converged { "Yes" } else { "No" });
@@ -114,7 +138,10 @@ fn main() {
     }
 
     print_section("Demo Narrative");
-    println!("  This demo simulates finding the ground state energy of {}.", molecule_name);
+    println!(
+        "  This demo simulates finding the ground state energy of {}.",
+        molecule_name
+    );
     println!();
     println!("  In pharmaceutical applications, VQE is used to:");
     println!("  - Compute molecular properties for drug discovery");

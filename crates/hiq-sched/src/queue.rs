@@ -216,11 +216,9 @@ impl PriorityQueue {
         }
 
         // Sort by priority (highest first), then by insertion order
-        ready.sort_by(|a, b| {
-            match b.priority.cmp(&a.priority) {
-                Ordering::Equal => a.created_at.cmp(&b.created_at),
-                other => other,
-            }
+        ready.sort_by(|a, b| match b.priority.cmp(&a.priority) {
+            Ordering::Equal => a.created_at.cmp(&b.created_at),
+            other => other,
         });
 
         ready

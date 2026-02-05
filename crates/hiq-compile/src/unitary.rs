@@ -119,24 +119,14 @@ impl Unitary2x2 {
     pub fn sx() -> Self {
         let half = Complex64::new(0.5, 0.0);
         let half_i = Complex64::new(0.0, 0.5);
-        Self::new(
-            half + half_i,
-            half - half_i,
-            half - half_i,
-            half + half_i,
-        )
+        Self::new(half + half_i, half - half_i, half - half_i, half + half_i)
     }
 
     /// Create an SX-dagger gate.
     pub fn sxdg() -> Self {
         let half = Complex64::new(0.5, 0.0);
         let half_i = Complex64::new(0.0, 0.5);
-        Self::new(
-            half - half_i,
-            half + half_i,
-            half + half_i,
-            half - half_i,
-        )
+        Self::new(half - half_i, half + half_i, half + half_i, half - half_i)
     }
 
     /// Create an RX rotation matrix.
@@ -202,12 +192,7 @@ impl Unitary2x2 {
     pub fn mul(&self, other: &Self) -> Self {
         let [a, b, c, d] = self.data;
         let [e, f, g, h] = other.data;
-        Self::new(
-            a * e + b * g,
-            a * f + b * h,
-            c * e + d * g,
-            c * f + d * h,
-        )
+        Self::new(a * e + b * g, a * f + b * h, c * e + d * g, c * f + d * h)
     }
 
     /// Get the conjugate transpose (dagger).
@@ -274,14 +259,24 @@ impl Unitary2x2 {
             // beta ≈ 0: pure Z rotation
             // U ≈ [[e^(-i*alpha_plus_gamma/2), 0], [0, e^(i*alpha_plus_gamma/2)]]
             let alpha_plus_gamma = -2.0 * a.arg();
-            return (alpha_plus_gamma / 2.0, 0.0, alpha_plus_gamma / 2.0, global_phase);
+            return (
+                alpha_plus_gamma / 2.0,
+                0.0,
+                alpha_plus_gamma / 2.0,
+                global_phase,
+            );
         }
 
         if (beta - PI).abs() < EPSILON {
             // beta ≈ π:
             // U ≈ [[0, -e^(-i*(a-g)/2)], [e^(i*(a-g)/2), 0]]
             let alpha_minus_gamma = -2.0 * (-b).arg();
-            return (alpha_minus_gamma / 2.0, PI, -alpha_minus_gamma / 2.0, global_phase);
+            return (
+                alpha_minus_gamma / 2.0,
+                PI,
+                -alpha_minus_gamma / 2.0,
+                global_phase,
+            );
         }
 
         // General case

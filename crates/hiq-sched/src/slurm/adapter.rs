@@ -166,16 +166,28 @@ impl SlurmAdapter {
 
         // Generate batch script
         let script = if circuit_files.len() == 1 {
-            let result_file = self.config.work_dir.join("results").join(format!("{}.json", job.id));
+            let result_file = self
+                .config
+                .work_dir
+                .join("results")
+                .join(format!("{}.json", job.id));
             templates::generate_batch_script(job, &self.config, &circuit_files[0], &result_file)
         } else {
-            let result_dir = self.config.work_dir.join("results").join(job.id.to_string());
+            let result_dir = self
+                .config
+                .work_dir
+                .join("results")
+                .join(job.id.to_string());
             let circuit_refs: Vec<&Path> = circuit_files.iter().map(|p| p.as_path()).collect();
             templates::generate_batch_script_multi(job, &self.config, &circuit_refs, &result_dir)
         };
 
         // Write batch script
-        let script_path = self.config.work_dir.join("scripts").join(format!("{}.sh", job.id));
+        let script_path = self
+            .config
+            .work_dir
+            .join("scripts")
+            .join(format!("{}.sh", job.id));
         fs::write(&script_path, &script).await?;
 
         // Submit via sbatch
@@ -233,9 +245,15 @@ impl SlurmAdapter {
     /// Get the result file path for a job.
     pub fn result_path(&self, job: &ScheduledJob) -> PathBuf {
         if job.is_batch() {
-            self.config.work_dir.join("results").join(job.id.to_string())
+            self.config
+                .work_dir
+                .join("results")
+                .join(job.id.to_string())
         } else {
-            self.config.work_dir.join("results").join(format!("{}.json", job.id))
+            self.config
+                .work_dir
+                .join("results")
+                .join(format!("{}.json", job.id))
         }
     }
 
@@ -303,7 +321,13 @@ impl SlurmAdapter {
     /// Run sacct command to get completed job status.
     async fn run_sacct(&self, slurm_job_id: &str) -> SchedResult<Option<SlurmJobInfo>> {
         let output = Command::new("sacct")
-            .args(["-j", slurm_job_id, "-o", "JobID,JobName,State,ExitCode", "-P"])
+            .args([
+                "-j",
+                slurm_job_id,
+                "-o",
+                "JobID,JobName,State,ExitCode",
+                "-P",
+            ])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()

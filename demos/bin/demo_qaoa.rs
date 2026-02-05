@@ -6,7 +6,9 @@ use clap::Parser;
 
 use hiq_demos::problems::Graph;
 use hiq_demos::runners::QaoaRunner;
-use hiq_demos::{create_progress_bar, print_header, print_info, print_result, print_section, print_success};
+use hiq_demos::{
+    create_progress_bar, print_header, print_info, print_result, print_section, print_success,
+};
 
 #[derive(Parser, Debug)]
 #[command(name = "demo-qaoa")]
@@ -37,7 +39,10 @@ fn main() {
         "ring6" | "ring" => Graph::ring_6(),
         "grid6" | "grid" => Graph::grid_6(),
         _ => {
-            eprintln!("Unknown graph: {}. Available: square4, complete4, ring6, grid6", args.graph);
+            eprintln!(
+                "Unknown graph: {}. Available: square4, complete4, ring6, grid6",
+                args.graph
+            );
             std::process::exit(1);
         }
     };
@@ -55,7 +60,10 @@ fn main() {
     print_result("Max iterations", args.iterations);
     println!();
     print_result("Optimal cut (exact)", exact_cut);
-    print_result("Optimal partition", format!("{:?} | {:?}", exact_s, exact_t));
+    print_result(
+        "Optimal partition",
+        format!("{:?} | {:?}", exact_s, exact_t),
+    );
 
     print_section("Max-Cut Problem");
     println!("  The Max-Cut problem: Partition graph nodes into two sets");
@@ -89,7 +97,10 @@ fn main() {
 
     print_result("Best cut found", result.best_cut);
     print_result("Best partition", format!("{:?} | {:?}", found_s, found_t));
-    print_result("Approximation ratio", format!("{:.1}%", result.approximation_ratio * 100.0));
+    print_result(
+        "Approximation ratio",
+        format!("{:.1}%", result.approximation_ratio * 100.0),
+    );
     print_result("Iterations", result.iterations);
     print_result("Circuit evaluations", result.circuit_evaluations);
 
@@ -102,7 +113,10 @@ fn main() {
     if is_optimal {
         println!("  Found optimal solution!");
     } else {
-        println!("  Found {:.1}% of optimal solution.", result.approximation_ratio * 100.0);
+        println!(
+            "  Found {:.1}% of optimal solution.",
+            result.approximation_ratio * 100.0
+        );
         println!("  (Higher p or more iterations may improve results)");
     }
 
@@ -120,7 +134,10 @@ fn main() {
     println!("  - Network partitioning");
     println!();
     println!("  HiQ manages the optimization workflow:");
-    println!("  - {} quantum circuit evaluations", result.circuit_evaluations);
+    println!(
+        "  - {} quantum circuit evaluations",
+        result.circuit_evaluations
+    );
     println!("  - Each evaluation queued via SLURM");
     println!("  - Results aggregated for classical optimization");
 

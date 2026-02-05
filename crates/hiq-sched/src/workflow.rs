@@ -1,9 +1,9 @@
 //! Workflow DAG for job dependencies.
 
 use chrono::{DateTime, Utc};
+use petgraph::Direction;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -225,15 +225,15 @@ impl Workflow {
                 }
 
                 // Check all dependencies are completed
-                let deps_satisfied = self
-                    .dag
-                    .edges_directed(idx, Direction::Incoming)
-                    .all(|edge| {
-                        self.dag
-                            .node_weight(edge.source())
-                            .map(|n| n.completed)
-                            .unwrap_or(false)
-                    });
+                let deps_satisfied =
+                    self.dag
+                        .edges_directed(idx, Direction::Incoming)
+                        .all(|edge| {
+                            self.dag
+                                .node_weight(edge.source())
+                                .map(|n| n.completed)
+                                .unwrap_or(false)
+                        });
 
                 if deps_satisfied {
                     Some(&node.job)
@@ -330,11 +330,7 @@ impl Workflow {
 
         self.dag
             .edges_directed(*idx, Direction::Incoming)
-            .filter_map(|edge| {
-                self.dag
-                    .node_weight(edge.source())
-                    .map(|n| &n.job.id)
-            })
+            .filter_map(|edge| self.dag.node_weight(edge.source()).map(|n| &n.job.id))
             .collect()
     }
 
@@ -346,11 +342,7 @@ impl Workflow {
 
         self.dag
             .edges_directed(*idx, Direction::Outgoing)
-            .filter_map(|edge| {
-                self.dag
-                    .node_weight(edge.target())
-                    .map(|n| &n.job.id)
-            })
+            .filter_map(|edge| self.dag.node_weight(edge.target()).map(|n| &n.job.id))
             .collect()
     }
 
@@ -365,16 +357,12 @@ impl Workflow {
                 self.status = WorkflowStatus::Completed;
             }
             self.completed_at = Some(Utc::now());
-        } else if self
-            .dag
-            .node_indices()
-            .any(|idx| {
-                self.dag
-                    .node_weight(idx)
-                    .map(|n| n.job.status.is_running())
-                    .unwrap_or(false)
-            })
-        {
+        } else if self.dag.node_indices().any(|idx| {
+            self.dag
+                .node_weight(idx)
+                .map(|n| n.job.status.is_running())
+                .unwrap_or(false)
+        }) {
             self.status = WorkflowStatus::Running;
         }
     }

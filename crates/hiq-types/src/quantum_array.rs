@@ -1,7 +1,7 @@
 //! Quantum array type.
 
-use hiq_ir::qubit::QubitId;
 use hiq_ir::Circuit;
+use hiq_ir::qubit::QubitId;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{TypeError, TypeResult};
@@ -85,10 +85,9 @@ impl<const N: usize, const W: usize> QuantumArray<N, W> {
 
     /// Get an element's register by index.
     pub fn get(&self, index: usize) -> TypeResult<&QubitRegister> {
-        self.registers.get(index).ok_or(TypeError::IndexOutOfBounds {
-            index,
-            size: N,
-        })
+        self.registers
+            .get(index)
+            .ok_or(TypeError::IndexOutOfBounds { index, size: N })
     }
 
     /// Get the qubits for a specific element.
@@ -119,7 +118,9 @@ impl<const N: usize, const W: usize> QuantumArray<N, W> {
         for k in 0..W {
             let qi = reg_i.qubit(k).unwrap();
             let qj = reg_j.qubit(k).unwrap();
-            circuit.swap(qi, qj).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+            circuit
+                .swap(qi, qj)
+                .map_err(|e| TypeError::CircuitError(e.to_string()))?;
         }
 
         Ok(())
@@ -184,7 +185,9 @@ impl<const I: usize> QuantumIndex<I> {
 
         for (i, qubit) in self.register.iter().enumerate() {
             if (index >> i) & 1 == 1 {
-                circuit.x(qubit).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+                circuit
+                    .x(qubit)
+                    .map_err(|e| TypeError::CircuitError(e.to_string()))?;
             }
         }
 

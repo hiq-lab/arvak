@@ -114,7 +114,11 @@ pub fn zero_noise_extrapolation(values: &[f64], scale_factors: &[f64]) -> ZneRes
     // Linear regression: y = a + b*x, extrapolate to x=0
     let sum_x: f64 = scale_factors.iter().sum();
     let sum_y: f64 = values.iter().sum();
-    let sum_xy: f64 = scale_factors.iter().zip(values.iter()).map(|(x, y)| x * y).sum();
+    let sum_xy: f64 = scale_factors
+        .iter()
+        .zip(values.iter())
+        .map(|(x, y)| x * y)
+        .sum();
     let sum_x2: f64 = scale_factors.iter().map(|x| x * x).sum();
 
     let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x);
@@ -128,7 +132,11 @@ pub fn zero_noise_extrapolation(values: &[f64], scale_factors: &[f64]) -> ZneRes
         .zip(values.iter())
         .map(|(x, y)| (y - (intercept + slope * x)).powi(2))
         .sum();
-    let r_squared = if ss_tot > 0.0 { 1.0 - ss_res / ss_tot } else { 1.0 };
+    let r_squared = if ss_tot > 0.0 {
+        1.0 - ss_res / ss_tot
+    } else {
+        1.0
+    };
 
     let scaled_values: Vec<(f64, f64)> = scale_factors
         .iter()

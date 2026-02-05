@@ -4,7 +4,7 @@
 
 use clap::Parser;
 
-use hiq_demos::runners::orchestrator::{default_demo_jobs, run_multi_demo, DemoJob};
+use hiq_demos::runners::orchestrator::{DemoJob, default_demo_jobs, run_multi_demo};
 use hiq_demos::{print_header, print_info, print_result, print_section, print_success};
 
 #[derive(Parser, Debug)]
@@ -50,8 +50,14 @@ fn main() {
     print_section("Job Queue");
     for (i, job) in jobs.iter().enumerate() {
         let desc = match job {
-            DemoJob::Grover { n_qubits, marked_state } => {
-                format!("Grover search: {} qubits, searching for |{}⟩", n_qubits, marked_state)
+            DemoJob::Grover {
+                n_qubits,
+                marked_state,
+            } => {
+                format!(
+                    "Grover search: {} qubits, searching for |{}⟩",
+                    n_qubits, marked_state
+                )
             }
             DemoJob::Vqe { iterations } => {
                 format!("VQE H₂ molecule: {} iterations", iterations)
@@ -80,7 +86,14 @@ fn main() {
         print_result("Type", &job_result.job_type);
         print_result("Duration", format!("{:.2?}", job_result.duration));
         print_result("Result", &job_result.summary);
-        print_result("Status", if job_result.success { "Success" } else { "Failed" });
+        print_result(
+            "Status",
+            if job_result.success {
+                "Success"
+            } else {
+                "Failed"
+            },
+        );
     }
 
     print_section("Aggregate Statistics");

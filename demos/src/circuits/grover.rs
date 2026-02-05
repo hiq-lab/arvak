@@ -3,8 +3,8 @@
 //! Grover's algorithm finds a marked item in an unstructured database
 //! with O(sqrt(N)) queries, compared to O(N) classically.
 
-use hiq_ir::qubit::QubitId;
 use hiq_ir::Circuit;
+use hiq_ir::qubit::QubitId;
 use std::f64::consts::PI;
 
 /// Generate a Grover search circuit.

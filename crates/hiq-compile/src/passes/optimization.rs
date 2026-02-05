@@ -1,13 +1,13 @@
 //! Optimization passes.
 
+use hiq_ir::CircuitDag;
 use hiq_ir::dag::{DagNode, NodeIndex, WireId};
 use hiq_ir::gate::{GateKind, StandardGate};
 use hiq_ir::instruction::{Instruction, InstructionKind};
 use hiq_ir::parameter::ParameterExpression;
 use hiq_ir::qubit::QubitId;
-use hiq_ir::CircuitDag;
-use petgraph::visit::EdgeRef;
 use petgraph::Direction;
+use petgraph::visit::EdgeRef;
 use rustc_hash::FxHashSet;
 use std::f64::consts::PI;
 
@@ -382,7 +382,9 @@ impl CancelCX {
                                     && succ_inst.qubits[1] == target
                                 {
                                     // Check if this is truly adjacent (no intervening gates on either wire)
-                                    if self.is_truly_adjacent(dag, node_idx, *succ_idx, control, target) {
+                                    if self.is_truly_adjacent(
+                                        dag, node_idx, *succ_idx, control, target,
+                                    ) {
                                         pairs.push((node_idx, *succ_idx));
                                         processed.insert(node_idx);
                                         processed.insert(*succ_idx);
@@ -489,7 +491,12 @@ impl CommutativeCancellation {
     /// This is used for future enhancements where gates can be reordered
     /// to enable additional cancellations.
     #[allow(dead_code)]
-    fn gates_commute(gate1: &StandardGate, qubits1: &[QubitId], gate2: &StandardGate, qubits2: &[QubitId]) -> bool {
+    fn gates_commute(
+        gate1: &StandardGate,
+        qubits1: &[QubitId],
+        gate2: &StandardGate,
+        qubits2: &[QubitId],
+    ) -> bool {
         // Gates on disjoint qubits always commute
         let shared: Vec<_> = qubits1.iter().filter(|q| qubits2.contains(q)).collect();
         if shared.is_empty() {
@@ -502,7 +509,9 @@ impl CommutativeCancellation {
             (g1, g2) if Self::is_diagonal(g1) && Self::is_diagonal(g2) => true,
 
             // CZ commutes with Rz on either qubit
-            (StandardGate::CZ, StandardGate::Rz(_)) | (StandardGate::Rz(_), StandardGate::CZ) => true,
+            (StandardGate::CZ, StandardGate::Rz(_)) | (StandardGate::Rz(_), StandardGate::CZ) => {
+                true
+            }
             (StandardGate::CZ, StandardGate::Z) | (StandardGate::Z, StandardGate::CZ) => true,
             (StandardGate::CZ, StandardGate::S) | (StandardGate::S, StandardGate::CZ) => true,
             (StandardGate::CZ, StandardGate::T) | (StandardGate::T, StandardGate::CZ) => true,
@@ -576,7 +585,10 @@ impl CommutativeCancellation {
 
     /// Find mergeable rotation pairs.
     /// Returns (node1, node2, Option<merged_gate>) where None means both gates cancel.
-    fn find_mergeable_rotations(&self, dag: &CircuitDag) -> Vec<(NodeIndex, NodeIndex, Option<StandardGate>)> {
+    fn find_mergeable_rotations(
+        &self,
+        dag: &CircuitDag,
+    ) -> Vec<(NodeIndex, NodeIndex, Option<StandardGate>)> {
         let mut merges = Vec::new();
         let mut processed: FxHashSet<NodeIndex> = FxHashSet::default();
 
@@ -697,7 +709,11 @@ mod tests {
 
         // H·H should cancel to identity (0 gates or very small rotation)
         // Due to numerical precision, we might get 0 gates
-        assert!(dag.num_ops() <= 1, "Expected 0 or 1 ops, got {}", dag.num_ops());
+        assert!(
+            dag.num_ops() <= 1,
+            "Expected 0 or 1 ops, got {}",
+            dag.num_ops()
+        );
     }
 
     #[test]

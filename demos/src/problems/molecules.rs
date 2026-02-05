@@ -109,10 +109,22 @@ pub fn h2_hamiltonian_4q() -> PauliHamiltonian {
         PauliTerm::zz(0.1205, 1, 2),
         PauliTerm::zz(0.1686, 1, 3),
         PauliTerm::zz(0.1744, 2, 3),
-        PauliTerm::new(0.0453, vec![(0, Pauli::X), (1, Pauli::X), (2, Pauli::Y), (3, Pauli::Y)]),
-        PauliTerm::new(0.0453, vec![(0, Pauli::Y), (1, Pauli::Y), (2, Pauli::X), (3, Pauli::X)]),
-        PauliTerm::new(-0.0453, vec![(0, Pauli::X), (1, Pauli::Y), (2, Pauli::Y), (3, Pauli::X)]),
-        PauliTerm::new(-0.0453, vec![(0, Pauli::Y), (1, Pauli::X), (2, Pauli::X), (3, Pauli::Y)]),
+        PauliTerm::new(
+            0.0453,
+            vec![(0, Pauli::X), (1, Pauli::X), (2, Pauli::Y), (3, Pauli::Y)],
+        ),
+        PauliTerm::new(
+            0.0453,
+            vec![(0, Pauli::Y), (1, Pauli::Y), (2, Pauli::X), (3, Pauli::X)],
+        ),
+        PauliTerm::new(
+            -0.0453,
+            vec![(0, Pauli::X), (1, Pauli::Y), (2, Pauli::Y), (3, Pauli::X)],
+        ),
+        PauliTerm::new(
+            -0.0453,
+            vec![(0, Pauli::Y), (1, Pauli::X), (2, Pauli::X), (3, Pauli::Y)],
+        ),
     ])
 }
 
@@ -256,7 +268,7 @@ pub fn h2o_hamiltonian() -> PauliHamiltonian {
 /// model Hamiltonians, which approximate the true molecular energies.
 pub fn exact_ground_state_energy(molecule: &str) -> Option<f64> {
     match molecule.to_lowercase().as_str() {
-        "h2" => Some(-1.169),  // Ground state of our model Hamiltonian
+        "h2" => Some(-1.169), // Ground state of our model Hamiltonian
         "lih" => Some(-7.882),
         "beh2" => Some(-15.835),
         "h2o" => Some(-75.012),

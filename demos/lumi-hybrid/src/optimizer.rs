@@ -170,7 +170,8 @@ impl NelderMeadOptimizer {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let sorted_simplex: Vec<Vec<f64>> = indices.iter().map(|&i| self.simplex[i].clone()).collect();
+        let sorted_simplex: Vec<Vec<f64>> =
+            indices.iter().map(|&i| self.simplex[i].clone()).collect();
         let sorted_costs: Vec<f64> = indices.iter().map(|&i| self.simplex_costs[i]).collect();
 
         self.simplex = sorted_simplex;
@@ -202,8 +203,16 @@ impl NelderMeadOptimizer {
         }
 
         // Check if cost spread is small
-        let cost_spread = self.simplex_costs.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
-            - self.simplex_costs.iter().cloned().fold(f64::INFINITY, f64::min);
+        let cost_spread = self
+            .simplex_costs
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max)
+            - self
+                .simplex_costs
+                .iter()
+                .cloned()
+                .fold(f64::INFINITY, f64::min);
 
         if cost_spread < self.tolerance {
             return true;
@@ -633,7 +642,8 @@ impl Optimizer for SpsaOptimizer {
                 let (_, ck) = self.get_step_sizes();
 
                 // Compute positive perturbation
-                let plus: Vec<f64> = self.current_params
+                let plus: Vec<f64> = self
+                    .current_params
                     .iter()
                     .zip(self.delta.iter())
                     .map(|(&p, &d)| p + ck * d)
@@ -650,7 +660,8 @@ impl Optimizer for SpsaOptimizer {
                 let (_, ck) = self.get_step_sizes();
 
                 // Compute negative perturbation
-                let minus: Vec<f64> = self.current_params
+                let minus: Vec<f64> = self
+                    .current_params
                     .iter()
                     .zip(self.delta.iter())
                     .map(|(&p, &d)| p - ck * d)
@@ -667,13 +678,15 @@ impl Optimizer for SpsaOptimizer {
                 let (ak, ck) = self.get_step_sizes();
 
                 // Estimate gradient and update
-                let gradient: Vec<f64> = self.delta
+                let gradient: Vec<f64> = self
+                    .delta
                     .iter()
                     .map(|&d| (self.cost_plus - cost_minus) / (2.0 * ck * d))
                     .collect();
 
                 // Update parameters
-                self.current_params = self.current_params
+                self.current_params = self
+                    .current_params
                     .iter()
                     .zip(gradient.iter())
                     .map(|(&p, &g)| p - ak * g)
@@ -768,7 +781,10 @@ mod tests {
         }
 
         // Should move toward x=0
-        assert!(opt.best_cost() < 4.0, "Should improve from initial cost of 4.0");
+        assert!(
+            opt.best_cost() < 4.0,
+            "Should improve from initial cost of 4.0"
+        );
     }
 
     #[test]

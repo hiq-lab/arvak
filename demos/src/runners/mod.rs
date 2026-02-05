@@ -8,12 +8,10 @@ pub mod scheduled;
 pub mod vqe;
 
 pub use benchmark::{
-    benchmark_qaoa, benchmark_vqe, qaoa_scaling_benchmark, vqe_scaling_benchmark,
-    BackendComparison, BenchmarkConfig, BenchmarkResult, BenchmarkTimer,
+    BackendComparison, BenchmarkConfig, BenchmarkResult, BenchmarkTimer, benchmark_qaoa,
+    benchmark_vqe, qaoa_scaling_benchmark, vqe_scaling_benchmark,
 };
-pub use mitigation::{
-    zero_noise_extrapolation, MeasurementMitigator, MitigationConfig, ZneResult,
-};
+pub use mitigation::{MeasurementMitigator, MitigationConfig, ZneResult, zero_noise_extrapolation};
 pub use orchestrator::run_multi_demo;
 pub use qaoa::{QaoaResult, QaoaRunner};
 pub use scheduled::{ScheduledDemoConfig, ScheduledDemoResult, ScheduledRunner};

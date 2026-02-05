@@ -1,8 +1,8 @@
 //! Circuit analysis for automatic uncomputation.
 
+use hiq_ir::Circuit;
 use hiq_ir::instruction::InstructionKind;
 use hiq_ir::qubit::QubitId;
-use hiq_ir::Circuit;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::error::UncomputeResult;
@@ -105,11 +105,7 @@ pub fn analyze_uncomputation(
             for &q1 in &inst.qubits {
                 for &q2 in &inst.qubits {
                     if q1 != q2 {
-                        analysis
-                            .dependencies
-                            .entry(q1)
-                            .or_default()
-                            .insert(q2);
+                        analysis.dependencies.entry(q1).or_default().insert(q2);
                     }
                 }
             }

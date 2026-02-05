@@ -83,8 +83,8 @@ impl H2Hamiltonian {
         let diff = (e_01 - e_10) / 2.0;
         let discriminant = (diff * diff + coupling * coupling).sqrt();
 
-        let e_bonding = avg - discriminant;  // Lower eigenvalue (bonding orbital)
-        let e_antibonding = avg + discriminant;  // Higher eigenvalue
+        let e_bonding = avg - discriminant; // Lower eigenvalue (bonding orbital)
+        let e_antibonding = avg + discriminant; // Higher eigenvalue
 
         // Ground state is minimum of all eigenvalues
         e_00.min(e_11).min(e_bonding).min(e_antibonding)
@@ -109,9 +109,9 @@ impl H2Hamiltonian {
         // Compute Pauli expectation values from Z-basis measurements
         // For bitstring "ba": qubit 0 = a, qubit 1 = b
 
-        let mut z0_exp = 0.0;  // ⟨Z₀⟩
-        let mut z1_exp = 0.0;  // ⟨Z₁⟩
-        let mut zz_exp = 0.0;  // ⟨Z₀Z₁⟩
+        let mut z0_exp = 0.0; // ⟨Z₀⟩
+        let mut z1_exp = 0.0; // ⟨Z₁⟩
+        let mut zz_exp = 0.0; // ⟨Z₀Z₁⟩
 
         for (bitstring, &count) in counts.iter() {
             let prob = count as f64 / total;
@@ -139,7 +139,10 @@ impl H2Hamiltonian {
         // This is a simplification - real implementation needs proper tomography
         let xx_yy_approx = estimate_xx_yy_from_correlations(counts);
 
-        self.g0 + self.g1 * z0_exp + self.g2 * z1_exp + self.g3 * zz_exp
+        self.g0
+            + self.g1 * z0_exp
+            + self.g2 * z1_exp
+            + self.g3 * zz_exp
             + (self.g4 + self.g5) * xx_yy_approx
     }
 
@@ -162,7 +165,7 @@ impl H2Hamiltonian {
         let sin_half = (theta / 2.0).sin();
 
         // Probabilities
-        let p_00 = 0.0;  // Not in superposition with HF state
+        let p_00 = 0.0; // Not in superposition with HF state
         let p_01 = cos_half * cos_half;
         let p_10 = sin_half * sin_half;
         let p_11 = 0.0;
@@ -182,8 +185,12 @@ impl H2Hamiltonian {
         let xx_exp = -theta.sin();
         let yy_exp = -theta.sin();
 
-        self.g0 + self.g1 * z0_exp + self.g2 * z1_exp + self.g3 * zz_exp
-            + self.g4 * xx_exp + self.g5 * yy_exp
+        self.g0
+            + self.g1 * z0_exp
+            + self.g2 * z1_exp
+            + self.g3 * zz_exp
+            + self.g4 * xx_exp
+            + self.g5 * yy_exp
     }
 }
 
@@ -203,17 +210,17 @@ fn interpolate_coefficients(r: f64) -> (f64, f64, f64, f64, f64, f64) {
     let data = [
         // (r, g0, g1, g2, g3, g4, g5)
         // Note: g1=g2 and g4=g5 due to molecular symmetry
-        (0.30,  0.2252, -0.5069, -0.5069, 0.1809, 0.0453, 0.0453),
+        (0.30, 0.2252, -0.5069, -0.5069, 0.1809, 0.0453, 0.0453),
         (0.50, -0.4804, -0.2280, -0.2280, 0.1792, 0.0888, 0.0888),
         (0.70, -0.8624, -0.0826, -0.0826, 0.1716, 0.1194, 0.1194),
-        (0.735, -0.8979,  -0.0529, -0.0529, 0.1699, 0.1218, 0.1218),  // Equilibrium
+        (0.735, -0.8979, -0.0529, -0.0529, 0.1699, 0.1218, 0.1218), // Equilibrium
         (0.80, -0.9256, -0.0217, -0.0217, 0.1678, 0.1239, 0.1239),
-        (1.00, -0.9924,  0.0548,  0.0548, 0.1594, 0.1265, 0.1265),
-        (1.20, -1.0105,  0.1073,  0.1073, 0.1519, 0.1237, 0.1237),
-        (1.50, -1.0010,  0.1582,  0.1582, 0.1418, 0.1159, 0.1159),
-        (2.00, -0.9670,  0.2071,  0.2071, 0.1284, 0.1009, 0.1009),
-        (2.50, -0.9378,  0.2370,  0.2370, 0.1182, 0.0862, 0.0862),
-        (3.00, -0.9156,  0.2563,  0.2563, 0.1104, 0.0733, 0.0733),
+        (1.00, -0.9924, 0.0548, 0.0548, 0.1594, 0.1265, 0.1265),
+        (1.20, -1.0105, 0.1073, 0.1073, 0.1519, 0.1237, 0.1237),
+        (1.50, -1.0010, 0.1582, 0.1582, 0.1418, 0.1159, 0.1159),
+        (2.00, -0.9670, 0.2071, 0.2071, 0.1284, 0.1009, 0.1009),
+        (2.50, -0.9378, 0.2370, 0.2370, 0.1182, 0.0862, 0.0862),
+        (3.00, -0.9156, 0.2563, 0.2563, 0.1104, 0.0733, 0.0733),
     ];
 
     // Linear interpolation

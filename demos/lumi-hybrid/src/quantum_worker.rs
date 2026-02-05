@@ -13,9 +13,9 @@ use std::fs;
 use std::path::PathBuf;
 use tracing::info;
 
+use hiq_hal::Backend;
 use hiq_ir::Circuit;
 use hiq_qasm3::parse;
-use hiq_hal::Backend;
 
 /// Quantum circuit job specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,9 +91,7 @@ async fn main() -> Result<()> {
 
     // Setup logging
     let filter = if args.verbose { "debug" } else { "info" };
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     info!("╔══════════════════════════════════════════╗");
     info!("║     LUMI-Q Quantum Worker                ║");

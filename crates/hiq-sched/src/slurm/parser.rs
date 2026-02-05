@@ -178,7 +178,8 @@ mod tests {
 
     #[test]
     fn test_parse_squeue_output() {
-        let output = "JOBID|NAME|STATE|REASON|START_TIME\n12345|my_job|RUNNING|None|2024-01-15T10:30:00\n";
+        let output =
+            "JOBID|NAME|STATE|REASON|START_TIME\n12345|my_job|RUNNING|None|2024-01-15T10:30:00\n";
         let info = parse_squeue_output(output).unwrap().unwrap();
         assert_eq!(info.job_id, "12345");
         assert_eq!(info.name, "my_job");
@@ -222,9 +223,18 @@ mod tests {
         assert!(matches!(parse_slurm_state("PD"), SlurmState::Pending));
         assert!(matches!(parse_slurm_state("RUNNING"), SlurmState::Running));
         assert!(matches!(parse_slurm_state("R"), SlurmState::Running));
-        assert!(matches!(parse_slurm_state("COMPLETED"), SlurmState::Completed));
+        assert!(matches!(
+            parse_slurm_state("COMPLETED"),
+            SlurmState::Completed
+        ));
         assert!(matches!(parse_slurm_state("FAILED"), SlurmState::Failed));
-        assert!(matches!(parse_slurm_state("CANCELLED"), SlurmState::Cancelled));
-        assert!(matches!(parse_slurm_state("UNKNOWN_STATE"), SlurmState::Unknown(_)));
+        assert!(matches!(
+            parse_slurm_state("CANCELLED"),
+            SlurmState::Cancelled
+        ));
+        assert!(matches!(
+            parse_slurm_state("UNKNOWN_STATE"),
+            SlurmState::Unknown(_)
+        ));
     }
 }

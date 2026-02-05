@@ -1,7 +1,7 @@
 //! Quantum floating-point type.
 
-use hiq_ir::qubit::QubitId;
 use hiq_ir::Circuit;
+use hiq_ir::qubit::QubitId;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{TypeError, TypeResult};
@@ -64,8 +64,11 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
 
         // Allocate: sign, then exponent, then mantissa
         let sign = QubitId(start as u32);
-        let exponent =
-            QubitRegister::from_qubits((start + 1..start + 1 + E).map(|i| QubitId(i as u32)).collect());
+        let exponent = QubitRegister::from_qubits(
+            (start + 1..start + 1 + E)
+                .map(|i| QubitId(i as u32))
+                .collect(),
+        );
         let mantissa = QubitRegister::from_qubits(
             (start + 1 + E..start + 1 + E + M)
                 .map(|i| QubitId(i as u32))
@@ -135,12 +138,18 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
 
     /// Negate this quantum float (flip the sign bit).
     pub fn negate(&self, circuit: &mut Circuit) -> TypeResult<()> {
-        circuit.x(self.sign).map(|_| ()).map_err(|e| TypeError::CircuitError(e.to_string()))
+        circuit
+            .x(self.sign)
+            .map(|_| ())
+            .map_err(|e| TypeError::CircuitError(e.to_string()))
     }
 
     /// Apply controlled negation based on a control qubit.
     pub fn cnegate(&self, control: QubitId, circuit: &mut Circuit) -> TypeResult<()> {
-        circuit.cx(control, self.sign).map(|_| ()).map_err(|e| TypeError::CircuitError(e.to_string()))
+        circuit
+            .cx(control, self.sign)
+            .map(|_| ())
+            .map_err(|e| TypeError::CircuitError(e.to_string()))
     }
 
     /// Set to zero (all qubits to |0⟩).
@@ -171,20 +180,26 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
 
         // Set sign bit if negative
         if is_negative {
-            circuit.x(self.sign).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+            circuit
+                .x(self.sign)
+                .map_err(|e| TypeError::CircuitError(e.to_string()))?;
         }
 
         // Set exponent bits
         for (i, qubit) in self.exponent.iter().enumerate() {
             if (exp_bits >> i) & 1 == 1 {
-                circuit.x(qubit).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+                circuit
+                    .x(qubit)
+                    .map_err(|e| TypeError::CircuitError(e.to_string()))?;
             }
         }
 
         // Set mantissa bits
         for (i, qubit) in self.mantissa.iter().enumerate() {
             if (mantissa_bits >> i) & 1 == 1 {
-                circuit.x(qubit).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+                circuit
+                    .x(qubit)
+                    .map_err(|e| TypeError::CircuitError(e.to_string()))?;
             }
         }
 

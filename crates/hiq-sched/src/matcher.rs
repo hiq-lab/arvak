@@ -125,10 +125,7 @@ impl ResourceMatcher {
         }
 
         // Preferred backend bonus
-        if requirements
-            .preferred_backends
-            .contains(&capabilities.name)
-        {
+        if requirements.preferred_backends.contains(&capabilities.name) {
             let pref_score = 25.0;
             score += pref_score;
             breakdown.push(("Preferred backend bonus".to_string(), pref_score));
@@ -165,11 +162,7 @@ impl ResourceMatcher {
                 // Prefer topologies with higher connectivity
                 let avg_degree =
                     capabilities.topology.edges.len() as f64 / capabilities.num_qubits as f64;
-                if avg_degree >= 2.0 {
-                    10.0
-                } else {
-                    5.0
-                }
+                if avg_degree >= 2.0 { 10.0 } else { 5.0 }
             }
             TopologyPreference::AllToAll => {
                 // Check if fully connected
@@ -276,7 +269,11 @@ impl Matcher for ResourceMatcher {
         }
 
         // Sort by score (highest first)
-        matches.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        matches.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         Ok(matches)
     }

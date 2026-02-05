@@ -3,8 +3,8 @@
 //! QAOA finds approximate solutions to combinatorial optimization problems.
 
 use crate::circuits::qaoa::{
-    graph_aware_initial_parameters, initial_parameters_with_strategy, num_parameters,
-    qaoa_circuit_no_measure, InitStrategy, ParameterBounds,
+    InitStrategy, ParameterBounds, graph_aware_initial_parameters,
+    initial_parameters_with_strategy, num_parameters, qaoa_circuit_no_measure,
 };
 use crate::optimizers::{Cobyla, Optimizer};
 use crate::problems::Graph;
@@ -158,9 +158,7 @@ impl QaoaRunner {
         let graph = &self.graph;
 
         // Create optimizer
-        let optimizer = Cobyla::new()
-            .with_maxiter(self.maxiter)
-            .with_tol(1e-4);
+        let optimizer = Cobyla::new().with_maxiter(self.maxiter).with_tol(1e-4);
 
         // Objective function: minimize negative expected cut (maximize cut)
         let objective = |params: &[f64]| -> f64 {
@@ -246,9 +244,12 @@ fn sample_best_solution(graph: &Graph, gamma: &[f64], beta: &[f64]) -> (usize, f
         let (max_idx, _) = statevector
             .iter()
             .enumerate()
-            .max_by(|(_, a): &(usize, &num_complex::Complex64), (_, b): &(usize, &num_complex::Complex64)| {
-                a.norm_sqr().partial_cmp(&b.norm_sqr()).unwrap()
-            })
+            .max_by(
+                |(_, a): &(usize, &num_complex::Complex64),
+                 (_, b): &(usize, &num_complex::Complex64)| {
+                    a.norm_sqr().partial_cmp(&b.norm_sqr()).unwrap()
+                },
+            )
             .unwrap();
         best_bitstring = max_idx;
         best_cut = graph.cut_value_from_bitstring(max_idx);

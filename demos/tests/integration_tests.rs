@@ -7,8 +7,8 @@ use hiq_demos::circuits::grover::{grover_circuit, optimal_iterations};
 use hiq_demos::circuits::qaoa::qaoa_circuit;
 use hiq_demos::circuits::vqe::{num_parameters, two_local_ansatz};
 use hiq_demos::problems::{
-    beh2_hamiltonian, exact_ground_state_energy, h2_hamiltonian, h2o_hamiltonian, lih_hamiltonian,
-    Graph,
+    Graph, beh2_hamiltonian, exact_ground_state_energy, h2_hamiltonian, h2o_hamiltonian,
+    lih_hamiltonian,
 };
 use hiq_demos::runners::{QaoaRunner, VqeRunner};
 
@@ -28,7 +28,11 @@ fn test_all_exact_energies() {
     for molecule in &molecules {
         let energy = exact_ground_state_energy(molecule);
         assert!(energy.is_some(), "Missing exact energy for {}", molecule);
-        assert!(energy.unwrap() < 0.0, "Energy for {} should be negative", molecule);
+        assert!(
+            energy.unwrap() < 0.0,
+            "Energy for {} should be negative",
+            molecule
+        );
     }
 }
 
@@ -126,7 +130,11 @@ fn test_qaoa_square_convergence() {
     let result = runner.run();
 
     // Square graph has optimal cut of 4
-    assert!(result.best_cut >= 3.0, "QAOA should find cut >= 3, got {}", result.best_cut);
+    assert!(
+        result.best_cut >= 3.0,
+        "QAOA should find cut >= 3, got {}",
+        result.best_cut
+    );
     assert!(
         result.approximation_ratio > 0.7,
         "Approximation ratio {} too low",
@@ -182,7 +190,9 @@ fn test_qaoa_layer_scaling() {
 
     let mut prev_ratio = 0.0;
     for layers in 1..=3 {
-        let runner = QaoaRunner::new(graph.clone()).with_layers(layers).with_maxiter(30);
+        let runner = QaoaRunner::new(graph.clone())
+            .with_layers(layers)
+            .with_maxiter(30);
         let result = runner.run();
 
         // More layers should generally give better results
@@ -232,7 +242,10 @@ fn test_zne_extrapolation() {
         "ZNE should extrapolate to ~1.0, got {}",
         result.extrapolated_value
     );
-    assert!(result.fit_quality > 0.99, "Fit should be excellent for linear data");
+    assert!(
+        result.fit_quality > 0.99,
+        "Fit should be excellent for linear data"
+    );
 }
 
 /// Test measurement mitigator.

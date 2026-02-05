@@ -16,8 +16,8 @@ use std::fs;
 use std::path::PathBuf;
 use tracing::{info, warn};
 
-use hiq_ir::Circuit;
 use hiq_hal::Backend;
+use hiq_ir::Circuit;
 
 mod ansatz;
 mod hamiltonian;
@@ -93,9 +93,7 @@ async fn main() -> Result<()> {
 
     // Setup logging
     let filter = if args.verbose { "debug" } else { "info" };
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     info!("╔══════════════════════════════════════════════════════════════╗");
     info!("║       LUMI-Q Hybrid VQE Demo: H2 Ground State Energy        ║");
@@ -127,7 +125,10 @@ async fn main() -> Result<()> {
 
 /// Run VQE for a single bond distance
 async fn run_vqe(args: &Args) -> Result<VqeRunResult> {
-    info!("Running VQE for H2 at bond distance: {:.3} Å", args.bond_distance);
+    info!(
+        "Running VQE for H2 at bond distance: {:.3} Å",
+        args.bond_distance
+    );
     info!("Backend: {}", args.backend);
     info!("Max iterations: {}", args.max_iterations);
     info!("Shots per evaluation: {}", args.shots);
@@ -194,7 +195,8 @@ async fn run_vqe(args: &Args) -> Result<VqeRunResult> {
     }
 
     // Get best results from optimizer
-    let best_params = optimizer.best_params()
+    let best_params = optimizer
+        .best_params()
         .map(|p| p.to_vec())
         .unwrap_or_else(|| parameters.clone());
     let best_energy = optimizer.best_cost();
@@ -205,9 +207,11 @@ async fn run_vqe(args: &Args) -> Result<VqeRunResult> {
     info!("═══════════════════════════════════════════════════════════════");
     info!("Final energy:    {:.6} Ha", best_energy);
     info!("Exact energy:    {:.6} Ha", exact_energy);
-    info!("Error:           {:.6} Ha ({:.2} mHa)",
-          (best_energy - exact_energy).abs(),
-          (best_energy - exact_energy).abs() * 1000.0);
+    info!(
+        "Error:           {:.6} Ha ({:.2} mHa)",
+        (best_energy - exact_energy).abs(),
+        (best_energy - exact_energy).abs() * 1000.0
+    );
     info!("Optimal θ:       {:.4} rad", best_params[0]);
     info!("Total shots:     {}", total_shots);
     info!("═══════════════════════════════════════════════════════════════");
@@ -234,7 +238,12 @@ async fn run_bond_scan(args: &Args) -> Result<()> {
 
     for (idx, &distance) in distances.iter().enumerate() {
         info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        info!("Scan point {}/{}: r = {:.2} Å", idx + 1, distances.len(), distance);
+        info!(
+            "Scan point {}/{}: r = {:.2} Å",
+            idx + 1,
+            distances.len(),
+            distance
+        );
 
         let scan_args = Args {
             bond_distance: distance,
@@ -310,7 +319,10 @@ async fn evaluate_energy(
             Ok(hamiltonian.exact_energy_for_parameter(theta))
         }
         _ => {
-            anyhow::bail!("Unknown backend: {}. Use 'sim', 'sim-shots', 'iqm', or 'lumi'", backend_name);
+            anyhow::bail!(
+                "Unknown backend: {}. Use 'sim', 'sim-shots', 'iqm', or 'lumi'",
+                backend_name
+            );
         }
     }
 }
