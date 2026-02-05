@@ -35,10 +35,10 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --workspace --exclude hiq-python
 
       - name: Run tests (release mode)
-        run: cargo test --workspace --release
+        run: cargo test --workspace --exclude hiq-python --release
 
   fmt:
     name: Formatting
@@ -79,7 +79,7 @@ jobs:
             ${{ runner.os }}-cargo-clippy-
 
       - name: Run clippy
-        run: cargo clippy --workspace -- -W clippy::all
+        run: cargo clippy --workspace --exclude hiq-python -- -W clippy::all
 
   build:
     name: Build
@@ -106,10 +106,10 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build
-        run: cargo build --workspace
+        run: cargo build --workspace --exclude hiq-python
 
       - name: Build release
-        run: cargo build --workspace --release
+        run: cargo build --workspace --exclude hiq-python --release
 
   docs:
     name: Documentation
@@ -122,7 +122,28 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Check documentation
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --workspace --exclude hiq-python --no-deps
+
+  python-bindings:
+    name: Python Bindings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install maturin
+        run: pip install maturin
+
+      - name: Build Python bindings
+        run: cd crates/hiq-python && maturin build
 
   security:
     name: Security Audit
