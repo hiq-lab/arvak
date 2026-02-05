@@ -18,18 +18,33 @@ pub fn generate_batch_script(
     script.push_str("#!/bin/bash\n");
 
     // SLURM directives
-    script.push_str(&format!("#SBATCH --job-name={}\n", sanitize_name(&job.name)));
-    script.push_str(&format!("#SBATCH --output={}/slurm-%j.out\n", config.work_dir.display()));
-    script.push_str(&format!("#SBATCH --error={}/slurm-%j.err\n", config.work_dir.display()));
+    script.push_str(&format!(
+        "#SBATCH --job-name={}\n",
+        sanitize_name(&job.name)
+    ));
+    script.push_str(&format!(
+        "#SBATCH --output={}/slurm-%j.out\n",
+        config.work_dir.display()
+    ));
+    script.push_str(&format!(
+        "#SBATCH --error={}/slurm-%j.err\n",
+        config.work_dir.display()
+    ));
     script.push_str(&format!("#SBATCH --partition={}\n", config.partition));
 
     if let Some(ref account) = config.account {
         script.push_str(&format!("#SBATCH --account={}\n", account));
     }
 
-    script.push_str(&format!("#SBATCH --time={}\n", format_time(config.time_limit)));
+    script.push_str(&format!(
+        "#SBATCH --time={}\n",
+        format_time(config.time_limit)
+    ));
     script.push_str(&format!("#SBATCH --mem={}M\n", config.memory_mb));
-    script.push_str(&format!("#SBATCH --cpus-per-task={}\n", config.cpus_per_task));
+    script.push_str(&format!(
+        "#SBATCH --cpus-per-task={}\n",
+        config.cpus_per_task
+    ));
 
     // Optional QOS based on priority
     if let Some(ref qos_mapping) = config.priority_qos_mapping {
@@ -103,9 +118,18 @@ pub fn generate_batch_script_multi(
     script.push_str("#!/bin/bash\n");
 
     // SLURM directives
-    script.push_str(&format!("#SBATCH --job-name={}\n", sanitize_name(&job.name)));
-    script.push_str(&format!("#SBATCH --output={}/slurm-%j.out\n", config.work_dir.display()));
-    script.push_str(&format!("#SBATCH --error={}/slurm-%j.err\n", config.work_dir.display()));
+    script.push_str(&format!(
+        "#SBATCH --job-name={}\n",
+        sanitize_name(&job.name)
+    ));
+    script.push_str(&format!(
+        "#SBATCH --output={}/slurm-%j.out\n",
+        config.work_dir.display()
+    ));
+    script.push_str(&format!(
+        "#SBATCH --error={}/slurm-%j.err\n",
+        config.work_dir.display()
+    ));
     script.push_str(&format!("#SBATCH --partition={}\n", config.partition));
 
     if let Some(ref account) = config.account {
@@ -116,7 +140,10 @@ pub fn generate_batch_script_multi(
     let scaled_time = config.time_limit * circuit_files.len() as u32;
     script.push_str(&format!("#SBATCH --time={}\n", format_time(scaled_time)));
     script.push_str(&format!("#SBATCH --mem={}M\n", config.memory_mb));
-    script.push_str(&format!("#SBATCH --cpus-per-task={}\n", config.cpus_per_task));
+    script.push_str(&format!(
+        "#SBATCH --cpus-per-task={}\n",
+        config.cpus_per_task
+    ));
 
     // Environment setup
     script.push_str("\n# Environment setup\n");
@@ -159,7 +186,11 @@ pub fn generate_batch_script_multi(
 
     for (i, circuit_file) in circuit_files.iter().enumerate() {
         let result_file = result_dir.join(format!("result_{}.json", i));
-        script.push_str(&format!("echo \"Running circuit {} of {}\"\n", i + 1, circuit_files.len()));
+        script.push_str(&format!(
+            "echo \"Running circuit {} of {}\"\n",
+            i + 1,
+            circuit_files.len()
+        ));
         script.push_str(&format!(
             "if ! {} run {} --shots {} {} --output {}; then\n",
             config.hiq_binary.display(),
@@ -175,7 +206,10 @@ pub fn generate_batch_script_multi(
 
     // Summary
     script.push_str("echo \"Job completed at: $(date)\"\n");
-    script.push_str(&format!("echo \"Total circuits: {}\"\n", circuit_files.len()));
+    script.push_str(&format!(
+        "echo \"Total circuits: {}\"\n",
+        circuit_files.len()
+    ));
     script.push_str("echo \"Failed circuits: $FAILED\"\n");
     script.push_str("exit $FAILED\n");
 
@@ -185,7 +219,13 @@ pub fn generate_batch_script_multi(
 /// Sanitize a job name for SLURM.
 fn sanitize_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .take(64) // SLURM has a 64 character limit for job names
         .collect()
 }

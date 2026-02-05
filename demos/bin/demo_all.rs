@@ -6,7 +6,7 @@ use clap::Parser;
 use std::time::Instant;
 
 use hiq_demos::circuits::grover::{grover_circuit, optimal_iterations};
-use hiq_demos::problems::{h2_hamiltonian, Graph};
+use hiq_demos::problems::{Graph, h2_hamiltonian};
 use hiq_demos::runners::orchestrator::{default_demo_jobs, run_multi_demo};
 use hiq_demos::runners::{QaoaRunner, VqeRunner};
 use hiq_demos::{print_header, print_info, print_result, print_section, print_success};
@@ -62,8 +62,14 @@ fn main() {
     print_result("Circuit depth", circuit.depth());
     print_result("Time", format!("{:.2?}", grover_start.elapsed()));
 
-    let success_prob = (((2 * grover_iters + 1) as f64 * std::f64::consts::PI / (4.0 * ((1 << n_qubits) as f64).sqrt())).sin()).powi(2);
-    print_result("Success probability", format!("{:.1}%", success_prob * 100.0));
+    let success_prob = (((2 * grover_iters + 1) as f64 * std::f64::consts::PI
+        / (4.0 * ((1 << n_qubits) as f64).sqrt()))
+    .sin())
+    .powi(2);
+    print_result(
+        "Success probability",
+        format!("{:.1}%", success_prob * 100.0),
+    );
 
     print_success("Grover demo complete!");
     println!();
@@ -84,14 +90,18 @@ fn main() {
     print_result("Hamiltonian terms", h.num_terms());
     print_result("Exact energy", "-1.137 Hartree");
 
-    let runner = VqeRunner::new(h)
-        .with_reps(1)
-        .with_maxiter(iterations);
+    let runner = VqeRunner::new(h).with_reps(1).with_maxiter(iterations);
 
     let result = runner.run();
 
-    print_result("Computed energy", format!("{:.4} Hartree", result.optimal_energy));
-    print_result("Error", format!("{:.4} Hartree", (result.optimal_energy + 1.137).abs()));
+    print_result(
+        "Computed energy",
+        format!("{:.4} Hartree", result.optimal_energy),
+    );
+    print_result(
+        "Error",
+        format!("{:.4} Hartree", (result.optimal_energy + 1.137).abs()),
+    );
     print_result("Circuit evaluations", result.circuit_evaluations);
     print_result("Time", format!("{:.2?}", vqe_start.elapsed()));
 
@@ -123,7 +133,10 @@ fn main() {
 
     print_result("Found cut", result.best_cut);
     print_result("Partition", format!("{:?} | {:?}", set_s, set_t));
-    print_result("Approximation ratio", format!("{:.1}%", result.approximation_ratio * 100.0));
+    print_result(
+        "Approximation ratio",
+        format!("{:.1}%", result.approximation_ratio * 100.0),
+    );
     print_result("Circuit evaluations", result.circuit_evaluations);
     print_result("Time", format!("{:.2?}", qaoa_start.elapsed()));
 

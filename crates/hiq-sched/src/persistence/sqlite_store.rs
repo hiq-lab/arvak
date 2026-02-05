@@ -43,7 +43,10 @@ impl SqliteStore {
     }
 
     fn init_schema_sync(&self) -> SchedResult<()> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS jobs (
@@ -82,7 +85,10 @@ impl SqliteStore {
 #[async_trait]
 impl StateStore for SqliteStore {
     async fn save_job(&self, job: &ScheduledJob) -> SchedResult<()> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
         let data = serde_json::to_string(job)?;
 
         conn.execute(
@@ -106,7 +112,10 @@ impl StateStore for SqliteStore {
     }
 
     async fn load_job(&self, job_id: &ScheduledJobId) -> SchedResult<Option<ScheduledJob>> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
 
         let mut stmt = conn.prepare("SELECT data FROM jobs WHERE id = ?1")?;
         let mut rows = stmt.query(rusqlite::params![job_id.to_string()])?;
@@ -140,7 +149,10 @@ impl StateStore for SqliteStore {
     }
 
     async fn delete_job(&self, job_id: &ScheduledJobId) -> SchedResult<bool> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
         let deleted = conn.execute(
             "DELETE FROM jobs WHERE id = ?1",
             rusqlite::params![job_id.to_string()],
@@ -149,14 +161,21 @@ impl StateStore for SqliteStore {
     }
 
     async fn list_jobs(&self, filter: &JobFilter) -> SchedResult<Vec<ScheduledJob>> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
 
         // Build query based on filter
         let mut sql = String::from("SELECT data FROM jobs WHERE 1=1");
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
         if let Some(ref statuses) = filter.status {
-            let placeholders: Vec<_> = statuses.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+            let placeholders: Vec<_> = statuses
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format!("?{}", i + 1))
+                .collect();
             sql.push_str(&format!(" AND status IN ({})", placeholders.join(", ")));
             for s in statuses {
                 params.push(Box::new(s.clone()));
@@ -232,7 +251,10 @@ impl StateStore for SqliteStore {
         job_id: &ScheduledJobId,
         result: &ExecutionResult,
     ) -> SchedResult<()> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
         let data = serde_json::to_string(result)?;
 
         conn.execute(
@@ -244,7 +266,10 @@ impl StateStore for SqliteStore {
     }
 
     async fn load_result(&self, job_id: &ScheduledJobId) -> SchedResult<Option<ExecutionResult>> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
 
         let mut stmt = conn.prepare("SELECT data FROM results WHERE job_id = ?1")?;
         let mut rows = stmt.query(rusqlite::params![job_id.to_string()])?;
@@ -259,7 +284,10 @@ impl StateStore for SqliteStore {
     }
 
     async fn save_workflow(&self, workflow: &Workflow) -> SchedResult<()> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
         let data = serde_json::to_string(workflow)?;
 
         conn.execute(
@@ -279,7 +307,10 @@ impl StateStore for SqliteStore {
     }
 
     async fn load_workflow(&self, workflow_id: &WorkflowId) -> SchedResult<Option<Workflow>> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
 
         let mut stmt = conn.prepare("SELECT data FROM workflows WHERE id = ?1")?;
         let mut rows = stmt.query(rusqlite::params![workflow_id.to_string()])?;
@@ -294,7 +325,10 @@ impl StateStore for SqliteStore {
     }
 
     async fn delete_workflow(&self, workflow_id: &WorkflowId) -> SchedResult<bool> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
         let deleted = conn.execute(
             "DELETE FROM workflows WHERE id = ?1",
             rusqlite::params![workflow_id.to_string()],
@@ -303,7 +337,10 @@ impl StateStore for SqliteStore {
     }
 
     async fn list_workflows(&self) -> SchedResult<Vec<WorkflowId>> {
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
 
         let mut stmt = conn.prepare("SELECT id FROM workflows ORDER BY created_at DESC")?;
         let mut rows = stmt.query([])?;
@@ -323,7 +360,10 @@ impl StateStore for SqliteStore {
         let cutoff = chrono::Utc::now() - chrono::Duration::seconds(max_age_seconds as i64);
         let cutoff_str = cutoff.to_rfc3339();
 
-        let conn = self.conn.lock().map_err(|e| SchedError::DatabaseError(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
 
         // Delete results for old jobs first (foreign key)
         conn.execute(
@@ -376,9 +416,12 @@ mod tests {
 
         // Update status
         store
-            .update_status(&job_id, ScheduledJobStatus::SlurmQueued {
-                slurm_job_id: "12345".to_string(),
-            })
+            .update_status(
+                &job_id,
+                ScheduledJobStatus::SlurmQueued {
+                    slurm_job_id: "12345".to_string(),
+                },
+            )
             .await
             .unwrap();
 

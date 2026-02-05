@@ -176,14 +176,16 @@ impl StateStore for JsonStore {
     async fn list_jobs(&self, filter: &JobFilter) -> SchedResult<Vec<ScheduledJob>> {
         let cache = self.cache.read().await;
 
-        let mut jobs: Vec<_> = cache.values().filter(|job| filter.matches(job)).cloned().collect();
+        let mut jobs: Vec<_> = cache
+            .values()
+            .filter(|job| filter.matches(job))
+            .cloned()
+            .collect();
 
         // Sort by priority (descending), then by creation time (ascending)
-        jobs.sort_by(|a, b| {
-            match b.priority.cmp(&a.priority) {
-                std::cmp::Ordering::Equal => a.created_at.cmp(&b.created_at),
-                other => other,
-            }
+        jobs.sort_by(|a, b| match b.priority.cmp(&a.priority) {
+            std::cmp::Ordering::Equal => a.created_at.cmp(&b.created_at),
+            other => other,
         });
 
         // Apply limit
@@ -273,10 +275,7 @@ impl StateStore for JsonStore {
         let cache = self.cache.read().await;
         let to_remove: Vec<_> = cache
             .values()
-            .filter(|job| {
-                job.status.is_terminal()
-                    && job.completed_at.is_some_and(|t| t < cutoff)
-            })
+            .filter(|job| job.status.is_terminal() && job.completed_at.is_some_and(|t| t < cutoff))
             .map(|job| job.id.clone())
             .collect();
         drop(cache);
@@ -317,9 +316,12 @@ mod tests {
 
         // Update status
         store
-            .update_status(&job_id, ScheduledJobStatus::SlurmQueued {
-                slurm_job_id: "12345".to_string(),
-            })
+            .update_status(
+                &job_id,
+                ScheduledJobStatus::SlurmQueued {
+                    slurm_job_id: "12345".to_string(),
+                },
+            )
             .await
             .unwrap();
 

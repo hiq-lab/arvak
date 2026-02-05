@@ -332,7 +332,10 @@ impl Optimizer for Spsa {
             num_evaluations += 2;
 
             // Gradient estimate
-            let grad: Vec<f64> = delta.iter().map(|di| (f_plus - f_minus) / (2.0 * c_k * di)).collect();
+            let grad: Vec<f64> = delta
+                .iter()
+                .map(|di| (f_plus - f_minus) / (2.0 * c_k * di))
+                .collect();
 
             // Update
             for i in 0..n {
@@ -364,11 +367,14 @@ mod tests {
         let cobyla = Cobyla::new().with_maxiter(200);
 
         // Minimize (x-1)^2 + (y-2)^2
-        let result = cobyla.minimize(|params| {
-            let x = params[0];
-            let y = params[1];
-            (x - 1.0).powi(2) + (y - 2.0).powi(2)
-        }, vec![0.0, 0.0]);
+        let result = cobyla.minimize(
+            |params| {
+                let x = params[0];
+                let y = params[1];
+                (x - 1.0).powi(2) + (y - 2.0).powi(2)
+            },
+            vec![0.0, 0.0],
+        );
 
         assert!(result.optimal_value < 0.01);
         assert!((result.optimal_params[0] - 1.0).abs() < 0.1);
@@ -380,11 +386,14 @@ mod tests {
         let cobyla = Cobyla::new().with_maxiter(500);
 
         // Rosenbrock function (minimum at (1, 1))
-        let result = cobyla.minimize(|params| {
-            let x = params[0];
-            let y = params[1];
-            (1.0 - x).powi(2) + 100.0 * (y - x.powi(2)).powi(2)
-        }, vec![0.0, 0.0]);
+        let result = cobyla.minimize(
+            |params| {
+                let x = params[0];
+                let y = params[1];
+                (1.0 - x).powi(2) + 100.0 * (y - x.powi(2)).powi(2)
+            },
+            vec![0.0, 0.0],
+        );
 
         // Rosenbrock is hard, just check we improved
         assert!(result.optimal_value < 1.0);
@@ -395,9 +404,10 @@ mod tests {
         let spsa = Spsa::new().with_maxiter(100);
 
         // Minimize x^2 + y^2
-        let result = spsa.minimize(|params| {
-            params[0].powi(2) + params[1].powi(2)
-        }, vec![1.0, 1.0]);
+        let result = spsa.minimize(
+            |params| params[0].powi(2) + params[1].powi(2),
+            vec![1.0, 1.0],
+        );
 
         assert!(result.optimal_value < 0.5);
     }

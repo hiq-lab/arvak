@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::circuits::grover::{grover_circuit, optimal_iterations};
-use crate::problems::{h2_hamiltonian, Graph};
+use crate::problems::{Graph, h2_hamiltonian};
 use crate::runners::{QaoaRunner, VqeRunner};
 
 /// A demo job for orchestration.
@@ -156,9 +156,7 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
                 }
 
                 let graph = Graph::square_4();
-                let runner = QaoaRunner::new(graph)
-                    .with_layers(*layers)
-                    .with_maxiter(50);
+                let runner = QaoaRunner::new(graph).with_layers(*layers).with_maxiter(50);
 
                 // Simulate progress
                 for step in 0..50 {
@@ -174,7 +172,8 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
                     pb.finish_with_message("QAOA complete");
                 }
 
-                let (set_s, set_t) = Graph::square_4().bitstring_to_partition(result.best_bitstring);
+                let (set_s, set_t) =
+                    Graph::square_4().bitstring_to_partition(result.best_bitstring);
 
                 DemoJobResult {
                     name: format!("qaoa_{}", i),

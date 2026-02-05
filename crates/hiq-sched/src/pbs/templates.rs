@@ -200,10 +200,7 @@ pub fn generate_pbs_script_multi(
     // Job information
     script.push_str("# Job information\n");
     script.push_str("echo \"Job ID: $PBS_JOBID\"\n");
-    script.push_str(&format!(
-        "echo \"Batch size: {}\"\n",
-        circuit_files.len()
-    ));
+    script.push_str(&format!("echo \"Batch size: {}\"\n", circuit_files.len()));
     script.push_str("echo \"Start Time: $(date)\"\n\n");
 
     // Create result directory
@@ -466,12 +463,8 @@ mod tests {
             Path::new("/scratch/c3.qasm"),
         ];
 
-        let script = generate_pbs_script_multi(
-            &job,
-            &config,
-            &circuits,
-            Path::new("/scratch/results"),
-        );
+        let script =
+            generate_pbs_script_multi(&job, &config, &circuits, Path::new("/scratch/results"));
 
         assert!(script.contains("#PBS -N batch_job"));
         assert!(script.contains("#PBS -l walltime=03:00:00")); // Scaled 3x
@@ -488,17 +481,10 @@ mod tests {
         let circuit = CircuitSpec::from_qasm("OPENQASM 3.0; qubit[2] q;");
         let job = ScheduledJob::new("array_job", circuit);
 
-        let circuits = vec![
-            Path::new("/scratch/c1.qasm"),
-            Path::new("/scratch/c2.qasm"),
-        ];
+        let circuits = vec![Path::new("/scratch/c1.qasm"), Path::new("/scratch/c2.qasm")];
 
-        let script = generate_pbs_array_script(
-            &job,
-            &config,
-            &circuits,
-            Path::new("/scratch/results"),
-        );
+        let script =
+            generate_pbs_array_script(&job, &config, &circuits, Path::new("/scratch/results"));
 
         assert!(script.contains("#PBS -t 0-1")); // Array indices
         assert!(script.contains("CIRCUITS=("));

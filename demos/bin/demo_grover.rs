@@ -53,7 +53,15 @@ fn main() {
     print_section("Problem Setup");
     print_result("Qubits", args.qubits);
     print_result("Search space size", 1 << args.qubits);
-    print_result("Marked state", format!("|{}⟩ = |{:0width$b}⟩", args.marked, args.marked, width = args.qubits));
+    print_result(
+        "Marked state",
+        format!(
+            "|{}⟩ = |{:0width$b}⟩",
+            args.marked,
+            args.marked,
+            width = args.qubits
+        ),
+    );
     print_result("Grover iterations", iterations);
 
     print_section("Circuit Generation");
@@ -76,10 +84,16 @@ fn main() {
 
     print_section("Demo Narrative");
     println!("  This demo shows Grover's algorithm searching for a marked item");
-    println!("  in an unstructured database of {} items.", 1 << args.qubits);
+    println!(
+        "  in an unstructured database of {} items.",
+        1 << args.qubits
+    );
     println!();
     println!("  Classical complexity: O(N) = O({})", 1 << args.qubits);
-    println!("  Quantum complexity:   O(sqrt(N)) = O({:.1})", ((1 << args.qubits) as f64).sqrt());
+    println!(
+        "  Quantum complexity:   O(sqrt(N)) = O({:.1})",
+        ((1 << args.qubits) as f64).sqrt()
+    );
     println!();
     println!("  The algorithm:");
     println!("  1. Prepares uniform superposition over all states");
@@ -89,8 +103,14 @@ fn main() {
     println!("  3. Measures to obtain the marked state with high probability");
 
     print_section("Expected Results");
-    let success_prob = (((2 * iterations + 1) as f64 * std::f64::consts::PI / (4.0 * ((1 << args.qubits) as f64).sqrt())).sin()).powi(2);
-    print_result("Success probability", format!("{:.1}%", success_prob * 100.0));
+    let success_prob = (((2 * iterations + 1) as f64 * std::f64::consts::PI
+        / (4.0 * ((1 << args.qubits) as f64).sqrt()))
+    .sin())
+    .powi(2);
+    print_result(
+        "Success probability",
+        format!("{:.1}%", success_prob * 100.0),
+    );
     print_result("Expected outcome", format!("|{}⟩", args.marked));
 
     println!();

@@ -3,8 +3,8 @@
 //! QAOA is a variational algorithm for combinatorial optimization problems.
 //! It alternates between cost and mixer unitaries with tunable parameters.
 
-use hiq_ir::qubit::QubitId;
 use hiq_ir::Circuit;
+use hiq_ir::qubit::QubitId;
 use std::f64::consts::PI;
 
 use crate::problems::Graph;
@@ -25,7 +25,11 @@ use crate::problems::Graph;
 /// # Returns
 /// A QAOA circuit with measurements.
 pub fn qaoa_circuit(graph: &Graph, gamma: &[f64], beta: &[f64]) -> Circuit {
-    assert_eq!(gamma.len(), beta.len(), "gamma and beta must have same length");
+    assert_eq!(
+        gamma.len(),
+        beta.len(),
+        "gamma and beta must have same length"
+    );
     let p = gamma.len(); // Number of QAOA layers
 
     let n = graph.n_nodes;
@@ -131,15 +135,16 @@ pub fn initial_parameters(p: usize) -> (Vec<f64>, Vec<f64>) {
 /// - `TrotterizedAdiabatic`: Mimics adiabatic evolution, often best for deeper circuits
 /// - `Random`: Random in [0, π/2], useful with multiple restarts
 /// - `Fourier`: Sine/cosine basis, smoother optimization landscape
-pub fn initial_parameters_with_strategy(
-    p: usize,
-    strategy: InitStrategy,
-) -> (Vec<f64>, Vec<f64>) {
+pub fn initial_parameters_with_strategy(p: usize, strategy: InitStrategy) -> (Vec<f64>, Vec<f64>) {
     match strategy {
         InitStrategy::Linear => {
             // gamma starts small and increases, beta starts large and decreases
-            let gamma: Vec<f64> = (0..p).map(|i| PI / 4.0 * (i + 1) as f64 / p as f64).collect();
-            let beta: Vec<f64> = (0..p).map(|i| PI / 4.0 * (p - i) as f64 / p as f64).collect();
+            let gamma: Vec<f64> = (0..p)
+                .map(|i| PI / 4.0 * (i + 1) as f64 / p as f64)
+                .collect();
+            let beta: Vec<f64> = (0..p)
+                .map(|i| PI / 4.0 * (p - i) as f64 / p as f64)
+                .collect();
             (gamma, beta)
         }
         InitStrategy::Fixed => {

@@ -119,7 +119,9 @@ impl Graph {
 
     /// Calculate the cut value from a bitstring (integer).
     pub fn cut_value_from_bitstring(&self, bitstring: usize) -> f64 {
-        let assignment: Vec<bool> = (0..self.n_nodes).map(|i| (bitstring >> i) & 1 == 1).collect();
+        let assignment: Vec<bool> = (0..self.n_nodes)
+            .map(|i| (bitstring >> i) & 1 == 1)
+            .collect();
         self.cut_value(&assignment)
     }
 
@@ -164,14 +166,23 @@ impl Graph {
     /// The ground state corresponds to the maximum cut.
     pub fn to_ising_coefficients(&self) -> (f64, Vec<(usize, usize, f64)>) {
         let offset: f64 = self.edges.iter().map(|(_, _, w)| w / 2.0).sum();
-        let zz_terms: Vec<_> = self.edges.iter().map(|(i, j, w)| (*i, *j, w / 2.0)).collect();
+        let zz_terms: Vec<_> = self
+            .edges
+            .iter()
+            .map(|(i, j, w)| (*i, *j, w / 2.0))
+            .collect();
         (offset, zz_terms)
     }
 }
 
 impl std::fmt::Display for Graph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Graph ({} nodes, {} edges):", self.n_nodes, self.edges.len())?;
+        writeln!(
+            f,
+            "Graph ({} nodes, {} edges):",
+            self.n_nodes,
+            self.edges.len()
+        )?;
         for (a, b, w) in &self.edges {
             if (*w - 1.0).abs() < 1e-10 {
                 writeln!(f, "  {} -- {}", a, b)?;

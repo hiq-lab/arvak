@@ -79,7 +79,11 @@ impl OidcConfig {
             redirect_uri: "http://localhost:8080/callback".to_string(),
             scopes: vec!["openid".into(), "profile".into(), "quantum".into()],
             project_id: Some(project_id.to_string()),
-            token_cache_path: Some(dirs::cache_dir().unwrap_or_default().join("hiq/lumi_token.json")),
+            token_cache_path: Some(
+                dirs::cache_dir()
+                    .unwrap_or_default()
+                    .join("hiq/lumi_token.json"),
+            ),
             refresh_buffer_secs: 300, // 5 minutes
         }
     }
@@ -97,7 +101,11 @@ impl OidcConfig {
             redirect_uri: "http://localhost:8080/callback".to_string(),
             scopes: vec!["openid".into(), "profile".into()],
             project_id: Some(project_id.to_string()),
-            token_cache_path: Some(dirs::cache_dir().unwrap_or_default().join("hiq/lrz_token.json")),
+            token_cache_path: Some(
+                dirs::cache_dir()
+                    .unwrap_or_default()
+                    .join("hiq/lrz_token.json"),
+            ),
             refresh_buffer_secs: 300,
         }
     }
@@ -336,11 +344,17 @@ impl OidcAuth {
         } else {
             println!("║  {}  ║", device_auth.verification_uri);
             println!("║                                                            ║");
-            println!("║  Enter this code: {}                             ║", device_auth.user_code);
+            println!(
+                "║  Enter this code: {}                             ║",
+                device_auth.user_code
+            );
         }
         println!("║                                                            ║");
         println!("╚════════════════════════════════════════════════════════════╝\n");
-        println!("Waiting for authentication (expires in {} seconds)...", device_auth.expires_in);
+        println!(
+            "Waiting for authentication (expires in {} seconds)...",
+            device_auth.expires_in
+        );
 
         // Poll for token
         let start = Instant::now();
@@ -349,7 +363,9 @@ impl OidcAuth {
 
         loop {
             if start.elapsed() > timeout {
-                return Err(HalError::Auth("Device code authentication timed out".to_string()));
+                return Err(HalError::Auth(
+                    "Device code authentication timed out".to_string(),
+                ));
             }
 
             tokio::time::sleep(interval).await;
@@ -443,7 +459,10 @@ impl OidcAuth {
         } else if error_body.contains("slow_down") {
             Err(PollError::SlowDown)
         } else {
-            Err(PollError::Error(format!("Token poll failed: {}", error_body)))
+            Err(PollError::Error(format!(
+                "Token poll failed: {}",
+                error_body
+            )))
         }
     }
 
@@ -467,9 +486,7 @@ impl OidcAuth {
     /// Get the refresh token from cache.
     fn get_refresh_token(&self) -> Option<String> {
         let cached = self.cached_token.read().unwrap();
-        cached
-            .as_ref()
-            .and_then(|t| t.refresh_token.clone())
+        cached.as_ref().and_then(|t| t.refresh_token.clone())
     }
 
     /// Save token to cache (memory and file).
@@ -605,12 +622,8 @@ impl EnvTokenProvider {
 #[async_trait::async_trait]
 impl TokenProvider for EnvTokenProvider {
     async fn get_token(&self) -> HalResult<String> {
-        std::env::var(&self.env_var).map_err(|_| {
-            HalError::Auth(format!(
-                "Environment variable {} not set",
-                self.env_var
-            ))
-        })
+        std::env::var(&self.env_var)
+            .map_err(|_| HalError::Auth(format!("Environment variable {} not set", self.env_var)))
     }
 
     fn has_valid_token(&self) -> bool {

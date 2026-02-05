@@ -316,10 +316,14 @@ pub fn benchmark_qaoa(
     let avg_time = total_time / config.benchmark_iterations as u32;
     let avg_evals = total_evals / config.benchmark_iterations;
 
-    BenchmarkResult::new(format!("QAOA ({} nodes)", graph.n_nodes), avg_time, avg_evals)
-        .with_quality(best_ratio)
-        .with_metric("approximation_ratio", best_ratio)
-        .with_metric("layers", layers as f64)
+    BenchmarkResult::new(
+        format!("QAOA ({} nodes)", graph.n_nodes),
+        avg_time,
+        avg_evals,
+    )
+    .with_quality(best_ratio)
+    .with_metric("approximation_ratio", best_ratio)
+    .with_metric("layers", layers as f64)
 }
 
 /// Run a scaling benchmark for VQE across different molecule sizes.

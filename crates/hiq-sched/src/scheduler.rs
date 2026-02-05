@@ -303,37 +303,35 @@ impl HpcScheduler {
         for job in jobs {
             if let Some(batch_job_id) = job.status.slurm_job_id() {
                 let new_status = match &self.adapter {
-                    BatchAdapter::Slurm(slurm) => {
-                        match slurm.status(batch_job_id).await {
-                            Ok(info) => Some(self.map_slurm_status(&job, &info)),
-                            Err(e) => {
-                                tracing::warn!(
-                                    "Failed to get status for SLURM job {}: {}",
-                                    batch_job_id,
-                                    e
-                                );
-                                None
-                            }
+                    BatchAdapter::Slurm(slurm) => match slurm.status(batch_job_id).await {
+                        Ok(info) => Some(self.map_slurm_status(&job, &info)),
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to get status for SLURM job {}: {}",
+                                batch_job_id,
+                                e
+                            );
+                            None
                         }
-                    }
-                    BatchAdapter::Pbs(pbs) => {
-                        match pbs.status(batch_job_id).await {
-                            Ok(info) => Some(self.map_pbs_status(&job, &info)),
-                            Err(e) => {
-                                tracing::warn!(
-                                    "Failed to get status for PBS job {}: {}",
-                                    batch_job_id,
-                                    e
-                                );
-                                None
-                            }
+                    },
+                    BatchAdapter::Pbs(pbs) => match pbs.status(batch_job_id).await {
+                        Ok(info) => Some(self.map_pbs_status(&job, &info)),
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to get status for PBS job {}: {}",
+                                batch_job_id,
+                                e
+                            );
+                            None
                         }
-                    }
+                    },
                 };
 
                 if let Some(new_status) = new_status {
                     if new_status != job.status {
-                        self.store.update_status(&job.id, new_status.clone()).await?;
+                        self.store
+                            .update_status(&job.id, new_status.clone())
+                            .await?;
 
                         if new_status.is_terminal() {
                             let mut completed = self.completed_jobs.write().await;
@@ -630,7 +628,9 @@ impl Scheduler for HpcScheduler {
                     WorkflowStatus::Failed { reason } => {
                         Err(SchedError::Internal(format!("Workflow failed: {}", reason)))
                     }
-                    WorkflowStatus::Cancelled => Err(SchedError::Cancelled(workflow_id.to_string())),
+                    WorkflowStatus::Cancelled => {
+                        Err(SchedError::Cancelled(workflow_id.to_string()))
+                    }
                     _ => unreachable!(),
                 };
             }
@@ -823,9 +823,6 @@ mod tests {
             queue: "quantum".to_string(),
             ..Default::default()
         });
-        assert!(matches!(
-            pbs_config.scheduler_type,
-            BatchSchedulerType::Pbs
-        ));
+        assert!(matches!(pbs_config.scheduler_type, BatchSchedulerType::Pbs));
     }
 }

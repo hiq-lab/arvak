@@ -1,7 +1,7 @@
 //! Uncomputation context management.
 
-use hiq_ir::qubit::QubitId;
 use hiq_ir::Circuit;
+use hiq_ir::qubit::QubitId;
 use rustc_hash::FxHashSet;
 
 use crate::error::{UncomputeError, UncomputeResult};

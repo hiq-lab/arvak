@@ -90,9 +90,7 @@ impl VqeRunner {
         let mut circuit_evaluations = 0;
 
         // Create optimizer
-        let optimizer = Cobyla::new()
-            .with_maxiter(self.maxiter)
-            .with_tol(1e-6);
+        let optimizer = Cobyla::new().with_maxiter(self.maxiter).with_tol(1e-6);
 
         // Objective function: evaluate energy
         let hamiltonian = &self.hamiltonian;
@@ -299,7 +297,10 @@ fn apply_gate(
 }
 
 /// Calculate the expectation value of a Hamiltonian.
-fn expectation_value(hamiltonian: &PauliHamiltonian, statevector: &[num_complex::Complex64]) -> f64 {
+fn expectation_value(
+    hamiltonian: &PauliHamiltonian,
+    statevector: &[num_complex::Complex64],
+) -> f64 {
     use num_complex::Complex64;
 
     let n = (statevector.len() as f64).log2() as usize;
@@ -363,7 +364,7 @@ fn apply_pauli_string(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::problems::{h2_hamiltonian, PauliTerm};
+    use crate::problems::{PauliTerm, h2_hamiltonian};
 
     #[test]
     fn test_vqe_runner_creation() {
@@ -569,7 +570,13 @@ mod tests {
 
         println!("State amplitudes:");
         for (i, amp) in state.iter().enumerate() {
-            println!("  |{:02b}⟩: {:.6} + {:.6}i (prob: {:.6})", i, amp.re, amp.im, amp.norm_sqr());
+            println!(
+                "  |{:02b}⟩: {:.6} + {:.6}i (prob: {:.6})",
+                i,
+                amp.re,
+                amp.im,
+                amp.norm_sqr()
+            );
         }
 
         let norm: f64 = state.iter().map(|a| a.norm_sqr()).sum();
@@ -621,11 +628,11 @@ mod tests {
         // The h2_hamiltonian() function returns a model Hamiltonian
 
         // Coefficients from h2_hamiltonian():
-        let g0 = -0.32;  // Identity
-        let g1 = 0.39;   // Z0
-        let g2 = -0.39;  // Z1
-        let g3 = -0.01;  // Z0Z1
-        let g4 = 0.18;   // X0X1 and Y0Y1
+        let g0 = -0.32; // Identity
+        let g1 = 0.39; // Z0
+        let g2 = -0.39; // Z1
+        let g3 = -0.01; // Z0Z1
+        let g4 = 0.18; // X0X1 and Y0Y1
 
         // Qubit encoding: index i = q0 + 2*q1
         println!("H2 Model Hamiltonian:");

@@ -3,8 +3,8 @@
 //! An ansatz is a parameterized quantum circuit used in variational algorithms.
 //! The parameters are optimized classically to minimize the expected energy.
 
-use hiq_ir::qubit::QubitId;
 use hiq_ir::Circuit;
+use hiq_ir::qubit::QubitId;
 
 /// Generate a TwoLocal ansatz circuit.
 ///
@@ -44,7 +44,9 @@ pub fn two_local_ansatz(n_qubits: usize, reps: usize, params: &[f64]) -> Circuit
     for _ in 0..reps {
         // Entanglement layer (linear connectivity with CZ)
         for q in 0..n_qubits - 1 {
-            circuit.cz(QubitId(q as u32), QubitId((q + 1) as u32)).unwrap();
+            circuit
+                .cz(QubitId(q as u32), QubitId((q + 1) as u32))
+                .unwrap();
         }
 
         // Rotation layer
@@ -88,7 +90,9 @@ pub fn hardware_efficient_ansatz(n_qubits: usize, reps: usize, params: &[f64]) -
     for _ in 0..reps {
         // Entanglement layer (linear connectivity with CZ)
         for q in 0..n_qubits - 1 {
-            circuit.cz(QubitId(q as u32), QubitId((q + 1) as u32)).unwrap();
+            circuit
+                .cz(QubitId(q as u32), QubitId((q + 1) as u32))
+                .unwrap();
         }
 
         // Rotation layer
@@ -157,12 +161,18 @@ pub fn uccsd_like_ansatz(n_qubits: usize, params: &[f64]) -> Circuit {
 
     // Double excitation-like entanglement
     for q in 0..n_qubits - 1 {
-        circuit.cx(QubitId(q as u32), QubitId((q + 1) as u32)).unwrap();
+        circuit
+            .cx(QubitId(q as u32), QubitId((q + 1) as u32))
+            .unwrap();
         if param_idx < params.len() {
-            circuit.rz(params[param_idx], QubitId((q + 1) as u32)).unwrap();
+            circuit
+                .rz(params[param_idx], QubitId((q + 1) as u32))
+                .unwrap();
             param_idx += 1;
         }
-        circuit.cx(QubitId(q as u32), QubitId((q + 1) as u32)).unwrap();
+        circuit
+            .cx(QubitId(q as u32), QubitId((q + 1) as u32))
+            .unwrap();
     }
 
     // Final rotation layer

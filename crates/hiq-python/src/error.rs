@@ -1,7 +1,7 @@
 //! Error handling and exception mapping for Python bindings.
 
-use pyo3::exceptions::PyRuntimeError;
 use pyo3::PyErr;
+use pyo3::exceptions::PyRuntimeError;
 
 /// Convert an IR error to a Python exception.
 pub fn ir_to_py_err(e: hiq_ir::IrError) -> PyErr {

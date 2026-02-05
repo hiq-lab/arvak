@@ -2,8 +2,8 @@
 //!
 //! Run with: cargo bench -p hiq-ir
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use hiq_ir::{Circuit, QubitId, ClbitId};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use hiq_ir::{Circuit, ClbitId, QubitId};
 use std::f64::consts::PI;
 
 /// Benchmark circuit creation
@@ -15,9 +15,7 @@ fn bench_circuit_creation(c: &mut Criterion) {
             BenchmarkId::new("with_size", num_qubits),
             num_qubits,
             |b, &n| {
-                b.iter(|| {
-                    Circuit::with_size(black_box("bench"), black_box(n), black_box(n))
-                });
+                b.iter(|| Circuit::with_size(black_box("bench"), black_box(n), black_box(n)));
             },
         );
     }
@@ -40,7 +38,9 @@ fn bench_gate_addition(c: &mut Criterion) {
     group.bench_function("rx_gate", |b| {
         let mut circuit = Circuit::with_size("bench", 10, 0);
         b.iter(|| {
-            circuit.rx(black_box(PI / 4.0), black_box(QubitId(0))).unwrap();
+            circuit
+                .rx(black_box(PI / 4.0), black_box(QubitId(0)))
+                .unwrap();
         });
     });
 
@@ -48,14 +48,18 @@ fn bench_gate_addition(c: &mut Criterion) {
     group.bench_function("cx_gate", |b| {
         let mut circuit = Circuit::with_size("bench", 10, 0);
         b.iter(|| {
-            circuit.cx(black_box(QubitId(0)), black_box(QubitId(1))).unwrap();
+            circuit
+                .cx(black_box(QubitId(0)), black_box(QubitId(1)))
+                .unwrap();
         });
     });
 
     group.bench_function("cz_gate", |b| {
         let mut circuit = Circuit::with_size("bench", 10, 0);
         b.iter(|| {
-            circuit.cz(black_box(QubitId(0)), black_box(QubitId(1))).unwrap();
+            circuit
+                .cz(black_box(QubitId(0)), black_box(QubitId(1)))
+                .unwrap();
         });
     });
 
@@ -111,9 +115,7 @@ fn bench_circuit_depth(c: &mut Criterion) {
             BenchmarkId::new("depth", num_qubits),
             &circuit,
             |b, circuit| {
-                b.iter(|| {
-                    black_box(circuit.depth())
-                });
+                b.iter(|| black_box(circuit.depth()));
             },
         );
     }

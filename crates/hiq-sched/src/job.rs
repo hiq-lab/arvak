@@ -103,14 +103,10 @@ pub enum ScheduledJobStatus {
     WaitingOnDependencies,
 
     /// Job has been submitted to SLURM and is queued.
-    SlurmQueued {
-        slurm_job_id: String,
-    },
+    SlurmQueued { slurm_job_id: String },
 
     /// Job is running on SLURM.
-    SlurmRunning {
-        slurm_job_id: String,
-    },
+    SlurmRunning { slurm_job_id: String },
 
     /// SLURM job completed, quantum job has been submitted.
     QuantumSubmitted {
@@ -514,7 +510,10 @@ impl ScheduledJob {
     }
 
     /// Check if all dependencies are satisfied (given a set of completed job IDs).
-    pub fn dependencies_satisfied(&self, completed: &rustc_hash::FxHashSet<ScheduledJobId>) -> bool {
+    pub fn dependencies_satisfied(
+        &self,
+        completed: &rustc_hash::FxHashSet<ScheduledJobId>,
+    ) -> bool {
         self.dependencies.iter().all(|dep| completed.contains(dep))
     }
 

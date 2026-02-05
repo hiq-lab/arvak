@@ -40,7 +40,9 @@ mod context;
 mod error;
 mod inverse;
 
-pub use analysis::{analyze_uncomputation, find_computational_cone, find_reversible_ops, UncomputeAnalysis};
-pub use context::{uncompute, UncomputeContext, UncomputeScope};
+pub use analysis::{
+    UncomputeAnalysis, analyze_uncomputation, find_computational_cone, find_reversible_ops,
+};
+pub use context::{UncomputeContext, UncomputeScope, uncompute};
 pub use error::{UncomputeError, UncomputeResult};
-pub use inverse::{inverse_gate, inverse_instruction, is_self_inverse, InverseStrategy};
+pub use inverse::{InverseStrategy, inverse_gate, inverse_instruction, is_self_inverse};

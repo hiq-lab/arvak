@@ -187,7 +187,12 @@ impl PauliHamiltonian {
 
 impl std::fmt::Display for PauliHamiltonian {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Hamiltonian ({} terms, {} qubits):", self.num_terms(), self.num_qubits())?;
+        writeln!(
+            f,
+            "Hamiltonian ({} terms, {} qubits):",
+            self.num_terms(),
+            self.num_qubits()
+        )?;
         for term in &self.terms {
             writeln!(f, "  {}", term)?;
         }

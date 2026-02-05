@@ -90,9 +90,7 @@ pub fn inverse_gate(gate: &StandardGate) -> UncomputeResult<StandardGate> {
         StandardGate::CH => Ok(StandardGate::CH),
 
         // PRX gate: PRX(θ, φ)† = PRX(-θ, φ)
-        StandardGate::PRX(theta, phi) => {
-            Ok(StandardGate::PRX(negate_param(theta), phi.clone()))
-        }
+        StandardGate::PRX(theta, phi) => Ok(StandardGate::PRX(negate_param(theta), phi.clone())),
     }
 }
 
@@ -127,13 +125,9 @@ pub fn inverse_instruction(instruction: &Instruction) -> UncomputeResult<Instruc
             })
         }
 
-        InstructionKind::Measure => {
-            Err(UncomputeError::NonUnitaryOperation("measure".into()))
-        }
+        InstructionKind::Measure => Err(UncomputeError::NonUnitaryOperation("measure".into())),
 
-        InstructionKind::Reset => {
-            Err(UncomputeError::NonUnitaryOperation("reset".into()))
-        }
+        InstructionKind::Reset => Err(UncomputeError::NonUnitaryOperation("reset".into())),
 
         InstructionKind::Barrier => {
             // Barriers don't need inversion - they're just markers
@@ -237,10 +231,7 @@ mod tests {
 
     #[test]
     fn test_measure_not_invertible() {
-        let inst = Instruction::measure(
-            hiq_ir::qubit::QubitId(0),
-            hiq_ir::qubit::ClbitId(0),
-        );
+        let inst = Instruction::measure(hiq_ir::qubit::QubitId(0), hiq_ir::qubit::ClbitId(0));
         let result = inverse_instruction(&inst);
 
         assert!(result.is_err());

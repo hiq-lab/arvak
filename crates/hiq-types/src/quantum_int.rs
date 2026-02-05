@@ -1,7 +1,7 @@
 //! Quantum integer type.
 
-use hiq_ir::qubit::QubitId;
 use hiq_ir::Circuit;
+use hiq_ir::qubit::QubitId;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{TypeError, TypeResult};
@@ -88,11 +88,7 @@ impl<const N: usize> QuantumInt<N> {
 
     /// Get the minimum representable value.
     pub fn min_value(&self) -> i64 {
-        if self.signed {
-            -(1i64 << (N - 1))
-        } else {
-            0
-        }
+        if self.signed { -(1i64 << (N - 1)) } else { 0 }
     }
 
     /// Get the underlying qubit register.
@@ -131,7 +127,9 @@ impl<const N: usize> QuantumInt<N> {
         for i in 0..N {
             if (value >> i) & 1 == 1 {
                 let qubit = self.register.qubit(i).unwrap();
-                circuit.x(qubit).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+                circuit
+                    .x(qubit)
+                    .map_err(|e| TypeError::CircuitError(e.to_string()))?;
             }
         }
 
@@ -141,7 +139,9 @@ impl<const N: usize> QuantumInt<N> {
     /// Apply a bitwise NOT to this integer (flip all bits).
     pub fn not(&self, circuit: &mut Circuit) -> TypeResult<()> {
         for qubit in self.register.iter() {
-            circuit.x(qubit).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+            circuit
+                .x(qubit)
+                .map_err(|e| TypeError::CircuitError(e.to_string()))?;
         }
         Ok(())
     }
@@ -149,7 +149,9 @@ impl<const N: usize> QuantumInt<N> {
     /// Apply a controlled NOT based on a control qubit.
     pub fn cnot(&self, control: QubitId, circuit: &mut Circuit) -> TypeResult<()> {
         for qubit in self.register.iter() {
-            circuit.cx(control, qubit).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+            circuit
+                .cx(control, qubit)
+                .map_err(|e| TypeError::CircuitError(e.to_string()))?;
         }
         Ok(())
     }
@@ -187,7 +189,9 @@ impl<const N: usize> QuantumInt<N> {
             if (value >> i) & 1 == 1 {
                 // Add 1 at position i: flip bit i and propagate carry
                 let qubit = self.register.qubit(i).unwrap();
-                circuit.x(qubit).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+                circuit
+                    .x(qubit)
+                    .map_err(|e| TypeError::CircuitError(e.to_string()))?;
 
                 // Propagate carry to higher bits
                 // Note: This is a simplified carry propagation
@@ -203,7 +207,9 @@ impl<const N: usize> QuantumInt<N> {
         for i in 0..N {
             let q1 = self.register.qubit(i).unwrap();
             let q2 = other.register.qubit(i).unwrap();
-            circuit.swap(q1, q2).map_err(|e| TypeError::CircuitError(e.to_string()))?;
+            circuit
+                .swap(q1, q2)
+                .map_err(|e| TypeError::CircuitError(e.to_string()))?;
         }
         Ok(())
     }

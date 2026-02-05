@@ -32,6 +32,6 @@ mod register;
 
 pub use error::{TypeError, TypeResult};
 pub use quantum_array::{QuantumArray, QuantumIndex};
-pub use quantum_float::{QFloat16, QFloat32, QFloat8, QuantumFloat};
-pub use quantum_int::{create_pair, QuantumInt};
+pub use quantum_float::{QFloat8, QFloat16, QFloat32, QuantumFloat};
+pub use quantum_int::{QuantumInt, create_pair};
 pub use register::{QubitRegister, RegisterAllocation};

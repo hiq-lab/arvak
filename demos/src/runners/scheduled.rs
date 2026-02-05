@@ -8,8 +8,8 @@ use std::time::Duration;
 
 use hiq_qasm3::emit;
 use hiq_sched::{
-    CircuitSpec, HpcScheduler, Priority, ResourceRequirements, ScheduledJob, ScheduledJobId,
-    ScheduledJobStatus, SchedResult, Scheduler, WorkflowBuilder,
+    CircuitSpec, HpcScheduler, Priority, ResourceRequirements, SchedResult, ScheduledJob,
+    ScheduledJobId, ScheduledJobStatus, Scheduler, WorkflowBuilder,
 };
 
 use crate::circuits::grover::{grover_circuit, optimal_iterations};
@@ -159,13 +159,11 @@ impl ScheduledRunner {
         .with_shots(1024)
         .with_requirements(ResourceRequirements::new(4));
 
-        let vqe_job = ScheduledJob::new(
-            "demo_vqe_eval",
-            CircuitSpec::from_qasm(emit(&vqe_circuit)?),
-        )
-        .with_priority(Priority::default())
-        .with_shots(1024)
-        .with_requirements(ResourceRequirements::new(2));
+        let vqe_job =
+            ScheduledJob::new("demo_vqe_eval", CircuitSpec::from_qasm(emit(&vqe_circuit)?))
+                .with_priority(Priority::default())
+                .with_shots(1024)
+                .with_requirements(ResourceRequirements::new(2));
 
         let qaoa_job = ScheduledJob::new(
             "demo_qaoa",
@@ -188,7 +186,10 @@ impl ScheduledRunner {
     }
 
     /// Wait for a job to complete and return the execution result.
-    pub async fn wait(&self, job_id: &ScheduledJobId) -> SchedResult<hiq_hal::result::ExecutionResult> {
+    pub async fn wait(
+        &self,
+        job_id: &ScheduledJobId,
+    ) -> SchedResult<hiq_hal::result::ExecutionResult> {
         self.scheduler.wait(job_id).await
     }
 

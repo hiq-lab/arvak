@@ -409,11 +409,7 @@ extern "C" {
 
     // Job management
     pub fn QDMI_device_create_job(device: *mut QdmiDevice, job: *mut *mut QdmiJob) -> c_int;
-    pub fn QDMI_job_set_parameter(
-        job: *mut QdmiJob,
-        param: c_int,
-        value: *const c_void,
-    ) -> c_int;
+    pub fn QDMI_job_set_parameter(job: *mut QdmiJob, param: c_int, value: *const c_void) -> c_int;
     pub fn QDMI_job_submit(job: *mut QdmiJob) -> c_int;
     pub fn QDMI_job_check(job: *mut QdmiJob, status: *mut c_int) -> c_int;
     pub fn QDMI_job_wait(job: *mut QdmiJob, timeout_ms: c_ulong) -> c_int;
@@ -532,9 +528,5 @@ pub type QdmiResult<T> = Result<T, QdmiStatus>;
 /// Check QDMI status and convert to Result
 pub fn check_status(status: c_int) -> QdmiResult<()> {
     let s = QdmiStatus::from(status);
-    if s.is_success() {
-        Ok(())
-    } else {
-        Err(s)
-    }
+    if s.is_success() { Ok(()) } else { Err(s) }
 }
