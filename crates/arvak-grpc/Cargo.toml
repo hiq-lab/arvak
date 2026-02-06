@@ -12,6 +12,7 @@ description = "gRPC service API for remote quantum circuit execution"
 [dependencies]
 # gRPC
 tonic = "0.12"
+tonic-reflection = "0.12"
 prost = "0.13"
 prost-types = "0.13"
 

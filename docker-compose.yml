@@ -5,14 +5,36 @@ services:
       dockerfile: Dockerfile
       args:
         DASHBOARD_FEATURES: "with-simulator"
+    container_name: arvak-dashboard
     ports:
       - "3000:3000"
     environment:
-      - HIQ_BIND=0.0.0.0:3000
-      - RUST_LOG=hiq_dashboard=info,tower_http=debug
+      - ARVAK_BIND=0.0.0.0:3000
+      - RUST_LOG=arvak=info,tower_http=debug
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  grpc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arvak-grpc
+    entrypoint: ["arvak-grpc-server"]
+    ports:
+      - "50051:50051"
+      - "9090:9090"
+    environment:
+      - ARVAK_GRPC_ADDRESS=0.0.0.0:50051
+      - ARVAK_HTTP_ADDRESS=0.0.0.0:9090
+      - RUST_LOG=arvak=info,tower_http=debug
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9090/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -24,11 +46,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: arvak-cli
     entrypoint: ["hiq"]
     environment:
       - RUST_LOG=info
     volumes:
-      - ./examples:/home/hiq/local-examples:ro
+      - ./examples:/home/arvak/local-examples:ro
     profiles:
       - cli
 
@@ -42,6 +65,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: arvak-demo
     entrypoint: []
     environment:
       - RUST_LOG=info

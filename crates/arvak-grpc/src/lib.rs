@@ -68,3 +68,7 @@ pub use storage::SqliteStorage;
 #[cfg(feature = "postgres")]
 pub use storage::PostgresStorage;
 pub use tracing_config::{init_default_tracing, init_tracing, TracingConfig, TracingFormat};
+
+/// Encoded file descriptor set for gRPC reflection.
+pub const FILE_DESCRIPTOR_SET: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/arvak_descriptor.bin"));

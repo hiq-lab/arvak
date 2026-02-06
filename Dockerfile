@@ -3,13 +3,14 @@
 # ============================================================
 FROM debian:bookworm-slim AS builder
 
-# Install build essentials, curl, CA certificates, and OpenSSL dev headers
+# Install build essentials, curl, CA certificates, OpenSSL dev headers, and protobuf compiler
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     ca-certificates \
     pkg-config \
     libssl-dev \
+    protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust nightly via rustup
@@ -23,7 +24,7 @@ WORKDIR /build
 # ----------------------------------------------------------
 # Layer 1: Cache dependency compilation
 # Copy only manifests and lockfile, create source stubs,
-# then build to cache all 361 external dependencies.
+# then build to cache all external dependencies.
 # This layer is only invalidated when Cargo.toml/lock changes.
 # ----------------------------------------------------------
 COPY Cargo.toml Cargo.lock ./
@@ -37,6 +38,7 @@ COPY crates/arvak-types/Cargo.toml crates/arvak-types/Cargo.toml
 COPY crates/arvak-auto/Cargo.toml crates/arvak-auto/Cargo.toml
 COPY crates/arvak-dashboard/Cargo.toml crates/arvak-dashboard/Cargo.toml
 COPY crates/arvak-cli/Cargo.toml crates/arvak-cli/Cargo.toml
+COPY crates/arvak-grpc/Cargo.toml crates/arvak-grpc/Cargo.toml
 COPY adapters/arvak-adapter-ibm/Cargo.toml adapters/arvak-adapter-ibm/Cargo.toml
 COPY adapters/arvak-adapter-iqm/Cargo.toml adapters/arvak-adapter-iqm/Cargo.toml
 COPY adapters/arvak-adapter-qdmi/Cargo.toml adapters/arvak-adapter-qdmi/Cargo.toml
@@ -60,6 +62,11 @@ RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
         && touch crates/arvak-dashboard/static/app.js \
         && touch crates/arvak-dashboard/static/style.css \
     && mkdir -p crates/arvak-cli/src && echo "fn main() {}" > crates/arvak-cli/src/main.rs \
+    && mkdir -p crates/arvak-grpc/src/bin \
+        && echo "" > crates/arvak-grpc/src/lib.rs \
+        && echo "fn main() {}" > crates/arvak-grpc/src/bin/arvak-grpc-server.rs \
+    && mkdir -p crates/arvak-grpc/proto \
+        && touch crates/arvak-grpc/proto/arvak.proto \
     && mkdir -p adapters/arvak-adapter-ibm/src && echo "" > adapters/arvak-adapter-ibm/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-iqm/src && echo "" > adapters/arvak-adapter-iqm/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-qdmi/src && echo "" > adapters/arvak-adapter-qdmi/src/lib.rs \
@@ -94,9 +101,10 @@ COPY examples/ examples/
 # Ensure cargo detects real sources as newer than cached stubs
 RUN find crates/ adapters/ demos/ -name "*.rs" -exec touch {} +
 
-# Build dashboard, CLI, and demos
+# Build dashboard, CLI, gRPC server, and demos
 RUN cargo build --release -p arvak-dashboard --features "${DASHBOARD_FEATURES}"
 RUN cargo build --release -p arvak-cli
+RUN cargo build --release -p arvak-grpc --features "simulator,sqlite"
 RUN cargo build --release -p arvak-demos -p lumi-hybrid
 
 # ============================================================
@@ -110,12 +118,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user
-RUN groupadd --gid 1000 hiq && \
-    useradd --uid 1000 --gid hiq --create-home hiq
+RUN groupadd --gid 1000 arvak && \
+    useradd --uid 1000 --gid arvak --create-home arvak
 
 # Copy binaries from builder
 COPY --from=builder /build/target/release/arvak-dashboard /usr/local/bin/arvak-dashboard
 COPY --from=builder /build/target/release/hiq /usr/local/bin/hiq
+COPY --from=builder /build/target/release/arvak-grpc-server /usr/local/bin/arvak-grpc-server
 COPY --from=builder /build/target/release/demo-grover /usr/local/bin/demo-grover
 COPY --from=builder /build/target/release/demo-vqe /usr/local/bin/demo-vqe
 COPY --from=builder /build/target/release/demo-qaoa /usr/local/bin/demo-qaoa
@@ -125,17 +134,17 @@ COPY --from=builder /build/target/release/lumi_vqe /usr/local/bin/lumi_vqe
 COPY --from=builder /build/target/release/quantum_worker /usr/local/bin/quantum_worker
 
 # Copy example QASM files
-COPY examples/*.qasm /home/hiq/examples/
+COPY examples/*.qasm /home/arvak/examples/
 
-RUN chown -R hiq:hiq /home/hiq
+RUN chown -R arvak:arvak /home/arvak
 
-USER hiq
-WORKDIR /home/hiq
+USER arvak
+WORKDIR /home/arvak
 
-# Bind to all interfaces so Docker port mapping works
-ENV HIQ_BIND=0.0.0.0:3000
-ENV RUST_LOG=hiq_dashboard=info,tower_http=info
+# Default environment for dashboard
+ENV ARVAK_BIND=0.0.0.0:3000
+ENV RUST_LOG=arvak=info,tower_http=info
 
-EXPOSE 3000
+EXPOSE 3000 50051 9090
 
 CMD ["arvak-dashboard"]

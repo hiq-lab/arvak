@@ -150,6 +150,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RequestIdInterceptor::new(),
     );
 
+    // Enable gRPC reflection for tools like grpcurl
+    let reflection_service = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(arvak_grpc::FILE_DESCRIPTOR_SET)
+        .build_v1()?;
+
     let server = Server::builder()
         .timeout(std::time::Duration::from_secs(config.server.timeout_seconds))
         .tcp_keepalive(Some(std::time::Duration::from_secs(
@@ -160,6 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .layer(TimingLayer::new())
                 .into_inner(),
         )
+        .add_service(reflection_service)
         .add_service(service_with_interceptor)
         .serve_with_shutdown(grpc_addr, async move {
             shutdown_signal.notified().await;
