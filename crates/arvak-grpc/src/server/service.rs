@@ -7,9 +7,11 @@ use arvak_ir::circuit::Circuit;
 use tonic::{Request, Response, Status};
 use tracing::{error, info, instrument, warn};
 
+use crate::config::ResourceLimits;
 use crate::error::{Error, Result};
 use crate::metrics::Metrics;
 use crate::proto::*;
+use crate::resource_manager::{ResourceError, ResourceManager};
 use crate::server::{BackendRegistry, JobStore};
 
 /// Arvak gRPC service implementation.
@@ -17,6 +19,7 @@ pub struct ArvakServiceImpl {
     job_store: Arc<JobStore>,
     backends: Arc<BackendRegistry>,
     metrics: Metrics,
+    resources: Option<ResourceManager>,
 }
 
 impl ArvakServiceImpl {
@@ -33,7 +36,19 @@ impl ArvakServiceImpl {
             job_store: Arc::new(job_store),
             backends: Arc::new(backends),
             metrics,
+            resources: None,
         }
+    }
+
+    /// Create a new service with custom components and resource limits.
+    pub fn with_limits(
+        job_store: JobStore,
+        backends: BackendRegistry,
+        limits: ResourceLimits,
+    ) -> Self {
+        let mut service = Self::with_components(job_store, backends);
+        service.resources = Some(ResourceManager::new(limits));
+        service
     }
 
     /// Create a new service with default components.
@@ -74,6 +89,7 @@ impl ArvakServiceImpl {
         backend: Arc<dyn Backend>,
         job_id: JobId,
         metrics: Metrics,
+        resources: Option<ResourceManager>,
     ) {
         // Get job details
         let job = match job_store.get_job(&job_id).await {
@@ -91,10 +107,16 @@ impl ArvakServiceImpl {
         if let Err(e) = job_store.update_status(&job_id, JobStatus::Running).await {
             error!("Failed to update job status to running: {}", e);
             metrics.record_job_failed(&backend_id, "status_update_error");
+            if let Some(ref resources) = resources {
+                resources.job_cancelled_queued().await;
+            }
             return;
         }
 
         metrics.record_job_started(&backend_id);
+        if let Some(ref resources) = resources {
+            resources.job_started().await;
+        }
         let queue_time = chrono::Utc::now()
             .signed_duration_since(submitted_at)
             .num_milliseconds() as u64;
@@ -116,11 +138,17 @@ impl ArvakServiceImpl {
                         } else {
                             metrics.record_job_completed(&backend_id, duration);
                         }
+                        if let Some(ref resources) = resources {
+                            resources.job_completed().await;
+                        }
                     }
                     Err(e) => {
                         let error_msg = format!("Backend wait failed: {}", e);
                         metrics.record_job_failed(&backend_id, "backend_wait_error");
                         let _ = job_store.update_status(&job_id, JobStatus::Failed(error_msg)).await;
+                        if let Some(ref resources) = resources {
+                            resources.job_completed().await;
+                        }
                     }
                 }
             }
@@ -128,6 +156,9 @@ impl ArvakServiceImpl {
                 let error_msg = format!("Backend submit failed: {}", e);
                 metrics.record_job_failed(&backend_id, "backend_submit_error");
                 let _ = job_store.update_status(&job_id, JobStatus::Failed(error_msg)).await;
+                if let Some(ref resources) = resources {
+                    resources.job_completed().await;
+                }
             }
         }
     }
@@ -144,12 +175,13 @@ impl ArvakServiceImpl {
     }
 
     /// Spawn async task to execute a job.
-    #[instrument(skip(job_store, backend, metrics), fields(job_id = %job_id.0))]
+    #[instrument(skip(job_store, backend, metrics, resources), fields(job_id = %job_id.0))]
     fn spawn_job_execution(
         job_store: Arc<JobStore>,
         backend: Arc<dyn Backend>,
         job_id: JobId,
         metrics: Metrics,
+        resources: Option<ResourceManager>,
     ) {
         tokio::spawn(async move {
             // Get job details to access backend_id and submission time
@@ -170,11 +202,17 @@ impl ArvakServiceImpl {
             if let Err(e) = job_store.update_status(&job_id, JobStatus::Running).await {
                 error!("Failed to update job status to running: {}", e);
                 metrics.record_job_failed(&backend_id, "status_update_error");
+                if let Some(ref resources) = resources {
+                    resources.job_cancelled_queued().await;
+                }
                 return;
             }
 
             // Record job started and queue time
             metrics.record_job_started(&backend_id);
+            if let Some(ref resources) = resources {
+                resources.job_started().await;
+            }
             let queue_time = chrono::Utc::now()
                 .signed_duration_since(submitted_at)
                 .num_milliseconds() as u64;
@@ -198,6 +236,9 @@ impl ArvakServiceImpl {
                                 info!(duration_ms = duration, "Job completed successfully");
                                 metrics.record_job_completed(&backend_id, duration);
                             }
+                            if let Some(ref resources) = resources {
+                                resources.job_completed().await;
+                            }
                         }
                         Err(e) => {
                             let error_msg = format!("Backend wait failed: {}", e);
@@ -208,6 +249,9 @@ impl ArvakServiceImpl {
                                 .await
                             {
                                 error!("Failed to update job status to failed: {}", e);
+                            }
+                            if let Some(ref resources) = resources {
+                                resources.job_completed().await;
                             }
                         }
                     }
@@ -221,6 +265,9 @@ impl ArvakServiceImpl {
                         .await
                     {
                         error!("Failed to update job status to failed: {}", e);
+                    }
+                    if let Some(ref resources) = resources {
+                        resources.job_completed().await;
                     }
                 }
             }
@@ -254,9 +301,23 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         request: Request<SubmitJobRequest>,
     ) -> std::result::Result<Response<SubmitJobResponse>, Status> {
         let start = std::time::Instant::now();
+
+        // Extract client IP from request metadata (if available)
+        let client_ip = request
+            .remote_addr()
+            .map(|addr| addr.ip().to_string());
+
         let req = request.into_inner();
 
         tracing::Span::current().record("backend_id", &req.backend_id.as_str());
+
+        // Check resource limits if manager is configured
+        if let Some(ref resources) = self.resources {
+            resources
+                .check_can_submit(client_ip.as_deref())
+                .await
+                .map_err(|e| Status::resource_exhausted(e.to_string()))?;
+        }
 
         // Parse circuit
         let circuit = self.parse_circuit(req.circuit)
@@ -279,12 +340,18 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         // Record job submission metric
         self.metrics.record_job_submitted(&req.backend_id);
 
+        // Update resource tracking
+        if let Some(ref resources) = self.resources {
+            resources.job_submitted(client_ip.as_deref()).await;
+        }
+
         // Spawn async execution task (non-blocking)
         Self::spawn_job_execution(
             self.job_store.clone(),
             backend,
             job_id.clone(),
             self.metrics.clone(),
+            self.resources.clone(),
         );
 
         // Record RPC duration
@@ -329,6 +396,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                 backend.clone(),
                 job_id.clone(),
                 self.metrics.clone(),
+                self.resources.clone(),
             );
 
             job_ids.push(job_id.0);
@@ -513,6 +581,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let job_store = self.job_store.clone();
         let backends = self.backends.clone();
         let metrics = self.metrics.clone();
+        let resources = self.resources.clone();
 
         // Spawn task to handle incoming submissions
         tokio::spawn(async move {
@@ -570,6 +639,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                 let tx_clone = tx.clone();
                                 let backend_clone = backend.clone();
                                 let metrics_clone = metrics.clone();
+                                let resources_clone = resources.clone();
                                 let _backend_id = submission.backend_id.clone();
 
                                 tokio::spawn(async move {
@@ -578,6 +648,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                         backend_clone,
                                         job_id.clone(),
                                         metrics_clone,
+                                        resources_clone,
                                     ).await;
 
                                     // Send completion notification

@@ -68,8 +68,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or("defaults")
     );
 
-    // Create service with metrics
-    let service = ArvakServiceImpl::new();
+    // Create service with resource limits
+    use arvak_grpc::server::{JobStore, backend_registry::create_default_registry};
+    let service = ArvakServiceImpl::with_limits(
+        JobStore::new(),
+        create_default_registry(),
+        config.limits.clone(),
+    );
     let backend_registry = service.backends();
 
     // Start HTTP server for health checks and metrics (if enabled)
