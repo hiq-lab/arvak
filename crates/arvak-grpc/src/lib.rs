@@ -44,11 +44,13 @@
 //! ```
 
 pub mod error;
+pub mod metrics;
 pub mod proto;
 pub mod server;
 pub mod storage;
 
 // Re-export commonly used types
 pub use error::{Error, Result};
+pub use metrics::Metrics;
 pub use server::{ArvakServiceImpl, BackendRegistry, JobStore};
 pub use storage::{JobStorage, MemoryStorage, StoredJob};
