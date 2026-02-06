@@ -1,6 +1,7 @@
 # HIQ: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/hiq-project/hiq/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/hiq-project/hiq/releases/tag/v1.1.0)
+[![PyPI](https://img.shields.io/pypi/v/hiq-quantum.svg)](https://pypi.org/project/hiq-quantum/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
@@ -8,7 +9,7 @@
 
 HIQ is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides fast compilation, first-class HPC scheduler integration, and unified access to quantum backends including IQM and IBM Quantum.
 
-> **v1.0.0 Released!** See [CHANGELOG.md](CHANGELOG.md) for details.
+> **v1.1.0 Released!** Multi-framework integration system with Qiskit, Qrisp, Cirq, and PennyLane support. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Vision
 
@@ -37,7 +38,7 @@ HIQ is **not** a Qiskit replacement. It's a complementary tool that:
 | QDMI Adapter (`hiq-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack integration |
 | HPC Scheduler (`hiq-sched`) | ✅ Complete | SLURM & PBS integration, workflows, persistence |
 | Dashboard (`hiq-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
-| Python Bindings (`hiq-python`) | ✅ Complete | PyO3 bindings for circuits & compilation |
+| Python Bindings (`hiq-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations (Qiskit, Qrisp, Cirq, PennyLane) |
 | Demos | ✅ Complete | Grover, VQE, QAOA examples |
 
 ## Architecture
@@ -239,31 +240,163 @@ fn main() -> anyhow::Result<()> {
 
 ### Python API
 
+#### Installation
+
 ```bash
-# Install from source
+# Install from PyPI
+pip install hiq-quantum
+
+# With framework integrations
+pip install hiq-quantum[qiskit]      # IBM Quantum ecosystem
+pip install hiq-quantum[qrisp]       # High-level quantum programming
+pip install hiq-quantum[cirq]        # Google Quantum AI
+pip install hiq-quantum[pennylane]   # Quantum machine learning
+pip install hiq-quantum[all]         # All frameworks + notebooks
+
+# Or install from source
 cd crates/hiq-python
 pip install maturin
 maturin develop
 ```
 
+#### Basic Usage
+
 ```python
-from hiq import Circuit, compile_circuit, to_qasm3
+import hiq
 
 # Build a Bell state circuit
-circuit = Circuit(2)
+circuit = hiq.Circuit(2)
 circuit.h(0)
 circuit.cx(0, 1)
 circuit.measure_all()
 
-print(f"Qubits: {circuit.num_qubits()}, Depth: {circuit.depth()}")
-
-# Compile for IQM hardware
-compiled = compile_circuit(circuit, target="iqm", optimization_level=2)
+print(f"Qubits: {circuit.num_qubits}, Depth: {circuit.depth()}")
 
 # Export to QASM3
-qasm = to_qasm3(compiled)
+qasm = hiq.to_qasm(circuit)
 print(qasm)
 ```
+
+#### Framework Integrations
+
+HIQ provides seamless integration with major quantum frameworks through a plugin architecture with auto-discovery.
+
+**Check Available Integrations:**
+
+```python
+import hiq
+
+# List all integrations and their availability
+print(hiq.list_integrations())
+# {'qiskit': True, 'qrisp': True, 'cirq': False, 'pennylane': True}
+
+# Get detailed status
+status = hiq.integration_status()
+print(status['qiskit'])
+# {'name': 'qiskit', 'available': True, 'packages': ['qiskit>=1.0.0', ...]}
+```
+
+**Qiskit Integration (IBM Quantum):**
+
+```python
+from qiskit import QuantumCircuit
+import hiq
+
+# Create circuit in Qiskit
+qc = QuantumCircuit(2, 2)
+qc.h(0)
+qc.cx(0, 1)
+qc.measure_all()
+
+# Convert to HIQ
+qiskit_int = hiq.get_integration('qiskit')
+hiq_circuit = qiskit_int.to_hiq(qc)
+
+# Use HIQ as Qiskit backend
+from hiq.integrations.qiskit import HIQProvider
+
+provider = HIQProvider()
+backend = provider.get_backend('sim')
+job = backend.run(qc, shots=1000)
+result = job.result()
+print(result.get_counts())
+```
+
+**Qrisp Integration (High-Level Programming):**
+
+```python
+from qrisp import QuantumVariable
+import hiq
+
+# Create quantum variable in Qrisp
+qv = QuantumVariable(4)  # 4-bit quantum integer
+qv[:] = 5  # Initialize to |5⟩
+
+# Convert to HIQ
+qrisp_int = hiq.get_integration('qrisp')
+hiq_circuit = qrisp_int.to_hiq(qv.qs)  # qs = QuantumSession
+
+# Leverage HIQ compilation
+compiled = hiq.compile_circuit(hiq_circuit, target="iqm", optimization_level=2)
+```
+
+**Cirq Integration (Google Quantum AI):**
+
+```python
+import cirq
+import hiq
+
+# Create circuit in Cirq
+qubits = cirq.LineQubit.range(2)
+circuit = cirq.Circuit(
+    cirq.H(qubits[0]),
+    cirq.CNOT(qubits[0], qubits[1]),
+    cirq.measure(*qubits, key='result')
+)
+
+# Convert to HIQ
+cirq_int = hiq.get_integration('cirq')
+hiq_circuit = cirq_int.to_hiq(circuit)
+
+# Use HIQ as Cirq sampler
+from hiq.integrations.cirq import HIQSampler
+
+sampler = HIQSampler('sim')
+result = sampler.run(circuit, repetitions=1000)
+print(result)
+```
+
+**PennyLane Integration (Quantum Machine Learning):**
+
+```python
+import pennylane as qml
+import hiq
+
+# Create QNode in PennyLane
+from hiq.integrations.pennylane import HIQDevice
+
+dev = HIQDevice(wires=2, backend='sim', shots=1000)
+
+@qml.qnode(dev)
+def circuit(x):
+    qml.RX(x, wires=0)
+    qml.CNOT(wires=[0, 1])
+    return qml.expval(qml.PauliZ(0))
+
+result = circuit(0.5)
+print(f"Expectation value: {result}")
+```
+
+**Adding New Frameworks:**
+
+HIQ's plugin architecture makes adding new frameworks straightforward (~30 minutes):
+
+1. Create integration module in `python/hiq/integrations/<framework>/`
+2. Implement `FrameworkIntegration` base class
+3. Add to `pyproject.toml` optional dependencies
+4. Framework auto-registers when package is installed
+
+See [crates/hiq-python/docs/INTEGRATION_GUIDE.md](crates/hiq-python/docs/INTEGRATION_GUIDE.md) for details.
 
 ### Quantum Types (Qrisp-inspired)
 
@@ -545,6 +678,18 @@ cargo test -- --nocapture
 - [x] Full documentation
 - [x] **v1.0.0 release**
 
+### Phase 5: Ecosystem Integration ✅
+- [x] Extensible plugin architecture with auto-discovery
+- [x] Qiskit integration (IBM Quantum ecosystem)
+- [x] Qrisp integration (High-level quantum programming)
+- [x] Cirq integration (Google Quantum AI)
+- [x] PennyLane integration (Quantum machine learning)
+- [x] Template system for adding new frameworks
+- [x] 60+ integration tests with graceful dependency skipping
+- [x] 5 interactive Jupyter notebooks
+- [x] Complete contributor guide for framework extensions
+- [x] **v1.1.0 release**
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
@@ -571,10 +716,12 @@ This integration allows HIQ to access quantum devices at European HPC centers th
 
 ## Acknowledgments
 
-HIQ builds on ideas from:
+HIQ builds on ideas from and integrates with:
 
-- [Qiskit](https://qiskit.org/) — Circuit representation and transpiler architecture
+- [Qiskit](https://qiskit.org/) — Circuit representation, transpiler architecture, and IBM Quantum ecosystem
 - [Qrisp](https://qrisp.eu/) — High-level abstractions and automatic uncomputation
+- [Cirq](https://quantumai.google/cirq) — Google Quantum AI framework and NISQ algorithms
+- [PennyLane](https://pennylane.ai/) — Quantum machine learning and automatic differentiation
 - [XACC](https://github.com/eclipse-xacc/xacc) — HPC integration patterns
 - [QDMI](https://github.com/Munich-Quantum-Software-Stack/QDMI) — Munich Quantum Software Stack device interface
 
