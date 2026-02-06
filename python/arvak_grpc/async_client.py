@@ -1,11 +1,11 @@
-"""Arvak gRPC client implementation."""
+"""Async Arvak gRPC client implementation with connection pooling."""
 
+import asyncio
 import json
-import time
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Callable, Any
 
-import grpc
+import grpc.aio
 
 from . import arvak_pb2, arvak_pb2_grpc
 from .exceptions import (
@@ -16,52 +16,118 @@ from .exceptions import (
     ArvakJobNotFoundError,
 )
 from .types import BackendInfo, Job, JobResult, JobState
-from .job_future import JobFuture
 
 
-class ArvakClient:
-    """Client for the Arvak gRPC service.
+class ConnectionPool:
+    """Connection pool for gRPC channels.
 
-    This client provides methods for submitting quantum circuits for execution,
-    checking job status, retrieving results, and managing backends.
+    Manages a pool of reusable gRPC channels to improve performance
+    by avoiding the overhead of creating new connections.
+    """
+
+    def __init__(self, address: str, max_size: int = 10):
+        """Initialize connection pool.
+
+        Args:
+            address: The gRPC server address
+            max_size: Maximum number of channels in the pool
+        """
+        self.address = address
+        self.max_size = max_size
+        self._pool: List[grpc.aio.Channel] = []
+        self._lock = asyncio.Lock()
+        self._closed = False
+
+    async def get_channel(self) -> grpc.aio.Channel:
+        """Get a channel from the pool or create a new one."""
+        async with self._lock:
+            if self._closed:
+                raise RuntimeError("Connection pool is closed")
+
+            # Try to get an existing channel
+            if self._pool:
+                return self._pool.pop()
+
+            # Create new channel if pool not full
+            channel = grpc.aio.insecure_channel(self.address)
+            return channel
+
+    async def return_channel(self, channel: grpc.aio.Channel):
+        """Return a channel to the pool."""
+        async with self._lock:
+            if self._closed:
+                await channel.close()
+                return
+
+            if len(self._pool) < self.max_size:
+                self._pool.append(channel)
+            else:
+                await channel.close()
+
+    async def close(self):
+        """Close all channels in the pool."""
+        async with self._lock:
+            self._closed = True
+            for channel in self._pool:
+                await channel.close()
+            self._pool.clear()
+
+
+class AsyncArvakClient:
+    """Async client for the Arvak gRPC service.
+
+    This client provides async/await methods for submitting quantum circuits,
+    checking job status, and retrieving results. It uses connection pooling
+    for improved performance.
 
     Args:
         address: The gRPC server address (default: "localhost:50051")
         timeout: Default timeout for RPC calls in seconds (default: 30.0)
+        pool_size: Maximum number of connections in the pool (default: 10)
 
     Example:
-        >>> client = ArvakClient("localhost:50051")
-        >>> qasm = '''
-        ... OPENQASM 3.0;
-        ... qubit[2] q;
-        ... h q[0];
-        ... cx q[0], q[1];
-        ... '''
-        >>> job_id = client.submit_qasm(qasm, "simulator", shots=1000)
-        >>> result = client.wait_for_job(job_id)
-        >>> print(result.counts)
+        >>> async with AsyncArvakClient("localhost:50051") as client:
+        ...     job_id = await client.submit_qasm(qasm, "simulator", shots=1000)
+        ...     result = await client.wait_for_job(job_id)
+        ...     print(result.counts)
     """
 
-    def __init__(self, address: str = "localhost:50051", timeout: float = 30.0):
-        """Initialize the Arvak client."""
+    def __init__(
+        self,
+        address: str = "localhost:50051",
+        timeout: float = 30.0,
+        pool_size: int = 10,
+    ):
+        """Initialize the async Arvak client."""
         self.address = address
         self.timeout = timeout
-        self.channel = grpc.insecure_channel(address)
-        self.stub = arvak_pb2_grpc.ArvakServiceStub(self.channel)
+        self._pool = ConnectionPool(address, pool_size)
+        self._channel: Optional[grpc.aio.Channel] = None
+        self._stub: Optional[arvak_pb2_grpc.ArvakServiceStub] = None
 
-    def close(self):
-        """Close the gRPC channel."""
-        self.channel.close()
-
-    def __enter__(self):
-        """Context manager entry."""
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await self._ensure_connected()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
-        self.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
 
-    def submit_qasm(
+    async def _ensure_connected(self):
+        """Ensure we have an active connection."""
+        if self._channel is None:
+            self._channel = await self._pool.get_channel()
+            self._stub = arvak_pb2_grpc.ArvakServiceStub(self._channel)
+
+    async def close(self):
+        """Close the client and return channel to pool."""
+        if self._channel is not None:
+            await self._pool.return_channel(self._channel)
+            self._channel = None
+            self._stub = None
+
+    async def submit_qasm(
         self, qasm_code: str, backend_id: str, shots: int = 1024
     ) -> str:
         """Submit an OpenQASM 3 circuit for execution.
@@ -79,18 +145,20 @@ class ArvakClient:
             ArvakBackendNotFoundError: If the backend does not exist
             ArvakError: For other errors
         """
+        await self._ensure_connected()
+
         try:
             request = arvak_pb2.SubmitJobRequest(
                 circuit=arvak_pb2.CircuitPayload(qasm3=qasm_code),
                 backend_id=backend_id,
                 shots=shots,
             )
-            response = self.stub.SubmitJob(request, timeout=self.timeout)
+            response = await self._stub.SubmitJob(request, timeout=self.timeout)
             return response.job_id
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
-    def submit_circuit_json(
+    async def submit_circuit_json(
         self, circuit_json: str, backend_id: str, shots: int = 1024
     ) -> str:
         """Submit an Arvak IR JSON circuit for execution.
@@ -108,18 +176,20 @@ class ArvakClient:
             ArvakBackendNotFoundError: If the backend does not exist
             ArvakError: For other errors
         """
+        await self._ensure_connected()
+
         try:
             request = arvak_pb2.SubmitJobRequest(
                 circuit=arvak_pb2.CircuitPayload(arvak_ir_json=circuit_json),
                 backend_id=backend_id,
                 shots=shots,
             )
-            response = self.stub.SubmitJob(request, timeout=self.timeout)
+            response = await self._stub.SubmitJob(request, timeout=self.timeout)
             return response.job_id
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
-    def submit_batch(
+    async def submit_batch(
         self,
         circuits: List[tuple[str, int]],
         backend_id: str,
@@ -140,6 +210,8 @@ class ArvakClient:
             ArvakBackendNotFoundError: If the backend does not exist
             ArvakError: For other errors
         """
+        await self._ensure_connected()
+
         try:
             batch_jobs = []
             for circuit_code, shots in circuits:
@@ -150,63 +222,19 @@ class ArvakClient:
                 else:
                     raise ValueError(f"Invalid format: {format}")
 
-                batch_jobs.append(arvak_pb2.BatchJobRequest(circuit=payload, shots=shots))
+                batch_jobs.append(
+                    arvak_pb2.BatchJobRequest(circuit=payload, shots=shots)
+                )
 
-            request = arvak_pb2.SubmitBatchRequest(backend_id=backend_id, jobs=batch_jobs)
-            response = self.stub.SubmitBatch(request, timeout=self.timeout)
+            request = arvak_pb2.SubmitBatchRequest(
+                backend_id=backend_id, jobs=batch_jobs
+            )
+            response = await self._stub.SubmitBatch(request, timeout=self.timeout)
             return list(response.job_ids)
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
-    def submit_qasm_future(
-        self, qasm_code: str, backend_id: str, shots: int = 1024, poll_interval: float = 1.0
-    ) -> JobFuture:
-        """Submit an OpenQASM 3 circuit and return a JobFuture.
-
-        Args:
-            qasm_code: OpenQASM 3 source code
-            backend_id: ID of the backend to execute on
-            shots: Number of shots to execute (default: 1024)
-            poll_interval: Polling interval for the future (default: 1.0)
-
-        Returns:
-            JobFuture object for non-blocking result retrieval
-
-        Raises:
-            ArvakInvalidCircuitError: If the circuit is invalid
-            ArvakBackendNotFoundError: If the backend does not exist
-            ArvakError: For other errors
-        """
-        job_id = self.submit_qasm(qasm_code, backend_id, shots)
-        return JobFuture(self, job_id, poll_interval)
-
-    def submit_batch_future(
-        self,
-        circuits: List[tuple[str, int]],
-        backend_id: str,
-        format: str = "qasm3",
-        poll_interval: float = 1.0,
-    ) -> List[JobFuture]:
-        """Submit multiple circuits and return JobFutures.
-
-        Args:
-            circuits: List of (circuit_code, shots) tuples
-            backend_id: ID of the backend to execute on
-            format: Circuit format ("qasm3" or "json")
-            poll_interval: Polling interval for futures (default: 1.0)
-
-        Returns:
-            List of JobFuture objects
-
-        Raises:
-            ArvakInvalidCircuitError: If any circuit is invalid
-            ArvakBackendNotFoundError: If the backend does not exist
-            ArvakError: For other errors
-        """
-        job_ids = self.submit_batch(circuits, backend_id, format)
-        return [JobFuture(self, job_id, poll_interval) for job_id in job_ids]
-
-    def get_job_status(self, job_id: str) -> Job:
+    async def get_job_status(self, job_id: str) -> Job:
         """Get the status of a job.
 
         Args:
@@ -219,14 +247,16 @@ class ArvakClient:
             ArvakJobNotFoundError: If the job does not exist
             ArvakError: For other errors
         """
+        await self._ensure_connected()
+
         try:
             request = arvak_pb2.GetJobStatusRequest(job_id=job_id)
-            response = self.stub.GetJobStatus(request, timeout=self.timeout)
+            response = await self._stub.GetJobStatus(request, timeout=self.timeout)
             return self._proto_to_job(response.job)
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
-    def get_job_result(self, job_id: str) -> JobResult:
+    async def get_job_result(self, job_id: str) -> JobResult:
         """Get the result of a completed job.
 
         Args:
@@ -240,14 +270,16 @@ class ArvakClient:
             ArvakJobNotCompletedError: If the job is not completed
             ArvakError: For other errors
         """
+        await self._ensure_connected()
+
         try:
             request = arvak_pb2.GetJobResultRequest(job_id=job_id)
-            response = self.stub.GetJobResult(request, timeout=self.timeout)
+            response = await self._stub.GetJobResult(request, timeout=self.timeout)
             return self._proto_to_result(response.result)
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
-    def cancel_job(self, job_id: str) -> tuple[bool, str]:
+    async def cancel_job(self, job_id: str) -> tuple[bool, str]:
         """Cancel a running or queued job.
 
         Args:
@@ -260,18 +292,21 @@ class ArvakClient:
             ArvakJobNotFoundError: If the job does not exist
             ArvakError: For other errors
         """
+        await self._ensure_connected()
+
         try:
             request = arvak_pb2.CancelJobRequest(job_id=job_id)
-            response = self.stub.CancelJob(request, timeout=self.timeout)
+            response = await self._stub.CancelJob(request, timeout=self.timeout)
             return (response.success, response.message)
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
-    def wait_for_job(
+    async def wait_for_job(
         self,
         job_id: str,
         poll_interval: float = 1.0,
         max_wait: Optional[float] = None,
+        progress_callback: Optional[Callable[[Job], None]] = None,
     ) -> JobResult:
         """Wait for a job to complete and return its result.
 
@@ -282,6 +317,7 @@ class ArvakClient:
             job_id: Job ID
             poll_interval: Time to wait between polls in seconds (default: 1.0)
             max_wait: Maximum time to wait in seconds, None for no limit (default: None)
+            progress_callback: Optional callback called with Job on each poll
 
         Returns:
             JobResult object
@@ -291,24 +327,31 @@ class ArvakClient:
             ArvakJobNotFoundError: If the job does not exist
             ArvakError: If the job fails
         """
-        start_time = time.time()
+        start_time = asyncio.get_event_loop().time()
 
         while True:
-            job = self.get_job_status(job_id)
+            job = await self.get_job_status(job_id)
+
+            if progress_callback:
+                progress_callback(job)
 
             if job.state == JobState.COMPLETED:
-                return self.get_job_result(job_id)
+                return await self.get_job_result(job_id)
             elif job.state == JobState.FAILED:
                 raise ArvakError(f"Job failed: {job.error_message}")
             elif job.state == JobState.CANCELED:
                 raise ArvakError("Job was canceled")
 
-            if max_wait is not None and (time.time() - start_time) >= max_wait:
-                raise TimeoutError(f"Job did not complete within {max_wait} seconds")
+            if max_wait is not None:
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed >= max_wait:
+                    raise TimeoutError(
+                        f"Job did not complete within {max_wait} seconds"
+                    )
 
-            time.sleep(poll_interval)
+            await asyncio.sleep(poll_interval)
 
-    def list_backends(self) -> List[BackendInfo]:
+    async def list_backends(self) -> List[BackendInfo]:
         """List all available backends.
 
         Returns:
@@ -317,14 +360,16 @@ class ArvakClient:
         Raises:
             ArvakError: For errors
         """
+        await self._ensure_connected()
+
         try:
             request = arvak_pb2.ListBackendsRequest()
-            response = self.stub.ListBackends(request, timeout=self.timeout)
+            response = await self._stub.ListBackends(request, timeout=self.timeout)
             return [self._proto_to_backend_info(b) for b in response.backends]
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
-    def get_backend_info(self, backend_id: str) -> BackendInfo:
+    async def get_backend_info(self, backend_id: str) -> BackendInfo:
         """Get detailed information about a specific backend.
 
         Args:
@@ -337,9 +382,11 @@ class ArvakClient:
             ArvakBackendNotFoundError: If the backend does not exist
             ArvakError: For other errors
         """
+        await self._ensure_connected()
+
         try:
             request = arvak_pb2.GetBackendInfoRequest(backend_id=backend_id)
-            response = self.stub.GetBackendInfo(request, timeout=self.timeout)
+            response = await self._stub.GetBackendInfo(request, timeout=self.timeout)
             return self._proto_to_backend_info(response.backend)
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
@@ -382,7 +429,11 @@ class ArvakClient:
             job_id=proto_result.job_id,
             counts=dict(proto_result.counts),
             shots=proto_result.shots,
-            execution_time_ms=proto_result.execution_time_ms if proto_result.execution_time_ms > 0 else None,
+            execution_time_ms=(
+                proto_result.execution_time_ms
+                if proto_result.execution_time_ms > 0
+                else None
+            ),
             metadata=metadata,
         )
 
