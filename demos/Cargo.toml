@@ -1,14 +1,14 @@
 [package]
-name = "hiq-demos"
+name = "arvak-demos"
 version.workspace = true
 edition.workspace = true
 description = "Demo suite for HIQ HPC-quantum orchestration"
 
 [dependencies]
-hiq-ir = { workspace = true }
-hiq-qasm3 = { workspace = true }
-hiq-hal = { workspace = true }
-hiq-sched = { workspace = true }
+arvak-ir = { workspace = true }
+arvak-qasm3 = { workspace = true }
+arvak-hal = { workspace = true }
+arvak-sched = { workspace = true }
 
 # Async
 tokio = { workspace = true }

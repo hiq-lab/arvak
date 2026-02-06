@@ -18,14 +18,14 @@ categories = ["science", "compilers", "simulation"]
 
 [workspace.dependencies]
 # Internal crates
-hiq-ir = { path = "crates/hiq-ir" }
-hiq-qasm3 = { path = "crates/hiq-qasm3" }
-hiq-compile = { path = "crates/hiq-compile" }
-hiq-hal = { path = "crates/hiq-hal" }
-hiq-sched = { path = "crates/hiq-sched" }
-hiq-types = { path = "crates/hiq-types" }
-hiq-auto = { path = "crates/hiq-auto" }
-hiq-dashboard = { path = "crates/hiq-dashboard" }
+arvak-ir = { path = "crates/arvak-ir" }
+arvak-qasm3 = { path = "crates/arvak-qasm3" }
+arvak-compile = { path = "crates/arvak-compile" }
+arvak-hal = { path = "crates/arvak-hal" }
+arvak-sched = { path = "crates/arvak-sched" }
+arvak-types = { path = "crates/arvak-types" }
+arvak-auto = { path = "crates/arvak-auto" }
+arvak-dashboard = { path = "crates/arvak-dashboard" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }

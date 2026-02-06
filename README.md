@@ -253,10 +253,10 @@ compiled = arvak.compile_circuit(
 ### Rust API
 
 ```rust
-use hiq_ir::Circuit;
-use hiq_qasm3::{parse, emit};
-use hiq_adapter_sim::SimulatorBackend;
-use hiq_hal::Backend;
+use arvak_ir::Circuit;
+use arvak_qasm3::{parse, emit};
+use arvak_adapter_sim::SimulatorBackend;
+use arvak_hal::Backend;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -292,7 +292,7 @@ async fn main() -> anyhow::Result<()> {
 
 ```bash
 # Install Rust CLI
-cargo install --path crates/hiq-cli
+cargo install --path crates/arvak-cli
 
 # List available backends
 hiq backends
@@ -323,10 +323,10 @@ cd arvak
 cargo build --release
 
 # Install CLI
-cargo install --path crates/hiq-cli
+cargo install --path crates/arvak-cli
 
 # Build Python package
-cd crates/hiq-python
+cd crates/arvak-python
 pip install maturin
 maturin develop --release
 
@@ -435,7 +435,7 @@ Arvak includes a web-based dashboard for circuit visualization, compilation, and
 
 ```bash
 # Run the dashboard with simulator backend
-cargo run -p hiq-dashboard --features with-simulator
+cargo run -p arvak-dashboard --features with-simulator
 
 # Dashboard available at http://localhost:3000
 ```
@@ -462,8 +462,8 @@ cargo run -p hiq-dashboard --features with-simulator
 ## Quantum Types (Qrisp-inspired)
 
 ```rust
-use hiq_types::{QuantumInt, QuantumFloat, QuantumArray};
-use hiq_ir::Circuit;
+use arvak_types::{QuantumInt, QuantumFloat, QuantumArray};
+use arvak_ir::Circuit;
 
 fn main() -> anyhow::Result<()> {
     let mut circuit = Circuit::new("arithmetic");
@@ -489,8 +489,8 @@ fn main() -> anyhow::Result<()> {
 ## Automatic Uncomputation
 
 ```rust
-use hiq_auto::{UncomputeContext, uncompute};
-use hiq_ir::Circuit;
+use arvak_auto::{UncomputeContext, uncompute};
+use arvak_ir::Circuit;
 
 fn main() -> anyhow::Result<()> {
     let mut circuit = Circuit::new("with_uncompute");
@@ -540,20 +540,20 @@ fn main() -> anyhow::Result<()> {
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Circuit IR (`hiq-ir`) | ✅ Complete | DAG-based representation |
-| QASM3 Parser (`hiq-qasm3`) | ✅ Complete | Parse & emit |
-| Compilation (`hiq-compile`) | ✅ Complete | Pass manager, layout, routing, optimization |
-| HAL (`hiq-hal`) | ✅ Complete | Backend trait, capabilities, job management |
-| CLI (`hiq-cli`) | ✅ Complete | compile, run, backends commands |
-| Quantum Types (`hiq-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
-| Auto-Uncompute (`hiq-auto`) | ✅ Complete | Automatic ancilla uncomputation |
-| Simulator (`hiq-adapter-sim`) | ✅ Complete | Statevector simulation |
-| IQM Adapter (`hiq-adapter-iqm`) | ✅ Complete | Resonance API integration |
-| IBM Adapter (`hiq-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
-| QDMI Adapter (`hiq-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack integration |
-| HPC Scheduler (`hiq-sched`) | ✅ Complete | SLURM & PBS integration, workflows, persistence |
-| Dashboard (`hiq-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
-| Python Bindings (`hiq-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations |
+| Circuit IR (`arvak-ir`) | ✅ Complete | DAG-based representation |
+| QASM3 Parser (`arvak-qasm3`) | ✅ Complete | Parse & emit |
+| Compilation (`arvak-compile`) | ✅ Complete | Pass manager, layout, routing, optimization |
+| HAL (`arvak-hal`) | ✅ Complete | Backend trait, capabilities, job management |
+| CLI (`arvak-cli`) | ✅ Complete | compile, run, backends commands |
+| Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
+| Auto-Uncompute (`arvak-auto`) | ✅ Complete | Automatic ancilla uncomputation |
+| Simulator (`arvak-adapter-sim`) | ✅ Complete | Statevector simulation |
+| IQM Adapter (`arvak-adapter-iqm`) | ✅ Complete | Resonance API integration |
+| IBM Adapter (`arvak-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
+| QDMI Adapter (`arvak-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack integration |
+| HPC Scheduler (`arvak-sched`) | ✅ Complete | SLURM & PBS integration, workflows, persistence |
+| Dashboard (`arvak-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
+| Python Bindings (`arvak-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations |
 | **Framework Integrations** | ✅ Complete | **Qiskit, Qrisp, Cirq, PennyLane + 5 notebooks** |
 | Demos | ✅ Complete | Grover, VQE, QAOA examples |
 
@@ -564,7 +564,7 @@ fn main() -> anyhow::Result<()> {
 cargo test
 
 # Run integration tests (60+ tests)
-cd crates/hiq-python
+cd crates/arvak-python
 pytest tests/
 
 # Run specific framework tests
@@ -617,8 +617,8 @@ python tests/verify_integration_system.py
 Arvak provides native integration with [QDMI](https://github.com/Munich-Quantum-Software-Stack/QDMI), the Quantum Device Management Interface from the Munich Quantum Software Stack (MQSS).
 
 ```rust
-use hiq_adapter_qdmi::QdmiBackend;
-use hiq_hal::Backend;
+use arvak_adapter_qdmi::QdmiBackend;
+use arvak_hal::Backend;
 
 let backend = QdmiBackend::new()
     .with_token("your-api-token")

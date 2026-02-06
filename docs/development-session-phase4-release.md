@@ -12,7 +12,7 @@ This document captures the development session that completed Phase 4 of Arvak a
 
 ## Phase 4 Implementation
 
-### 1. Advanced Optimization Passes (hiq-compile)
+### 1. Advanced Optimization Passes (arvak-compile)
 
 Created three new optimization passes in `crates/hiq-compile/src/passes/optimization.rs`:
 
@@ -109,11 +109,11 @@ uncompute(&mut circuit, ctx)?;
 ### Enhanced Rustdoc
 
 Updated module documentation for all crates:
-- `hiq-ir`: Circuit builder examples, gate tables
-- `hiq-compile`: Pass architecture diagrams, optimization levels
-- `hiq-hal`: Backend trait, OIDC auth examples
-- `hiq-qasm3`: Parser/emitter examples, supported features
-- `hiq-sched`: SLURM/PBS examples, workflow patterns
+- `arvak-ir`: Circuit builder examples, gate tables
+- `arvak-compile`: Pass architecture diagrams, optimization levels
+- `arvak-hal`: Backend trait, OIDC auth examples
+- `arvak-qasm3`: Parser/emitter examples, supported features
+- `arvak-sched`: SLURM/PBS examples, workflow patterns
 - `hiq-adapter-*`: Backend-specific docs
 
 ### New Files Created

@@ -55,7 +55,7 @@ No blocking issues found. The codebase is in good shape for its current developm
 
 #### M1: Error Types Lack Context for Debugging
 
-**Location**: `crates/hiq-ir/src/error.rs:8-40`
+**Location**: `crates/arvak-ir/src/error.rs:8-40`
 
 **Lens**: A (API/Ergonomics)
 
@@ -82,7 +82,7 @@ QubitNotFound { qubit: QubitId, op_index: Option<usize> },
 
 #### M2: Parser Silently Ignores Unsupported Constructs
 
-**Location**: `crates/hiq-qasm3/src/parser.rs:770-798`
+**Location**: `crates/arvak-qasm3/src/parser.rs:770-798`
 
 **Lens**: C (Correctness)
 
@@ -105,7 +105,7 @@ Statement::Assignment { .. } => {
 
 #### M3: Missing Qubit Count Validation in DAG
 
-**Location**: `crates/hiq-ir/src/dag.rs:159-228`
+**Location**: `crates/arvak-ir/src/dag.rs:159-228`
 
 **Lens**: C (Correctness)
 
@@ -148,9 +148,9 @@ if let InstructionKind::Gate(gate) = &instruction.kind {
 **Description**: Builder pattern methods that return `Self` should be marked `#[must_use]` to prevent accidental discarding.
 
 **Files Affected**:
-- `crates/hiq-ir/src/gate.rs:270-279` — `CustomGate::with_params`, `with_matrix`
-- `crates/hiq-ir/src/gate.rs:334-343` — `Gate::with_label`, `with_condition`
-- `crates/hiq-compile/src/manager.rs:101-117` — `PassManagerBuilder` methods
+- `crates/arvak-ir/src/gate.rs:270-279` — `CustomGate::with_params`, `with_matrix`
+- `crates/arvak-ir/src/gate.rs:334-343` — `Gate::with_label`, `with_condition`
+- `crates/arvak-compile/src/manager.rs:101-117` — `PassManagerBuilder` methods
 
 **Recommendation**: Add `#[must_use]` attribute.
 
@@ -170,7 +170,7 @@ pub fn with_params(mut self, params: Vec<ParameterExpression>) -> Self {
 
 #### m2: Inconsistent Return Types in Circuit API
 
-**Location**: `crates/hiq-ir/src/circuit.rs`
+**Location**: `crates/arvak-ir/src/circuit.rs`
 
 **Lens**: A (API/Ergonomics)
 
@@ -193,7 +193,7 @@ pub fn into_dag(self) -> CircuitDag        // Consumes
 
 #### m3: `FxHashMap` Iteration Order Non-Deterministic
 
-**Location**: `crates/hiq-ir/src/dag.rs:364-371`
+**Location**: `crates/arvak-ir/src/dag.rs:364-371`
 
 **Lens**: B (Performance) / C (Correctness)
 
@@ -221,8 +221,8 @@ pub fn qubits(&self) -> impl Iterator<Item = QubitId> + '_ {
 
 **Description**: Several `#[allow(dead_code)]` annotations indicate planned but unfinished functionality:
 
-- `crates/hiq-qasm3/src/parser.rs:19` — `parse_ast` function
-- `adapters/hiq-adapter-sim/src/statevector.rs:29` — `num_qubits` method
+- `crates/arvak-qasm3/src/parser.rs:19` — `parse_ast` function
+- `adapters/arvak-adapter-sim/src/statevector.rs:29` — `num_qubits` method
 
 **Recommendation**: Either remove dead code or track completion in issues. Dead code increases maintenance burden.
 
@@ -234,7 +234,7 @@ pub fn qubits(&self) -> impl Iterator<Item = QubitId> + '_ {
 
 #### m5: Missing `Clone` Derive on `PassManager`
 
-**Location**: `crates/hiq-compile/src/manager.rs:13-16`
+**Location**: `crates/arvak-compile/src/manager.rs:13-16`
 
 **Lens**: A (API/Ergonomics)
 
@@ -259,7 +259,7 @@ pub struct PassManager {
 
 #### m6: Statevector Memory Grows Exponentially
 
-**Location**: `adapters/hiq-adapter-sim/src/statevector.rs:18-26`
+**Location**: `adapters/arvak-adapter-sim/src/statevector.rs:18-26`
 
 **Lens**: B (Performance)
 
@@ -293,7 +293,7 @@ pub fn new(num_qubits: usize) -> Result<Self, SimError> {
 
 #### m7: Topology `is_connected` Does Linear Scan
 
-**Location**: `crates/hiq-hal/src/capability.rs:216-220`
+**Location**: `crates/arvak-hal/src/capability.rs:216-220`
 
 **Lens**: B (Performance)
 
@@ -331,9 +331,9 @@ pub struct Topology {
 
 **Description**: Several public types lack crate-level documentation or examples:
 
-- `hiq_compile::PropertySet` — no usage examples
-- `hiq_hal::Capabilities` — fields documented but no constructor examples
-- `hiq_ir::ParameterExpression` — symbolic math not explained
+- `arvak_compile::PropertySet` — no usage examples
+- `arvak_hal::Capabilities` — fields documented but no constructor examples
+- `arvak_ir::ParameterExpression` — symbolic math not explained
 
 **Recommendation**: Add `# Examples` sections to key types.
 
@@ -347,7 +347,7 @@ pub struct Topology {
 
 #### n1: Consider `#[non_exhaustive]` on Public Enums
 
-**Location**: `crates/hiq-ir/src/error.rs`, `crates/hiq-hal/src/capability.rs:224-236`
+**Location**: `crates/arvak-ir/src/error.rs`, `crates/arvak-hal/src/capability.rs:224-236`
 
 **Lens**: D (Architecture)
 
@@ -371,7 +371,7 @@ pub struct Topology {
 
 #### n3: Consider `Cow<str>` for Gate Names
 
-**Location**: `crates/hiq-ir/src/gate.rs:248`
+**Location**: `crates/arvak-ir/src/gate.rs:248`
 
 **Lens**: B (Performance)
 
@@ -387,7 +387,7 @@ pub struct Topology {
 
 #### n4: Test Helpers Should Be in Separate Module
 
-**Location**: `adapters/hiq-adapter-sim/src/statevector.rs:474-476`
+**Location**: `adapters/arvak-adapter-sim/src/statevector.rs:474-476`
 
 **Lens**: D (Architecture)
 
@@ -401,7 +401,7 @@ pub struct Topology {
 
 #### n5: Use `expect` Instead of `unwrap` with Messages
 
-**Location**: `crates/hiq-ir/src/dag.rs:233-234`
+**Location**: `crates/arvak-ir/src/dag.rs:233-234`
 
 **Lens**: C (Correctness)
 
@@ -451,7 +451,7 @@ impl Circuit {
 
 ### 3. Separate Parsing from Lowering
 
-`hiq-qasm3` combines parsing and lowering. Separating them enables:
+`arvak-qasm3` combines parsing and lowering. Separating them enables:
 - AST-level transformations
 - Better error recovery
 - Multiple lowering targets
@@ -501,20 +501,20 @@ simulator = ["num-complex", "rand"]
 ### A. Files Reviewed
 
 ```
-crates/hiq-ir/src/lib.rs
-crates/hiq-ir/src/circuit.rs
-crates/hiq-ir/src/dag.rs
-crates/hiq-ir/src/gate.rs
-crates/hiq-ir/src/error.rs
-crates/hiq-hal/src/lib.rs
-crates/hiq-hal/src/capability.rs
-crates/hiq-hal/src/backend.rs
-crates/hiq-compile/src/lib.rs
-crates/hiq-compile/src/pass.rs
-crates/hiq-compile/src/manager.rs
-crates/hiq-qasm3/src/parser.rs
-adapters/hiq-adapter-sim/src/statevector.rs
-crates/hiq-cli/src/commands/backends.rs
+crates/arvak-ir/src/lib.rs
+crates/arvak-ir/src/circuit.rs
+crates/arvak-ir/src/dag.rs
+crates/arvak-ir/src/gate.rs
+crates/arvak-ir/src/error.rs
+crates/arvak-hal/src/lib.rs
+crates/arvak-hal/src/capability.rs
+crates/arvak-hal/src/backend.rs
+crates/arvak-compile/src/lib.rs
+crates/arvak-compile/src/pass.rs
+crates/arvak-compile/src/manager.rs
+crates/arvak-qasm3/src/parser.rs
+adapters/arvak-adapter-sim/src/statevector.rs
+crates/arvak-cli/src/commands/backends.rs
 ```
 
 ### B. Tooling Output

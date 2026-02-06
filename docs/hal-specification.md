@@ -421,10 +421,10 @@ impl BackendRegistry {
 ## Example: Complete Workflow
 
 ```rust
-use hiq_ir::Circuit;
-use hiq_compile::{PassManagerBuilder, PropertySet, CouplingMap, BasisGates};
-use hiq_hal::{Backend, BackendConfig};
-use hiq_adapter_iqm::IqmBackend;
+use arvak_ir::Circuit;
+use arvak_compile::{PassManagerBuilder, PropertySet, CouplingMap, BasisGates};
+use arvak_hal::{Backend, BackendConfig};
+use arvak_adapter_iqm::IqmBackend;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

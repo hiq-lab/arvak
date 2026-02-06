@@ -48,9 +48,9 @@ hiq run examples/bell.qasm --backend iqm --shots 1000
 ### Using Rust
 
 ```rust
-use hiq_qasm3::parse;
-use hiq_adapter_sim::SimulatorBackend;
-use hiq_hal::Backend;
+use arvak_qasm3::parse;
+use arvak_adapter_sim::SimulatorBackend;
+use arvak_hal::Backend;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

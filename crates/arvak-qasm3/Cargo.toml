@@ -1,0 +1,19 @@
+[package]
+name = "arvak-qasm3"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "OpenQASM 3 parser for HIQ"
+keywords = ["quantum", "qasm", "parser", "openqasm"]
+categories = ["parsing", "science"]
+
+[dependencies]
+arvak-ir = { workspace = true }
+logos = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

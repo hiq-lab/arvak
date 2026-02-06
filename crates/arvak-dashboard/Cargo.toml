@@ -1,0 +1,69 @@
+[package]
+name = "arvak-dashboard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Local web dashboard for HIQ quantum circuit visualization and job monitoring"
+keywords = ["quantum", "dashboard", "visualization", "web"]
+categories = ["visualization", "web-programming"]
+
+[lib]
+name = "hiq_dashboard"
+path = "src/lib.rs"
+
+[[bin]]
+name = "arvak-dashboard"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+arvak-ir = { workspace = true }
+arvak-hal = { workspace = true }
+arvak-sched = { workspace = true }
+arvak-compile = { workspace = true }
+arvak-qasm3 = { workspace = true }
+
+# Web framework
+axum = { version = "0.8", features = ["ws", "macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "trace"] }
+
+# Async
+tokio = { workspace = true }
+futures = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# UUID
+uuid = { workspace = true }
+
+# Hashing
+rustc-hash = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "test-util"] }
+axum-test = "18"
+arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim" }
+
+[features]
+default = []
+with-simulator = ["arvak-adapter-sim"]
+
+[dependencies.arvak-adapter-sim]
+path = "../../adapters/arvak-adapter-sim"
+optional = true
