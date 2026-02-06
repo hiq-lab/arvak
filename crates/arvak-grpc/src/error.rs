@@ -41,6 +41,10 @@ pub enum Error {
     #[error("JSON parsing error: {0}")]
     JsonParse(#[from] serde_json::Error),
 
+    /// Storage error.
+    #[error("Storage error: {0}")]
+    StorageError(String),
+
     /// Internal error.
     #[error("Internal error: {0}")]
     Internal(String),
@@ -57,6 +61,7 @@ impl From<Error> for Status {
             Error::Backend(e) => Status::internal(format!("Backend error: {}", e)),
             Error::QasmParse(msg) => Status::invalid_argument(format!("QASM parse error: {}", msg)),
             Error::JsonParse(e) => Status::invalid_argument(format!("JSON parse error: {}", e)),
+            Error::StorageError(msg) => Status::internal(format!("Storage error: {}", msg)),
             Error::Internal(msg) => Status::internal(msg),
         }
     }
@@ -65,5 +70,12 @@ impl From<Error> for Status {
 impl From<arvak_qasm3::ParseError> for Error {
     fn from(err: arvak_qasm3::ParseError) -> Self {
         Error::QasmParse(err.to_string())
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl From<rusqlite::Error> for Error {
+    fn from(err: rusqlite::Error) -> Self {
+        Error::StorageError(err.to_string())
     }
 }
