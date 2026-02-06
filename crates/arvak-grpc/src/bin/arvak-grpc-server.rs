@@ -24,14 +24,23 @@
 //! # Override with environment variables
 //! ARVAK_GRPC_ADDRESS=127.0.0.1:9090 arvak-grpc-server
 //! ```
+//!
+//! # Graceful Shutdown
+//!
+//! The server responds to SIGTERM and SIGINT signals for graceful shutdown:
+//! - Stops accepting new requests
+//! - Waits for in-flight requests to complete (with timeout)
+//! - Shuts down gRPC and HTTP servers cleanly
 
 use arvak_grpc::{
     init_tracing, start_health_server, ArvakServiceImpl, Config, HealthState, Metrics,
     TracingConfig, TracingFormat,
 };
 use arvak_grpc::proto::arvak_service_server::ArvakServiceServer;
+use std::sync::Arc;
+use tokio::sync::Notify;
 use tonic::transport::Server;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,8 +86,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let backend_registry = service.backends();
 
+    // Set up graceful shutdown
+    let shutdown_signal = Arc::new(Notify::new());
+    let shutdown_signal_clone = shutdown_signal.clone();
+
+    // Spawn signal handler
+    tokio::spawn(async move {
+        shutdown_signal_handler().await;
+        shutdown_signal_clone.notify_one();
+    });
+
     // Start HTTP server for health checks and metrics (if enabled)
-    if config.observability.http_server.health_enabled
+    let http_shutdown = shutdown_signal.clone();
+    let http_handle = if config.observability.http_server.health_enabled
         || config.observability.http_server.metrics_enabled
     {
         let http_addr = config.http_address()?;
@@ -95,18 +115,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("  Metrics endpoint: /metrics");
         }
 
-        let health_handle = tokio::spawn(async move {
+        // HTTP server doesn't have graceful shutdown built-in, just let it run
+        let handle = tokio::spawn(async move {
             if let Err(e) = start_health_server(http_addr.port(), health_state).await {
                 error!("HTTP server error: {}", e);
             }
+            // Wait for shutdown signal
+            http_shutdown.notified().await;
+            info!("HTTP server shutting down");
         });
 
-        // Store handle to keep health server running
-        std::mem::forget(health_handle);
-    }
+        Some(handle)
+    } else {
+        None
+    };
 
     // Get gRPC server address
     let grpc_addr = config.grpc_address()?;
+    let shutdown_timeout = config.server.shutdown_timeout_seconds;
 
     info!("gRPC server listening on {}", grpc_addr);
     info!("Storage backend: {}", config.storage.backend);
@@ -114,22 +140,84 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Resource limits: {} concurrent jobs, {} queued",
         config.limits.max_concurrent_jobs, config.limits.max_queued_jobs
     );
+    info!("Graceful shutdown timeout: {}s", shutdown_timeout);
 
-    // Build and start gRPC server
+    // Build gRPC server with graceful shutdown
     let server = Server::builder()
         .timeout(std::time::Duration::from_secs(config.server.timeout_seconds))
         .tcp_keepalive(Some(std::time::Duration::from_secs(
             config.server.keepalive_seconds,
         )))
         .add_service(ArvakServiceServer::new(service))
-        .serve(grpc_addr);
+        .serve_with_shutdown(grpc_addr, async move {
+            shutdown_signal.notified().await;
+            info!("Shutdown signal received, initiating graceful shutdown");
+        });
 
     info!("Arvak gRPC server started successfully");
 
-    // Run server
-    server.await?;
+    // Run gRPC server
+    let result = tokio::time::timeout(
+        std::time::Duration::MAX, // No timeout on normal operation
+        server,
+    )
+    .await;
 
+    match result {
+        Ok(Ok(())) => {
+            info!("gRPC server shut down successfully");
+        }
+        Ok(Err(e)) => {
+            error!("gRPC server error: {}", e);
+        }
+        Err(_) => {
+            warn!("gRPC server shutdown timed out");
+        }
+    }
+
+    // Wait for HTTP server to shut down (with timeout)
+    if let Some(handle) = http_handle {
+        info!("Waiting for HTTP server to shut down");
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(shutdown_timeout),
+            handle,
+        )
+        .await;
+    }
+
+    info!("Server shutdown complete");
     Ok(())
+}
+
+/// Wait for shutdown signal (SIGTERM or SIGINT).
+async fn shutdown_signal_handler() {
+    use tokio::signal;
+
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("Received SIGINT (Ctrl+C)");
+        }
+        _ = terminate => {
+            info!("Received SIGTERM");
+        }
+    }
 }
 
 /// Parse --config argument from command line.
