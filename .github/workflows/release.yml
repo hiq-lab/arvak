@@ -30,7 +30,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --skip cp314
           sccache: 'true'
           manylinux: auto
           working-directory: crates/hiq-python
@@ -59,7 +59,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --skip cp314
           sccache: 'true'
           manylinux: musllinux_1_2
           working-directory: crates/hiq-python
@@ -87,7 +87,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --skip cp314
           sccache: 'true'
           working-directory: crates/hiq-python
 
@@ -117,7 +117,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --skip cp314
           sccache: 'true'
           working-directory: crates/hiq-python
 
