@@ -9,6 +9,11 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
+<p align="center">
+  <strong>Developed by <a href="https://www.hal-contract.org">The HAL Contract</a></strong><br>
+  <em>Advancing quantum computing infrastructure for European HPC centers</em>
+</p>
+
 > **v1.1.1 Released!** Multi-framework integration system with Qiskit, Qrisp, Cirq, and PennyLane support + 5 interactive Jupyter notebooks. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Quick Install
@@ -649,8 +654,22 @@ See [crates/hiq-python/docs/INTEGRATION_GUIDE.md](crates/hiq-python/docs/INTEGRA
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
 
-## Contact
+## Contact & Support
 
-- **GitHub Issues**: [hiq-lab/arvak/issues](https://github.com/hiq-lab/arvak/issues)
+### The HAL Contract
+
+Arvak is developed and maintained by **[The HAL Contract](https://www.hal-contract.org)**, an organization dedicated to advancing quantum computing infrastructure for European HPC centers.
+
+- **Website**: [www.hal-contract.org](https://www.hal-contract.org)
+- **Email**: [daniel@hal-contract.org](mailto:daniel@hal-contract.org)
+
+### Project Resources
+
+- **GitHub Repository**: [github.com/hiq-lab/arvak](https://github.com/hiq-lab/arvak)
+- **GitHub Issues**: [github.com/hiq-lab/arvak/issues](https://github.com/hiq-lab/arvak/issues)
 - **Documentation**: [arvak.io](https://arvak.io)
-- **PyPI**: [pypi.org/project/arvak](https://pypi.org/project/arvak/)
+- **PyPI Package**: [pypi.org/project/arvak](https://pypi.org/project/arvak/)
+
+### Collaboration & Partnership
+
+For collaboration opportunities, enterprise support, or partnership inquiries, please contact us through [The HAL Contract](https://www.hal-contract.org).

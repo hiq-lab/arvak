@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "arvak"
 version = "1.1.1"
-description = "Arvak - Rust-native quantum compilation and orchestration platform for HPC"
+description = "Arvak - Rust-native quantum compilation and orchestration platform for HPC. Developed by The HAL Contract."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
@@ -13,7 +13,7 @@ authors = [
     { name = "Daniel Hinderink", email = "daniel@hal-contract.org" }
 ]
 keywords = ["quantum", "compiler", "qasm", "circuit", "hpc", "orchestration"]
-urls = { Homepage = "https://arvak.io", Repository = "https://github.com/hiq-lab/arvak", Issues = "https://github.com/hiq-lab/arvak/issues", Documentation = "https://arvak.io" }
+urls = { Homepage = "https://arvak.io", Repository = "https://github.com/hiq-lab/arvak", Issues = "https://github.com/hiq-lab/arvak/issues", Documentation = "https://arvak.io", Organization = "https://www.hal-contract.org" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
