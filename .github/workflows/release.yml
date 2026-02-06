@@ -98,14 +98,10 @@ jobs:
           path: crates/hiq-python/dist
 
   macos:
-    runs-on: ${{ matrix.platform.runner }}
+    runs-on: macos-14
     strategy:
       matrix:
-        platform:
-          - runner: macos-12
-            target: x86_64
-          - runner: macos-14
-            target: aarch64
+        target: [aarch64]
     steps:
       - uses: actions/checkout@v4
 
@@ -116,7 +112,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.platform.target }}
+          target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
           sccache: 'true'
           working-directory: crates/hiq-python
@@ -126,7 +122,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-macos-${{ matrix.platform.target }}
+          name: wheels-macos-${{ matrix.target }}
           path: crates/hiq-python/dist
 
   sdist:
