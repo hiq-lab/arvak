@@ -84,6 +84,12 @@ service ArvakService {
 
   /// Watch job status updates in real-time (server streaming).
   rpc WatchJob(WatchJobRequest) returns (stream JobStatusUpdate);
+
+  /// Stream large result sets in chunks (server streaming).
+  rpc StreamResults(StreamResultsRequest) returns (stream ResultChunk);
+
+  /// Submit batch jobs with streaming feedback (bidirectional streaming).
+  rpc SubmitBatchStream(stream BatchJobSubmission) returns (stream BatchJobResult);
 }
 
 // ============================================================================
@@ -180,4 +186,38 @@ message JobStatusUpdate {
   JobState state = 2;
   int64 timestamp = 3;           // Unix timestamp (seconds)
   string error_message = 4;      // Populated if state == FAILED
+}
+
+// --- StreamResults ---
+
+message StreamResultsRequest {
+  string job_id = 1;
+  uint32 chunk_size = 2;         // Number of results per chunk (default: 1000)
+}
+
+message ResultChunk {
+  string job_id = 1;
+  map<string, uint64> counts = 2;      // Partial counts for this chunk
+  bool is_final = 3;                   // True if this is the last chunk
+  uint32 chunk_index = 4;              // Zero-based chunk index
+  uint32 total_chunks = 5;             // Total number of chunks
+}
+
+// --- SubmitBatchStream ---
+
+message BatchJobSubmission {
+  CircuitPayload circuit = 1;
+  string backend_id = 2;
+  uint32 shots = 3;
+  string client_request_id = 4;        // Optional client-provided ID for tracking
+}
+
+message BatchJobResult {
+  string job_id = 1;
+  string client_request_id = 2;        // Echoed from request
+  oneof result {
+    string submitted = 3;              // "Job submitted successfully"
+    JobResult completed = 4;           // Full result when job completes
+    string error = 5;                  // Error message if job failed
+  }
 }
