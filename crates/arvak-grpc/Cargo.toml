@@ -69,6 +69,7 @@ prost-build = "0.13"
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "test-util"] }
 tokio-stream = { version = "0.1", features = ["net"] }
+async-stream = "0.3"
 
 [features]
 default = ["simulator"]
@@ -90,3 +91,7 @@ path = "examples/custom_storage.rs"
 [[example]]
 name = "health_metrics"
 path = "examples/health_metrics.rs"
+
+[[example]]
+name = "streaming_demo"
+path = "examples/streaming_demo.rs"
