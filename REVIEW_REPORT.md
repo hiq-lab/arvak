@@ -13,7 +13,7 @@
 
 ## Executive Summary
 
-HIQ is a well-architected quantum compilation platform with clean separation of concerns across its workspace crates. The codebase demonstrates strong Rust fundamentals: no unsafe code, clean clippy output, comprehensive test coverage for core functionality, and consistent use of the 2024 edition features.
+Arvak is a well-architected quantum compilation platform with clean separation of concerns across its workspace crates. The codebase demonstrates strong Rust fundamentals: no unsafe code, clean clippy output, comprehensive test coverage for core functionality, and consistent use of the 2024 edition features.
 
 **Strengths**:
 - Clear layered architecture (IR → HAL → Compile → Adapters → CLI)
