@@ -58,6 +58,7 @@ tokio-stream = { version = "0.1", features = ["net"] }
 [features]
 default = ["simulator"]
 simulator = ["arvak-adapter-sim"]
+# TODO: Add sqlite and postgres features once dependency conflicts are resolved
 
 [[bin]]
 name = "arvak-grpc-server"
@@ -66,3 +67,7 @@ path = "src/bin/arvak-grpc-server.rs"
 [[example]]
 name = "simple_client"
 path = "examples/simple_client.rs"
+
+[[example]]
+name = "custom_storage"
+path = "examples/custom_storage.rs"

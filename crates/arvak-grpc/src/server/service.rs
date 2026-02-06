@@ -139,9 +139,11 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             .map_err(|e| Status::from(e))?;
 
         // Create job in store (status = QUEUED)
-        let job_id = self.job_store
+        let job_id = self
+            .job_store
             .create_job(circuit, req.backend_id, req.shots)
-            .await;
+            .await
+            .map_err(|e| Status::from(e))?;
 
         // Spawn async execution task (non-blocking)
         Self::spawn_job_execution(
@@ -173,9 +175,11 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             let circuit = self.parse_circuit(batch_job.circuit)
                 .map_err(|e| Status::from(e))?;
 
-            let job_id = self.job_store
+            let job_id = self
+                .job_store
                 .create_job(circuit, req.backend_id.clone(), batch_job.shots)
-                .await;
+                .await
+                .map_err(|e| Status::from(e))?;
 
             Self::spawn_job_execution(
                 self.job_store.clone(),
