@@ -5,6 +5,215 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [arvak_grpc 1.6.0] - 2025-02-06
+
+### Added - Phase 3: Data Export and Advanced Analysis
+
+#### Week 1: Apache Arrow & Parquet Support
+- **ResultExporter**: Export quantum measurement results to multiple formats
+  - Apache Arrow columnar format for efficient in-memory processing
+  - Parquet compressed storage (snappy, gzip, lz4, zstd codecs)
+  - CSV export with customizable columns
+  - JSON export with metadata preservation
+  - `to_parquet()`, `from_parquet()`, `to_arrow_table()` methods
+- **BatchExporter**: Incremental batch result export
+  - Add results one-by-one or in batches
+  - Export accumulated results to any format
+  - Efficient memory usage for large datasets
+- **Parquet metadata inspection**: `get_parquet_metadata()` function
+- **Example**: `export_example.py` with 5 comprehensive demonstrations
+
+#### Week 2: Pandas & Polars Integration
+- **DataFrameConverter**: Convert JobResult to DataFrame formats
+  - `to_pandas()`: Convert to pandas DataFrame with probabilities
+  - `to_polars()`: Convert to polars DataFrame for faster operations
+  - `batch_to_pandas()`, `batch_to_polars()`: Batch conversions
+  - Optional metadata columns (job_id, shots, execution_time_ms)
+- **StatisticalAnalyzer**: Comprehensive quantum statistics
+  - Shannon entropy calculation (H = -Σ p log₂ p)
+  - Purity computation (P = Σ p²)
+  - Fidelity estimation (Bhattacharyya coefficient)
+  - Total variation distance between distributions
+  - Summary statistics with automatic analysis
+- **Visualizer**: Matplotlib-based visualization tools
+  - `plot_distribution()`: Bar charts of measurement results
+  - `plot_comparison()`: Compare multiple distributions side-by-side
+  - `plot_statistics_table()`: Display summary statistics
+  - Automatic figure sizing and formatting
+- **Example**: `dataframe_example.py` with 6 examples
+- **Tests**: 23 tests (10 passing, 13 skipped for optional dependencies)
+
+#### Week 3: Result Caching & Storage
+- **MemoryCache**: In-memory LRU cache with TTL
+  - Configurable max size and time-to-live
+  - LRU eviction policy for memory efficiency
+  - Access statistics (hits, misses, hit rate)
+  - Automatic TTL-based expiration
+- **DiskCache**: Persistent cache with multiple formats
+  - JSON format for human readability
+  - Parquet format for compression and speed
+  - TTL support with automatic eviction
+  - Hash-based subdirectory distribution
+  - Metadata tracking for all cached results
+- **TwoLevelCache**: L1 (memory) + L2 (disk) hierarchy
+  - Automatic promotion from L2 to L1 on access
+  - Configurable TTL per level
+  - Unified API for both cache levels
+  - Combined statistics reporting
+- **CachedClient**: Transparent caching wrapper
+  - Drop-in replacement for ArvakClient
+  - Automatic result caching on retrieval
+  - Configurable auto-cache behavior
+  - Cache statistics API
+- **Example**: `caching_example.py` with 6 examples
+- **Tests**: 24 tests (23 passing, 1 skipped)
+
+#### Week 4: Result Aggregation & Analysis
+- **ResultAggregator**: Combine and filter results
+  - `combine()`: Sum counts from multiple runs
+  - `average()`: Compute averaged probability distributions
+  - `filter_by_threshold()`: Remove low-probability states
+  - `top_k_states()`: Keep only most common states
+- **ResultComparator**: Advanced distribution comparison
+  - Total Variation Distance (TVD)
+  - Kullback-Leibler Divergence (KL)
+  - Jensen-Shannon Divergence (JS)
+  - Hellinger Distance
+  - Probability Overlap (Bhattacharyya coefficient)
+  - Pearson Correlation of counts
+  - `compare()`: Comprehensive comparison with all metrics
+- **ConvergenceAnalyzer**: Shot convergence analysis
+  - `analyze_convergence()`: Track metrics vs shot count
+  - Entropy, purity, fidelity tracking
+  - Convergence detection with configurable threshold
+  - `estimate_required_shots()`: Statistical shot estimation
+- **ResultTransformer**: Result manipulation tools
+  - `normalize()`: Fix rounding errors in counts
+  - `downsample()`: Reduce shot count proportionally
+  - `apply_noise()`: Simulate bit-flip errors
+  - Reproducible noise with seed support
+- **Batch operations**: Multi-result analysis
+  - `batch_compare()`: Pairwise comparison matrix
+  - `group_by_similarity()`: Cluster similar results
+- **Example**: `analysis_example.py` with 7 advanced examples
+- **Tests**: 23 tests (all passing)
+
+### Changed
+- **Package version**: 1.3.0 → 1.6.0
+- **Dependencies**: Added optional extras for `export`, `polars`, `viz`
+- **__init__.py**: Exported 40+ new classes and functions
+
+### Documentation
+- **README**: Expanded gRPC section from 44 to 276 lines
+- **Examples**: 4 comprehensive example files (950+ lines)
+- **Tests**: 70 total tests (56 passing, 14 skipped for optional deps)
+
+### Performance
+- **Caching**: Up to 100x speedup for repeated result access
+- **Parquet**: Efficient compression (typically 5-10x smaller than JSON)
+- **Arrow**: Zero-copy DataFrame conversions where possible
+
+## [arvak_grpc 1.2.0] - 2025-02-06
+
+### Added - Phase 2: Advanced Client Features
+
+#### Async/Await Support
+- **AsyncArvakClient**: Full async/await API with asyncio
+  - Connection pooling for efficient resource usage
+  - Concurrent job submission with `asyncio.gather()`
+  - Non-blocking wait operations
+  - Graceful connection management
+  - Example: Submit 100 jobs concurrently
+
+#### JobFuture Interface
+- **JobFuture**: Promise-like interface for jobs
+  - `result()`: Blocking result retrieval
+  - `wait()`: Non-blocking wait with timeout
+  - `cancel()`: Cancel running jobs
+  - `add_done_callback()`: Register completion callbacks
+  - `as_concurrent_future()`: Integration with concurrent.futures
+- **Coordination functions**: `as_completed()`, `wait()` for multiple futures
+- Background polling thread for non-blocking operation
+
+#### Retry & Resilience
+- **RetryPolicy**: Configurable retry with backoff strategies
+  - Exponential backoff (default)
+  - Linear backoff
+  - Constant delay
+  - Configurable max attempts and backoff multiplier
+  - Retry on transient failures
+- **CircuitBreaker**: Prevent cascading failures
+  - Three states: CLOSED, OPEN, HALF_OPEN
+  - Automatic recovery after timeout
+  - Failure threshold configuration
+  - State transition tracking
+- **ResilientClient**: Combined retry + circuit breaker
+  - Automatic transient error handling
+  - Graceful degradation
+  - Decorator functions: `@with_retry`, `@with_circuit_breaker`
+
+#### Batch Operations
+- **BatchJobManager**: Concurrent batch execution
+  - ThreadPoolExecutor for parallel submission
+  - Configurable worker pool size
+  - Progress tracking with callbacks
+  - Fail-fast or continue-on-error modes
+  - Comprehensive statistics (success/failure rates, timing)
+  - `execute_batch()`: High-level batch execution
+  - 8.1x performance improvement over sequential (16.1 vs 2.0 jobs/s)
+
+### Changed
+- **Package version**: 1.0.0 → 1.2.0
+- **Dependencies**: Added `grpcio.aio` for async support
+
+### Documentation
+- **Migration guide**: Backward-compatible upgrade path
+- **Examples**: 5 new example files demonstrating async, futures, retry, batching
+- **Tests**: 45 new tests (all passing)
+
+## [arvak_grpc 1.0.0] - 2025-02-06
+
+### Added - Phase 1: Core gRPC Service
+
+#### Rust gRPC Server
+- **arvak-grpc**: Complete gRPC service implementation
+  - 7 RPCs: SubmitJob, SubmitBatch, GetJobStatus, GetJobResult, CancelJob, ListBackends, GetBackendInfo
+  - Protobuf schema (arvak.proto) with 11 messages
+  - Thread-safe in-memory job storage with `Arc<RwLock<FxHashMap>>`
+  - Non-blocking job execution with tokio::spawn
+  - Backend registry with feature-gated backends
+  - Automatic timestamp management
+  - Circuit format support: OpenQASM 3.0 and Arvak IR JSON
+
+#### Python Client Library
+- **ArvakClient**: Synchronous blocking client
+  - `submit_qasm()`, `submit_circuit_json()`: Job submission
+  - `submit_batch()`: Batch job submission
+  - `get_job_status()`, `get_job_result()`: Result retrieval
+  - `wait_for_job()`: Polling helper with configurable interval
+  - `list_backends()`, `get_backend_info()`: Backend discovery
+  - `cancel_job()`: Job cancellation
+  - Connection management with context manager support
+
+#### Type System
+- **Job**: Job metadata with state tracking
+- **JobResult**: Measurement results with counts
+- **JobState**: Enum for job lifecycle (QUEUED, RUNNING, COMPLETED, FAILED, CANCELED)
+- **BackendInfo**: Backend capabilities and metadata
+
+#### Error Handling
+- Custom exceptions: `ArvakError`, `ArvakJobNotFoundError`, `ArvakBackendNotFoundError`, `ArvakInvalidCircuitError`, `ArvakJobNotCompletedError`
+- Proper gRPC status code mapping
+
+### Documentation
+- **README**: Complete gRPC section with examples
+- **Examples**: Basic usage examples in Rust and Python
+- **Tests**: 27 tests (5 unit + 9 integration + 13 Python)
+
+### Performance
+- Server: Handles 100+ jobs/sec submission rate
+- Non-blocking: RPCs return immediately, jobs execute in background
+
 ## [1.1.1] - 2025-02-06
 
 ### Fixed
