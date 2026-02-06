@@ -64,4 +64,7 @@ pub use storage::{JobStorage, MemoryStorage, StoredJob};
 
 #[cfg(feature = "sqlite")]
 pub use storage::SqliteStorage;
+
+#[cfg(feature = "postgres")]
+pub use storage::PostgresStorage;
 pub use tracing_config::{init_default_tracing, init_tracing, TracingConfig, TracingFormat};

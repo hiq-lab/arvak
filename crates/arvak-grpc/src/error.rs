@@ -79,3 +79,10 @@ impl From<rusqlite::Error> for Error {
         Error::StorageError(err.to_string())
     }
 }
+
+#[cfg(feature = "postgres")]
+impl From<tokio_postgres::Error> for Error {
+    fn from(err: tokio_postgres::Error) -> Self {
+        Error::StorageError(err.to_string())
+    }
+}

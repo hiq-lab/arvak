@@ -391,6 +391,147 @@ class AsyncArvakClient:
         except grpc.RpcError as e:
             self._handle_grpc_error(e)
 
+    async def watch_job(self, job_id: str):
+        """Watch job status updates in real-time via server streaming.
+
+        This method returns an async generator that yields job status updates
+        as they occur on the server. The stream continues until the job reaches
+        a terminal state (COMPLETED, FAILED, or CANCELED).
+
+        Args:
+            job_id: Job ID to watch
+
+        Yields:
+            Tuple of (JobState, timestamp, error_message) for each update
+
+        Raises:
+            ArvakJobNotFoundError: If the job does not exist
+            ArvakError: For other errors
+
+        Example:
+            >>> async for state, timestamp, error_msg in client.watch_job(job_id):
+            ...     print(f"Job state: {state.name} at {timestamp}")
+            ...     if state == JobState.COMPLETED:
+            ...         break
+        """
+        await self._ensure_connected()
+
+        try:
+            request = arvak_pb2.WatchJobRequest(job_id=job_id)
+            async for update in self._stub.WatchJob(request, timeout=self.timeout):
+                timestamp = datetime.fromtimestamp(update.timestamp)
+                error_msg = update.error_message if update.error_message else None
+                yield JobState(update.state), timestamp, error_msg
+        except grpc.RpcError as e:
+            self._handle_grpc_error(e)
+
+    async def stream_results(self, job_id: str, chunk_size: int = 1000):
+        """Stream large result sets in chunks via server streaming.
+
+        This method returns an async generator that yields result chunks
+        for large datasets. Useful for jobs with many measurement outcomes.
+
+        Args:
+            job_id: Job ID to stream results from
+            chunk_size: Number of results per chunk (default: 1000)
+
+        Yields:
+            Tuple of (counts_dict, is_final, chunk_index, total_chunks) for each chunk
+
+        Raises:
+            ArvakJobNotFoundError: If the job does not exist
+            ArvakJobNotCompletedError: If the job is not completed
+            ArvakError: For other errors
+
+        Example:
+            >>> all_counts = {}
+            >>> async for counts, is_final, idx, total in client.stream_results(job_id):
+            ...     all_counts.update(counts)
+            ...     print(f"Chunk {idx+1}/{total}: {len(counts)} outcomes")
+            ...     if is_final:
+            ...         break
+        """
+        await self._ensure_connected()
+
+        try:
+            request = arvak_pb2.StreamResultsRequest(
+                job_id=job_id, chunk_size=chunk_size
+            )
+            async for chunk in self._stub.StreamResults(request, timeout=self.timeout):
+                counts = dict(chunk.counts)
+                yield counts, chunk.is_final, chunk.chunk_index, chunk.total_chunks
+        except grpc.RpcError as e:
+            self._handle_grpc_error(e)
+
+    async def submit_batch_stream(self, circuits_generator):
+        """Submit batch jobs with streaming feedback via bidirectional streaming.
+
+        This method accepts an async generator that yields circuits to submit,
+        and returns an async generator that yields results as jobs complete.
+
+        Args:
+            circuits_generator: Async generator yielding tuples of
+                (circuit_code, backend_id, shots, format, client_request_id)
+                where format is "qasm3" or "json"
+
+        Yields:
+            Tuple of (job_id, client_request_id, result_type, result_data) where:
+            - result_type is "submitted", "completed", or "error"
+            - result_data is the corresponding data (string, JobResult, or error message)
+
+        Raises:
+            ArvakError: For errors
+
+        Example:
+            >>> async def circuit_gen():
+            ...     for i, qasm in enumerate(circuits):
+            ...         yield (qasm, "simulator", 1000, "qasm3", f"req-{i}")
+            ...
+            >>> async for job_id, req_id, rtype, rdata in client.submit_batch_stream(circuit_gen()):
+            ...     if rtype == "submitted":
+            ...         print(f"Job {job_id} submitted")
+            ...     elif rtype == "completed":
+            ...         print(f"Job {job_id} completed: {rdata.counts}")
+            ...     elif rtype == "error":
+            ...         print(f"Job {job_id} failed: {rdata}")
+        """
+        await self._ensure_connected()
+
+        async def request_generator():
+            """Convert circuit generator to protobuf requests."""
+            async for circuit_code, backend_id, shots, format, client_req_id in circuits_generator:
+                if format == "qasm3":
+                    payload = arvak_pb2.CircuitPayload(qasm3=circuit_code)
+                elif format == "json":
+                    payload = arvak_pb2.CircuitPayload(arvak_ir_json=circuit_code)
+                else:
+                    raise ValueError(f"Invalid format: {format}")
+
+                yield arvak_pb2.BatchJobSubmission(
+                    circuit=payload,
+                    backend_id=backend_id,
+                    shots=shots,
+                    client_request_id=client_req_id,
+                )
+
+        try:
+            async for result in self._stub.SubmitBatchStream(
+                request_generator(), timeout=self.timeout
+            ):
+                job_id = result.job_id
+                client_req_id = result.client_request_id
+
+                # Determine result type and extract data
+                if result.HasField("submitted"):
+                    yield job_id, client_req_id, "submitted", result.submitted
+                elif result.HasField("completed"):
+                    job_result = self._proto_to_result(result.completed)
+                    yield job_id, client_req_id, "completed", job_result
+                elif result.HasField("error"):
+                    yield job_id, client_req_id, "error", result.error
+        except grpc.RpcError as e:
+            self._handle_grpc_error(e)
+
     def _proto_to_job(self, proto_job) -> Job:
         """Convert protobuf Job to Job dataclass."""
         submitted_at = datetime.fromtimestamp(proto_job.submitted_at)

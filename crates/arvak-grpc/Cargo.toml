@@ -32,6 +32,7 @@ arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim", optional = true
 
 # Storage backends (feature-gated)
 rusqlite = { version = "0.31", features = ["bundled"], optional = true }
+tokio-postgres = { version = "0.7", features = ["runtime"], optional = true }
 
 # Data structures
 rustc-hash = { workspace = true }
@@ -83,7 +84,7 @@ async-stream = "0.3"
 default = ["simulator"]
 simulator = ["arvak-adapter-sim"]
 sqlite = ["rusqlite"]
-# TODO: Add postgres feature once needed
+postgres = ["tokio-postgres"]
 
 [[bin]]
 name = "arvak-grpc-server"
