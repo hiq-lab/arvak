@@ -13,7 +13,7 @@ authors = [
     { name = "Daniel Hinderink", email = "daniel@hal-contract.org" }
 ]
 keywords = ["quantum", "compiler", "qasm", "circuit", "hpc", "orchestration"]
-urls = { Homepage = "https://arvak.io", Repository = "https://github.com/hiq-lab/HIQ", Issues = "https://github.com/hiq-lab/HIQ/issues", Documentation = "https://arvak.io" }
+urls = { Homepage = "https://arvak.io", Repository = "https://github.com/hiq-lab/arvak", Issues = "https://github.com/hiq-lab/arvak/issues", Documentation = "https://arvak.io" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",

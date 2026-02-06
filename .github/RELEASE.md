@@ -19,7 +19,7 @@ This document describes how to release a new version of the HIQ Python package t
 
 ### 2. Add PyPI Token to GitHub Secrets
 
-1. Go to your GitHub repository: https://github.com/hiq-lab/HIQ
+1. Go to your GitHub repository: https://github.com/hiq-lab/arvak
 2. Navigate to **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret**
 4. Name: `PYPI_API_TOKEN`
@@ -75,7 +75,7 @@ git push origin v1.0.1
 
 ### Step 4: Monitor the Release
 
-1. Go to **Actions** tab on GitHub: https://github.com/hiq-lab/HIQ/actions
+1. Go to **Actions** tab on GitHub: https://github.com/hiq-lab/arvak/actions
 2. Watch the "Release" workflow run
 3. It takes ~15-30 minutes to build all platforms
 4. Once complete, check PyPI: https://pypi.org/project/hiq/
@@ -172,6 +172,6 @@ To test the workflow without publishing:
 ## Support
 
 For issues with releases:
-- Check [GitHub Actions logs](https://github.com/hiq-lab/HIQ/actions)
-- Open an issue: https://github.com/hiq-lab/HIQ/issues
+- Check [GitHub Actions logs](https://github.com/hiq-lab/arvak/actions)
+- Open an issue: https://github.com/hiq-lab/arvak/issues
 - Contact: daniel@hal-contract.org

@@ -672,12 +672,12 @@ To contribute a new integration:
 
 ## Resources
 
-- Arvak GitHub: https://github.com/hiq-lab/HIQ
+- Arvak GitHub: https://github.com/hiq-lab/arvak
 - OpenQASM 3.0 Spec: https://openqasm.com/
 - Example integrations: `python/hiq/integrations/qiskit/`
 
 ## Support
 
 For questions or issues:
-- GitHub Issues: https://github.com/hiq-lab/HIQ/issues
-- Discussions: https://github.com/hiq-lab/HIQ/discussions
+- GitHub Issues: https://github.com/hiq-lab/arvak/issues
+- Discussions: https://github.com/hiq-lab/arvak/discussions

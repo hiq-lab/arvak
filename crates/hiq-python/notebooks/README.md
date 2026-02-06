@@ -176,8 +176,8 @@ That's it! Your integration will be automatically discovered and available when 
 ## Support
 
 For questions or issues with notebooks:
-- GitHub Issues: https://github.com/hiq-lab/HIQ/issues
-- Documentation: https://github.com/hiq-lab/HIQ
+- GitHub Issues: https://github.com/hiq-lab/arvak/issues
+- Documentation: https://github.com/hiq-lab/arvak
 
 ## Contributing
 

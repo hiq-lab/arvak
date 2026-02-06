@@ -219,8 +219,8 @@ pytestmark = pytest.mark.skipif(
 - **Integration Guide**: `docs/INTEGRATION_GUIDE.md`
 - **Notebook Guide**: `notebooks/README.md`
 - **Implementation Summary**: `notebooks/IMPLEMENTATION_SUMMARY.md`
-- **HIQ GitHub**: https://github.com/hiq-lab/HIQ
-- **Issues**: https://github.com/hiq-lab/HIQ/issues
+- **HIQ GitHub**: https://github.com/hiq-lab/arvak
+- **Issues**: https://github.com/hiq-lab/arvak/issues
 
 ## Getting Help
 

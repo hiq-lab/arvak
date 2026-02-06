@@ -230,6 +230,6 @@ If upgrading from development versions:
 
 ---
 
-[1.1.0]: https://github.com/hiq-lab/HIQ/releases/tag/v1.1.0
-[1.0.0]: https://github.com/hiq-lab/HIQ/releases/tag/v1.0.0
-[0.1.0]: https://github.com/hiq-lab/HIQ/releases/tag/v0.1.0
+[1.1.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.0
+[1.0.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.0.0
+[0.1.0]: https://github.com/hiq-lab/arvak/releases/tag/v0.1.0
