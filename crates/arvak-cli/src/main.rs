@@ -42,7 +42,7 @@
 //!          Rust-Native Quantum Compilation
 //!              for HPC Environments
 //!
-//!            "Swift as the eternal steeds"
+//!       "Calm down HAL, Arvak's got Dave's back"
 //! ```
 
 use clap::{Parser, Subcommand};
