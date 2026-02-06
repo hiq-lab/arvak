@@ -290,8 +290,8 @@ Consolidates sequences of gates into optimal decompositions.
 ### Implementing a Custom Pass
 
 ```rust
-use hiq_compile::{Pass, PassKind, PropertySet, CompileResult};
-use hiq_ir::dag::CircuitDag;
+use arvak_compile::{Pass, PassKind, PropertySet, CompileResult};
+use arvak_ir::dag::CircuitDag;
 
 pub struct MyCustomPass {
     threshold: f64,

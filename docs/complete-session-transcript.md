@@ -19,8 +19,8 @@ Phase 4 work already completed before this session continued:
 4. Implemented `Optimize1qGates` pass
 5. Implemented `CancelCX` pass
 6. Implemented `CommutativeCancellation` pass
-7. Created `hiq-types` crate (QuantumInt, QuantumFloat, QuantumArray)
-8. Created `hiq-auto` crate structure (not yet tested)
+7. Created `arvak-types` crate (QuantumInt, QuantumFloat, QuantumArray)
+8. Created `arvak-auto` crate structure (not yet tested)
 
 ---
 
@@ -39,7 +39,7 @@ hiq-auto = { path = "crates/hiq-auto" }
 
 #### 2. First Test Run - Compilation Errors
 ```
-error[E0609]: no field `kind` on type `(NodeIndex, &hiq_ir::Instruction)`
+error[E0609]: no field `kind` on type `(NodeIndex, &arvak_ir::Instruction)`
 ```
 
 **Fix:** Changed tuple destructuring pattern:
@@ -54,8 +54,8 @@ for (idx, (_node, inst)) in dag.topological_ops().enumerate() {
 ```
 
 #### 3. Cleaned Up Unused Imports
-- Removed `hiq_ir::dag::NodeIndex` from context.rs
-- Removed `hiq_ir::gate::StandardGate` from test module
+- Removed `arvak_ir::dag::NodeIndex` from context.rs
+- Removed `arvak_ir::gate::StandardGate` from test module
 - Added exports to lib.rs for `find_computational_cone`, `find_reversible_ops`, `uncompute`, `is_self_inverse`
 
 #### 4. Test Results
@@ -94,8 +94,8 @@ test result: ok. 17 passed; 0 failed; 0 ignored
 #### 1. Updated README.md
 Added Phase 4 components to status table:
 ```markdown
-| Quantum Types (`hiq-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
-| Auto-Uncompute (`hiq-auto`) | ✅ Complete | Automatic ancilla uncomputation |
+| Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
+| Auto-Uncompute (`arvak-auto`) | ✅ Complete | Automatic ancilla uncomputation |
 ```
 
 Updated project structure to include new crates.

@@ -15,13 +15,13 @@ name = "quantum_worker"
 path = "src/quantum_worker.rs"
 
 [dependencies]
-hiq-ir = { path = "../../crates/hiq-ir" }
-hiq-qasm3 = { path = "../../crates/hiq-qasm3" }
-hiq-hal = { path = "../../crates/hiq-hal" }
-hiq-compile = { path = "../../crates/hiq-compile" }
-hiq-sched = { path = "../../crates/hiq-sched" }
-hiq-adapter-sim = { path = "../../adapters/hiq-adapter-sim" }
-hiq-adapter-iqm = { path = "../../adapters/hiq-adapter-iqm" }
+arvak-ir = { path = "../../crates/arvak-ir" }
+arvak-qasm3 = { path = "../../crates/arvak-qasm3" }
+arvak-hal = { path = "../../crates/arvak-hal" }
+arvak-compile = { path = "../../crates/arvak-compile" }
+arvak-sched = { path = "../../crates/arvak-sched" }
+arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim" }
+arvak-adapter-iqm = { path = "../../adapters/arvak-adapter-iqm" }
 
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

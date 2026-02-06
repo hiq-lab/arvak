@@ -123,7 +123,7 @@ For HPC cluster deployment, use the `ScheduledRunner`:
 ```rust
 use std::sync::Arc;
 use hiq_demos::runners::ScheduledRunner;
-use hiq_sched::{HpcScheduler, SchedulerConfig, Priority};
+use arvak_sched::{HpcScheduler, SchedulerConfig, Priority};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -194,7 +194,7 @@ cargo test -p hiq-demos -- --nocapture
 
 ## Dependencies
 
-- `hiq-ir`: Quantum circuit intermediate representation
-- `hiq-qasm3`: OpenQASM 3.0 code generation
-- `hiq-hal`: Hardware abstraction layer
-- `hiq-sched`: HPC scheduler with SLURM integration
+- `arvak-ir`: Quantum circuit intermediate representation
+- `arvak-qasm3`: OpenQASM 3.0 code generation
+- `arvak-hal`: Hardware abstraction layer
+- `arvak-sched`: HPC scheduler with SLURM integration

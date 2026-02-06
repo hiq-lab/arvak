@@ -1,0 +1,29 @@
+[package]
+name = "arvak-adapter-iqm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "HIQ adapter for IQM quantum computers via Resonance API"
+keywords = ["quantum", "iqm", "cloud", "hardware"]
+categories = ["science", "api-bindings"]
+
+[dependencies]
+arvak-ir = { workspace = true }
+arvak-hal = { workspace = true }
+arvak-qasm3 = { path = "../../crates/arvak-qasm3" }
+
+tokio = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+rustc-hash = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

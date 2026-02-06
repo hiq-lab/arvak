@@ -154,7 +154,7 @@ pub enum ParameterExpression {
 ### Examples
 
 ```rust
-use hiq_ir::parameter::ParameterExpression;
+use arvak_ir::parameter::ParameterExpression;
 use std::f64::consts::PI;
 
 // Constant

@@ -1,0 +1,40 @@
+[package]
+name = "arvak-adapter-qdmi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "HIQ adapter for QDMI (Quantum Device Management Interface) from Munich Quantum Software Stack"
+keywords = ["quantum", "qdmi", "mqss", "lrz", "hardware"]
+categories = ["science", "api-bindings"]
+
+[features]
+default = []
+# Enable this feature when QDMI library is installed on the system
+system-qdmi = []
+
+[dependencies]
+arvak-ir = { workspace = true }
+arvak-hal = { workspace = true }
+arvak-qasm3 = { path = "../../crates/arvak-qasm3" }
+
+tokio = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+rustc-hash = { workspace = true }
+uuid = { workspace = true }
+
+# FFI binding generation (optional, for development)
+# bindgen = { version = "0.70", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[build-dependencies]
+# Uncomment when building against system QDMI
+# pkg-config = "0.3"

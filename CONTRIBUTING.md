@@ -210,21 +210,21 @@ Look for issues labeled `good first issue` for beginner-friendly tasks.
 ### Simulator (always available)
 
 ```bash
-cargo test -p hiq-adapter-sim
+cargo test -p arvak-adapter-sim
 ```
 
 ### IQM (requires token)
 
 ```bash
 export IQM_TOKEN="your-token"
-cargo test -p hiq-adapter-iqm -- --ignored
+cargo test -p arvak-adapter-iqm -- --ignored
 ```
 
 ### IBM (requires token)
 
 ```bash
 export IBM_QUANTUM_TOKEN="your-token"
-cargo test -p hiq-adapter-ibm -- --ignored
+cargo test -p arvak-adapter-ibm -- --ignored
 ```
 
 ## Building Documentation

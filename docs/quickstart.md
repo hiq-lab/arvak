@@ -74,10 +74,10 @@ hiq run -i bell_compiled.qasm --backend simulator --shots 1000
 ### Using the Rust API
 
 ```rust
-use hiq_ir::Circuit;
-use hiq_compile::{PassManagerBuilder, PropertySet, CouplingMap, BasisGates};
-use hiq_hal::Backend;
-use hiq_adapter_sim::SimulatorBackend;
+use arvak_ir::Circuit;
+use arvak_compile::{PassManagerBuilder, PropertySet, CouplingMap, BasisGates};
+use arvak_hal::Backend;
+use arvak_adapter_sim::SimulatorBackend;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -148,7 +148,7 @@ for bitstring, count in result.counts.items():
 ### Create Custom Circuits
 
 ```rust
-use hiq_ir::{Circuit, QubitId};
+use arvak_ir::{Circuit, QubitId};
 use std::f64::consts::PI;
 
 let mut circuit = Circuit::new("my_circuit");

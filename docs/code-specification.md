@@ -409,7 +409,7 @@ impl Circuit {
 ```rust
 // crates/hiq-compile/src/pass.rs
 
-use hiq_ir::dag::CircuitDag;
+use arvak_ir::dag::CircuitDag;
 use crate::property::PropertySet;
 use crate::error::CompileResult;
 
@@ -445,7 +445,7 @@ pub trait TransformationPass: Pass {
 
 use rustc_hash::FxHashMap;
 use std::any::{Any, TypeId};
-use hiq_ir::qubit::QubitId;
+use arvak_ir::qubit::QubitId;
 
 /// A mapping from logical qubits to physical qubits.
 #[derive(Debug, Clone, Default)]
@@ -517,7 +517,7 @@ impl PropertySet {
 ```rust
 // crates/hiq-compile/src/manager.rs
 
-use hiq_ir::dag::CircuitDag;
+use arvak_ir::dag::CircuitDag;
 use crate::pass::Pass;
 use crate::property::PropertySet;
 use crate::error::CompileResult;
@@ -559,7 +559,7 @@ impl PassManagerBuilder {
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use hiq_ir::Circuit;
+use arvak_ir::Circuit;
 use crate::capability::Capabilities;
 use crate::job::{JobId, JobStatus};
 use crate::result::ExecutionResult;
@@ -841,7 +841,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum CompileError {
     #[error("IR error: {0}")]
-    Ir(#[from] hiq_ir::error::IrError),
+    Ir(#[from] arvak_ir::error::IrError),
 
     #[error("Missing coupling map for routing")]
     MissingCouplingMap,

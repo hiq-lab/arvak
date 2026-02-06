@@ -152,7 +152,7 @@ docs(hal): add backend implementation guide
 /// # Examples
 ///
 /// ```
-/// use hiq_ir::gate::{Gate, StandardGate};
+/// use arvak_ir::gate::{Gate, StandardGate};
 ///
 /// let h_gate = Gate::standard(StandardGate::H);
 /// assert_eq!(h_gate.num_qubits(), 1);
@@ -213,7 +213,7 @@ pub enum CompileError {
 1. Add to `StandardGate` enum in `hiq-ir/src/gate.rs`
 2. Implement `num_qubits()` match arm
 3. Add matrix representation if single-qubit
-4. Add decomposition rules in `hiq-compile`
+4. Add decomposition rules in `arvak-compile`
 5. Add tests
 6. Update documentation
 

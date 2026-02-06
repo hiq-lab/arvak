@@ -1,0 +1,28 @@
+[package]
+name = "arvak-adapter-sim"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "HIQ local simulator backend"
+keywords = ["quantum", "simulator", "backend"]
+categories = ["science", "simulation"]
+
+[dependencies]
+arvak-ir = { workspace = true }
+arvak-hal = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+num-complex = { workspace = true }
+ndarray = { workspace = true }
+rustc-hash = { workspace = true }
+tracing = { workspace = true }
+rand = "0.8"
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }

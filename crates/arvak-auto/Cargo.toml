@@ -1,0 +1,20 @@
+[package]
+name = "arvak-auto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Automatic uncomputation for HIQ quantum circuits"
+keywords = ["quantum", "uncomputation", "reversible", "cleanup", "ancilla"]
+categories = ["science", "algorithms"]
+
+[dependencies]
+arvak-ir = { workspace = true }
+thiserror = { workspace = true }
+rustc-hash = { workspace = true }
+petgraph = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

@@ -1391,7 +1391,7 @@ hiq compliance test --endpoint https://api.backend.com/hal/v1 --output report.js
 ### Example Implementation (Rust)
 
 ```rust
-use hiq_hal_contract::*;
+use arvak_hal_contract::*;
 
 pub struct MyBackend {
     config: BackendConfig,
