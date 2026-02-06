@@ -16,11 +16,11 @@ pub fn execute() {
     println!("  arvak-ir       Circuit intermediate representation");
     println!("  arvak-compile  Compilation and transpilation framework");
     println!("  arvak-hal      Hardware abstraction layer");
-    println!("  hiq-cli      Command-line interface");
+    println!("  arvak-cli      Command-line interface");
     println!();
     println!(
         "Repository: {}",
-        style("https://github.com/hiq-project/hiq").underlined()
+        style("https://github.com/hiq-lab/arvak").underlined()
     );
     println!("License:    {}", style("Apache-2.0").dim());
 }

@@ -1,7 +1,7 @@
 //! Arvak Circuit Intermediate Representation
 //!
 //! This crate provides the core data structures for representing quantum circuits
-//! in HIQ. It forms the foundation of the entire HIQ compilation stack.
+//! in HIQ. It forms the foundation of the entire Arvak compilation stack.
 //!
 //! # Overview
 //!

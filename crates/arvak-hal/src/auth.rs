@@ -82,7 +82,7 @@ impl OidcConfig {
             token_cache_path: Some(
                 dirs::cache_dir()
                     .unwrap_or_default()
-                    .join("hiq/lumi_token.json"),
+                    .join("arvak/lumi_token.json"),
             ),
             refresh_buffer_secs: 300, // 5 minutes
         }
@@ -104,7 +104,7 @@ impl OidcConfig {
             token_cache_path: Some(
                 dirs::cache_dir()
                     .unwrap_or_default()
-                    .join("hiq/lrz_token.json"),
+                    .join("arvak/lrz_token.json"),
             ),
             refresh_buffer_secs: 300,
         }
@@ -284,7 +284,7 @@ impl OidcAuth {
 
         // Need fresh authentication
         Err(HalError::Auth(
-            "No valid token available. Run 'hiq auth login' to authenticate.".to_string(),
+            "No valid token available. Run 'arvak auth login' to authenticate.".to_string(),
         ))
     }
 

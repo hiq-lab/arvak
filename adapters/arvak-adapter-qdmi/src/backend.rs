@@ -1,6 +1,6 @@
 //! QDMI Backend implementation.
 //!
-//! This module provides a HIQ Backend implementation that communicates
+//! This module provides an Arvak Backend implementation that communicates
 //! with quantum devices via the QDMI (Quantum Device Management Interface).
 
 use async_trait::async_trait;
@@ -139,12 +139,12 @@ impl QdmiBackend {
         unimplemented!("System QDMI integration requires linking against libqdmi")
     }
 
-    /// Convert a HIQ circuit to QASM3 for QDMI submission.
+    /// Convert a Arvak circuit to QASM3 for QDMI submission.
     fn circuit_to_qasm3(&self, circuit: &Circuit) -> QdmiResult<String> {
         hiq_qasm3::emit(circuit).map_err(|e| QdmiError::CircuitConversion(e.to_string()))
     }
 
-    /// Parse QDMI results into HIQ Counts.
+    /// Parse QDMI results into Arvak Counts.
     #[allow(dead_code)]
     fn parse_results(&self, hist_keys: &[String], hist_values: &[u64]) -> Counts {
         let mut counts = Counts::new();
@@ -154,7 +154,7 @@ impl QdmiBackend {
         counts
     }
 
-    /// Convert QDMI job status to HIQ job status.
+    /// Convert QDMI job status to Arvak job status.
     fn convert_job_status(&self, qdmi_status: QdmiJobStatus) -> JobStatus {
         match qdmi_status {
             QdmiJobStatus::Created | QdmiJobStatus::Submitted | QdmiJobStatus::Queued => {

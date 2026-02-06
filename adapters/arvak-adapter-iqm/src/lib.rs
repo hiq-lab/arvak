@@ -23,7 +23,7 @@
 //!
 //! ## HPC Access (LUMI/LRZ)
 //!
-//! Use OIDC authentication via `hiq-hal`:
+//! Use OIDC authentication via `arvak-hal`:
 //!
 //! ```ignore
 //! use arvak_hal::{OidcConfig, OidcAuth};

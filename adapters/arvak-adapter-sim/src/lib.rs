@@ -1,4 +1,4 @@
-//! HIQ Local Statevector Simulator
+//! Arvak Local Statevector Simulator
 //!
 //! This crate provides a high-performance local quantum simulator for testing,
 //! development, and small-scale experiments. It uses statevector simulation,
@@ -7,7 +7,7 @@
 //! # Features
 //!
 //! - **Exact Simulation**: Full statevector representation (no sampling noise)
-//! - **All Standard Gates**: Supports all gates from `hiq-ir`
+//! - **All Standard Gates**: Supports all gates from `arvak-ir`
 //! - **Measurement Sampling**: Probabilistic measurement with configurable shots
 //! - **No External Dependencies**: Pure Rust implementation
 //!

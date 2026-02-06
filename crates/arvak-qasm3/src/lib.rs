@@ -1,4 +1,4 @@
-//! OpenQASM 3 Parser and Emitter for HIQ
+//! OpenQASM 3 Parser and Emitter for Arvak
 //!
 //! This crate provides a complete parser and emitter for the OpenQASM 3.0 quantum
 //! assembly language, enabling HIQ to read and write standard quantum circuit files.

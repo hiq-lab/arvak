@@ -1,7 +1,7 @@
 //! Arvak Hardware Abstraction Layer
 //!
 //! This crate provides a unified interface for interacting with quantum backends,
-//! enabling HIQ to work seamlessly with simulators, cloud services, and HPC systems.
+//! enabling Arvak to work seamlessly with simulators, cloud services, and HPC systems.
 //!
 //! # Overview
 //!
@@ -15,10 +15,10 @@
 //!
 //! | Backend | Crate | Authentication |
 //! |---------|-------|----------------|
-//! | Local Simulator | `hiq-adapter-sim` | None |
-//! | IQM Resonance | `hiq-adapter-iqm` | `IQM_TOKEN` env var |
-//! | IBM Quantum | `hiq-adapter-ibm` | `IBM_QUANTUM_TOKEN` env var |
-//! | IQM on LUMI/LRZ | `hiq-adapter-iqm` | OIDC (CSC/LRZ) |
+//! | Local Simulator | `arvak-adapter-sim` | None |
+//! | IQM Resonance | `arvak-adapter-iqm` | `IQM_TOKEN` env var |
+//! | IBM Quantum | `arvak-adapter-ibm` | `IBM_QUANTUM_TOKEN` env var |
+//! | IQM on LUMI/LRZ | `arvak-adapter-iqm` | OIDC (CSC/LRZ) |
 //!
 //! # Example: Running a Circuit
 //!
