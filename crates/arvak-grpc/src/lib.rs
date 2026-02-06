@@ -44,6 +44,7 @@
 //! ```
 
 pub mod error;
+pub mod health;
 pub mod metrics;
 pub mod proto;
 pub mod server;
@@ -51,6 +52,7 @@ pub mod storage;
 
 // Re-export commonly used types
 pub use error::{Error, Result};
+pub use health::{start_health_server, HealthState};
 pub use metrics::Metrics;
 pub use server::{ArvakServiceImpl, BackendRegistry, JobStore};
 pub use storage::{JobStorage, MemoryStorage, StoredJob};

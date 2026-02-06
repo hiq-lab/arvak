@@ -51,6 +51,12 @@ tracing-subscriber = { workspace = true }
 prometheus = "0.13"
 lazy_static = "1.4"
 
+# HTTP server for health/metrics
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace"] }
+hyper = "1.0"
+
 [build-dependencies]
 tonic-build = { version = "0.12", features = ["prost"] }
 prost-build = "0.13"
@@ -75,3 +81,7 @@ path = "examples/simple_client.rs"
 [[example]]
 name = "custom_storage"
 path = "examples/custom_storage.rs"
+
+[[example]]
+name = "health_metrics"
+path = "examples/health_metrics.rs"
