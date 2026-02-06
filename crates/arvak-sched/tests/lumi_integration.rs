@@ -11,7 +11,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use arvak_hal::{
     Backend, Capabilities, Counts, ExecutionResult, HalResult, JobId, JobStatus, TokenProvider,
 };
@@ -20,6 +19,7 @@ use arvak_sched::{
     BatchSchedulerType, CircuitSpec, HpcScheduler, PbsConfig, Priority, ResourceRequirements,
     ScheduledJob, ScheduledJobStatus, Scheduler, SchedulerConfig, SlurmConfig,
 };
+use async_trait::async_trait;
 
 /// Mock IQM backend for LUMI Helmi testing.
 struct MockHelmiBackend {

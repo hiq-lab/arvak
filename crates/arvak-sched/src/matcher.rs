@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use arvak_hal::{Backend, Capabilities};
+use async_trait::async_trait;
 
 use crate::error::{SchedError, SchedResult};
 use crate::job::{ResourceRequirements, TopologyPreference};
@@ -313,7 +313,10 @@ mod tests {
             Ok(arvak_hal::JobId("mock".to_string()))
         }
 
-        async fn status(&self, _job_id: &arvak_hal::JobId) -> arvak_hal::HalResult<arvak_hal::JobStatus> {
+        async fn status(
+            &self,
+            _job_id: &arvak_hal::JobId,
+        ) -> arvak_hal::HalResult<arvak_hal::JobStatus> {
             Ok(arvak_hal::JobStatus::Completed)
         }
 

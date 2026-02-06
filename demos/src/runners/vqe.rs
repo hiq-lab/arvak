@@ -146,7 +146,10 @@ fn evaluate_energy(
 ///
 /// This is a basic simulator for demo purposes.
 /// In production, use a proper simulator or quantum hardware.
-fn simulate_statevector(circuit: &arvak_ir::Circuit, n_qubits: usize) -> Vec<num_complex::Complex64> {
+fn simulate_statevector(
+    circuit: &arvak_ir::Circuit,
+    n_qubits: usize,
+) -> Vec<num_complex::Complex64> {
     use num_complex::Complex64;
 
     let dim = 1 << n_qubits;

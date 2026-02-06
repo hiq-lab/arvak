@@ -2,12 +2,12 @@
 
 use std::sync::Arc;
 
+use arvak_sched::{
+    CircuitSpec, JobFilter, Priority, ScheduledJob, ScheduledJobId, ScheduledJobStatus,
+};
 use axum::{
     Json,
     extract::{Path, Query, State},
-};
-use arvak_sched::{
-    CircuitSpec, JobFilter, Priority, ScheduledJob, ScheduledJobId, ScheduledJobStatus,
 };
 
 use crate::dto::{

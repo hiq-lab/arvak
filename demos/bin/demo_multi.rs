@@ -142,5 +142,7 @@ fn main() {
         println!("Warning: {} job(s) failed", result.failed);
     }
     println!();
-    print_info("This is Arvak's core value: orchestrating quantum workloads on HPC infrastructure.");
+    print_info(
+        "This is Arvak's core value: orchestrating quantum workloads on HPC infrastructure.",
+    );
 }

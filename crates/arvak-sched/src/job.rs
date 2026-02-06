@@ -1,8 +1,8 @@
 //! Job types for the HPC scheduler.
 
-use chrono::{DateTime, Utc};
 use arvak_hal::JobId;
 use arvak_ir::Circuit;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

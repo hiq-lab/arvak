@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-use axum::{Json, extract::State};
 use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
 use arvak_ir::Circuit;
+use axum::{Json, extract::State};
 
 use crate::dto::{
     CircuitVisualization, CompilationStats, CompileRequest, CompileResponse, VisualizeRequest,

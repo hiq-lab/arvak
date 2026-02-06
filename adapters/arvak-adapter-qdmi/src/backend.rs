@@ -477,7 +477,9 @@ mod tests {
         // Create a simple Bell state circuit
         let mut circuit = Circuit::with_size("bell", 2, 2);
         circuit.h(arvak_ir::QubitId(0)).unwrap();
-        circuit.cx(arvak_ir::QubitId(0), arvak_ir::QubitId(1)).unwrap();
+        circuit
+            .cx(arvak_ir::QubitId(0), arvak_ir::QubitId(1))
+            .unwrap();
         let _ = circuit.measure_all();
 
         // Submit

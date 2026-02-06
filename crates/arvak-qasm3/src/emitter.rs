@@ -1,6 +1,8 @@
 //! QASM3 emitter for serializing circuits.
 
-use arvak_ir::{Circuit, GateKind, Instruction, InstructionKind, ParameterExpression, StandardGate};
+use arvak_ir::{
+    Circuit, GateKind, Instruction, InstructionKind, ParameterExpression, StandardGate,
+};
 
 use crate::error::ParseResult;
 

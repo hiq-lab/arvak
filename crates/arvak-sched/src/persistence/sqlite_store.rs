@@ -3,8 +3,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use arvak_hal::ExecutionResult;
+use async_trait::async_trait;
 use rusqlite::Connection;
 use std::sync::Mutex;
 

@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use arvak_hal::{Backend, ExecutionResult};
+use async_trait::async_trait;
 use tokio::sync::RwLock;
 use tokio::time::interval;
 
@@ -681,7 +681,10 @@ mod tests {
             Ok(arvak_hal::JobId("mock".to_string()))
         }
 
-        async fn status(&self, _job_id: &arvak_hal::JobId) -> arvak_hal::HalResult<arvak_hal::JobStatus> {
+        async fn status(
+            &self,
+            _job_id: &arvak_hal::JobId,
+        ) -> arvak_hal::HalResult<arvak_hal::JobStatus> {
             Ok(arvak_hal::JobStatus::Completed)
         }
 

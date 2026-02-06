@@ -6,8 +6,8 @@ mod sqlite_store;
 pub use json_store::JsonStore;
 pub use sqlite_store::SqliteStore;
 
-use async_trait::async_trait;
 use arvak_hal::ExecutionResult;
+use async_trait::async_trait;
 
 use crate::error::SchedResult;
 use crate::job::{JobFilter, ScheduledJob, ScheduledJobId, ScheduledJobStatus};

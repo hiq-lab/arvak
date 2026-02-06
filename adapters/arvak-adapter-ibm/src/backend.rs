@@ -3,13 +3,13 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use async_trait::async_trait;
 use arvak_hal::{
     Backend, BackendConfig, Capabilities, Counts, ExecutionResult, HalError, HalResult, JobId,
     JobStatus, Topology,
 };
 use arvak_ir::Circuit;
 use arvak_qasm3::emit;
+use async_trait::async_trait;
 
 use crate::api::{BackendInfo, DEFAULT_ENDPOINT, IbmClient};
 use crate::error::{IbmError, IbmResult};

@@ -2,8 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use async_trait::async_trait;
 use arvak_hal::ExecutionResult;
+use async_trait::async_trait;
 use tokio::fs;
 use tokio::sync::RwLock;
 
