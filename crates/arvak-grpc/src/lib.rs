@@ -48,15 +48,17 @@ pub mod error;
 pub mod health;
 pub mod metrics;
 pub mod proto;
+pub mod resource_manager;
 pub mod server;
 pub mod storage;
 pub mod tracing_config;
 
 // Re-export commonly used types
-pub use config::{Config, ConfigError};
+pub use config::{Config, ConfigError, ResourceLimits};
 pub use error::{Error, Result};
 pub use health::{start_health_server, HealthState};
 pub use metrics::Metrics;
+pub use resource_manager::{ResourceError, ResourceManager, ResourceStats};
 pub use server::{ArvakServiceImpl, BackendRegistry, JobStore};
 pub use storage::{JobStorage, MemoryStorage, StoredJob};
 pub use tracing_config::{init_default_tracing, init_tracing, TracingConfig, TracingFormat};
