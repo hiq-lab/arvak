@@ -29,6 +29,37 @@ from .batch_manager import (
     BatchResult,
     print_progress_bar,
 )
+from .result_export import (
+    ResultExporter,
+    BatchExporter,
+    get_parquet_metadata,
+)
+from .dataframe_integration import (
+    DataFrameConverter,
+    StatisticalAnalyzer,
+    Visualizer,
+    to_pandas,
+    to_polars,
+    batch_to_pandas,
+    batch_to_polars,
+)
+from .result_cache import (
+    MemoryCache,
+    DiskCache,
+    TwoLevelCache,
+    CachedClient,
+)
+from .result_analysis import (
+    ResultAggregator,
+    ResultComparator,
+    ConvergenceAnalyzer,
+    ResultTransformer,
+    AggregatedResult,
+    ComparisonResult,
+    ConvergenceAnalysis,
+    batch_compare,
+    group_by_similarity,
+)
 from .types import Job, JobResult, JobState, BackendInfo
 from .exceptions import (
     ArvakError,
@@ -38,7 +69,7 @@ from .exceptions import (
     ArvakJobNotCompletedError,
 )
 
-__version__ = "1.2.0"
+__version__ = "1.6.0"
 __all__ = [
     "ArvakClient",
     "AsyncArvakClient",
@@ -61,6 +92,29 @@ __all__ = [
     "BatchProgress",
     "BatchResult",
     "print_progress_bar",
+    "ResultExporter",
+    "BatchExporter",
+    "get_parquet_metadata",
+    "DataFrameConverter",
+    "StatisticalAnalyzer",
+    "Visualizer",
+    "to_pandas",
+    "to_polars",
+    "batch_to_pandas",
+    "batch_to_polars",
+    "MemoryCache",
+    "DiskCache",
+    "TwoLevelCache",
+    "CachedClient",
+    "ResultAggregator",
+    "ResultComparator",
+    "ConvergenceAnalyzer",
+    "ResultTransformer",
+    "AggregatedResult",
+    "ComparisonResult",
+    "ConvergenceAnalysis",
+    "batch_compare",
+    "group_by_similarity",
     "Job",
     "JobResult",
     "JobState",

@@ -37,6 +37,27 @@ setup(
             "pytest>=7.0.0",
             "pytest-asyncio>=0.21.0",
         ],
+        "export": [
+            "pyarrow>=14.0.0",
+            "pandas>=2.0.0",
+        ],
+        "polars": [
+            "polars>=0.19.0",
+        ],
+        "viz": [
+            "matplotlib>=3.5.0",
+            "numpy>=1.21.0",
+        ],
+        "all": [
+            "grpcio-tools>=1.60.0",
+            "pytest>=7.0.0",
+            "pytest-asyncio>=0.21.0",
+            "pyarrow>=14.0.0",
+            "pandas>=2.0.0",
+            "polars>=0.19.0",
+            "matplotlib>=3.5.0",
+            "numpy>=1.21.0",
+        ],
     },
     package_data={
         "arvak_grpc": ["*.py"],

@@ -3,3 +3,10 @@ grpcio-tools>=1.60.0
 protobuf>=4.25.0
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
+
+# Optional dependencies for Phase 3
+pyarrow>=14.0.0  # For Arrow/Parquet export
+pandas>=2.0.0    # For dataframe integration
+polars>=0.19.0   # For alternative dataframe support
+matplotlib>=3.5.0  # For visualization
+numpy>=1.21.0    # For numerical operations
