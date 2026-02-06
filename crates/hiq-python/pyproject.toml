@@ -30,6 +30,15 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov"]
+# Framework integrations (optional)
+qiskit = ["qiskit>=1.0.0", "qiskit-aer>=0.13.0"]
+qrisp = ["qrisp>=0.4.0"]
+cirq = ["cirq>=1.0.0", "cirq-core>=1.0.0"]
+pennylane = ["pennylane>=0.32.0"]
+# Notebook support
+notebook = ["jupyter>=1.0.0", "matplotlib>=3.5.0"]
+# All integrations
+all = ["hiq-quantum[qiskit,qrisp,cirq,pennylane,notebook]"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
