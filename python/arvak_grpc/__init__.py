@@ -11,6 +11,24 @@ Supports both synchronous and asynchronous APIs:
 from .client import ArvakClient
 from .async_client import AsyncArvakClient, ConnectionPool
 from .job_future import JobFuture, CancelledError, as_completed, wait
+from .retry_policy import (
+    RetryPolicy,
+    RetryStrategy,
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerError,
+    CircuitState,
+    ResilientClient,
+    with_retry,
+    with_circuit_breaker,
+)
+from .batch_manager import (
+    BatchJobManager,
+    BatchStatus,
+    BatchProgress,
+    BatchResult,
+    print_progress_bar,
+)
 from .types import Job, JobResult, JobState, BackendInfo
 from .exceptions import (
     ArvakError,
@@ -29,6 +47,20 @@ __all__ = [
     "CancelledError",
     "as_completed",
     "wait",
+    "RetryPolicy",
+    "RetryStrategy",
+    "CircuitBreaker",
+    "CircuitBreakerConfig",
+    "CircuitBreakerError",
+    "CircuitState",
+    "ResilientClient",
+    "with_retry",
+    "with_circuit_breaker",
+    "BatchJobManager",
+    "BatchStatus",
+    "BatchProgress",
+    "BatchResult",
+    "print_progress_bar",
     "Job",
     "JobResult",
     "JobState",
