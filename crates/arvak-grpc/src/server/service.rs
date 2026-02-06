@@ -5,6 +5,7 @@ use arvak_hal::backend::Backend;
 use arvak_hal::job::{JobId, JobStatus};
 use arvak_ir::circuit::Circuit;
 use tonic::{Request, Response, Status};
+use tracing::{error, info, instrument, warn};
 
 use crate::error::{Error, Result};
 use crate::metrics::Metrics;
@@ -70,6 +71,7 @@ impl ArvakServiceImpl {
     }
 
     /// Spawn async task to execute a job.
+    #[instrument(skip(job_store, backend, metrics), fields(job_id = %job_id.0))]
     fn spawn_job_execution(
         job_store: Arc<JobStore>,
         backend: Arc<dyn Backend>,
@@ -81,7 +83,7 @@ impl ArvakServiceImpl {
             let job = match job_store.get_job(&job_id).await {
                 Ok(job) => job,
                 Err(e) => {
-                    tracing::error!("Failed to get job: {}", e);
+                    error!("Failed to get job: {}", e);
                     return;
                 }
             };
@@ -89,9 +91,11 @@ impl ArvakServiceImpl {
             let backend_id = job.backend_id.clone();
             let submitted_at = job.submitted_at;
 
+            info!(backend_id = %backend_id, "Starting job execution");
+
             // Update to RUNNING
             if let Err(e) = job_store.update_status(&job_id, JobStatus::Running).await {
-                tracing::error!("Failed to update job status to running: {}", e);
+                error!("Failed to update job status to running: {}", e);
                 metrics.record_job_failed(&backend_id, "status_update_error");
                 return;
             }
@@ -115,32 +119,35 @@ impl ArvakServiceImpl {
                                 .num_milliseconds() as u64;
 
                             if let Err(e) = job_store.store_result(&job_id, result).await {
-                                tracing::error!("Failed to store job result: {}", e);
+                                error!("Failed to store job result: {}", e);
                                 metrics.record_job_failed(&backend_id, "storage_error");
                             } else {
+                                info!(duration_ms = duration, "Job completed successfully");
                                 metrics.record_job_completed(&backend_id, duration);
                             }
                         }
                         Err(e) => {
                             let error_msg = format!("Backend wait failed: {}", e);
+                            warn!(error = %e, "Backend wait failed");
                             metrics.record_job_failed(&backend_id, "backend_wait_error");
                             if let Err(e) = job_store
                                 .update_status(&job_id, JobStatus::Failed(error_msg))
                                 .await
                             {
-                                tracing::error!("Failed to update job status to failed: {}", e);
+                                error!("Failed to update job status to failed: {}", e);
                             }
                         }
                     }
                 }
                 Err(e) => {
                     let error_msg = format!("Backend submit failed: {}", e);
+                    warn!(error = %e, "Backend submit failed");
                     metrics.record_job_failed(&backend_id, "backend_submit_error");
                     if let Err(e) = job_store
                         .update_status(&job_id, JobStatus::Failed(error_msg))
                         .await
                     {
-                        tracing::error!("Failed to update job status to failed: {}", e);
+                        error!("Failed to update job status to failed: {}", e);
                     }
                 }
             }
@@ -156,12 +163,15 @@ impl Default for ArvakServiceImpl {
 
 #[tonic::async_trait]
 impl arvak_service_server::ArvakService for ArvakServiceImpl {
+    #[instrument(skip(self, request), fields(backend_id, job_id))]
     async fn submit_job(
         &self,
         request: Request<SubmitJobRequest>,
     ) -> std::result::Result<Response<SubmitJobResponse>, Status> {
         let start = std::time::Instant::now();
         let req = request.into_inner();
+
+        tracing::Span::current().record("backend_id", &req.backend_id.as_str());
 
         // Parse circuit
         let circuit = self.parse_circuit(req.circuit)
@@ -177,6 +187,9 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             .create_job(circuit, req.backend_id.clone(), req.shots)
             .await
             .map_err(|e| Status::from(e))?;
+
+        tracing::Span::current().record("job_id", &job_id.0.as_str());
+        info!(shots = req.shots, "Job submitted");
 
         // Record job submission metric
         self.metrics.record_job_submitted(&req.backend_id);
@@ -243,6 +256,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         Ok(Response::new(SubmitBatchResponse { job_ids }))
     }
 
+    #[instrument(skip(self, request), fields(job_id))]
     async fn get_job_status(
         &self,
         request: Request<GetJobStatusRequest>,
@@ -250,6 +264,8 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let start = std::time::Instant::now();
         let req = request.into_inner();
         let job_id = JobId::new(req.job_id);
+
+        tracing::Span::current().record("job_id", &job_id.0.as_str());
 
         let job = self.job_store.get_job(&job_id).await
             .map_err(|e| Status::from(e))?;
