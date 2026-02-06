@@ -532,25 +532,38 @@ server:
 
 ## Roadmap
 
-### Completed ✅
-- ✅ Core gRPC API (7 unary RPCs)
-- ✅ Streaming RPCs (3 patterns)
+See [ROADMAP.md](ROADMAP.md) for the complete implementation plan.
+
+### Phase 1-4: Complete ✅
+- ✅ Core gRPC API (7 unary + 3 streaming RPCs)
+- ✅ Python client library (sync + async with streaming)
 - ✅ Configuration system (YAML + env vars)
 - ✅ Resource management and quotas
-- ✅ Prometheus metrics and health checks
-- ✅ OpenTelemetry tracing
+- ✅ Observability (Prometheus, OpenTelemetry, health checks)
 - ✅ Middleware and interceptors
 - ✅ Graceful shutdown
 - ✅ Pluggable storage architecture
+- ✅ SQLite and PostgreSQL storage backends
 
-### Future Enhancements
-- [ ] SQLite/PostgreSQL storage backends
-- [ ] Python async client with streaming
-- [ ] TLS/SSL support
-- [ ] Authentication and authorization
+### Phase 5: Production Security & Resilience (In Planning)
+- [ ] TLS/SSL support with mTLS
+- [ ] Authentication (API keys, JWT, mTLS)
+- [ ] Authorization and access control (RBAC)
 - [ ] Job persistence and recovery
-- [ ] Distributed execution
-- [ ] Job priorities and scheduling
+- [ ] Distributed execution (Redis-backed)
+- [ ] Advanced scheduling (priorities, fair scheduling)
+
+### Phase 6: Advanced Features (Planned)
+- [ ] Circuit optimization pipeline
+- [ ] Result caching and deduplication
+- [ ] Cost estimation and billing
+- [ ] Multi-region deployment
+
+### Phase 7: Enterprise Features (Planned)
+- [ ] LDAP/Active Directory integration
+- [ ] SAML SSO support
+- [ ] Advanced audit logging
+- [ ] Compliance reporting (SOC2, HIPAA)
 
 ## License
 
