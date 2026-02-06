@@ -65,14 +65,14 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 ┌─────────────────────────────▼───────────────────────────────────────────────────┐
 │                           Arvak Core (Rust)                                      │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌───────────┐  ┌──────────┐   │
-│  │  hiq-ir    │  │ hiq-compile│  │  hiq-hal   │  │ hiq-sched │  │ hiq-types│   │
+│  │  arvak-ir    │  │ arvak-compile│  │  arvak-hal   │  │ arvak-sched │  │ arvak-types│   │
 │  │            │  │            │  │            │  │           │  │          │   │
 │  │ Circuit IR │  │ Pass mgr   │  │ Backend    │  │ SLURM/PBS │  │ Quantum  │   │
 │  │ QASM3      │  │ Optimizer  │  │ abstraction│  │ Workflows │  │ Types    │   │
 │  └────────────┘  └────────────┘  └────────────┘  └───────────┘  └──────────┘   │
 │                                                                                   │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │                          hiq-dashboard (Web UI)                           │   │
+│  │                          arvak-dashboard (Web UI)                           │   │
 │  │    Circuit Viz │ Compilation │ Job Monitoring │ Results │ D3.js Plots    │   │
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────┬───────────────────────────────────────────────────┘
@@ -173,7 +173,7 @@ Explore integrations hands-on with **5 interactive notebooks**:
 pip install arvak[all]  # Includes jupyter + matplotlib
 
 # Launch notebooks
-jupyter notebook crates/hiq-python/notebooks/
+jupyter notebook crates/arvak-python/notebooks/
 ```
 
 **Available Notebooks:**
@@ -192,32 +192,32 @@ Arvak's plugin architecture makes adding frameworks straightforward:
 3. Add to `pyproject.toml` optional dependencies
 4. Framework auto-registers when package installed
 
-See [crates/hiq-python/docs/INTEGRATION_GUIDE.md](crates/hiq-python/docs/INTEGRATION_GUIDE.md) for the complete guide. Most integrations take ~30 minutes.
+See [crates/arvak-python/docs/INTEGRATION_GUIDE.md](crates/arvak-python/docs/INTEGRATION_GUIDE.md) for the complete guide. Most integrations take ~30 minutes.
 
 ## Project Structure
 
 ```
 arvak/
 ├── crates/
-│   ├── hiq-ir/          # Circuit intermediate representation
-│   ├── hiq-qasm3/       # OpenQASM 3.0 parser and emitter
-│   ├── hiq-compile/     # Compilation pass manager
-│   ├── hiq-hal/         # Hardware abstraction layer
-│   ├── hiq-cli/         # Command-line interface
-│   ├── hiq-python/      # Python bindings (PyO3) + integrations
+│   ├── arvak-ir/          # Circuit intermediate representation
+│   ├── arvak-qasm3/       # OpenQASM 3.0 parser and emitter
+│   ├── arvak-compile/     # Compilation pass manager
+│   ├── arvak-hal/         # Hardware abstraction layer
+│   ├── arvak-cli/         # Command-line interface
+│   ├── arvak-python/      # Python bindings (PyO3) + integrations
 │   │   ├── python/arvak/              # Python package
 │   │   ├── python/arvak/integrations/ # Framework integrations
 │   │   ├── notebooks/                 # 5 Jupyter notebooks
 │   │   └── docs/                      # Integration guides
-│   ├── hiq-sched/       # HPC job scheduler (SLURM, PBS, workflows)
-│   ├── hiq-dashboard/   # Web dashboard for visualization & monitoring
-│   ├── hiq-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
-│   └── hiq-auto/        # Automatic uncomputation
+│   ├── arvak-sched/       # HPC job scheduler (SLURM, PBS, workflows)
+│   ├── arvak-dashboard/   # Web dashboard for visualization & monitoring
+│   ├── arvak-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
+│   └── arvak-auto/        # Automatic uncomputation
 ├── adapters/
-│   ├── hiq-adapter-sim/  # Local statevector simulator
-│   ├── hiq-adapter-iqm/  # IQM Resonance API adapter
-│   ├── hiq-adapter-ibm/  # IBM Quantum API adapter
-│   └── hiq-adapter-qdmi/ # QDMI (Munich Quantum Software Stack) adapter
+│   ├── arvak-adapter-sim/  # Local statevector simulator
+│   ├── arvak-adapter-iqm/  # IQM Resonance API adapter
+│   ├── arvak-adapter-ibm/  # IBM Quantum API adapter
+│   └── arvak-adapter-qdmi/ # QDMI (Munich Quantum Software Stack) adapter
 ├── demos/               # Demo applications (Grover, VQE, QAOA)
 │   └── lumi-hybrid/     # LUMI quantum-HPC hybrid VQE demo
 └── examples/            # Example QASM circuits
@@ -648,7 +648,7 @@ Arvak builds on ideas from and integrates with:
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Adding Framework Integrations:**
-See [crates/hiq-python/docs/INTEGRATION_GUIDE.md](crates/hiq-python/docs/INTEGRATION_GUIDE.md) for the complete guide on adding new framework integrations (~30 minutes with our template system).
+See [crates/arvak-python/docs/INTEGRATION_GUIDE.md](crates/arvak-python/docs/INTEGRATION_GUIDE.md) for the complete guide on adding new framework integrations (~30 minutes with our template system).
 
 ## License
 
