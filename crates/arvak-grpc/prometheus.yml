@@ -1,0 +1,21 @@
+# Prometheus configuration for Arvak gRPC monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'arvak-grpc'
+
+scrape_configs:
+  # Arvak gRPC service metrics
+  - job_name: 'arvak-grpc'
+    static_configs:
+      - targets: ['host.docker.internal:9090']
+        labels:
+          service: 'arvak-grpc'
+          environment: 'development'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
