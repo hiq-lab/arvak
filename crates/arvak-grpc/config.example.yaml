@@ -1,0 +1,86 @@
+# Arvak gRPC Server Configuration Example
+#
+# Copy this file to config.yaml and customize as needed.
+# All settings can be overridden with environment variables (see README).
+
+# gRPC server configuration
+server:
+  # Server bind address
+  address: "0.0.0.0:50051"
+
+  # Connection timeout in seconds
+  timeout_seconds: 60
+
+  # Keep-alive interval in seconds
+  keepalive_seconds: 30
+
+  # Maximum concurrent connections
+  max_connections: 1000
+
+# Storage backend configuration
+storage:
+  # Backend type: "memory", "sqlite", "postgres"
+  backend: "memory"
+
+  # Database connection string (for sqlite/postgres)
+  # connection_string: "sqlite://arvak.db"
+  # connection_string: "postgres://user:pass@localhost/arvak"
+
+  # Database connection pool size
+  pool_size: 10
+
+# Observability configuration
+observability:
+  # HTTP server for metrics and health endpoints
+  http_server:
+    address: "0.0.0.0:8080"
+    metrics_enabled: true
+    health_enabled: true
+
+  # Logging configuration
+  logging:
+    # Log level: trace, debug, info, warn, error
+    level: "info"
+
+    # Log format: console (pretty) or json (structured)
+    format: "console"
+
+  # Distributed tracing
+  tracing:
+    enabled: false
+
+    # OpenTelemetry OTLP endpoint (e.g., Jaeger)
+    # otlp_endpoint: "http://localhost:4317"
+
+    # Service name for traces
+    service_name: "arvak-grpc"
+
+# Backend configurations
+backends:
+  # Enable built-in simulator
+  simulator_enabled: true
+
+  # Custom backend configurations
+  # custom:
+  #   my-backend:
+  #     backend_type: "custom"
+  #     settings:
+  #       url: "http://backend:8080"
+  #       timeout: 300
+
+# Resource limits and quotas
+limits:
+  # Maximum concurrent jobs across all backends
+  max_concurrent_jobs: 100
+
+  # Maximum queued jobs
+  max_queued_jobs: 1000
+
+  # Job execution timeout in seconds
+  job_timeout_seconds: 3600  # 1 hour
+
+  # Maximum result size in bytes
+  max_result_size_bytes: 104857600  # 100 MB
+
+  # Rate limit: requests per second per client
+  rate_limit_rps: 100

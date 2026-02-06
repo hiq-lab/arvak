@@ -43,6 +43,7 @@
 //! }
 //! ```
 
+pub mod config;
 pub mod error;
 pub mod health;
 pub mod metrics;
@@ -52,6 +53,7 @@ pub mod storage;
 pub mod tracing_config;
 
 // Re-export commonly used types
+pub use config::{Config, ConfigError};
 pub use error::{Error, Result};
 pub use health::{start_health_server, HealthState};
 pub use metrics::Metrics;

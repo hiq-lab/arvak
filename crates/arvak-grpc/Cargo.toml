@@ -39,6 +39,10 @@ chrono = { workspace = true, features = ["serde"] }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = "0.9"
+
+# Configuration
+dotenvy = "0.15"
 
 # Error handling
 thiserror = { workspace = true }
@@ -95,3 +99,7 @@ path = "examples/health_metrics.rs"
 [[example]]
 name = "streaming_demo"
 path = "examples/streaming_demo.rs"
+
+[[example]]
+name = "config_example"
+path = "examples/config_example.rs"
