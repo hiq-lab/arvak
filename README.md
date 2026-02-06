@@ -14,7 +14,7 @@ Arvak is a Rust-native quantum compilation and orchestration stack designed for 
   <em>Advancing quantum computing infrastructure for European HPC centers</em>
 </p>
 
-> **v1.1.1 Released!** Multi-framework integration system with Qiskit, Qrisp, Cirq, and PennyLane support + 5 interactive Jupyter notebooks. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **v1.1.1 Released!** Multi-framework integration system with Qiskit, Qrisp, Cirq, and PennyLane support + 5 interactive Jupyter notebooks. gRPC Python client v1.6.0 with async/await, caching, and advanced analysis. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Quick Install
 
@@ -92,7 +92,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 
 ## gRPC Service API
 
-Arvak provides a production-ready **gRPC service** for remote quantum circuit execution, enabling language-agnostic access to quantum backends:
+Arvak provides a **production-ready gRPC service** for remote quantum circuit execution with comprehensive client libraries, enabling language-agnostic access to quantum backends:
 
 ```bash
 # Start the gRPC server
@@ -101,7 +101,7 @@ cargo run --release --bin arvak-grpc-server
 # Server listens on 0.0.0.0:50051 by default
 ```
 
-### Python Client
+### Quick Start
 
 ```python
 from arvak_grpc import ArvakClient
@@ -126,15 +126,269 @@ print(f"Counts: {result.counts}")  # {'00': 502, '11': 498}
 client.close()
 ```
 
-### Features
+### Core Features
 
+**Server (Rust):**
 - **7 gRPC RPCs**: SubmitJob, SubmitBatch, GetJobStatus, GetJobResult, CancelJob, ListBackends, GetBackendInfo
 - **Non-blocking execution**: Jobs execute asynchronously, RPCs return immediately
 - **Multiple formats**: OpenQASM 3 and Arvak IR JSON
 - **Thread-safe**: Handles concurrent requests with `Arc<RwLock<>>`
-- **Language-agnostic**: Client libraries for Python, Rust, or generate from `.proto` file
+- **Feature-gated backends**: Enable specific backends via Cargo features
 
-See [`crates/arvak-grpc/README.md`](crates/arvak-grpc/README.md) for complete documentation.
+**Python Client (v1.6.0):**
+- **Synchronous & Async APIs**: Full sync and async/await support
+- **Job Futures**: Promise-like interface with callbacks
+- **Retry & Resilience**: Exponential backoff, circuit breaker
+- **Batch Operations**: Concurrent batch execution with progress tracking
+- **Data Export**: Arrow, Parquet, CSV, JSON with compression
+- **Caching**: Multi-level caching (L1 memory + L2 disk)
+- **Analysis Tools**: Statistical analysis, convergence detection, distribution comparison
+- **DataFrame Integration**: Convert to pandas/polars with visualization
+
+### Async/Await API
+
+```python
+from arvak_grpc import AsyncArvakClient
+import asyncio
+
+async def main():
+    # Async client with connection pooling
+    client = AsyncArvakClient("localhost:50051", pool_size=10)
+
+    # Submit jobs concurrently
+    job_ids = await asyncio.gather(*[
+        client.submit_qasm(qasm, "simulator", shots=1000)
+        for _ in range(10)
+    ])
+
+    # Wait for all results
+    results = await asyncio.gather(*[
+        client.wait_for_job(job_id)
+        for job_id in job_ids
+    ])
+
+    await client.close()
+
+asyncio.run(main())
+```
+
+### JobFuture Interface
+
+```python
+from arvak_grpc import ArvakClient, as_completed
+
+client = ArvakClient("localhost:50051")
+
+# Submit and get futures
+futures = [
+    client.submit_qasm_future(qasm, "simulator", shots=1000)
+    for _ in range(5)
+]
+
+# Process as they complete
+for future in as_completed(futures):
+    result = future.result()
+    print(f"Job {future.job_id}: {len(result.counts)} states")
+
+# Or use callbacks
+def on_complete(future):
+    print(f"Job completed: {future.job_id}")
+
+future = client.submit_qasm_future(qasm, "simulator", shots=1000)
+future.add_done_callback(on_complete)
+```
+
+### Retry & Circuit Breaker
+
+```python
+from arvak_grpc import ResilientClient, RetryPolicy, CircuitBreakerConfig
+
+# Configure resilience
+retry_policy = RetryPolicy(
+    max_attempts=3,
+    initial_backoff=1.0,
+    backoff_multiplier=2.0,
+    strategy=RetryStrategy.EXPONENTIAL_BACKOFF
+)
+
+circuit_breaker = CircuitBreakerConfig(
+    failure_threshold=5,
+    reset_timeout=60.0
+)
+
+# Wrap client with resilience
+client = ResilientClient(
+    base_client,
+    retry_policy=retry_policy,
+    circuit_breaker=circuit_breaker
+)
+
+# Automatic retries on transient failures
+result = client.submit_and_wait(qasm, "simulator", shots=1000)
+```
+
+### Batch Operations
+
+```python
+from arvak_grpc import BatchJobManager
+
+client = ArvakClient("localhost:50051")
+manager = BatchJobManager(client, max_workers=10)
+
+# Submit batch with progress tracking
+circuits = [(qasm, 1000) for _ in range(50)]
+
+def progress_callback(progress):
+    print(f"Progress: {progress.completed}/{progress.total} "
+          f"({progress.success} success, {progress.failed} failed)")
+
+result = manager.execute_batch(
+    circuits,
+    backend_id="simulator",
+    progress_callback=progress_callback
+)
+
+print(f"Batch completed: {result.status}")
+print(f"Total time: {result.total_time_seconds:.2f}s")
+print(f"Throughput: {result.jobs_per_second:.1f} jobs/s")
+```
+
+### Data Export & Analysis
+
+```python
+from arvak_grpc import (
+    ArvakClient,
+    ResultExporter,
+    to_pandas,
+    StatisticalAnalyzer,
+    ResultComparator,
+    CachedClient,
+    TwoLevelCache
+)
+
+client = ArvakClient("localhost:50051")
+
+# Get results
+job_id = client.submit_qasm(qasm, "simulator", shots=1000)
+result = client.wait_for_job(job_id)
+
+# Export to Parquet
+ResultExporter.to_parquet(result, "result.parquet", compression='snappy')
+
+# Convert to DataFrame
+df = to_pandas(result)
+print(df)
+
+# Statistical analysis
+entropy = StatisticalAnalyzer.entropy(result)
+purity = StatisticalAnalyzer.purity(result)
+fidelity = StatisticalAnalyzer.fidelity_estimate(result, ideal_state)
+
+print(f"Entropy: {entropy:.4f} bits")
+print(f"Purity: {purity:.6f}")
+print(f"Fidelity: {fidelity:.6f}")
+
+# Compare distributions
+comparison = ResultComparator.compare(result1, result2)
+print(f"TVD: {comparison.tvd:.6f}")
+print(f"Overlap: {comparison.overlap:.6f}")
+
+# Caching for performance
+cached_client = CachedClient(
+    client,
+    cache=TwoLevelCache(memory_size=100, cache_dir=".cache")
+)
+
+# First call: from server (slow)
+result = cached_client.get_job_result(job_id)
+
+# Second call: from cache (fast!)
+result = cached_client.get_job_result(job_id)
+
+print(f"Cache hit rate: {cached_client.cache_stats()['l1']['hit_rate']:.2%}")
+```
+
+### Visualization
+
+```python
+from arvak_grpc import Visualizer, ConvergenceAnalyzer
+
+# Plot measurement distribution
+fig, axes = Visualizer.plot_distribution(result, max_states=20)
+fig.savefig('distribution.png')
+
+# Compare multiple runs
+fig, ax = Visualizer.plot_comparison(
+    results,
+    labels=["Run 1", "Run 2", "Run 3"]
+)
+fig.savefig('comparison.png')
+
+# Analyze convergence
+analysis = ConvergenceAnalyzer.analyze_convergence(
+    results_with_increasing_shots,
+    target_state=ideal_state
+)
+
+print(f"Converged: {analysis.converged}")
+print(f"Final entropy: {analysis.entropies[-1]:.4f}")
+```
+
+### Installation
+
+```bash
+# Basic client
+pip install arvak-grpc
+
+# With export support (Arrow/Parquet)
+pip install arvak-grpc[export]
+
+# With DataFrame support
+pip install arvak-grpc[polars]
+
+# With visualization
+pip install arvak-grpc[viz]
+
+# Everything
+pip install arvak-grpc[all]
+```
+
+### Python API Summary
+
+**Core Clients:**
+- `ArvakClient` - Synchronous blocking client
+- `AsyncArvakClient` - Async/await client with connection pooling
+- `ResilientClient` - Client with retry and circuit breaker
+- `CachedClient` - Client with transparent caching
+
+**Job Management:**
+- `JobFuture` - Promise-like interface for jobs
+- `BatchJobManager` - Concurrent batch execution
+- `as_completed()`, `wait()` - Future coordination
+
+**Data Export:**
+- `ResultExporter` - Export to Arrow, Parquet, CSV, JSON
+- `BatchExporter` - Incremental batch export
+- `get_parquet_metadata()` - Inspect Parquet files
+
+**DataFrame Integration:**
+- `to_pandas()`, `to_polars()` - Convert to DataFrames
+- `DataFrameConverter` - Advanced conversion options
+- `StatisticalAnalyzer` - Entropy, purity, fidelity, TVD
+- `Visualizer` - Distribution plots, comparisons, statistics tables
+
+**Caching:**
+- `MemoryCache` - LRU cache with TTL
+- `DiskCache` - Persistent cache (JSON/Parquet)
+- `TwoLevelCache` - L1 memory + L2 disk
+
+**Analysis:**
+- `ResultAggregator` - Combine, average, filter results
+- `ResultComparator` - Compare distributions (TVD, KL, JS, Hellinger)
+- `ConvergenceAnalyzer` - Analyze convergence, estimate required shots
+- `ResultTransformer` - Normalize, downsample, add noise
+
+See [`python/arvak_grpc/README.md`](python/arvak_grpc/README.md) and [`crates/arvak-grpc/README.md`](crates/arvak-grpc/README.md) for complete documentation.
 
 ## Framework Integrations
 
@@ -250,6 +504,7 @@ arvak/
 │   ├── arvak-compile/     # Compilation pass manager
 │   ├── arvak-hal/         # Hardware abstraction layer
 │   ├── arvak-cli/         # Command-line interface
+│   ├── arvak-grpc/        # gRPC service (Rust server)
 │   ├── arvak-python/      # Python bindings (PyO3) + integrations
 │   │   ├── python/arvak/              # Python package
 │   │   ├── python/arvak/integrations/ # Framework integrations
@@ -259,6 +514,19 @@ arvak/
 │   ├── arvak-dashboard/   # Web dashboard for visualization & monitoring
 │   ├── arvak-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── arvak-auto/        # Automatic uncomputation
+├── python/
+│   └── arvak_grpc/        # gRPC Python client (v1.6.0)
+│       ├── client.py               # Sync client
+│       ├── async_client.py         # Async client with connection pooling
+│       ├── job_future.py           # Promise-like job interface
+│       ├── retry_policy.py         # Retry & circuit breaker
+│       ├── batch_manager.py        # Concurrent batch operations
+│       ├── result_export.py        # Arrow/Parquet/CSV/JSON export
+│       ├── result_cache.py         # Multi-level caching
+│       ├── result_analysis.py      # Advanced analysis tools
+│       ├── dataframe_integration.py # Pandas/Polars integration
+│       ├── examples/               # 4 comprehensive examples
+│       └── tests/                  # 70 tests (56 passing)
 ├── adapters/
 │   ├── arvak-adapter-sim/  # Local statevector simulator
 │   ├── arvak-adapter-iqm/  # IQM Resonance API adapter
@@ -591,6 +859,8 @@ fn main() -> anyhow::Result<()> {
 | Compilation (`arvak-compile`) | ✅ Complete | Pass manager, layout, routing, optimization |
 | HAL (`arvak-hal`) | ✅ Complete | Backend trait, capabilities, job management |
 | CLI (`arvak-cli`) | ✅ Complete | compile, run, backends commands |
+| **gRPC Service** (`arvak-grpc`) | ✅ Complete | **7 RPCs, async execution, thread-safe** |
+| **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **v1.6.0: Async, futures, caching, analysis** |
 | Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
 | Auto-Uncompute (`arvak-auto`) | ✅ Complete | Automatic ancilla uncomputation |
 | Simulator (`arvak-adapter-sim`) | ✅ Complete | Statevector simulation |
