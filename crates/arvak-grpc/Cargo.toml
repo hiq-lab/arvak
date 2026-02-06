@@ -19,6 +19,7 @@ prost-types = "0.13"
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait = { workspace = true }
+futures = "0.3"
 
 # Arvak core
 arvak-hal = { workspace = true }

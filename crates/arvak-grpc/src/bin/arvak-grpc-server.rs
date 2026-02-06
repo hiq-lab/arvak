@@ -37,9 +37,11 @@ use arvak_grpc::{
     TracingConfig, TracingFormat,
 };
 use arvak_grpc::proto::arvak_service_server::ArvakServiceServer;
+use arvak_grpc::server::{RequestIdInterceptor, TimingLayer};
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tonic::transport::Server;
+use tower::ServiceBuilder;
 use tracing::{error, info, warn};
 
 #[tokio::main]
@@ -142,13 +144,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     info!("Graceful shutdown timeout: {}s", shutdown_timeout);
 
-    // Build gRPC server with graceful shutdown
+    // Build gRPC server with middleware and interceptors
+    let service_with_interceptor = ArvakServiceServer::with_interceptor(
+        service,
+        RequestIdInterceptor::new(),
+    );
+
     let server = Server::builder()
         .timeout(std::time::Duration::from_secs(config.server.timeout_seconds))
         .tcp_keepalive(Some(std::time::Duration::from_secs(
             config.server.keepalive_seconds,
         )))
-        .add_service(ArvakServiceServer::new(service))
+        .layer(
+            ServiceBuilder::new()
+                .layer(TimingLayer::new())
+                .into_inner(),
+        )
+        .add_service(service_with_interceptor)
         .serve_with_shutdown(grpc_addr, async move {
             shutdown_signal.notified().await;
             info!("Shutdown signal received, initiating graceful shutdown");
