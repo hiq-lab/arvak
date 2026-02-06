@@ -1,0 +1,167 @@
+syntax = "proto3";
+package arvak.v1;
+
+// ============================================================================
+// Core Types
+// ============================================================================
+
+/// Job execution state.
+enum JobState {
+  JOB_STATE_UNSPECIFIED = 0;
+  JOB_STATE_QUEUED = 1;
+  JOB_STATE_RUNNING = 2;
+  JOB_STATE_COMPLETED = 3;
+  JOB_STATE_FAILED = 4;
+  JOB_STATE_CANCELED = 5;
+}
+
+/// Circuit payload - supports multiple formats.
+message CircuitPayload {
+  oneof format {
+    string qasm3 = 1;           // OpenQASM 3 source code
+    string arvak_ir_json = 2;   // Arvak IR JSON representation
+  }
+}
+
+/// Job metadata and status.
+message Job {
+  string job_id = 1;
+  JobState state = 2;
+  int64 submitted_at = 3;      // Unix timestamp (seconds)
+  int64 started_at = 4;        // Unix timestamp (seconds), 0 if not started
+  int64 completed_at = 5;      // Unix timestamp (seconds), 0 if not completed
+  string backend_id = 6;
+  uint32 shots = 7;
+  string error_message = 8;    // Populated if state == FAILED
+}
+
+/// Execution result with measurement counts.
+message JobResult {
+  string job_id = 1;
+  map<string, uint64> counts = 2;      // Bitstring -> count
+  uint32 shots = 3;
+  uint64 execution_time_ms = 4;        // Optional execution time
+  string metadata_json = 5;            // Optional metadata as JSON string
+}
+
+/// Backend capabilities and information.
+message BackendInfo {
+  string backend_id = 1;
+  string name = 2;
+  bool is_available = 3;
+  uint32 max_qubits = 4;
+  uint32 max_shots = 5;
+  string description = 6;
+  repeated string supported_gates = 7;
+  string topology_json = 8;            // Optional topology as JSON string
+}
+
+// ============================================================================
+// Service RPCs
+// ============================================================================
+
+service ArvakService {
+  /// Submit a single job for execution.
+  rpc SubmitJob(SubmitJobRequest) returns (SubmitJobResponse);
+
+  /// Submit multiple jobs as a batch.
+  rpc SubmitBatch(SubmitBatchRequest) returns (SubmitBatchResponse);
+
+  /// Get the status of a job.
+  rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
+
+  /// Get the result of a completed job.
+  rpc GetJobResult(GetJobResultRequest) returns (GetJobResultResponse);
+
+  /// Cancel a running or queued job.
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
+
+  /// List all available backends.
+  rpc ListBackends(ListBackendsRequest) returns (ListBackendsResponse);
+
+  /// Get detailed information about a specific backend.
+  rpc GetBackendInfo(GetBackendInfoRequest) returns (GetBackendInfoResponse);
+}
+
+// ============================================================================
+// Request/Response Messages
+// ============================================================================
+
+// --- SubmitJob ---
+
+message SubmitJobRequest {
+  CircuitPayload circuit = 1;
+  string backend_id = 2;
+  uint32 shots = 3;
+}
+
+message SubmitJobResponse {
+  string job_id = 1;
+}
+
+// --- SubmitBatch ---
+
+message BatchJobRequest {
+  CircuitPayload circuit = 1;
+  uint32 shots = 2;
+}
+
+message SubmitBatchRequest {
+  string backend_id = 1;
+  repeated BatchJobRequest jobs = 2;
+}
+
+message SubmitBatchResponse {
+  repeated string job_ids = 1;
+}
+
+// --- GetJobStatus ---
+
+message GetJobStatusRequest {
+  string job_id = 1;
+}
+
+message GetJobStatusResponse {
+  Job job = 1;
+}
+
+// --- GetJobResult ---
+
+message GetJobResultRequest {
+  string job_id = 1;
+}
+
+message GetJobResultResponse {
+  JobResult result = 1;
+}
+
+// --- CancelJob ---
+
+message CancelJobRequest {
+  string job_id = 1;
+}
+
+message CancelJobResponse {
+  bool success = 1;
+  string message = 2;  // Optional message
+}
+
+// --- ListBackends ---
+
+message ListBackendsRequest {
+  // Empty for now, could add filtering in future
+}
+
+message ListBackendsResponse {
+  repeated BackendInfo backends = 1;
+}
+
+// --- GetBackendInfo ---
+
+message GetBackendInfoRequest {
+  string backend_id = 1;
+}
+
+message GetBackendInfoResponse {
+  BackendInfo backend = 1;
+}

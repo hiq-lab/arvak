@@ -90,6 +90,52 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 - **Bidirectional**: Convert to/from any supported framework seamlessly
 - **Extensible**: Add new frameworks in ~30 minutes with template system
 
+## gRPC Service API
+
+Arvak provides a production-ready **gRPC service** for remote quantum circuit execution, enabling language-agnostic access to quantum backends:
+
+```bash
+# Start the gRPC server
+cargo run --release --bin arvak-grpc-server
+
+# Server listens on 0.0.0.0:50051 by default
+```
+
+### Python Client
+
+```python
+from arvak_grpc import ArvakClient
+
+# Connect to server
+client = ArvakClient("localhost:50051")
+
+# Submit circuit
+qasm = """
+OPENQASM 3.0;
+qubit[2] q;
+h q[0];
+cx q[0], q[1];
+"""
+
+job_id = client.submit_qasm(qasm, "simulator", shots=1000)
+
+# Wait for results
+result = client.wait_for_job(job_id)
+print(f"Counts: {result.counts}")  # {'00': 502, '11': 498}
+
+client.close()
+```
+
+### Features
+
+- **7 gRPC RPCs**: SubmitJob, SubmitBatch, GetJobStatus, GetJobResult, CancelJob, ListBackends, GetBackendInfo
+- **Non-blocking execution**: Jobs execute asynchronously, RPCs return immediately
+- **Multiple formats**: OpenQASM 3 and Arvak IR JSON
+- **Thread-safe**: Handles concurrent requests with `Arc<RwLock<>>`
+- **Language-agnostic**: Client libraries for Python, Rust, or generate from `.proto` file
+
+See [`crates/arvak-grpc/README.md`](crates/arvak-grpc/README.md) for complete documentation.
+
 ## Framework Integrations
 
 Arvak provides **deep, bidirectional integration** with major quantum frameworks:

@@ -1,0 +1,68 @@
+[package]
+name = "arvak-grpc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "gRPC service API for remote quantum circuit execution"
+
+[dependencies]
+# gRPC
+tonic = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+async-trait = { workspace = true }
+
+# Arvak core
+arvak-hal = { workspace = true }
+arvak-ir = { workspace = true }
+arvak-qasm3 = { workspace = true }
+arvak-types = { workspace = true }
+
+# Arvak backends (feature-gated)
+arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim", optional = true }
+
+# Data structures
+rustc-hash = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+# Time
+chrono = { workspace = true, features = ["serde"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[build-dependencies]
+tonic-build = { version = "0.12", features = ["prost"] }
+prost-build = "0.13"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+
+[features]
+default = ["simulator"]
+simulator = ["arvak-adapter-sim"]
+
+[[bin]]
+name = "arvak-grpc-server"
+path = "src/bin/arvak-grpc-server.rs"
+
+[[example]]
+name = "simple_client"
+path = "examples/simple_client.rs"
