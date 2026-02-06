@@ -5,6 +5,19 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-02-06
+
+### Fixed
+- **Python module initialization**: Fixed PyInit_arvak symbol export in Rust bindings
+  - Changed #[pymodule] function name from `hiq` to `arvak` to match module name
+  - Resolves warning: "Couldn't find the symbol `PyInit_arvak` in the native library"
+  - Ensures proper module loading when importing arvak in Python
+
+### Changed
+- **Repository location**: Migrated from `hiq-lab/HIQ` to `hiq-lab/arvak`
+  - Updated all repository URLs throughout documentation and configuration files
+  - Maintained git history and tags during migration
+
 ## [1.1.0] - 2025-02-06
 
 ### Added
@@ -230,6 +243,7 @@ If upgrading from development versions:
 
 ---
 
+[1.1.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.1
 [1.1.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.0
 [1.0.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.0.0
 [0.1.0]: https://github.com/hiq-lab/arvak/releases/tag/v0.1.0
