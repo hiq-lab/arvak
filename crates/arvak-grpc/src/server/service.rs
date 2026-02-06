@@ -42,6 +42,11 @@ impl ArvakServiceImpl {
         Self::with_components(JobStore::new(), create_default_registry())
     }
 
+    /// Get a reference to the backend registry.
+    pub fn backends(&self) -> Arc<BackendRegistry> {
+        self.backends.clone()
+    }
+
     /// Parse circuit from protobuf payload (static version for use in async contexts).
     fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Circuit> {
         let payload = payload.ok_or_else(|| Error::InvalidCircuit("Missing circuit payload".to_string()))?;
