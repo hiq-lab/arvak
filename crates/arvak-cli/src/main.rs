@@ -1,6 +1,43 @@
-//! HIQ Command-Line Interface
+//! Arvak Command-Line Interface
 //!
-//! The main entry point for the HIQ CLI tool.
+//! The main entry point for the Arvak CLI tool.
+//!
+//! ```text
+//!                     ▄▄▄▄▄▄▄▄▄▄▄▄
+//!                 ▄▄██████████████▄▄
+//!              ▄████▀▀▀        ▀▀▀████▄
+//!            ▄███▀                  ▀███▄
+//!          ▄███                        ███▄
+//!         ███▀      ▄▄▄▄▄▄▄▄            ▀███
+//!        ███     ▄███████████▄           ███
+//!       ███    ▄██▀        ▀██▄          ███
+//!      ███    ███            ███          ███
+//!      ██    ███   ██    ██   ███         ██
+//!     ███    ██   ████  ████   ██        ███
+//!     ██     ██    ██    ██    ██         ██
+//!     ██     ███              ███         ██
+//!     ██      ███▄          ▄███          ██
+//!     ██       ████▄▄▄▄▄▄▄▄████           ██
+//!     ██         ▀▀▀▀▀▀▀▀▀▀▀             ██
+//!     ███     ▄▄▄▄▄▄                    ███
+//!      ███  ▄██▀▀  ▀▀██▄                ███
+//!       ██████        ████             ███
+//!        ████          ████           ███
+//!         ███           ████         ███
+//!          ███           ████       ███
+//!           ████          ████    ████
+//!            █████         ████  ████
+//!              █████        ████████
+//!                █████▄      █████
+//!                  ██████▄▄▄████
+//!                     ▀▀█████▀
+//!
+//!                  A R V A K
+//!        Rust-Native Quantum Compilation
+//!            for HPC Environments
+//!
+//!          "Swift as the eternal steeds"
+//! ```
 
 use clap::{Parser, Subcommand};
 use console::style;
@@ -10,9 +47,9 @@ mod commands;
 
 use commands::{backends, compile, run, version};
 
-/// HIQ - Rust-native quantum compilation and orchestration
+/// Arvak - Rust-native quantum compilation and orchestration for HPC
 #[derive(Parser)]
-#[command(name = "hiq")]
+#[command(name = "arvak")]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Increase verbosity (-v, -vv, -vvv)
