@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "hiq-quantum"
-version = "1.0.1"
+version = "1.1.0"
 description = "Rust-native quantum compilation platform"
 readme = "README.md"
 requires-python = ">=3.9"
