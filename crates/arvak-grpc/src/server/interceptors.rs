@@ -165,6 +165,7 @@ pub fn log_error(status: &Status) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tonic::service::Interceptor;
 
     #[test]
     fn test_request_id_generation() {
