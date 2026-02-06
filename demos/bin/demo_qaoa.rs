@@ -4,9 +4,9 @@
 
 use clap::Parser;
 
-use hiq_demos::problems::Graph;
-use hiq_demos::runners::QaoaRunner;
-use hiq_demos::{
+use arvak_demos::problems::Graph;
+use arvak_demos::runners::QaoaRunner;
+use arvak_demos::{
     create_progress_bar, print_header, print_info, print_result, print_section, print_success,
 };
 
@@ -133,7 +133,7 @@ fn main() {
     println!("  - Mission routing optimization");
     println!("  - Network partitioning");
     println!();
-    println!("  HiQ manages the optimization workflow:");
+    println!("  Arvak manages the optimization workflow:");
     println!(
         "  - {} quantum circuit evaluations",
         result.circuit_evaluations
@@ -144,7 +144,7 @@ fn main() {
     println!();
     print_success("QAOA demo complete!");
     println!();
-    print_info("For larger problems, HiQ would:");
+    print_info("For larger problems, Arvak would:");
     println!("  - Scale to graphs with 10-20+ nodes");
     println!("  - Use deeper circuits (p = 3-5)");
     println!("  - Run on actual quantum hardware");

@@ -1,7 +1,7 @@
 """Qiskit backend provider for HIQ.
 
 This module implements Qiskit's provider and backend interfaces, allowing
-users to execute HIQ circuits through Qiskit's familiar backend.run() API.
+users to execute Arvak circuits through Qiskit's familiar backend.run() API.
 """
 
 from typing import List, Optional, Union, TYPE_CHECKING
@@ -12,15 +12,15 @@ if TYPE_CHECKING:
     from qiskit.providers import BackendV2, JobV1, Options
 
 
-class HIQProvider:
+class ArvakProvider:
     """Qiskit provider for HIQ backends.
 
     This provider allows users to access HIQ execution capabilities through
     Qiskit's standard provider interface.
 
     Example:
-        >>> from arvak.integrations.qiskit import HIQProvider
-        >>> provider = HIQProvider()
+        >>> from arvak.integrations.qiskit import ArvakProvider
+        >>> provider = ArvakProvider()
         >>> backend = provider.get_backend('sim')
         >>> job = backend.run(qiskit_circuit, shots=1000)
         >>> result = job.result()
@@ -38,10 +38,10 @@ class HIQProvider:
             **filters: Additional filters (currently unused)
 
         Returns:
-            List of HIQBackend instances
+            List of ArvakBackend instances
 
         Example:
-            >>> provider = HIQProvider()
+            >>> provider = ArvakProvider()
             >>> all_backends = provider.backends()
             >>> sim_backend = provider.backends(name='sim')
         """
@@ -65,13 +65,13 @@ class HIQProvider:
             name: Backend name (default: 'sim')
 
         Returns:
-            HIQBackend instance
+            ArvakBackend instance
 
         Raises:
             ValueError: If backend name is unknown
 
         Example:
-            >>> provider = HIQProvider()
+            >>> provider = ArvakProvider()
             >>> backend = provider.get_backend('sim')
         """
         backends = self.backends(name=name)
@@ -85,7 +85,7 @@ class HIQProvider:
 
     def __repr__(self) -> str:
         """String representation of the provider."""
-        return f"<HIQProvider(backends={list(self._backends.keys())})>"
+        return f"<ArvakProvider(backends={list(self._backends.keys())})>"
 
 
 class HIQSimulatorBackend:
@@ -99,11 +99,11 @@ class HIQSimulatorBackend:
         would require implementing all BackendV2 abstract methods and properties.
     """
 
-    def __init__(self, provider: HIQProvider):
+    def __init__(self, provider: ArvakProvider):
         """Initialize the simulator backend.
 
         Args:
-            provider: Parent HIQProvider instance
+            provider: Parent ArvakProvider instance
         """
         self._provider = provider
         self.name = 'hiq_simulator'
@@ -162,11 +162,11 @@ class HIQSimulatorBackend:
             circuits = [circuits]
 
         # Import here to avoid circular dependency
-        from .converter import qiskit_to_hiq
+        from .converter import qiskit_to_arvak
         import arvak
 
-        # Convert circuits to HIQ format
-        hiq_circuits = [qiskit_to_hiq(qc) for qc in circuits]
+        # Convert circuits to Arvak format
+        hiq_circuits = [qiskit_to_arvak(qc) for qc in circuits]
 
         # Create a mock job (real execution would happen here)
         job = HIQJob(
@@ -195,7 +195,7 @@ class HIQJob:
 
         Args:
             backend: Backend instance
-            circuits: List of HIQ circuits
+            circuits: List of Arvak circuits
             shots: Number of shots
             options: Execution options
         """

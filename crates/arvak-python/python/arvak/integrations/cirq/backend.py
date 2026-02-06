@@ -1,7 +1,7 @@
 """Cirq sampler for HIQ.
 
 This module implements Cirq's Sampler interface, allowing users to execute
-HIQ circuits through Cirq's sampling API.
+Arvak circuits through Cirq's sampling API.
 """
 
 from typing import List, Optional, Union, TYPE_CHECKING, Dict, Sequence
@@ -11,14 +11,14 @@ if TYPE_CHECKING:
     import cirq
 
 
-class HIQSampler:
+class ArvakSampler:
     """HIQ sampler implementing Cirq's Sampler interface.
 
     This sampler allows Cirq programs to execute on HIQ backends using
     Cirq's standard sampling API.
 
     Example:
-        >>> from arvak.integrations.cirq import HIQSampler
+        >>> from arvak.integrations.cirq import ArvakSampler
         >>> import cirq
         >>>
         >>> qubits = cirq.LineQubit.range(2)
@@ -28,7 +28,7 @@ class HIQSampler:
         ...     cirq.measure(*qubits, key='result')
         ... )
         >>>
-        >>> sampler = HIQSampler('sim')
+        >>> sampler = ArvakSampler('sim')
         >>> result = sampler.run(circuit, repetitions=1000)
         >>> print(result)
     """
@@ -67,11 +67,11 @@ class HIQSampler:
             RuntimeWarning
         )
 
-        # Convert to HIQ format
-        from .converter import cirq_to_hiq
+        # Convert to Arvak format
+        from .converter import cirq_to_arvak
         import arvak
 
-        hiq_circuit = cirq_to_hiq(program)
+        hiq_circuit = cirq_to_arvak(program)
 
         # Create mock results
         return self._mock_result(program, hiq_circuit, repetitions)
@@ -105,7 +105,7 @@ class HIQSampler:
 
         Args:
             cirq_circuit: Original Cirq circuit
-            hiq_circuit: Converted HIQ circuit
+            hiq_circuit: Converted Arvak circuit
             repetitions: Number of repetitions
 
         Returns:
@@ -145,7 +145,7 @@ class HIQSampler:
 
     def __repr__(self) -> str:
         """String representation of the sampler."""
-        return f"<HIQSampler('{self.name}')>"
+        return f"<ArvakSampler('{self.name}')>"
 
 
 class HIQResult:
@@ -213,10 +213,10 @@ class HIQResult:
         return f"<HIQResult(repetitions={self.repetitions}, keys={list(self.measurements.keys())})>"
 
 
-class HIQEngine:
+class ArvakEngine:
     """HIQ engine for Cirq.
 
-    Provides access to HIQ backends through Cirq's Engine interface.
+    Provides access to Arvak backends through Cirq's Engine interface.
     """
 
     def __init__(self, backend_name: str = 'sim'):
@@ -226,19 +226,19 @@ class HIQEngine:
             backend_name: Name of the backend to use
         """
         self.backend_name = backend_name
-        self._sampler = HIQSampler(backend_name)
+        self._sampler = ArvakSampler(backend_name)
 
-    def get_sampler(self, processor_id: Optional[str] = None) -> HIQSampler:
+    def get_sampler(self, processor_id: Optional[str] = None) -> ArvakSampler:
         """Get a sampler for this engine.
 
         Args:
             processor_id: Optional processor ID (unused)
 
         Returns:
-            HIQSampler instance
+            ArvakSampler instance
         """
         return self._sampler
 
     def __repr__(self) -> str:
         """String representation of the engine."""
-        return f"<HIQEngine(backend='{self.backend_name}')>"
+        return f"<ArvakEngine(backend='{self.backend_name}')>"

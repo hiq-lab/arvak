@@ -17,20 +17,20 @@ version = "1.0.0"
 edition = "2024"
 rust-version = "1.85"
 license = "Apache-2.0"
-repository = "https://github.com/hiq-project/hiq"
+repository = "https://github.com/arvak-project/hiq"
 keywords = ["quantum", "hpc", "compiler", "qasm", "orchestration"]
 categories = ["science", "compilers", "simulation"]
 
 [workspace.dependencies]
 # Internal crates
-hiq-ir = { path = "crates/hiq-ir" }
-hiq-qasm3 = { path = "crates/hiq-qasm3" }
-hiq-compile = { path = "crates/hiq-compile" }
-hiq-auto = { path = "crates/hiq-auto" }
-hiq-types = { path = "crates/hiq-types" }
-hiq-hal = { path = "crates/hiq-hal" }
-hiq-sched = { path = "crates/hiq-sched" }
-hiq-core = { path = "crates/hiq-core" }
+arvak-ir = { path = "crates/arvak-ir" }
+arvak-qasm3 = { path = "crates/arvak-qasm3" }
+arvak-compile = { path = "crates/arvak-compile" }
+arvak-auto = { path = "crates/arvak-auto" }
+arvak-types = { path = "crates/arvak-types" }
+arvak-hal = { path = "crates/arvak-hal" }
+arvak-sched = { path = "crates/arvak-sched" }
+arvak-core = { path = "crates/arvak-core" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
@@ -89,10 +89,10 @@ lto = "thin"
 
 ## Core Type Definitions
 
-### hiq-ir: Qubit Types
+### arvak-ir: Qubit Types
 
 ```rust
-// crates/hiq-ir/src/qubit.rs
+// crates/arvak-ir/src/qubit.rs
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -122,10 +122,10 @@ pub struct Clbit {
 }
 ```
 
-### hiq-ir: Gate Types
+### arvak-ir: Gate Types
 
 ```rust
-// crates/hiq-ir/src/gate.rs
+// crates/arvak-ir/src/gate.rs
 
 use num_complex::Complex64;
 use serde::{Deserialize, Serialize};
@@ -197,10 +197,10 @@ pub struct ClassicalCondition {
 }
 ```
 
-### hiq-ir: Parameter Expressions
+### arvak-ir: Parameter Expressions
 
 ```rust
-// crates/hiq-ir/src/parameter.rs
+// crates/arvak-ir/src/parameter.rs
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -229,10 +229,10 @@ impl ParameterExpression {
 }
 ```
 
-### hiq-ir: Instructions
+### arvak-ir: Instructions
 
 ```rust
-// crates/hiq-ir/src/instruction.rs
+// crates/arvak-ir/src/instruction.rs
 
 use serde::{Deserialize, Serialize};
 
@@ -267,10 +267,10 @@ impl Instruction {
 }
 ```
 
-### hiq-ir: Circuit DAG
+### arvak-ir: Circuit DAG
 
 ```rust
-// crates/hiq-ir/src/dag.rs
+// crates/arvak-ir/src/dag.rs
 
 use petgraph::graph::{DiGraph, NodeIndex as PetNodeIndex};
 use rustc_hash::FxHashMap;
@@ -329,10 +329,10 @@ impl CircuitDag {
 }
 ```
 
-### hiq-ir: Circuit Builder
+### arvak-ir: Circuit Builder
 
 ```rust
-// crates/hiq-ir/src/circuit.rs
+// crates/arvak-ir/src/circuit.rs
 
 use crate::dag::CircuitDag;
 use crate::gate::{Gate, StandardGate};
@@ -404,10 +404,10 @@ impl Circuit {
 
 ## Compilation Framework
 
-### hiq-compile: Pass Trait
+### arvak-compile: Pass Trait
 
 ```rust
-// crates/hiq-compile/src/pass.rs
+// crates/arvak-compile/src/pass.rs
 
 use arvak_ir::dag::CircuitDag;
 use crate::property::PropertySet;
@@ -438,10 +438,10 @@ pub trait TransformationPass: Pass {
 }
 ```
 
-### hiq-compile: PropertySet
+### arvak-compile: PropertySet
 
 ```rust
-// crates/hiq-compile/src/property.rs
+// crates/arvak-compile/src/property.rs
 
 use rustc_hash::FxHashMap;
 use std::any::{Any, TypeId};
@@ -512,10 +512,10 @@ impl PropertySet {
 }
 ```
 
-### hiq-compile: PassManager
+### arvak-compile: PassManager
 
 ```rust
-// crates/hiq-compile/src/manager.rs
+// crates/arvak-compile/src/manager.rs
 
 use arvak_ir::dag::CircuitDag;
 use crate::pass::Pass;
@@ -551,10 +551,10 @@ impl PassManagerBuilder {
 
 ## Hardware Abstraction Layer
 
-### hiq-hal: Backend Trait
+### arvak-hal: Backend Trait
 
 ```rust
-// crates/hiq-hal/src/backend.rs
+// crates/arvak-hal/src/backend.rs
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -592,10 +592,10 @@ pub trait BackendFactory: Backend + Sized {
 }
 ```
 
-### hiq-hal: Capabilities
+### arvak-hal: Capabilities
 
 ```rust
-// crates/hiq-hal/src/capability.rs
+// crates/arvak-hal/src/capability.rs
 
 use serde::{Deserialize, Serialize};
 
@@ -644,10 +644,10 @@ impl Topology {
 }
 ```
 
-### hiq-hal: Job Management
+### arvak-hal: Job Management
 
 ```rust
-// crates/hiq-hal/src/job.rs
+// crates/arvak-hal/src/job.rs
 
 use serde::{Deserialize, Serialize};
 
@@ -676,10 +676,10 @@ pub struct Job {
 }
 ```
 
-### hiq-hal: Results
+### arvak-hal: Results
 
 ```rust
-// crates/hiq-hal/src/result.rs
+// crates/arvak-hal/src/result.rs
 
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -710,10 +710,10 @@ pub struct ExecutionResult {
 
 ## Scheduler Integration
 
-### hiq-sched: Scheduler Trait
+### arvak-sched: Scheduler Trait
 
 ```rust
-// crates/hiq-sched/src/scheduler.rs
+// crates/arvak-sched/src/scheduler.rs
 
 use async_trait::async_trait;
 use crate::error::SchedulerResult;
@@ -758,10 +758,10 @@ pub struct JobSpec {
 }
 ```
 
-### hiq-sched: Slurm Adapter
+### arvak-sched: Slurm Adapter
 
 ```rust
-// crates/hiq-sched/src/slurm.rs
+// crates/arvak-sched/src/slurm.rs
 
 use crate::scheduler::{Scheduler, SchedulerJobId, SchedulerStatus, JobSpec, JobOutput};
 use crate::error::SchedulerResult;
@@ -796,10 +796,10 @@ impl Scheduler for SlurmAdapter {
 
 ## Error Types
 
-### hiq-ir Errors
+### arvak-ir Errors
 
 ```rust
-// crates/hiq-ir/src/error.rs
+// crates/arvak-ir/src/error.rs
 
 use thiserror::Error;
 use crate::qubit::{QubitId, ClbitId};
@@ -831,10 +831,10 @@ pub enum IrError {
 pub type IrResult<T> = Result<T, IrError>;
 ```
 
-### hiq-compile Errors
+### arvak-compile Errors
 
 ```rust
-// crates/hiq-compile/src/error.rs
+// crates/arvak-compile/src/error.rs
 
 use thiserror::Error;
 
@@ -862,10 +862,10 @@ pub enum CompileError {
 pub type CompileResult<T> = Result<T, CompileError>;
 ```
 
-### hiq-hal Errors
+### arvak-hal Errors
 
 ```rust
-// crates/hiq-hal/src/error.rs
+// crates/arvak-hal/src/error.rs
 
 use thiserror::Error;
 
@@ -907,10 +907,10 @@ pub type HalResult<T> = Result<T, HalError>;
 
 ## CLI Structure
 
-### hiq-cli Commands
+### arvak-cli Commands
 
 ```rust
-// crates/hiq-cli/src/main.rs
+// crates/arvak-cli/src/main.rs
 
 use clap::{Parser, Subcommand};
 

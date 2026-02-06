@@ -2,21 +2,21 @@
 
 This module provides seamless integration between Qiskit and HIQ, enabling:
 - Circuit conversion (Qiskit ↔ HIQ)
-- Execution of HIQ circuits through Qiskit's backend API
-- Access to HIQ's advanced compilation capabilities from Qiskit
+- Execution of Arvak circuits through Qiskit's backend API
+- Access to Arvak's advanced compilation capabilities from Qiskit
 
 Example:
     >>> from qiskit import QuantumCircuit
-    >>> from arvak.integrations.qiskit import qiskit_to_hiq, HIQProvider
+    >>> from arvak.integrations.qiskit import qiskit_to_arvak, ArvakProvider
     >>>
-    >>> # Convert Qiskit circuit to HIQ
+    >>> # Convert Qiskit circuit to Arvak
     >>> qc = QuantumCircuit(2)
     >>> qc.h(0)
     >>> qc.cx(0, 1)
-    >>> hiq_circuit = qiskit_to_hiq(qc)
+    >>> hiq_circuit = qiskit_to_arvak(qc)
     >>>
     >>> # Use HIQ as Qiskit backend
-    >>> provider = HIQProvider()
+    >>> provider = ArvakProvider()
     >>> backend = provider.get_backend('sim')
     >>> job = backend.run(qc, shots=1000)
     >>> result = job.result()
@@ -52,23 +52,23 @@ class QiskitIntegration(FrameworkIntegration):
         except ImportError:
             return False
 
-    def to_hiq(self, circuit):
-        """Convert Qiskit circuit to HIQ.
+    def to_arvak(self, circuit):
+        """Convert Qiskit circuit to Arvak.
 
         Args:
             circuit: Qiskit QuantumCircuit
 
         Returns:
-            HIQ Circuit
+            Arvak Circuit
         """
-        from .converter import qiskit_to_hiq
-        return qiskit_to_hiq(circuit)
+        from .converter import qiskit_to_arvak
+        return qiskit_to_arvak(circuit)
 
-    def from_hiq(self, circuit):
-        """Convert HIQ circuit to Qiskit.
+    def from_arvak(self, circuit):
+        """Convert Arvak circuit to Qiskit.
 
         Args:
-            circuit: HIQ Circuit
+            circuit: Arvak Circuit
 
         Returns:
             Qiskit QuantumCircuit
@@ -80,10 +80,10 @@ class QiskitIntegration(FrameworkIntegration):
         """Get HIQ backend provider for Qiskit.
 
         Returns:
-            HIQProvider instance
+            ArvakProvider instance
         """
-        from .backend import HIQProvider
-        return HIQProvider()
+        from .backend import ArvakProvider
+        return ArvakProvider()
 
 
 # Auto-register if Qiskit is available
@@ -93,9 +93,9 @@ if _integration.is_available():
     IntegrationRegistry.register(_integration)
 
     # Expose public API at package level
-    from .backend import HIQProvider
-    from .converter import qiskit_to_hiq, hiq_to_qiskit
+    from .backend import ArvakProvider
+    from .converter import qiskit_to_arvak, hiq_to_qiskit
 
-    __all__ = ['HIQProvider', 'qiskit_to_hiq', 'hiq_to_qiskit', 'QiskitIntegration']
+    __all__ = ['ArvakProvider', 'qiskit_to_arvak', 'hiq_to_qiskit', 'QiskitIntegration']
 else:
     __all__ = ['QiskitIntegration']

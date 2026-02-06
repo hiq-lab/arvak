@@ -5,11 +5,11 @@
 use clap::Parser;
 use std::time::Instant;
 
-use hiq_demos::circuits::grover::{grover_circuit, optimal_iterations};
-use hiq_demos::problems::{Graph, h2_hamiltonian};
-use hiq_demos::runners::orchestrator::{default_demo_jobs, run_multi_demo};
-use hiq_demos::runners::{QaoaRunner, VqeRunner};
-use hiq_demos::{print_header, print_info, print_result, print_section, print_success};
+use arvak_demos::circuits::grover::{grover_circuit, optimal_iterations};
+use arvak_demos::problems::{Graph, h2_hamiltonian};
+use arvak_demos::runners::orchestrator::{default_demo_jobs, run_multi_demo};
+use arvak_demos::runners::{QaoaRunner, VqeRunner};
+use arvak_demos::{print_header, print_info, print_result, print_section, print_success};
 
 #[derive(Parser, Debug)]
 #[command(name = "demo-all")]
@@ -28,15 +28,15 @@ fn main() {
     let args = Args::parse();
     let start = Instant::now();
 
-    print_header("HIQ Complete Demo Suite");
+    print_header("Arvak Complete Demo Suite");
 
-    println!("  This demo showcases HiQ's HPC-quantum orchestration capabilities.");
+    println!("  This demo showcases Arvak's HPC-quantum orchestration capabilities.");
     println!("  We'll demonstrate:");
     println!("  1. Grover's Search (baseline)");
     println!("  2. VQE for H₂ (hybrid classical-quantum)");
     println!("  3. QAOA for Max-Cut (optimization)");
     if !args.skip_multi {
-        println!("  4. Multi-Job Orchestration (HiQ value prop)");
+        println!("  4. Multi-Job Orchestration (Arvak value prop)");
     }
     println!();
 
@@ -178,7 +178,7 @@ fn main() {
 
     println!();
     println!("  Key takeaways:");
-    println!("  - HiQ provides end-to-end quantum workflow management");
+    println!("  - Arvak provides end-to-end quantum workflow management");
     println!("  - Hybrid algorithms (VQE, QAOA) require HPC-QPU orchestration");
     println!("  - SLURM integration enables production-scale quantum computing");
     println!("  - Multi-job management is essential for real applications");
@@ -202,7 +202,7 @@ fn main() {
     println!("    \"Infrastructure for computational quantum research\"");
 
     println!();
-    print_success("HIQ Demo Suite Complete!");
+    print_success("Arvak Demo Suite Complete!");
     println!();
     print_info("For more details, run individual demos:");
     println!("  demo-grover --help");

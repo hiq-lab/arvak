@@ -2,7 +2,7 @@
 
 This module provides seamless integration between PennyLane and HIQ, enabling:
 - QNode conversion (PennyLane ↔ HIQ)
-- Execution of HIQ circuits through PennyLane's Device API
+- Execution of Arvak circuits through PennyLane's Device API
 - Support for quantum machine learning workflows
 
 PennyLane is a quantum machine learning library that emphasizes:
@@ -13,10 +13,10 @@ PennyLane is a quantum machine learning library that emphasizes:
 
 Example:
     >>> import pennylane as qml
-    >>> from arvak.integrations.pennylane import HIQDevice, pennylane_to_hiq
+    >>> from arvak.integrations.pennylane import ArvakDevice, pennylane_to_arvak
     >>>
     >>> # Use HIQ as PennyLane device
-    >>> dev = HIQDevice(wires=2, backend='sim')
+    >>> dev = ArvakDevice(wires=2, backend='sim')
     >>>
     >>> @qml.qnode(dev)
     >>> def circuit(x):
@@ -63,23 +63,23 @@ class PennyLaneIntegration(FrameworkIntegration):
         except ImportError:
             return False
 
-    def to_hiq(self, qnode_or_tape):
-        """Convert PennyLane QNode or tape to HIQ.
+    def to_arvak(self, qnode_or_tape):
+        """Convert PennyLane QNode or tape to Arvak.
 
         Args:
             qnode_or_tape: PennyLane QNode or QuantumTape
 
         Returns:
-            HIQ Circuit
+            Arvak Circuit
         """
-        from .converter import pennylane_to_hiq
-        return pennylane_to_hiq(qnode_or_tape)
+        from .converter import pennylane_to_arvak
+        return pennylane_to_arvak(qnode_or_tape)
 
-    def from_hiq(self, circuit):
-        """Convert HIQ circuit to PennyLane QNode.
+    def from_arvak(self, circuit):
+        """Convert Arvak circuit to PennyLane QNode.
 
         Args:
-            circuit: HIQ Circuit
+            circuit: Arvak Circuit
 
         Returns:
             PennyLane QNode function
@@ -104,13 +104,13 @@ if _integration.is_available():
     IntegrationRegistry.register(_integration)
 
     # Expose public API at package level
-    from .backend import HIQDevice, create_device
-    from .converter import pennylane_to_hiq, hiq_to_pennylane
+    from .backend import ArvakDevice, create_device
+    from .converter import pennylane_to_arvak, hiq_to_pennylane
 
     __all__ = [
-        'HIQDevice',
+        'ArvakDevice',
         'create_device',
-        'pennylane_to_hiq',
+        'pennylane_to_arvak',
         'hiq_to_pennylane',
         'PennyLaneIntegration'
     ]

@@ -3,8 +3,8 @@
 //! An ansatz is a parameterized quantum circuit used in variational algorithms.
 //! The parameters are optimized classically to minimize the expected energy.
 
-use hiq_ir::Circuit;
-use hiq_ir::qubit::QubitId;
+use arvak_ir::Circuit;
+use arvak_ir::qubit::QubitId;
 
 /// Generate a TwoLocal ansatz circuit.
 ///

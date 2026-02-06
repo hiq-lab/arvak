@@ -32,7 +32,7 @@ Arvak is designed for deployment in High-Performance Computing (HPC) environment
 │  ┌──────────────────────────────────────────────────────────────────────┐  │
 │  │                       Compute Node                                    │  │
 │  │  ┌─────────────────┐                      ┌────────────────────┐     │  │
-│  │  │   hiq-runner    │─────────────────────▶│   Quantum System   │     │  │
+│  │  │   arvak-runner    │─────────────────────▶│   Quantum System   │     │  │
 │  │  │                 │                      │   (IQM/IBM)        │     │  │
 │  │  └─────────────────┘                      └────────────────────┘     │  │
 │  └──────────────────────────────────────────────────────────────────────┘  │
@@ -89,7 +89,7 @@ export HIQ_JOB_ID="${HIQ_JOB_ID}"
 export HIQ_BACKEND="${HIQ_BACKEND}"
 
 # Run the quantum job
-hiq-runner --job-id="${HIQ_JOB_ID}"
+arvak-runner --job-id="${HIQ_JOB_ID}"
 ```
 
 ### PBS Adapter
@@ -116,7 +116,7 @@ LUMI hosts IQM's Helmi quantum computer (5 qubits).
 
 **Configuration:**
 ```yaml
-# ~/.hiq/config.yaml
+# ~/.arvak/config.yaml
 site: lumi
 scheduler:
   type: slurm
@@ -158,7 +158,7 @@ LRZ hosts IQM quantum systems.
 
 **Configuration:**
 ```yaml
-# ~/.hiq/config.yaml
+# ~/.arvak/config.yaml
 site: lrz
 scheduler:
   type: slurm
@@ -177,7 +177,7 @@ backend:
 For sites without pre-configured profiles:
 
 ```yaml
-# ~/.hiq/config.yaml
+# ~/.arvak/config.yaml
 site: custom
 scheduler:
   type: slurm
@@ -196,14 +196,14 @@ backend:
 
 ```bash
 # Download release binary
-curl -LO https://github.com/hiq-project/hiq/releases/latest/download/hiq-linux-x86_64.tar.gz
+curl -LO https://github.com/arvak-project/hiq/releases/latest/download/arvak-linux-x86_64.tar.gz
 
 # Extract
-tar xzf hiq-linux-x86_64.tar.gz
+tar xzf arvak-linux-x86_64.tar.gz
 
 # Install to user directory
 mkdir -p ~/.local/bin
-mv hiq hiq-runner ~/.local/bin/
+mv hiq arvak-runner ~/.local/bin/
 
 # Add to PATH
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
@@ -216,12 +216,12 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 module load rust/1.83
 
 # Clone and build
-git clone https://github.com/hiq-project/hiq
+git clone https://github.com/arvak-project/hiq
 cd hiq
 cargo build --release
 
 # Install
-cp target/release/hiq target/release/hiq-runner ~/.local/bin/
+cp target/release/hiq target/release/arvak-runner ~/.local/bin/
 ```
 
 ### Method 3: Environment Module
@@ -232,7 +232,7 @@ For system-wide installation, create a module file:
 -- /opt/modulefiles/hiq/0.1.0.lua
 whatis("HIQ: Rust-native quantum compilation stack")
 
-local base = "/opt/hiq/0.1.0"
+local base = "/opt/arvak/0.1.0"
 
 prepend_path("PATH", pathJoin(base, "bin"))
 prepend_path("LD_LIBRARY_PATH", pathJoin(base, "lib"))
@@ -255,14 +255,14 @@ hiq submit -i circuit.qasm \
     --account project_462000xxx \
     --time 00:30:00
 
-# Output: Job submitted: hiq-12345 (Slurm job: 98765)
+# Output: Job submitted: arvak-12345 (Slurm job: 98765)
 ```
 
 ### Check Status
 
 ```bash
 # Arvak job status
-hiq status hiq-12345
+hiq status arvak-12345
 
 # Or directly via Slurm
 squeue -j 98765
@@ -272,10 +272,10 @@ squeue -j 98765
 
 ```bash
 # Get results
-hiq result hiq-12345 --format json > results.json
+hiq result arvak-12345 --format json > results.json
 
 # Or as table
-hiq result hiq-12345 --format table
+hiq result arvak-12345 --format table
 ```
 
 ### Batch Submission
@@ -324,10 +324,10 @@ hiq submit -i compiled.qasm \
 
 ### 3. Job Execution
 
-The scheduler runs `hiq-runner` on a compute node:
+The scheduler runs `arvak-runner` on a compute node:
 
 ```
-hiq-runner workflow:
+arvak-runner workflow:
 1. Load job specification
 2. Connect to quantum backend
 3. Submit circuit
@@ -340,10 +340,10 @@ hiq-runner workflow:
 
 ```bash
 # Wait for completion
-hiq wait hiq-12345
+hiq wait arvak-12345
 
 # Get results
-hiq result hiq-12345
+hiq result arvak-12345
 ```
 
 ## Advanced Configuration
@@ -351,7 +351,7 @@ hiq result hiq-12345
 ### Resource Limits
 
 ```yaml
-# ~/.hiq/config.yaml
+# ~/.arvak/config.yaml
 limits:
   max_shots: 100000
   max_circuits_per_job: 100
@@ -362,7 +362,7 @@ limits:
 ### Retry Policy
 
 ```yaml
-# ~/.hiq/config.yaml
+# ~/.arvak/config.yaml
 retry:
   max_attempts: 3
   backoff_base: 5  # seconds
@@ -374,10 +374,10 @@ retry:
 For air-gapped compute nodes:
 
 ```yaml
-# ~/.hiq/config.yaml
+# ~/.arvak/config.yaml
 offline:
   enabled: true
-  cache_dir: /scratch/hiq-cache
+  cache_dir: /scratch/arvak-cache
   sync_interval: 300  # seconds
 ```
 
@@ -441,7 +441,7 @@ cat hiq_98765.err
 ## Security Considerations
 
 1. **Credential Storage** — Never store tokens in job scripts
-2. **File Permissions** — Protect config files: `chmod 600 ~/.hiq/config.yaml`
+2. **File Permissions** — Protect config files: `chmod 600 ~/.arvak/config.yaml`
 3. **Shared Filesystems** — Be cautious with results on shared storage
 4. **OIDC Tokens** — Use short-lived tokens when possible
 

@@ -295,21 +295,21 @@ async fn main() -> anyhow::Result<()> {
 cargo install --path crates/arvak-cli
 
 # List available backends
-hiq backends
+arvak backends
 
 # Run a circuit on the simulator
-hiq run examples/bell.qasm --backend sim --shots 1000
+arvak run examples/bell.qasm --backend sim --shots 1000
 
 # Compile a circuit for IQM hardware
-hiq compile examples/bell.qasm --target iqm --output bell_compiled.qasm
+arvak compile examples/bell.qasm --target iqm --output bell_compiled.qasm
 
 # Run on IQM hardware (requires IQM_TOKEN)
 export IQM_TOKEN="your-api-token"
-hiq run examples/bell.qasm --backend iqm --shots 1000
+arvak run examples/bell.qasm --backend iqm --shots 1000
 
 # Run on IBM Quantum (requires IBM_QUANTUM_TOKEN)
 export IBM_QUANTUM_TOKEN="your-api-token"
-hiq run examples/bell.qasm --backend ibm --shots 1000
+arvak run examples/bell.qasm --backend ibm --shots 1000
 ```
 
 ## Building from Source
@@ -362,7 +362,7 @@ Arvak provides first-class support for HPC environments with both SLURM and PBS 
 ### LUMI (CSC, Finland)
 
 ```yaml
-# ~/.hiq/config.yaml
+# ~/.arvak/config.yaml
 site: lumi
 scheduler:
   type: slurm
@@ -377,10 +377,10 @@ backend:
 
 ```bash
 # Authenticate via OIDC
-hiq auth login --provider csc
+arvak auth login --provider csc
 
 # Submit job to LUMI
-hiq run circuit.qasm --backend iqm --shots 1000
+arvak run circuit.qasm --backend iqm --shots 1000
 ```
 
 ### Scheduler Support

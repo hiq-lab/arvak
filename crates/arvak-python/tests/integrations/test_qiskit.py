@@ -33,8 +33,8 @@ def qiskit_bell_circuit():
 
 
 @pytest.fixture
-def hiq_bell_circuit():
-    """Create a simple Bell state circuit in HIQ."""
+def arvak_bell_circuit():
+    """Create a simple Bell state circuit in Arvak."""
     return hiq.Circuit.bell()
 
 
@@ -61,37 +61,37 @@ class TestQiskitIntegration:
         assert any('qiskit' in pkg.lower() for pkg in packages)
 
 
-class TestQiskitToHIQ:
-    """Tests for Qiskit -> HIQ conversion."""
+class TestQiskitToArvak:
+    """Tests for Qiskit -> Arvak conversion."""
 
-    def test_qiskit_to_hiq_via_integration(self, qiskit_bell_circuit):
-        """Test converting Qiskit circuit to HIQ using integration API."""
+    def test_qiskit_to_arvak_via_integration(self, qiskit_bell_circuit):
+        """Test converting Qiskit circuit to Arvak using integration API."""
         integration = hiq.get_integration('qiskit')
-        hiq_circuit = integration.to_hiq(qiskit_bell_circuit)
+        arvak_circuit = integration.to_arvak(qiskit_bell_circuit)
 
-        assert hiq_circuit is not None
-        assert hiq_circuit.num_qubits == 2
-        assert hiq_circuit.num_clbits == 2
+        assert arvak_circuit is not None
+        assert arvak_circuit.num_qubits == 2
+        assert arvak_circuit.num_clbits == 2
 
-    def test_qiskit_to_hiq_via_qasm(self, qiskit_bell_circuit):
-        """Test converting Qiskit circuit to HIQ via QASM."""
+    def test_qiskit_to_arvak_via_qasm(self, qiskit_bell_circuit):
+        """Test converting Qiskit circuit to Arvak via QASM."""
         # Export to QASM
         qasm_str = dumps(qiskit_bell_circuit)
         assert qasm_str is not None
 
-        # Import to HIQ
-        hiq_circuit = hiq.from_qasm(qasm_str)
-        assert hiq_circuit is not None
-        assert hiq_circuit.num_qubits == 2
+        # Import to Arvak
+        arvak_circuit = hiq.from_qasm(qasm_str)
+        assert arvak_circuit is not None
+        assert arvak_circuit.num_qubits == 2
 
-    def test_qiskit_to_hiq_preserves_qubits(self, qiskit_bell_circuit):
+    def test_qiskit_to_arvak_preserves_qubits(self, qiskit_bell_circuit):
         """Test that qubit count is preserved."""
         integration = hiq.get_integration('qiskit')
-        hiq_circuit = integration.to_hiq(qiskit_bell_circuit)
+        arvak_circuit = integration.to_arvak(qiskit_bell_circuit)
 
-        assert hiq_circuit.num_qubits == qiskit_bell_circuit.num_qubits
+        assert arvak_circuit.num_qubits == qiskit_bell_circuit.num_qubits
 
-    def test_qiskit_to_hiq_complex_circuit(self):
+    def test_qiskit_to_arvak_complex_circuit(self):
         """Test converting a more complex circuit."""
         # GHZ-3 state
         qc = QuantumCircuit(3, 3)
@@ -101,27 +101,27 @@ class TestQiskitToHIQ:
         qc.measure(range(3), range(3))
 
         integration = hiq.get_integration('qiskit')
-        hiq_circuit = integration.to_hiq(qc)
+        arvak_circuit = integration.to_arvak(qc)
 
-        assert hiq_circuit.num_qubits == 3
-        assert hiq_circuit.num_clbits == 3
+        assert arvak_circuit.num_qubits == 3
+        assert arvak_circuit.num_clbits == 3
 
 
-class TestHIQToQiskit:
-    """Tests for HIQ -> Qiskit conversion."""
+class TestArvakToQiskit:
+    """Tests for Arvak -> Qiskit conversion."""
 
-    def test_hiq_to_qiskit_via_integration(self, hiq_bell_circuit):
-        """Test converting HIQ circuit to Qiskit using integration API."""
+    def test_arvak_to_qiskit_via_integration(self, arvak_bell_circuit):
+        """Test converting Arvak circuit to Qiskit using integration API."""
         integration = hiq.get_integration('qiskit')
-        qiskit_circuit = integration.from_hiq(hiq_bell_circuit)
+        qiskit_circuit = integration.from_arvak(arvak_bell_circuit)
 
         assert qiskit_circuit is not None
         assert qiskit_circuit.num_qubits == 2
 
-    def test_hiq_to_qiskit_via_qasm(self, hiq_bell_circuit):
-        """Test converting HIQ circuit to Qiskit via QASM."""
+    def test_arvak_to_qiskit_via_qasm(self, arvak_bell_circuit):
+        """Test converting Arvak circuit to Qiskit via QASM."""
         # Export to QASM
-        qasm_str = hiq.to_qasm(hiq_bell_circuit)
+        qasm_str = hiq.to_qasm(arvak_bell_circuit)
         assert qasm_str is not None
 
         # Import to Qiskit
@@ -129,28 +129,28 @@ class TestHIQToQiskit:
         assert qiskit_circuit is not None
         assert qiskit_circuit.num_qubits >= 2  # May have additional qubits
 
-    def test_hiq_to_qiskit_preserves_structure(self):
+    def test_arvak_to_qiskit_preserves_structure(self):
         """Test that circuit structure is preserved."""
-        # Create HIQ GHZ-3
-        hiq_circuit = hiq.Circuit.ghz(3)
+        # Create Arvak GHZ-3
+        arvak_circuit = hiq.Circuit.ghz(3)
 
         integration = hiq.get_integration('qiskit')
-        qiskit_circuit = integration.from_hiq(hiq_circuit)
+        qiskit_circuit = integration.from_arvak(arvak_circuit)
 
         assert qiskit_circuit.num_qubits == 3
 
-    def test_hiq_to_qiskit_qft(self):
+    def test_arvak_to_qiskit_qft(self):
         """Test converting QFT circuit."""
-        hiq_circuit = hiq.Circuit.qft(4)
+        arvak_circuit = hiq.Circuit.qft(4)
 
         integration = hiq.get_integration('qiskit')
-        qiskit_circuit = integration.from_hiq(hiq_circuit)
+        qiskit_circuit = integration.from_arvak(arvak_circuit)
 
         assert qiskit_circuit.num_qubits == 4
 
 
 class TestQiskitBackendProvider:
-    """Tests for HIQ backend provider."""
+    """Tests for Arvak backend provider."""
 
     def test_get_backend_provider(self):
         """Test retrieving backend provider."""
@@ -223,17 +223,17 @@ class TestQiskitBackendProvider:
 
 
 class TestQiskitRoundTrip:
-    """Tests for round-trip conversion (Qiskit -> HIQ -> Qiskit)."""
+    """Tests for round-trip conversion (Qiskit -> Arvak -> Qiskit)."""
 
     def test_roundtrip_preserves_qubits(self, qiskit_bell_circuit):
         """Test that round-trip conversion preserves qubit count."""
         integration = hiq.get_integration('qiskit')
 
-        # Qiskit -> HIQ
-        hiq_circuit = integration.to_hiq(qiskit_bell_circuit)
+        # Qiskit -> Arvak
+        arvak_circuit = integration.to_arvak(qiskit_bell_circuit)
 
-        # HIQ -> Qiskit
-        qiskit_circuit_back = integration.from_hiq(hiq_circuit)
+        # Arvak -> Qiskit
+        qiskit_circuit_back = integration.from_arvak(arvak_circuit)
 
         assert qiskit_circuit_back.num_qubits == qiskit_bell_circuit.num_qubits
 
@@ -248,8 +248,8 @@ class TestQiskitRoundTrip:
         integration = hiq.get_integration('qiskit')
 
         # Round-trip
-        hiq_circuit = integration.to_hiq(qc)
-        qc_back = integration.from_hiq(hiq_circuit)
+        arvak_circuit = integration.to_arvak(qc)
+        qc_back = integration.from_arvak(arvak_circuit)
 
         assert qc_back.num_qubits == qc.num_qubits
 

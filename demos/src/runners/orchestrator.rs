@@ -1,6 +1,6 @@
 //! Multi-job orchestration demo.
 //!
-//! This module demonstrates HiQ's ability to manage multiple
+//! This module demonstrates Arvak's ability to manage multiple
 //! quantum workloads simultaneously.
 
 use std::time::{Duration, Instant};
@@ -58,7 +58,7 @@ pub struct MultiDemoResult {
 /// Run the multi-job orchestration demo.
 ///
 /// This demonstrates running multiple different quantum algorithms
-/// concurrently, simulating HiQ's job scheduling capabilities.
+/// concurrently, simulating Arvak's job scheduling capabilities.
 pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult {
     let start = Instant::now();
     let mut results = Vec::with_capacity(jobs.len());

@@ -1,1 +1,1 @@
-"""Tests for HIQ framework integrations."""
+"""Tests for Arvak framework integrations."""

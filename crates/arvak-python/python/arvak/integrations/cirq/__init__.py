@@ -2,7 +2,7 @@
 
 This module provides seamless integration between Cirq and HIQ, enabling:
 - Circuit conversion (Cirq ↔ HIQ)
-- Execution of HIQ circuits through Cirq's Sampler API
+- Execution of Arvak circuits through Cirq's Sampler API
 - Support for Cirq's qubit types (LineQubit, GridQubit)
 
 Cirq is Google's quantum computing framework that emphasizes:
@@ -13,19 +13,19 @@ Cirq is Google's quantum computing framework that emphasizes:
 
 Example:
     >>> import cirq
-    >>> from arvak.integrations.cirq import cirq_to_hiq, HIQSampler
+    >>> from arvak.integrations.cirq import cirq_to_arvak, ArvakSampler
     >>>
-    >>> # Convert Cirq circuit to HIQ
+    >>> # Convert Cirq circuit to Arvak
     >>> qubits = cirq.LineQubit.range(2)
     >>> circuit = cirq.Circuit(
     ...     cirq.H(qubits[0]),
     ...     cirq.CNOT(qubits[0], qubits[1]),
     ...     cirq.measure(*qubits, key='result')
     ... )
-    >>> hiq_circuit = cirq_to_hiq(circuit)
+    >>> hiq_circuit = cirq_to_arvak(circuit)
     >>>
     >>> # Use HIQ as Cirq sampler
-    >>> sampler = HIQSampler('sim')
+    >>> sampler = ArvakSampler('sim')
     >>> result = sampler.run(circuit, repetitions=1000)
 """
 
@@ -65,23 +65,23 @@ class CirqIntegration(FrameworkIntegration):
         except ImportError:
             return False
 
-    def to_hiq(self, circuit):
-        """Convert Cirq circuit to HIQ.
+    def to_arvak(self, circuit):
+        """Convert Cirq circuit to Arvak.
 
         Args:
             circuit: Cirq Circuit
 
         Returns:
-            HIQ Circuit
+            Arvak Circuit
         """
-        from .converter import cirq_to_hiq
-        return cirq_to_hiq(circuit)
+        from .converter import cirq_to_arvak
+        return cirq_to_arvak(circuit)
 
-    def from_hiq(self, circuit):
-        """Convert HIQ circuit to Cirq.
+    def from_arvak(self, circuit):
+        """Convert Arvak circuit to Cirq.
 
         Args:
-            circuit: HIQ Circuit
+            circuit: Arvak Circuit
 
         Returns:
             Cirq Circuit
@@ -93,10 +93,10 @@ class CirqIntegration(FrameworkIntegration):
         """Get HIQ sampler for Cirq.
 
         Returns:
-            HIQEngine instance that provides samplers
+            ArvakEngine instance that provides samplers
         """
-        from .backend import HIQEngine
-        return HIQEngine()
+        from .backend import ArvakEngine
+        return ArvakEngine()
 
 
 # Auto-register if Cirq is available
@@ -106,13 +106,13 @@ if _integration.is_available():
     IntegrationRegistry.register(_integration)
 
     # Expose public API at package level
-    from .backend import HIQSampler, HIQEngine
-    from .converter import cirq_to_hiq, hiq_to_cirq
+    from .backend import ArvakSampler, ArvakEngine
+    from .converter import cirq_to_arvak, hiq_to_cirq
 
     __all__ = [
-        'HIQSampler',
-        'HIQEngine',
-        'cirq_to_hiq',
+        'ArvakSampler',
+        'ArvakEngine',
+        'cirq_to_arvak',
         'hiq_to_cirq',
         'CirqIntegration'
     ]

@@ -176,7 +176,7 @@ fn apply_gate(
     gate: &hiq_ir::gate::StandardGate,
     qubits: &[usize],
 ) {
-    use hiq_ir::gate::StandardGate;
+    use arvak_ir::gate::StandardGate;
     use num_complex::Complex64;
 
     #[allow(unused_variables)]

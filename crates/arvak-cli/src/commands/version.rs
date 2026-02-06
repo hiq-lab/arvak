@@ -8,14 +8,14 @@ pub fn execute() {
 
     println!(
         "{} {} - Rust-native quantum compilation and orchestration",
-        style("HIQ").cyan().bold(),
+        style("Arvak").cyan().bold(),
         style(format!("v{}", version)).yellow()
     );
     println!();
     println!("Components:");
-    println!("  hiq-ir       Circuit intermediate representation");
-    println!("  hiq-compile  Compilation and transpilation framework");
-    println!("  hiq-hal      Hardware abstraction layer");
+    println!("  arvak-ir       Circuit intermediate representation");
+    println!("  arvak-compile  Compilation and transpilation framework");
+    println!("  arvak-hal      Hardware abstraction layer");
     println!("  hiq-cli      Command-line interface");
     println!();
     println!(

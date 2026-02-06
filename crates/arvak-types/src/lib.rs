@@ -1,4 +1,4 @@
-//! High-level quantum types for HIQ.
+//! High-level quantum types for Arvak.
 //!
 //! This crate provides Qrisp-inspired high-level quantum types that make it easier
 //! to work with quantum arithmetic and data structures. These types automatically

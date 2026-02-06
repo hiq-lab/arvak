@@ -3,7 +3,7 @@
 use num_complex::Complex64;
 use std::f64::consts::PI;
 
-use hiq_ir::{GateKind, Instruction, InstructionKind, StandardGate};
+use arvak_ir::{GateKind, Instruction, InstructionKind, StandardGate};
 
 /// A statevector representing a quantum state.
 pub struct Statevector {

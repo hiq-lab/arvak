@@ -1,4 +1,4 @@
-# HIQ Example Circuits
+# Arvak Example Circuits
 
 This directory contains example OpenQASM 3.0 circuits for testing and demonstration.
 
@@ -69,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
 ### Using Python
 
 ```python
-from hiq import parse_qasm, SimulatorBackend
+from arvak import parse_qasm, SimulatorBackend
 
 circuit = parse_qasm(open("examples/bell.qasm").read())
 backend = SimulatorBackend()

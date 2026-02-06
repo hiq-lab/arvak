@@ -1,6 +1,6 @@
 """Cirq circuit conversion utilities.
 
-This module provides functions to convert between Cirq and HIQ circuit formats
+This module provides functions to convert between Cirq and Arvak circuit formats
 using OpenQASM as an interchange format.
 """
 
@@ -11,18 +11,18 @@ if TYPE_CHECKING:
     import arvak
 
 
-def cirq_to_hiq(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
-    """Convert a Cirq Circuit to HIQ Circuit.
+def cirq_to_arvak(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
+    """Convert a Cirq Circuit to Arvak Circuit.
 
     This function uses OpenQASM as an interchange format:
     1. Export Cirq circuit to QASM
-    2. Import QASM into HIQ
+    2. Import QASM into Arvak
 
     Args:
         circuit: Cirq Circuit instance
 
     Returns:
-        HIQ Circuit instance
+        Arvak Circuit instance
 
     Raises:
         ImportError: If cirq is not installed
@@ -35,7 +35,7 @@ def cirq_to_hiq(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
         ...     cirq.H(qubits[0]),
         ...     cirq.CNOT(qubits[0], qubits[1])
         ... )
-        >>> hiq_circuit = cirq_to_hiq(circuit)
+        >>> hiq_circuit = cirq_to_arvak(circuit)
     """
     try:
         import cirq
@@ -51,21 +51,21 @@ def cirq_to_hiq(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
     # Cirq uses qasm() method for QASM 2.0 export
     qasm_str = cirq.qasm(circuit)
 
-    # Import into HIQ
+    # Import into Arvak
     hiq_circuit = hiq.from_qasm(qasm_str)
 
     return hiq_circuit
 
 
 def hiq_to_cirq(circuit: 'hiq.Circuit') -> 'cirq.Circuit':
-    """Convert HIQ Circuit to Cirq Circuit.
+    """Convert Arvak Circuit to Cirq Circuit.
 
     This function uses OpenQASM as an interchange format:
-    1. Export HIQ circuit to QASM
+    1. Export Arvak circuit to QASM
     2. Import QASM into Cirq
 
     Args:
-        circuit: HIQ Circuit instance
+        circuit: Arvak Circuit instance
 
     Returns:
         Cirq Circuit instance
@@ -89,7 +89,7 @@ def hiq_to_cirq(circuit: 'hiq.Circuit') -> 'cirq.Circuit':
 
     import arvak
 
-    # Export HIQ circuit to OpenQASM
+    # Export Arvak circuit to OpenQASM
     qasm_str = hiq.to_qasm(circuit)
 
     # Import into Cirq

@@ -88,7 +88,7 @@ pub struct SlurmConfig {
     pub work_dir: PathBuf,
 
     /// Path to the HIQ binary.
-    pub hiq_binary: PathBuf,
+    pub arvak_binary: PathBuf,
 
     /// Modules to load before running.
     pub modules: Vec<String>,
@@ -109,7 +109,7 @@ impl Default for SlurmConfig {
             memory_mb: 4096,
             cpus_per_task: 1,
             work_dir: PathBuf::from("/tmp/hiq-jobs"),
-            hiq_binary: PathBuf::from("hiq"),
+            arvak_binary: PathBuf::from("hiq"),
             modules: Vec::new(),
             python_venv: None,
             priority_qos_mapping: None,

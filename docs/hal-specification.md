@@ -315,7 +315,7 @@ pub type HalResult<T> = Result<T, HalError>;
 
 ### IQM Adapter
 
-Located in `adapters/hiq-adapter-iqm/`.
+Located in `adapters/arvak-adapter-iqm/`.
 
 **Features:**
 - IQM Resonance (cloud) support
@@ -347,7 +347,7 @@ pub enum AuthMethod {
 
 ### IBM Adapter
 
-Located in `adapters/hiq-adapter-ibm/`.
+Located in `adapters/arvak-adapter-ibm/`.
 
 **Features:**
 - IBM Quantum cloud access
@@ -377,7 +377,7 @@ pub struct IbmConfig {
 
 ### Simulator Adapter
 
-Located in `adapters/hiq-adapter-sim/`.
+Located in `adapters/arvak-adapter-sim/`.
 
 **Features:**
 - Local state vector simulation
@@ -509,7 +509,7 @@ pub struct OidcConfig {
 // LUMI example
 let oidc = OidcConfig {
     provider: "https://auth.csc.fi".into(),
-    client_id: "hiq-client".into(),
+    client_id: "arvak-client".into(),
     scopes: vec!["openid".into(), "quantum".into()],
 };
 ```

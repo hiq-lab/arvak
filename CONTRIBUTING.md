@@ -1,6 +1,6 @@
-# Contributing to HIQ
+# Contributing to Arvak
 
-Thank you for your interest in contributing to HIQ! This document provides guidelines
+Thank you for your interest in contributing to Arvak! This document provides guidelines
 and information for contributors.
 
 ## Code of Conduct
@@ -20,8 +20,8 @@ uphold respectful and inclusive behavior.
 
 ```bash
 # Clone the repository
-git clone https://github.com/hiq-project/hiq.git
-cd hiq
+git clone https://github.com/hiq-lab/arvak.git
+cd arvak
 
 # Build all crates
 cargo build
@@ -36,21 +36,21 @@ cargo doc --open
 ### Project Structure
 
 ```
-HIQ/
+arvak/
 ├── crates/           # Core Rust crates
-│   ├── hiq-ir/       # Circuit intermediate representation
-│   ├── hiq-qasm3/    # OpenQASM 3.0 parser/emitter
-│   ├── hiq-compile/  # Compilation framework
-│   ├── hiq-hal/      # Hardware abstraction layer
-│   ├── hiq-cli/      # Command-line interface
-│   ├── hiq-sched/    # HPC scheduler
-│   ├── hiq-types/    # Quantum types (QuantumInt, etc.)
-│   ├── hiq-auto/     # Automatic uncomputation
-│   └── hiq-python/   # Python bindings
+│   ├── arvak-ir/       # Circuit intermediate representation
+│   ├── arvak-qasm3/    # OpenQASM 3.0 parser/emitter
+│   ├── arvak-compile/  # Compilation framework
+│   ├── arvak-hal/      # Hardware abstraction layer
+│   ├── arvak-cli/      # Command-line interface
+│   ├── arvak-sched/    # HPC scheduler
+│   ├── arvak-types/    # Quantum types (QuantumInt, etc.)
+│   ├── arvak-auto/     # Automatic uncomputation
+│   └── arvak-python/   # Python bindings
 ├── adapters/         # Backend adapters
-│   ├── hiq-adapter-sim/  # Statevector simulator
-│   ├── hiq-adapter-iqm/  # IQM Quantum
-│   └── hiq-adapter-ibm/  # IBM Quantum
+│   ├── arvak-adapter-sim/  # Statevector simulator
+│   ├── arvak-adapter-iqm/  # IQM Quantum
+│   └── arvak-adapter-ibm/  # IBM Quantum
 ├── demos/            # Demo applications
 └── examples/         # Example QASM files
 ```
@@ -64,7 +64,7 @@ Before creating an issue, please:
 1. Search existing issues to avoid duplicates
 2. Use the issue template if provided
 3. Include:
-   - HIQ version (`cargo --version`, `rustc --version`)
+   - Arvak version (`cargo --version`, `rustc --version`)
    - Operating system
    - Steps to reproduce
    - Expected vs actual behavior
@@ -261,4 +261,4 @@ the Apache License, Version 2.0.
 
 ---
 
-Thank you for contributing to HIQ!
+Thank you for contributing to Arvak!

@@ -24,9 +24,9 @@
 //! # Example
 //!
 //! ```ignore
-//! use hiq_adapter_sim::SimulatorBackend;
-//! use hiq_hal::Backend;
-//! use hiq_ir::Circuit;
+//! use arvak_adapter_sim::SimulatorBackend;
+//! use arvak_hal::Backend;
+//! use arvak_ir::Circuit;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {

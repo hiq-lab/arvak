@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verification script for HIQ integration system.
+"""Verification script for Arvak integration system.
 
 This script tests the core integration infrastructure without requiring
 any optional framework dependencies.
@@ -20,7 +20,7 @@ def test_imports():
         import arvak
         print("  ✓ hiq imported")
     except ImportError as e:
-        print(f"  ✗ Failed to import hiq: {e}")
+        print(f"  ✗ Failed to import arvak: {e}")
         return False
 
     try:
@@ -273,7 +273,7 @@ def test_file_structure():
 def main():
     """Run all verification tests."""
     print("=" * 70)
-    print("HIQ Integration System Verification")
+    print("Arvak Integration System Verification")
     print("=" * 70)
 
     tests = [

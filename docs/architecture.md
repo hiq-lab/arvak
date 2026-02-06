@@ -18,13 +18,13 @@ Arvak is a Rust-native quantum compilation and orchestration stack designed for 
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           User Experience                                │
 │                                                                         │
-│   from hiq import QuantumFloat, QuantumCircuit                          │
+│   from arvak import QuantumFloat, QuantumCircuit                          │
 │   # Familiar Pythonic API, but backed by Rust                           │
 │                                                                         │
 └────────────────────────────────┬────────────────────────────────────────┘
                                  │
 ┌────────────────────────────────▼────────────────────────────────────────┐
-│                      hiq-python (Thin Python Layer)                      │
+│                      arvak-python (Thin Python Layer)                      │
 │                                                                         │
 │   - Pythonic wrappers around Rust types                                 │
 │   - Compatibility shims for Qiskit circuit import                       │
@@ -33,10 +33,10 @@ Arvak is a Rust-native quantum compilation and orchestration stack designed for 
 └────────────────────────────────┬────────────────────────────────────────┘
                                  │ PyO3
 ┌────────────────────────────────▼────────────────────────────────────────┐
-│                         hiq-core (Rust)                                  │
+│                         arvak-core (Rust)                                  │
 │                                                                         │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   hiq-ir    │  │ hiq-compile │  │  hiq-auto   │  │  hiq-hal    │    │
+│  │   arvak-ir    │  │ arvak-compile │  │  arvak-auto   │  │  arvak-hal    │    │
 │  │             │  │             │  │             │  │             │    │
 │  │ Circuit DAG │  │ Pass Mgr    │  │ Uncompute   │  │ Backend     │    │
 │  │ QASM3 Parse │  │ Layout      │  │ Memory Mgmt │  │ Abstraction │    │
@@ -44,7 +44,7 @@ Arvak is a Rust-native quantum compilation and orchestration stack designed for 
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
 │                                                                         │
 │  ┌─────────────┐  ┌─────────────┐                                       │
-│  │ hiq-sched   │  │ hiq-types   │                                       │
+│  │ arvak-sched   │  │ arvak-types   │                                       │
 │  │             │  │             │                                       │
 │  │ Slurm/PBS   │  │ QFloat      │                                       │
 │  │ Integration │  │ QBool, etc  │                                       │
@@ -59,21 +59,21 @@ Arvak is a Rust-native quantum compilation and orchestration stack designed for 
 hiq/
 ├── Cargo.toml                          # Workspace definition
 ├── crates/
-│   ├── hiq-ir/                         # Circuit intermediate representation
-│   ├── hiq-qasm3/                      # OpenQASM 3 parser/emitter
-│   ├── hiq-compile/                    # Transpilation passes
-│   ├── hiq-auto/                       # Automatic uncomputation
-│   ├── hiq-types/                      # High-level quantum types
-│   ├── hiq-hal/                        # Hardware abstraction layer
-│   ├── hiq-sched/                      # HPC scheduler integration
-│   ├── hiq-core/                       # Unified re-exports
-│   ├── hiq-cli/                        # Command-line interface
-│   └── hiq-python/                     # Python bindings (PyO3)
+│   ├── arvak-ir/                         # Circuit intermediate representation
+│   ├── arvak-qasm3/                      # OpenQASM 3 parser/emitter
+│   ├── arvak-compile/                    # Transpilation passes
+│   ├── arvak-auto/                       # Automatic uncomputation
+│   ├── arvak-types/                      # High-level quantum types
+│   ├── arvak-hal/                        # Hardware abstraction layer
+│   ├── arvak-sched/                      # HPC scheduler integration
+│   ├── arvak-core/                       # Unified re-exports
+│   ├── arvak-cli/                        # Command-line interface
+│   └── arvak-python/                     # Python bindings (PyO3)
 │
 ├── adapters/                           # Backend adapter implementations
-│   ├── hiq-adapter-iqm/
-│   ├── hiq-adapter-ibm/
-│   └── hiq-adapter-sim/
+│   ├── arvak-adapter-iqm/
+│   ├── arvak-adapter-ibm/
+│   └── arvak-adapter-sim/
 │
 ├── examples/
 ├── benches/
@@ -83,7 +83,7 @@ hiq/
 
 ## Component Responsibilities
 
-### hiq-ir (Circuit Intermediate Representation)
+### arvak-ir (Circuit Intermediate Representation)
 
 The core circuit representation, providing:
 
@@ -93,7 +93,7 @@ The core circuit representation, providing:
 - **Qubit/Clbit** — Quantum and classical bit types
 - **Parameter** — Symbolic parameter expressions
 
-### hiq-qasm3 (OpenQASM 3 Parser)
+### arvak-qasm3 (OpenQASM 3 Parser)
 
 OpenQASM 3 support:
 
@@ -103,7 +103,7 @@ OpenQASM 3 support:
 - Conversion to/from Circuit
 - Subset focus: gates, qubits, measurements (no pulse/timing initially)
 
-### hiq-compile (Compilation Framework)
+### arvak-compile (Compilation Framework)
 
 Transpilation infrastructure:
 
@@ -116,7 +116,7 @@ Transpilation infrastructure:
   - BasisTranslation
   - Optimization (Optimize1qGates, CancelCx)
 
-### hiq-auto (Automatic Uncomputation)
+### arvak-auto (Automatic Uncomputation)
 
 Qrisp-inspired features:
 
@@ -125,7 +125,7 @@ Qrisp-inspired features:
 - Memory management via permeability analysis
 - Qfree gate detection
 
-### hiq-types (High-Level Types)
+### arvak-types (High-Level Types)
 
 High-level quantum types:
 
@@ -133,7 +133,7 @@ High-level quantum types:
 - **QuantumBool** — Boolean quantum variables
 - **QuantumArray** — Arrays of quantum variables
 
-### hiq-hal (Hardware Abstraction Layer)
+### arvak-hal (Hardware Abstraction Layer)
 
 Backend abstraction:
 
@@ -142,7 +142,7 @@ Backend abstraction:
 - **Job/JobStatus** — Job lifecycle management
 - **ExecutionResult** — Measurement results
 
-### hiq-sched (HPC Scheduler Integration)
+### arvak-sched (HPC Scheduler Integration)
 
 HPC scheduler support:
 
@@ -152,7 +152,7 @@ HPC scheduler support:
 - Job script generation
 - Status monitoring
 
-### hiq-cli (Command-Line Interface)
+### arvak-cli (Command-Line Interface)
 
 User-facing CLI:
 
@@ -162,7 +162,7 @@ User-facing CLI:
 - `hiq result` — Retrieve results
 - `hiq backends` — List backends
 
-### hiq-python (Python Bindings)
+### arvak-python (Python Bindings)
 
 PyO3-based Python interface:
 
@@ -214,7 +214,7 @@ PyO3-based Python interface:
 │  │  sbatch script:                                 │    │
 │  │  #!/bin/bash                                    │    │
 │  │  #SBATCH --partition=quantum                    │    │
-│  │  hiq-runner --job-id=$HIQ_JOB_ID               │    │
+│  │  arvak-runner --job-id=$HIQ_JOB_ID               │    │
 │  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────┬───────────────────────────┘
                               │

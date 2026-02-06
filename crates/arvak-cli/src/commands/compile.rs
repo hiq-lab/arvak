@@ -5,9 +5,9 @@ use console::style;
 use std::fs;
 use std::path::Path;
 
-use hiq_compile::{BasisGates, CouplingMap, PassManagerBuilder};
-use hiq_ir::Circuit;
-use hiq_qasm3::{emit, parse};
+use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
+use arvak_ir::Circuit;
+use arvak_qasm3::{emit, parse};
 
 /// Execute the compile command.
 pub async fn execute(

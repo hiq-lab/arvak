@@ -1,13 +1,13 @@
 //! Scheduler-integrated demo runners.
 //!
-//! This module provides runners that integrate with HiQ's HPC scheduler
+//! This module provides runners that integrate with Arvak's HPC scheduler
 //! for realistic job submission and tracking.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use hiq_qasm3::emit;
-use hiq_sched::{
+use arvak_qasm3::emit;
+use arvak_sched::{
     CircuitSpec, HpcScheduler, Priority, ResourceRequirements, SchedResult, ScheduledJob,
     ScheduledJobId, ScheduledJobStatus, Scheduler, WorkflowBuilder,
 };
@@ -28,7 +28,7 @@ pub struct ScheduledDemoResult {
     pub description: String,
 }
 
-/// A demo runner that uses the HiQ scheduler for job submission.
+/// A demo runner that uses the Arvak scheduler for job submission.
 pub struct ScheduledRunner {
     scheduler: Arc<HpcScheduler>,
 }

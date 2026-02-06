@@ -7,11 +7,11 @@ use std::time::Instant;
 use tracing::{debug, instrument};
 use uuid::Uuid;
 
-use hiq_hal::{
+use arvak_hal::{
     Backend, BackendConfig, BackendFactory, Capabilities, Counts, ExecutionResult, HalError,
     HalResult, Job, JobId, JobStatus,
 };
-use hiq_ir::Circuit;
+use arvak_ir::Circuit;
 
 use crate::statevector::Statevector;
 

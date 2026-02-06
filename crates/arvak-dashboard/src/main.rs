@@ -1,4 +1,4 @@
-//! HIQ Dashboard binary entry point.
+//! Arvak Dashboard binary entry point.
 
 use std::sync::Arc;
 

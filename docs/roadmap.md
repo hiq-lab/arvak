@@ -31,11 +31,11 @@ Arvak aims to be the Rust-native quantum compilation and orchestration stack for
 
 | Milestone | Deliverable | Description |
 |-----------|-------------|-------------|
-| M1.1 | hiq-ir v0.1 | Circuit DAG, gates, instructions |
-| M1.2 | hiq-qasm3 v0.1 | QASM3 parser (core subset) |
-| M1.3 | hiq-hal v0.1 | Backend trait, job management |
-| M1.4 | hiq-adapter-sim v0.1 | Local simulator |
-| M1.5 | hiq-cli v0.1 | Basic commands (compile, run) |
+| M1.1 | arvak-ir v0.1 | Circuit DAG, gates, instructions |
+| M1.2 | arvak-qasm3 v0.1 | QASM3 parser (core subset) |
+| M1.3 | arvak-hal v0.1 | Backend trait, job management |
+| M1.4 | arvak-adapter-sim v0.1 | Local simulator |
+| M1.5 | arvak-cli v0.1 | Basic commands (compile, run) |
 
 ### Success Criteria
 - Parse QASM3 circuit
@@ -63,11 +63,11 @@ Week 11-12: Integration testing, documentation
 
 | Milestone | Deliverable | Description |
 |-----------|-------------|-------------|
-| M2.1 | hiq-compile v0.1 | Pass manager, layout, routing |
+| M2.1 | arvak-compile v0.1 | Pass manager, layout, routing |
 | M2.2 | BasisTranslation | IQM and IBM basis gate decomposition |
-| M2.3 | hiq-adapter-iqm v0.1 | IQM Resonance cloud adapter |
-| M2.4 | hiq-sched v0.1 | Slurm adapter |
-| M2.5 | hiq-python v0.1 | PyO3 bindings (basic) |
+| M2.3 | arvak-adapter-iqm v0.1 | IQM Resonance cloud adapter |
+| M2.4 | arvak-sched v0.1 | Slurm adapter |
+| M2.5 | arvak-python v0.1 | PyO3 bindings (basic) |
 
 ### Success Criteria
 - Compile circuit for IQM topology
@@ -97,7 +97,7 @@ Week 23-24: Python bindings, testing
 
 | Milestone | Deliverable | Description |
 |-----------|-------------|-------------|
-| M3.1 | hiq-adapter-ibm v0.1 | IBM Quantum adapter |
+| M3.1 | arvak-adapter-ibm v0.1 | IBM Quantum adapter |
 | M3.2 | IQM LUMI support | On-premise OIDC auth |
 | M3.3 | Large circuit handling | 100+ qubit circuits |
 | M3.4 | PBS adapter | PBS Pro support |
@@ -132,8 +132,8 @@ Week 35-36: Documentation, bug fixes
 | Milestone | Deliverable | Description |
 |-----------|-------------|-------------|
 | M4.1 | Optimization passes | 1q gate merge, CX cancellation |
-| M4.2 | hiq-types v0.1 | QuantumFloat, QuantumBool |
-| M4.3 | hiq-auto v0.1 | Basic uncomputation |
+| M4.2 | arvak-types v0.1 | QuantumFloat, QuantumBool |
+| M4.3 | arvak-auto v0.1 | Basic uncomputation |
 | M4.4 | Benchmarks | Performance comparison |
 | M4.5 | v1.0 release | Stable API |
 

@@ -11,7 +11,7 @@ Usage:
     >>>
     >>> # Get specific integration
     >>> qiskit = hiq.get_integration('qiskit')
-    >>> hiq_circuit = qiskit.to_hiq(qiskit_circuit)
+    >>> hiq_circuit = qiskit.to_arvak(qiskit_circuit)
 
 Adding new integrations:
     1. Create a new directory: integrations/yourframework/

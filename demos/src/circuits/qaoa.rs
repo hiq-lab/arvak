@@ -3,8 +3,8 @@
 //! QAOA is a variational algorithm for combinatorial optimization problems.
 //! It alternates between cost and mixer unitaries with tunable parameters.
 
-use hiq_ir::Circuit;
-use hiq_ir::qubit::QubitId;
+use arvak_ir::Circuit;
+use arvak_ir::qubit::QubitId;
 use std::f64::consts::PI;
 
 use crate::problems::Graph;

@@ -60,14 +60,14 @@ class FrameworkIntegration(ABC):
         pass
 
     @abstractmethod
-    def to_hiq(self, circuit: Any) -> 'hiq.Circuit':
-        """Convert a framework circuit to HIQ.
+    def to_arvak(self, circuit: Any) -> 'hiq.Circuit':
+        """Convert a framework circuit to Arvak.
 
         Args:
             circuit: Circuit object from the framework
 
         Returns:
-            HIQ Circuit object
+            Arvak Circuit object
 
         Raises:
             ImportError: If framework is not available
@@ -76,11 +76,11 @@ class FrameworkIntegration(ABC):
         pass
 
     @abstractmethod
-    def from_hiq(self, circuit: 'hiq.Circuit') -> Any:
-        """Convert HIQ circuit to framework format.
+    def from_arvak(self, circuit: 'hiq.Circuit') -> Any:
+        """Convert Arvak circuit to framework format.
 
         Args:
-            circuit: HIQ Circuit object
+            circuit: Arvak Circuit object
 
         Returns:
             Circuit object in the framework's native format
@@ -95,7 +95,7 @@ class FrameworkIntegration(ABC):
     def get_backend_provider(self) -> Any:
         """Return framework-specific backend provider.
 
-        This allows users to execute HIQ circuits through the framework's
+        This allows users to execute Arvak circuits through the framework's
         native backend API (e.g., Qiskit's backend.run()).
 
         Returns:

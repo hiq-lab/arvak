@@ -91,7 +91,7 @@ pub fn generate_batch_script(
 
     script.push_str(&format!(
         "{} run {} --shots {} {} --output {}\n",
-        config.hiq_binary.display(),
+        config.arvak_binary.display(),
         circuit_file.display(),
         job.shots,
         backend_flag,
@@ -193,7 +193,7 @@ pub fn generate_batch_script_multi(
         ));
         script.push_str(&format!(
             "if ! {} run {} --shots {} {} --output {}; then\n",
-            config.hiq_binary.display(),
+            config.arvak_binary.display(),
             circuit_file.display(),
             job.shots,
             backend_flag,
@@ -258,9 +258,9 @@ mod tests {
             memory_mb: 4096,
             cpus_per_task: 1,
             work_dir: PathBuf::from("/scratch/jobs"),
-            hiq_binary: PathBuf::from("/opt/hiq/bin/hiq"),
+            arvak_binary: PathBuf::from("/opt/arvak/bin/hiq"),
             modules: vec!["python/3.11".to_string()],
-            python_venv: Some(PathBuf::from("/opt/hiq/venv")),
+            python_venv: Some(PathBuf::from("/opt/arvak/venv")),
             priority_qos_mapping: None,
         }
     }
@@ -284,8 +284,8 @@ mod tests {
         assert!(script.contains("#SBATCH --account=project123"));
         assert!(script.contains("#SBATCH --time=01:00:00"));
         assert!(script.contains("module load python/3.11"));
-        assert!(script.contains("source /opt/hiq/venv/bin/activate"));
-        assert!(script.contains("/opt/hiq/bin/hiq run"));
+        assert!(script.contains("source /opt/arvak/venv/bin/activate"));
+        assert!(script.contains("/opt/arvak/bin/hiq run"));
     }
 
     #[test]

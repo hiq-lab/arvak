@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     import pennylane as qml
 
 
-class HIQDevice:
+class ArvakDevice:
     """HIQ device implementing PennyLane's Device interface.
 
     This device allows PennyLane programs to execute on HIQ backends using
@@ -20,9 +20,9 @@ class HIQDevice:
 
     Example:
         >>> import pennylane as qml
-        >>> from arvak.integrations.pennylane import HIQDevice
+        >>> from arvak.integrations.pennylane import ArvakDevice
         >>>
-        >>> dev = HIQDevice(wires=2, backend='sim')
+        >>> dev = ArvakDevice(wires=2, backend='sim')
         >>>
         >>> @qml.qnode(dev)
         >>> def circuit(x):
@@ -87,7 +87,7 @@ class HIQDevice:
             RuntimeWarning
         )
 
-        # Convert operations to HIQ circuit
+        # Convert operations to Arvak circuit
         from .converter import _tape_to_qasm
         import arvak
 
@@ -103,7 +103,7 @@ class HIQDevice:
         # Convert to QASM
         qasm_str = _tape_to_qasm(tape)
 
-        # Import to HIQ
+        # Import to Arvak
         hiq_circuit = hiq.from_qasm(qasm_str)
 
         # Store for later (mock implementation)
@@ -177,10 +177,10 @@ class HIQDevice:
 
     def __repr__(self) -> str:
         """String representation of the device."""
-        return f"<HIQDevice(wires={self.num_wires}, backend='{self.backend_name}', shots={self.shots})>"
+        return f"<ArvakDevice(wires={self.num_wires}, backend='{self.backend_name}', shots={self.shots})>"
 
 
-def create_device(backend: str = 'sim', **kwargs) -> HIQDevice:
+def create_device(backend: str = 'sim', **kwargs) -> ArvakDevice:
     """Create an HIQ device for PennyLane.
 
     Args:
@@ -188,9 +188,9 @@ def create_device(backend: str = 'sim', **kwargs) -> HIQDevice:
         **kwargs: Additional device arguments (wires, shots, etc.)
 
     Returns:
-        HIQDevice instance
+        ArvakDevice instance
 
     Example:
         >>> dev = create_device('sim', wires=2, shots=1000)
     """
-    return HIQDevice(backend=backend, **kwargs)
+    return ArvakDevice(backend=backend, **kwargs)

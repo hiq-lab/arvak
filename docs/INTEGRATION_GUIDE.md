@@ -36,7 +36,7 @@ When you add a framework integration:
 ### Directory Structure
 
 ```
-crates/hiq-python/
+crates/arvak-python/
 ├── python/hiq/
 │   ├── __init__.py                    # Main API + integration exports
 │   ├── integrations/
@@ -672,12 +672,12 @@ To contribute a new integration:
 
 ## Resources
 
-- Arvak GitHub: https://github.com/hiq-lab/arvak
+- Arvak GitHub: https://github.com/arvak-lab/arvak
 - OpenQASM 3.0 Spec: https://openqasm.com/
 - Example integrations: `python/hiq/integrations/qiskit/`
 
 ## Support
 
 For questions or issues:
-- GitHub Issues: https://github.com/hiq-lab/arvak/issues
-- Discussions: https://github.com/hiq-lab/arvak/discussions
+- GitHub Issues: https://github.com/arvak-lab/arvak/issues
+- Discussions: https://github.com/arvak-lab/arvak/discussions

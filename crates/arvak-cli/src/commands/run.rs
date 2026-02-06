@@ -6,17 +6,17 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::path::Path;
 
-use hiq_adapter_sim::SimulatorBackend;
-use hiq_compile::{BasisGates, CouplingMap, PassManagerBuilder};
-use hiq_hal::Backend;
-use hiq_ir::Circuit;
-use hiq_qasm3::parse;
+use arvak_adapter_sim::SimulatorBackend;
+use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
+use arvak_hal::Backend;
+use arvak_ir::Circuit;
+use arvak_qasm3::parse;
 
 #[cfg(feature = "iqm")]
-use hiq_adapter_iqm::IqmBackend;
+use arvak_adapter_iqm::IqmBackend;
 
 #[cfg(feature = "ibm")]
-use hiq_adapter_ibm::IbmBackend;
+use arvak_adapter_ibm::IbmBackend;
 
 /// Execute the run command.
 pub async fn execute(

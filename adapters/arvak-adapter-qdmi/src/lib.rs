@@ -1,6 +1,6 @@
-//! HIQ Adapter for QDMI (Quantum Device Management Interface)
+//! Arvak Adapter for QDMI (Quantum Device Management Interface)
 //!
-//! This crate provides a HIQ backend implementation for quantum devices accessible
+//! This crate provides an Arvak backend implementation for quantum devices accessible
 //! via QDMI, the Quantum Device Management Interface developed as part of the
 //! Munich Quantum Software Stack (MQSS).
 //!
@@ -13,7 +13,7 @@
 //! - Technical University of Munich (TUM) - Chair for Computer Architecture and
 //!   Parallel Systems (CAPS)
 //!
-//! This adapter enables HIQ to submit circuits to any QDMI-compliant device,
+//! This adapter enables Arvak to submit circuits to any QDMI-compliant device,
 //! providing access to the quantum hardware infrastructure at European HPC centers.
 //!
 //! # Features
@@ -33,9 +33,9 @@
 //! # Example
 //!
 //! ```ignore
-//! use hiq_adapter_qdmi::QdmiBackend;
-//! use hiq_hal::Backend;
-//! use hiq_ir::Circuit;
+//! use arvak_adapter_qdmi::QdmiBackend;
+//! use arvak_hal::Backend;
+//! use arvak_ir::Circuit;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -78,16 +78,16 @@
 //!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────────┐
-//! │                          HIQ                                │
+//! │                        Arvak                                │
 //! │  ┌──────────┐  ┌────────────┐  ┌─────────────────────────┐ │
-//! │  │  hiq-ir  │→ │hiq-compile │→ │       hiq-hal           │ │
+//! │  │  arvak-ir  │→ │arvak-compile │→ │       arvak-hal           │ │
 //! │  │(Circuit) │  │ (Optimize) │  │      (Backend)          │ │
 //! │  └──────────┘  └────────────┘  └───────────┬─────────────┘ │
 //! │                                            │               │
 //! │  ┌─────────────────────────────────────────┼─────────────┐ │
 //! │  │            Backend Adapters             │             │ │
 //! │  │  ┌─────────┐ ┌─────────┐ ┌──────────────┴───────────┐│ │
-//! │  │  │   IQM   │ │   IBM   │ │   hiq-adapter-qdmi       ││ │
+//! │  │  │   IQM   │ │   IBM   │ │   arvak-adapter-qdmi       ││ │
 //! │  │  └─────────┘ └─────────┘ └──────────────┬───────────┘│ │
 //! │  └─────────────────────────────────────────┼─────────────┘ │
 //! └────────────────────────────────────────────┼───────────────┘
@@ -125,7 +125,7 @@
 //!
 //! - [QDMI GitHub Repository](https://github.com/Munich-Quantum-Software-Stack/QDMI)
 //! - [Munich Quantum Software Stack](https://www.lrz.de/services/compute/quantum/)
-//! - [HIQ Documentation](https://github.com/hiq-project/hiq)
+//! - [HIQ Documentation](https://github.com/hiq-lab/arvak)
 
 pub mod backend;
 pub mod error;

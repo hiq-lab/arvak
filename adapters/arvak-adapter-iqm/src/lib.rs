@@ -1,4 +1,4 @@
-//! HIQ Adapter for IQM Quantum Computers
+//! Arvak Adapter for IQM Quantum Computers
 //!
 //! This crate provides a backend implementation for connecting to IQM quantum
 //! computers via the Resonance cloud API and on-premise HPC installations.
@@ -26,8 +26,8 @@
 //! Use OIDC authentication via `hiq-hal`:
 //!
 //! ```ignore
-//! use hiq_hal::{OidcConfig, OidcAuth};
-//! use hiq_adapter_iqm::IqmBackend;
+//! use arvak_hal::{OidcConfig, OidcAuth};
+//! use arvak_adapter_iqm::IqmBackend;
 //!
 //! let config = OidcConfig::lumi();  // or OidcConfig::lrz()
 //! let auth = OidcAuth::new(config).await?;
@@ -37,9 +37,9 @@
 //! # Example: Cloud Execution
 //!
 //! ```ignore
-//! use hiq_adapter_iqm::IqmBackend;
-//! use hiq_hal::Backend;
-//! use hiq_ir::Circuit;
+//! use arvak_adapter_iqm::IqmBackend;
+//! use arvak_hal::Backend;
+//! use arvak_ir::Circuit;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -69,7 +69,7 @@
 //! - **PRX(θ, φ)**: Phased rotation around X-axis
 //! - **CZ**: Controlled-Z (two-qubit entangling gate)
 //!
-//! The HIQ compiler automatically translates circuits to this basis when
+//! The Arvak compiler automatically translates circuits to this basis when
 //! targeting IQM hardware.
 
 mod api;
@@ -80,4 +80,4 @@ pub use backend::IqmBackend;
 pub use error::{IqmError, IqmResult};
 
 // Re-export common types
-pub use hiq_hal::{Backend, BackendConfig, BackendFactory};
+pub use arvak_hal::{Backend, BackendConfig, BackendFactory};

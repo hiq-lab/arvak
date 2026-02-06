@@ -1,6 +1,6 @@
-# HIQ Code Review Council Report
+# Arvak Code Review Council Report
 
-**Repository**: HIQ — Rust-native Quantum Compilation Platform
+**Repository**: Arvak — Rust-native Quantum Compilation Platform
 **Review Date**: 2026-02-04
 **Toolchain**: rustc 1.93.0, cargo 1.93.0
 **Edition**: 2024 (rust-version 1.85)

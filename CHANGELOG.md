@@ -103,18 +103,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Core Infrastructure
-- **hiq-ir**: Complete circuit intermediate representation with DAG-based architecture
+- **arvak-ir**: Complete circuit intermediate representation with DAG-based architecture
   - Qubit and classical bit management
   - 30+ standard gates (H, X, Y, Z, S, T, CX, CZ, CCX, etc.)
   - Parameterized gates with symbolic expressions
   - High-level Circuit builder API
 
-- **hiq-qasm3**: Full OpenQASM 3.0 parser and emitter
+- **arvak-qasm3**: Full OpenQASM 3.0 parser and emitter
   - Parse QASM files into Arvak circuits
   - Emit circuits back to valid QASM
   - Round-trip support for circuit serialization
 
-- **hiq-compile**: Modular compilation framework
+- **arvak-compile**: Modular compilation framework
   - Pass manager for orchestrating compilation
   - PropertySet for inter-pass communication
   - Layout passes (Trivial, Dense)
@@ -125,47 +125,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `CancelCX`: Cancel adjacent CX·CX pairs
     - `CommutativeCancellation`: Merge same-type rotation gates
 
-- **hiq-hal**: Hardware abstraction layer
+- **arvak-hal**: Hardware abstraction layer
   - Unified Backend trait for all quantum systems
   - Capabilities API for hardware description
   - Job lifecycle management
   - OIDC authentication for HPC sites (LUMI, LRZ)
 
-- **hiq-cli**: Command-line interface
-  - `hiq compile`: Compile circuits for target hardware
-  - `hiq run`: Execute circuits on backends
-  - `hiq backends`: List available backends
+- **arvak-cli**: Command-line interface
+  - `arvak compile`: Compile circuits for target hardware
+  - `arvak run`: Execute circuits on backends
+  - `arvak backends`: List available backends
 
 #### Quantum Types (Qrisp-inspired)
-- **hiq-types**: High-level quantum data types
+- **arvak-types**: High-level quantum data types
   - `QuantumInt<N>`: Fixed-width quantum integers
   - `QuantumFloat<M, E>`: Quantum floating-point numbers
   - `QuantumArray<N, W>`: Arrays of quantum values
   - `QubitRegister`: Qubit allocation management
 
-- **hiq-auto**: Automatic uncomputation framework
+- **arvak-auto**: Automatic uncomputation framework
   - Gate inversion utilities
   - `UncomputeContext` for marking computation sections
   - Circuit analysis for determining uncomputable qubits
   - Computational cone detection
 
 #### Backend Adapters
-- **hiq-adapter-sim**: Local statevector simulator
+- **arvak-adapter-sim**: Local statevector simulator
   - Exact simulation up to ~25 qubits
   - All standard gates supported
   - Measurement sampling
 
-- **hiq-adapter-iqm**: IQM Quantum backend
+- **arvak-adapter-iqm**: IQM Quantum backend
   - Resonance cloud API integration
   - LUMI (Helmi) and LRZ support
   - OIDC authentication
 
-- **hiq-adapter-ibm**: IBM Quantum backend
+- **arvak-adapter-ibm**: IBM Quantum backend
   - Qiskit Runtime API integration
   - All IBM Quantum systems supported
 
 #### HPC Integration
-- **hiq-sched**: HPC job scheduler
+- **arvak-sched**: HPC job scheduler
   - SLURM adapter (sbatch, squeue, sacct, scancel)
   - PBS/Torque adapter (qsub, qstat, qdel, qhold)
   - Workflow orchestration with DAG dependencies

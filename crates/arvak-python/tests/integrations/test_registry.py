@@ -24,11 +24,11 @@ class MockIntegration(FrameworkIntegration):
     def is_available(self) -> bool:
         return self._available
 
-    def to_hiq(self, circuit: Any) -> 'hiq.Circuit':
+    def to_arvak(self, circuit: Any) -> 'hiq.Circuit':
         """Mock conversion."""
         return hiq.Circuit.bell()
 
-    def from_hiq(self, circuit: 'hiq.Circuit') -> Any:
+    def from_arvak(self, circuit: 'hiq.Circuit') -> Any:
         """Mock conversion."""
         return "mock_circuit"
 
@@ -103,8 +103,8 @@ class TestIntegrationRegistry:
         assert len(IntegrationRegistry._integrations) == 0
 
 
-class TestHIQIntegrationAPI:
-    """Tests for HIQ's public integration API."""
+class TestArvakIntegrationAPI:
+    """Tests for Arvak's public integration API."""
 
     def setup_method(self):
         """Setup test fixtures."""

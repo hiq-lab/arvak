@@ -1,6 +1,6 @@
 """Qiskit circuit conversion utilities.
 
-This module provides functions to convert between Qiskit and HIQ circuit formats
+This module provides functions to convert between Qiskit and Arvak circuit formats
 using OpenQASM 3.0 as an interchange format.
 """
 
@@ -11,18 +11,18 @@ if TYPE_CHECKING:
     import arvak
 
 
-def qiskit_to_hiq(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
-    """Convert a Qiskit QuantumCircuit to HIQ Circuit.
+def qiskit_to_arvak(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
+    """Convert a Qiskit QuantumCircuit to Arvak Circuit.
 
     This function uses OpenQASM 3.0 as an interchange format:
     1. Export Qiskit circuit to QASM3
-    2. Import QASM3 into HIQ
+    2. Import QASM3 into Arvak
 
     Args:
         circuit: Qiskit QuantumCircuit instance
 
     Returns:
-        HIQ Circuit instance
+        Arvak Circuit instance
 
     Raises:
         ImportError: If qiskit is not installed
@@ -33,7 +33,7 @@ def qiskit_to_hiq(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
         >>> qc = QuantumCircuit(2)
         >>> qc.h(0)
         >>> qc.cx(0, 1)
-        >>> hiq_circuit = qiskit_to_hiq(qc)
+        >>> hiq_circuit = qiskit_to_arvak(qc)
     """
     try:
         from qiskit.qasm3 import dumps
@@ -48,21 +48,21 @@ def qiskit_to_hiq(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
     # Convert Qiskit circuit to OpenQASM 3.0
     qasm_str = dumps(circuit)
 
-    # Import into HIQ
+    # Import into Arvak
     hiq_circuit = hiq.from_qasm(qasm_str)
 
     return hiq_circuit
 
 
 def hiq_to_qiskit(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
-    """Convert HIQ Circuit to Qiskit QuantumCircuit.
+    """Convert Arvak Circuit to Qiskit QuantumCircuit.
 
     This function uses OpenQASM 3.0 as an interchange format:
-    1. Export HIQ circuit to QASM3
+    1. Export Arvak circuit to QASM3
     2. Import QASM3 into Qiskit
 
     Args:
-        circuit: HIQ Circuit instance
+        circuit: Arvak Circuit instance
 
     Returns:
         Qiskit QuantumCircuit instance
@@ -86,7 +86,7 @@ def hiq_to_qiskit(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
 
     import arvak
 
-    # Export HIQ circuit to OpenQASM 3.0
+    # Export Arvak circuit to OpenQASM 3.0
     qasm_str = hiq.to_qasm(circuit)
 
     # Import into Qiskit

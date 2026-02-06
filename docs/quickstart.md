@@ -6,13 +6,13 @@
 
 ```bash
 # Download latest release
-curl -LO https://github.com/hiq-project/hiq/releases/latest/download/hiq-linux-x86_64.tar.gz
+curl -LO https://github.com/arvak-project/hiq/releases/latest/download/arvak-linux-x86_64.tar.gz
 
 # Extract
-tar xzf hiq-linux-x86_64.tar.gz
+tar xzf arvak-linux-x86_64.tar.gz
 
 # Move to PATH
-sudo mv hiq hiq-runner /usr/local/bin/
+sudo mv hiq arvak-runner /usr/local/bin/
 
 # Verify installation
 hiq --version
@@ -25,18 +25,18 @@ hiq --version
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone and build
-git clone https://github.com/hiq-project/hiq
+git clone https://github.com/arvak-project/hiq
 cd hiq
 cargo build --release
 
 # Install
-cargo install --path crates/hiq-cli
+cargo install --path crates/arvak-cli
 ```
 
 ### Python Bindings
 
 ```bash
-pip install hiq-python
+pip install arvak-python
 ```
 
 ## Your First Circuit
@@ -122,7 +122,7 @@ async fn main() -> anyhow::Result<()> {
 ### Using the Python API
 
 ```python
-from hiq import Circuit, compile_for_backend, SimulatorBackend
+from arvak import Circuit, compile_for_backend, SimulatorBackend
 
 # Create Bell state circuit
 circuit = Circuit.bell()
@@ -216,7 +216,7 @@ hiq submit -i circuit.qasm \
 
 ### Config File
 
-Create `~/.hiq/config.yaml`:
+Create `~/.arvak/config.yaml`:
 
 ```yaml
 # Default backend
@@ -278,5 +278,5 @@ hiq -vvv submit -i circuit.qasm --backend iqm
 ```
 
 For issues and questions:
-- GitHub Issues: https://github.com/hiq-project/hiq/issues
-- Documentation: https://hiq-project.github.io/hiq/
+- GitHub Issues: https://github.com/arvak-project/hiq/issues
+- Documentation: https://arvak-project.github.io/hiq/

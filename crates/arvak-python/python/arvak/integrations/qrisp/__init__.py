@@ -2,7 +2,7 @@
 
 This module provides seamless integration between Qrisp and HIQ, enabling:
 - Circuit conversion (Qrisp ↔ HIQ)
-- Execution of HIQ circuits through Qrisp's backend API
+- Execution of Arvak circuits through Qrisp's backend API
 - Support for Qrisp's high-level quantum programming model
 
 Qrisp is a high-level quantum programming framework that emphasizes:
@@ -12,16 +12,16 @@ Qrisp is a high-level quantum programming framework that emphasizes:
 
 Example:
     >>> from qrisp import QuantumCircuit
-    >>> from arvak.integrations.qrisp import qrisp_to_hiq, HIQBackendClient
+    >>> from arvak.integrations.qrisp import qrisp_to_arvak, ArvakBackendClient
     >>>
-    >>> # Convert Qrisp circuit to HIQ
+    >>> # Convert Qrisp circuit to Arvak
     >>> qc = QuantumCircuit(2)
     >>> qc.h(0)
     >>> qc.cx(0, 1)
-    >>> hiq_circuit = qrisp_to_hiq(qc)
+    >>> hiq_circuit = qrisp_to_arvak(qc)
     >>>
     >>> # Use HIQ as Qrisp backend
-    >>> backend = HIQBackendClient('sim')
+    >>> backend = ArvakBackendClient('sim')
     >>> results = backend.run(qc, shots=1000)
 """
 
@@ -61,23 +61,23 @@ class QrispIntegration(FrameworkIntegration):
         except ImportError:
             return False
 
-    def to_hiq(self, circuit):
-        """Convert Qrisp circuit to HIQ.
+    def to_arvak(self, circuit):
+        """Convert Qrisp circuit to Arvak.
 
         Args:
             circuit: Qrisp QuantumCircuit or QuantumSession
 
         Returns:
-            HIQ Circuit
+            Arvak Circuit
         """
-        from .converter import qrisp_to_hiq
-        return qrisp_to_hiq(circuit)
+        from .converter import qrisp_to_arvak
+        return qrisp_to_arvak(circuit)
 
-    def from_hiq(self, circuit):
-        """Convert HIQ circuit to Qrisp.
+    def from_arvak(self, circuit):
+        """Convert Arvak circuit to Qrisp.
 
         Args:
-            circuit: HIQ Circuit
+            circuit: Arvak Circuit
 
         Returns:
             Qrisp QuantumCircuit
@@ -89,10 +89,10 @@ class QrispIntegration(FrameworkIntegration):
         """Get HIQ backend provider for Qrisp.
 
         Returns:
-            HIQProvider instance
+            ArvakProvider instance
         """
-        from .backend import HIQProvider
-        return HIQProvider()
+        from .backend import ArvakProvider
+        return ArvakProvider()
 
 
 # Auto-register if Qrisp is available
@@ -102,13 +102,13 @@ if _integration.is_available():
     IntegrationRegistry.register(_integration)
 
     # Expose public API at package level
-    from .backend import HIQBackendClient, HIQProvider
-    from .converter import qrisp_to_hiq, hiq_to_qrisp
+    from .backend import ArvakBackendClient, ArvakProvider
+    from .converter import qrisp_to_arvak, hiq_to_qrisp
 
     __all__ = [
-        'HIQBackendClient',
-        'HIQProvider',
-        'qrisp_to_hiq',
+        'ArvakBackendClient',
+        'ArvakProvider',
+        'qrisp_to_arvak',
         'hiq_to_qrisp',
         'QrispIntegration'
     ]

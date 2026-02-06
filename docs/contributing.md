@@ -18,7 +18,7 @@ We are committed to providing a welcoming and inclusive environment. Please be r
 
 ```bash
 # Clone the repository
-git clone https://github.com/hiq-project/hiq
+git clone https://github.com/arvak-project/hiq
 cd hiq
 
 # Build all crates
@@ -54,20 +54,20 @@ cargo fmt
 ```
 hiq/
 ├── crates/
-│   ├── hiq-ir/          # Circuit IR
-│   ├── hiq-qasm3/       # QASM3 parser
-│   ├── hiq-compile/     # Compilation passes
-│   ├── hiq-auto/        # Automatic uncomputation
-│   ├── hiq-types/       # High-level types
-│   ├── hiq-hal/         # Hardware abstraction
-│   ├── hiq-sched/       # Scheduler integration
-│   ├── hiq-core/        # Re-exports
-│   ├── hiq-cli/         # CLI
-│   └── hiq-python/      # Python bindings
+│   ├── arvak-ir/          # Circuit IR
+│   ├── arvak-qasm3/       # QASM3 parser
+│   ├── arvak-compile/     # Compilation passes
+│   ├── arvak-auto/        # Automatic uncomputation
+│   ├── arvak-types/       # High-level types
+│   ├── arvak-hal/         # Hardware abstraction
+│   ├── arvak-sched/       # Scheduler integration
+│   ├── arvak-core/        # Re-exports
+│   ├── arvak-cli/         # CLI
+│   └── arvak-python/      # Python bindings
 ├── adapters/
-│   ├── hiq-adapter-iqm/
-│   ├── hiq-adapter-ibm/
-│   └── hiq-adapter-sim/
+│   ├── arvak-adapter-iqm/
+│   ├── arvak-adapter-ibm/
+│   └── arvak-adapter-sim/
 ├── examples/
 ├── benches/
 ├── tests/
@@ -210,7 +210,7 @@ pub enum CompileError {
 
 ### New Gate Type
 
-1. Add to `StandardGate` enum in `hiq-ir/src/gate.rs`
+1. Add to `StandardGate` enum in `arvak-ir/src/gate.rs`
 2. Implement `num_qubits()` match arm
 3. Add matrix representation if single-qubit
 4. Add decomposition rules in `arvak-compile`
@@ -219,7 +219,7 @@ pub enum CompileError {
 
 ### New Compilation Pass
 
-1. Create new file in `hiq-compile/src/passes/`
+1. Create new file in `arvak-compile/src/passes/`
 2. Implement `Pass` trait
 3. Add to `mod.rs` exports
 4. Add to preset pass managers if appropriate
@@ -244,10 +244,10 @@ pub enum CompileError {
 cargo test --all
 
 # Specific crate
-cargo test -p hiq-ir
+cargo test -p arvak-ir
 
 # Specific test
-cargo test -p hiq-ir test_circuit_depth
+cargo test -p arvak-ir test_circuit_depth
 
 # With output
 cargo test -- --nocapture

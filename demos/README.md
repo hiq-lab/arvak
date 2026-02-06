@@ -1,6 +1,6 @@
-# HIQ Demo Suite
+# Arvak Demo Suite
 
-Demonstration suite showcasing HiQ's HPC-quantum orchestration capabilities.
+Demonstration suite showcasing Arvak's HPC-quantum orchestration capabilities.
 
 ## Overview
 
@@ -11,26 +11,26 @@ This crate provides end-to-end demonstrations of quantum algorithms that highlig
 | `demo-grover` | Grover's Search | 2-8 | Baseline quantum speedup |
 | `demo-vqe` | VQE for H2/LiH | 2-4 | Molecular ground state energy |
 | `demo-qaoa` | QAOA Max-Cut | 4-10 | Combinatorial optimization |
-| `demo-multi` | Multi-job orchestration | Mixed | HiQ scheduling showcase |
+| `demo-multi` | Multi-job orchestration | Mixed | Arvak scheduling showcase |
 | `demo-all` | All demos | Mixed | Complete demonstration |
 
 ## Quick Start
 
 ```bash
 # Run Grover's search
-cargo run -p hiq-demos --bin demo-grover -- --qubits 4 --marked 7
+cargo run -p arvak-demos --bin demo-grover -- --qubits 4 --marked 7
 
 # Run VQE for H2 molecule
-cargo run -p hiq-demos --bin demo-vqe -- --molecule h2 --iterations 50
+cargo run -p arvak-demos --bin demo-vqe -- --molecule h2 --iterations 50
 
 # Run QAOA for Max-Cut
-cargo run -p hiq-demos --bin demo-qaoa -- --graph square --layers 2
+cargo run -p arvak-demos --bin demo-qaoa -- --graph square --layers 2
 
 # Run multi-job orchestration demo
-cargo run -p hiq-demos --bin demo-multi
+cargo run -p arvak-demos --bin demo-multi
 
 # Run all demos
-cargo run -p hiq-demos --bin demo-all
+cargo run -p arvak-demos --bin demo-all
 ```
 
 ## Demos
@@ -40,7 +40,7 @@ cargo run -p hiq-demos --bin demo-all
 Demonstrates quantum search with quadratic speedup over classical algorithms.
 
 ```bash
-cargo run -p hiq-demos --bin demo-grover -- --qubits 4 --marked 7
+cargo run -p arvak-demos --bin demo-grover -- --qubits 4 --marked 7
 ```
 
 Options:
@@ -53,7 +53,7 @@ Options:
 Variational Quantum Eigensolver for finding molecular ground state energies - a key application for drug discovery and materials science.
 
 ```bash
-cargo run -p hiq-demos --bin demo-vqe -- --molecule h2 --iterations 50
+cargo run -p arvak-demos --bin demo-vqe -- --molecule h2 --iterations 50
 ```
 
 Options:
@@ -71,7 +71,7 @@ Expected results:
 Quantum Approximate Optimization Algorithm for graph partitioning - relevant to logistics, network design, and defense applications.
 
 ```bash
-cargo run -p hiq-demos --bin demo-qaoa -- --graph petersen --layers 2
+cargo run -p arvak-demos --bin demo-qaoa -- --graph petersen --layers 2
 ```
 
 Options:
@@ -82,13 +82,13 @@ Options:
 
 ### Multi-Job Orchestration
 
-Demonstrates HiQ's ability to manage multiple concurrent quantum workloads - the core value proposition for HPC-quantum integration.
+Demonstrates Arvak's ability to manage multiple concurrent quantum workloads - the core value proposition for HPC-quantum integration.
 
 ```bash
-cargo run -p hiq-demos --bin demo-multi
+cargo run -p arvak-demos --bin demo-multi
 ```
 
-This demo submits multiple jobs (Grover, VQE, QAOA, batch circuits) and shows how HiQ orchestrates them across quantum resources.
+This demo submits multiple jobs (Grover, VQE, QAOA, batch circuits) and shows how Arvak orchestrates them across quantum resources.
 
 ## Library Usage
 
@@ -163,7 +163,7 @@ demos/
 │       ├── vqe.rs          # VQE optimization loop
 │       ├── qaoa.rs         # QAOA optimization loop
 │       ├── orchestrator.rs # Multi-job demo
-│       └── scheduled.rs    # HiQ scheduler integration
+│       └── scheduled.rs    # Arvak scheduler integration
 └── bin/
     ├── demo_grover.rs
     ├── demo_vqe.rs
@@ -176,13 +176,13 @@ demos/
 
 ```bash
 # Run all tests
-cargo test -p hiq-demos
+cargo test -p arvak-demos
 
 # Run specific test
-cargo test -p hiq-demos test_vqe_energy_bounds
+cargo test -p arvak-demos test_vqe_energy_bounds
 
 # Run with output
-cargo test -p hiq-demos -- --nocapture
+cargo test -p arvak-demos -- --nocapture
 ```
 
 ## Demo Script (15 min presentation)
@@ -190,7 +190,7 @@ cargo test -p hiq-demos -- --nocapture
 1. **Introduction (2 min)**: Run Grover's search to warm up
 2. **VQE Deep Dive (5 min)**: Demonstrate molecular simulation
 3. **QAOA (3 min)**: Show optimization capabilities
-4. **Orchestration (5 min)**: Multi-job demo highlighting HiQ's value
+4. **Orchestration (5 min)**: Multi-job demo highlighting Arvak's value
 
 ## Dependencies
 

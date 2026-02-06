@@ -1,4 +1,4 @@
-//! HIQ Adapter for IBM Quantum Computers
+//! Arvak Adapter for IBM Quantum Computers
 //!
 //! This crate provides a backend implementation for connecting to IBM Quantum
 //! systems via the IBM Quantum Platform API (Qiskit Runtime).
@@ -22,9 +22,9 @@
 //! # Example: Running on IBM Quantum
 //!
 //! ```ignore
-//! use hiq_adapter_ibm::IbmBackend;
-//! use hiq_hal::Backend;
-//! use hiq_ir::Circuit;
+//! use arvak_adapter_ibm::IbmBackend;
+//! use arvak_hal::Backend;
+//! use arvak_ir::Circuit;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -56,7 +56,7 @@
 //! - **X**: Pauli-X gate
 //! - **CX**: Controlled-NOT (two-qubit entangling gate)
 //!
-//! The HIQ compiler automatically translates circuits to this basis when
+//! The Arvak compiler automatically translates circuits to this basis when
 //! targeting IBM hardware.
 //!
 //! # Queue Times
@@ -76,4 +76,4 @@ pub use backend::IbmBackend;
 pub use error::{IbmError, IbmResult};
 
 // Re-export common types
-pub use hiq_hal::{Backend, BackendConfig, BackendFactory};
+pub use arvak_hal::{Backend, BackendConfig, BackendFactory};

@@ -1,6 +1,6 @@
 """Qrisp circuit conversion utilities.
 
-This module provides functions to convert between Qrisp and HIQ circuit formats
+This module provides functions to convert between Qrisp and Arvak circuit formats
 using OpenQASM 3.0 as an interchange format.
 """
 
@@ -11,18 +11,18 @@ if TYPE_CHECKING:
     import arvak
 
 
-def qrisp_to_hiq(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.Circuit':
-    """Convert a Qrisp QuantumCircuit or QuantumSession to HIQ Circuit.
+def qrisp_to_arvak(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.Circuit':
+    """Convert a Qrisp QuantumCircuit or QuantumSession to Arvak Circuit.
 
     This function uses OpenQASM as an interchange format:
     1. Export Qrisp circuit to QASM
-    2. Import QASM into HIQ
+    2. Import QASM into Arvak
 
     Args:
         circuit: Qrisp QuantumCircuit or QuantumSession instance
 
     Returns:
-        HIQ Circuit instance
+        Arvak Circuit instance
 
     Raises:
         ImportError: If qrisp is not installed
@@ -33,7 +33,7 @@ def qrisp_to_hiq(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.Cir
         >>> qc = QuantumCircuit(2)
         >>> qc.h(0)
         >>> qc.cx(0, 1)
-        >>> hiq_circuit = qrisp_to_hiq(qc)
+        >>> hiq_circuit = qrisp_to_arvak(qc)
     """
     try:
         from qrisp import QuantumCircuit, QuantumSession
@@ -53,21 +53,21 @@ def qrisp_to_hiq(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.Cir
     # Qrisp uses qasm() method for QASM 2.0 export
     qasm_str = circuit.qasm()
 
-    # Import into HIQ
+    # Import into Arvak
     hiq_circuit = hiq.from_qasm(qasm_str)
 
     return hiq_circuit
 
 
 def hiq_to_qrisp(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
-    """Convert HIQ Circuit to Qrisp QuantumCircuit.
+    """Convert Arvak Circuit to Qrisp QuantumCircuit.
 
     This function uses OpenQASM as an interchange format:
-    1. Export HIQ circuit to QASM
+    1. Export Arvak circuit to QASM
     2. Import QASM into Qrisp
 
     Args:
-        circuit: HIQ Circuit instance
+        circuit: Arvak Circuit instance
 
     Returns:
         Qrisp QuantumCircuit instance
@@ -91,7 +91,7 @@ def hiq_to_qrisp(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
 
     import arvak
 
-    # Export HIQ circuit to OpenQASM
+    # Export Arvak circuit to OpenQASM
     qasm_str = hiq.to_qasm(circuit)
 
     # Import into Qrisp

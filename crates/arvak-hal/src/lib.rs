@@ -1,4 +1,4 @@
-//! HIQ Hardware Abstraction Layer
+//! Arvak Hardware Abstraction Layer
 //!
 //! This crate provides a unified interface for interacting with quantum backends,
 //! enabling HIQ to work seamlessly with simulators, cloud services, and HPC systems.

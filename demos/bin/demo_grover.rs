@@ -1,12 +1,12 @@
 //! Grover's Search Algorithm Demo
 //!
-//! Demonstrates HiQ's ability to run quantum search algorithms.
+//! Demonstrates Arvak's ability to run quantum search algorithms.
 
 use clap::Parser;
 
-use hiq_demos::circuits::grover::{grover_circuit, optimal_iterations};
-use hiq_demos::{print_header, print_info, print_result, print_section, print_success};
-use hiq_qasm3::emit;
+use arvak_demos::circuits::grover::{grover_circuit, optimal_iterations};
+use arvak_demos::{print_header, print_info, print_result, print_section, print_success};
+use arvak_qasm3::emit;
 
 #[derive(Parser, Debug)]
 #[command(name = "demo-grover")]
@@ -116,7 +116,7 @@ fn main() {
     println!();
     print_success("Grover demo complete!");
     println!();
-    print_info("In a production HiQ deployment, this circuit would be:");
+    print_info("In a production Arvak deployment, this circuit would be:");
     println!("  - Compiled to native gates for the target backend");
     println!("  - Submitted via SLURM to the quantum hardware queue");
     println!("  - Results collected and analyzed automatically");

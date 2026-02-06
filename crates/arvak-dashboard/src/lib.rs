@@ -1,4 +1,4 @@
-//! HIQ Dashboard - Local web interface for quantum circuit visualization and monitoring.
+//! Arvak Dashboard - Local web interface for quantum circuit visualization and monitoring.
 //!
 //! This crate provides a web-based dashboard for the HIQ quantum compilation platform.
 //! It enables researchers to:

@@ -28,42 +28,42 @@ WORKDIR /build
 # ----------------------------------------------------------
 COPY Cargo.toml Cargo.lock ./
 
-COPY crates/hiq-ir/Cargo.toml crates/hiq-ir/Cargo.toml
-COPY crates/hiq-qasm3/Cargo.toml crates/hiq-qasm3/Cargo.toml
-COPY crates/hiq-compile/Cargo.toml crates/hiq-compile/Cargo.toml
-COPY crates/hiq-hal/Cargo.toml crates/hiq-hal/Cargo.toml
-COPY crates/hiq-sched/Cargo.toml crates/hiq-sched/Cargo.toml
-COPY crates/hiq-types/Cargo.toml crates/hiq-types/Cargo.toml
-COPY crates/hiq-auto/Cargo.toml crates/hiq-auto/Cargo.toml
-COPY crates/hiq-dashboard/Cargo.toml crates/hiq-dashboard/Cargo.toml
-COPY crates/hiq-cli/Cargo.toml crates/hiq-cli/Cargo.toml
-COPY adapters/hiq-adapter-ibm/Cargo.toml adapters/hiq-adapter-ibm/Cargo.toml
-COPY adapters/hiq-adapter-iqm/Cargo.toml adapters/hiq-adapter-iqm/Cargo.toml
-COPY adapters/hiq-adapter-qdmi/Cargo.toml adapters/hiq-adapter-qdmi/Cargo.toml
-COPY adapters/hiq-adapter-sim/Cargo.toml adapters/hiq-adapter-sim/Cargo.toml
+COPY crates/arvak-ir/Cargo.toml crates/arvak-ir/Cargo.toml
+COPY crates/arvak-qasm3/Cargo.toml crates/arvak-qasm3/Cargo.toml
+COPY crates/arvak-compile/Cargo.toml crates/arvak-compile/Cargo.toml
+COPY crates/arvak-hal/Cargo.toml crates/arvak-hal/Cargo.toml
+COPY crates/arvak-sched/Cargo.toml crates/arvak-sched/Cargo.toml
+COPY crates/arvak-types/Cargo.toml crates/arvak-types/Cargo.toml
+COPY crates/arvak-auto/Cargo.toml crates/arvak-auto/Cargo.toml
+COPY crates/arvak-dashboard/Cargo.toml crates/arvak-dashboard/Cargo.toml
+COPY crates/arvak-cli/Cargo.toml crates/arvak-cli/Cargo.toml
+COPY adapters/arvak-adapter-ibm/Cargo.toml adapters/arvak-adapter-ibm/Cargo.toml
+COPY adapters/arvak-adapter-iqm/Cargo.toml adapters/arvak-adapter-iqm/Cargo.toml
+COPY adapters/arvak-adapter-qdmi/Cargo.toml adapters/arvak-adapter-qdmi/Cargo.toml
+COPY adapters/arvak-adapter-sim/Cargo.toml adapters/arvak-adapter-sim/Cargo.toml
 COPY demos/Cargo.toml demos/Cargo.toml
 COPY demos/lumi-hybrid/Cargo.toml demos/lumi-hybrid/Cargo.toml
 
 # Create stub source files matching each crate's expected targets
-RUN mkdir -p crates/hiq-ir/src && echo "" > crates/hiq-ir/src/lib.rs \
-    && mkdir -p crates/hiq-qasm3/src && echo "" > crates/hiq-qasm3/src/lib.rs \
-    && mkdir -p crates/hiq-compile/src && echo "" > crates/hiq-compile/src/lib.rs \
-    && mkdir -p crates/hiq-hal/src && echo "" > crates/hiq-hal/src/lib.rs \
-    && mkdir -p crates/hiq-sched/src && echo "" > crates/hiq-sched/src/lib.rs \
-    && mkdir -p crates/hiq-types/src && echo "" > crates/hiq-types/src/lib.rs \
-    && mkdir -p crates/hiq-auto/src && echo "" > crates/hiq-auto/src/lib.rs \
-    && mkdir -p crates/hiq-dashboard/src \
-        && echo "fn main() {}" > crates/hiq-dashboard/src/main.rs \
-        && echo "" > crates/hiq-dashboard/src/lib.rs \
-    && mkdir -p crates/hiq-dashboard/static \
-        && touch crates/hiq-dashboard/static/index.html \
-        && touch crates/hiq-dashboard/static/app.js \
-        && touch crates/hiq-dashboard/static/style.css \
-    && mkdir -p crates/hiq-cli/src && echo "fn main() {}" > crates/hiq-cli/src/main.rs \
-    && mkdir -p adapters/hiq-adapter-ibm/src && echo "" > adapters/hiq-adapter-ibm/src/lib.rs \
-    && mkdir -p adapters/hiq-adapter-iqm/src && echo "" > adapters/hiq-adapter-iqm/src/lib.rs \
-    && mkdir -p adapters/hiq-adapter-qdmi/src && echo "" > adapters/hiq-adapter-qdmi/src/lib.rs \
-    && mkdir -p adapters/hiq-adapter-sim/src && echo "" > adapters/hiq-adapter-sim/src/lib.rs \
+RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
+    && mkdir -p crates/arvak-qasm3/src && echo "" > crates/arvak-qasm3/src/lib.rs \
+    && mkdir -p crates/arvak-compile/src && echo "" > crates/arvak-compile/src/lib.rs \
+    && mkdir -p crates/arvak-hal/src && echo "" > crates/arvak-hal/src/lib.rs \
+    && mkdir -p crates/arvak-sched/src && echo "" > crates/arvak-sched/src/lib.rs \
+    && mkdir -p crates/arvak-types/src && echo "" > crates/arvak-types/src/lib.rs \
+    && mkdir -p crates/arvak-auto/src && echo "" > crates/arvak-auto/src/lib.rs \
+    && mkdir -p crates/arvak-dashboard/src \
+        && echo "fn main() {}" > crates/arvak-dashboard/src/main.rs \
+        && echo "" > crates/arvak-dashboard/src/lib.rs \
+    && mkdir -p crates/arvak-dashboard/static \
+        && touch crates/arvak-dashboard/static/index.html \
+        && touch crates/arvak-dashboard/static/app.js \
+        && touch crates/arvak-dashboard/static/style.css \
+    && mkdir -p crates/arvak-cli/src && echo "fn main() {}" > crates/arvak-cli/src/main.rs \
+    && mkdir -p adapters/arvak-adapter-ibm/src && echo "" > adapters/arvak-adapter-ibm/src/lib.rs \
+    && mkdir -p adapters/arvak-adapter-iqm/src && echo "" > adapters/arvak-adapter-iqm/src/lib.rs \
+    && mkdir -p adapters/arvak-adapter-qdmi/src && echo "" > adapters/arvak-adapter-qdmi/src/lib.rs \
+    && mkdir -p adapters/arvak-adapter-sim/src && echo "" > adapters/arvak-adapter-sim/src/lib.rs \
     && mkdir -p demos/src && echo "" > demos/src/lib.rs \
     && mkdir -p demos/bin \
         && echo "fn main() {}" > demos/bin/demo_grover.rs \
@@ -79,7 +79,7 @@ RUN mkdir -p crates/hiq-ir/src && echo "" > crates/hiq-ir/src/lib.rs \
 ARG DASHBOARD_FEATURES="with-simulator"
 
 # Build dependencies only (this layer is cached until Cargo.toml/Cargo.lock change)
-RUN cargo build --release --workspace --exclude hiq-python 2>/dev/null || true
+RUN cargo build --release --workspace --exclude arvak-python 2>/dev/null || true
 
 # ----------------------------------------------------------
 # Layer 2: Build actual project source
@@ -95,9 +95,9 @@ COPY examples/ examples/
 RUN find crates/ adapters/ demos/ -name "*.rs" -exec touch {} +
 
 # Build dashboard, CLI, and demos
-RUN cargo build --release -p hiq-dashboard --features "${DASHBOARD_FEATURES}"
-RUN cargo build --release -p hiq-cli
-RUN cargo build --release -p hiq-demos -p lumi-hybrid
+RUN cargo build --release -p arvak-dashboard --features "${DASHBOARD_FEATURES}"
+RUN cargo build --release -p arvak-cli
+RUN cargo build --release -p arvak-demos -p lumi-hybrid
 
 # ============================================================
 # Stage 2: Runtime (minimal)
@@ -114,7 +114,7 @@ RUN groupadd --gid 1000 hiq && \
     useradd --uid 1000 --gid hiq --create-home hiq
 
 # Copy binaries from builder
-COPY --from=builder /build/target/release/hiq-dashboard /usr/local/bin/hiq-dashboard
+COPY --from=builder /build/target/release/arvak-dashboard /usr/local/bin/arvak-dashboard
 COPY --from=builder /build/target/release/hiq /usr/local/bin/hiq
 COPY --from=builder /build/target/release/demo-grover /usr/local/bin/demo-grover
 COPY --from=builder /build/target/release/demo-vqe /usr/local/bin/demo-vqe
@@ -138,4 +138,4 @@ ENV RUST_LOG=hiq_dashboard=info,tower_http=info
 
 EXPOSE 3000
 
-CMD ["hiq-dashboard"]
+CMD ["arvak-dashboard"]

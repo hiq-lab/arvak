@@ -1,4 +1,4 @@
-# HIQ Jupyter Notebooks
+# Arvak Jupyter Notebooks
 
 This directory contains example notebooks demonstrating HIQ's capabilities and framework integrations.
 
@@ -12,24 +12,24 @@ This directory contains example notebooks demonstrating HIQ's capabilities and f
   - Pre-built circuits (Bell, GHZ, QFT)
 
 ### Framework Integrations
-- **02_qiskit_integration.ipynb** - Qiskit ↔ HIQ integration (requires: `pip install arvak[qiskit]`)
+- **02_qiskit_integration.ipynb** - Qiskit ↔ Arvak integration (requires: `pip install arvak[qiskit]`)
   - Circuit conversion between Qiskit and HIQ
-  - Using HIQ as a Qiskit backend
+  - Using Arvak as a Qiskit backend
   - Comparing compilation strategies
 
-- **03_qrisp_integration.ipynb** - Qrisp ↔ HIQ integration (requires: `pip install arvak[qrisp]`)
+- **03_qrisp_integration.ipynb** - Qrisp ↔ Arvak integration (requires: `pip install arvak[qrisp]`)
   - High-level quantum programming with Qrisp
   - Converting Qrisp circuits to HIQ
   - Leveraging HIQ's compilation for Qrisp programs
 
-- **04_cirq_integration.ipynb** - Cirq ↔ HIQ integration (requires: `pip install arvak[cirq]`)
+- **04_cirq_integration.ipynb** - Cirq ↔ Arvak integration (requires: `pip install arvak[cirq]`)
   - Google Cirq circuit conversion
-  - Using HIQ compilation with Cirq
+  - Using Arvak compilation with Cirq
   - Grid qubit and line qubit support
 
 ## Installation
 
-### Core HIQ (no integrations)
+### Core Arvak (no integrations)
 ```bash
 cd crates/arvak-python
 maturin develop
@@ -118,7 +118,7 @@ In `converter.py`, implement conversion using OpenQASM 3.0:
 
 ```python
 def yourframework_to_hiq(circuit):
-    """Convert framework circuit to HIQ via QASM3."""
+    """Convert framework circuit to Arvak via QASM3."""
     import arvak
     # Export to QASM3
     qasm_str = circuit.to_qasm3()  # Framework-specific method
@@ -126,7 +126,7 @@ def yourframework_to_hiq(circuit):
     return hiq.from_qasm(qasm_str)
 
 def hiq_to_yourframework(circuit):
-    """Convert HIQ circuit to framework via QASM3."""
+    """Convert Arvak circuit to framework via QASM3."""
     import arvak
     import yourframework
     # Export from HIQ

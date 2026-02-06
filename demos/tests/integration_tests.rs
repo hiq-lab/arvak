@@ -3,14 +3,14 @@
 //! These tests verify the end-to-end functionality of the demo algorithms
 //! using mock backends for reliable, reproducible testing.
 
-use hiq_demos::circuits::grover::{grover_circuit, optimal_iterations};
-use hiq_demos::circuits::qaoa::qaoa_circuit;
-use hiq_demos::circuits::vqe::{num_parameters, two_local_ansatz};
-use hiq_demos::problems::{
+use arvak_demos::circuits::grover::{grover_circuit, optimal_iterations};
+use arvak_demos::circuits::qaoa::qaoa_circuit;
+use arvak_demos::circuits::vqe::{num_parameters, two_local_ansatz};
+use arvak_demos::problems::{
     Graph, beh2_hamiltonian, exact_ground_state_energy, h2_hamiltonian, h2o_hamiltonian,
     lih_hamiltonian,
 };
-use hiq_demos::runners::{QaoaRunner, VqeRunner};
+use arvak_demos::runners::{QaoaRunner, VqeRunner};
 
 /// Test that all molecular Hamiltonians have correct qubit counts.
 #[test]
@@ -210,7 +210,7 @@ fn test_qaoa_layer_scaling() {
 /// Test error mitigation configuration.
 #[test]
 fn test_mitigation_config() {
-    use hiq_demos::runners::MitigationConfig;
+    use arvak_demos::runners::MitigationConfig;
 
     let config = MitigationConfig::full_mitigation();
     assert!(config.zne_enabled);
@@ -228,7 +228,7 @@ fn test_mitigation_config() {
 /// Test zero noise extrapolation.
 #[test]
 fn test_zne_extrapolation() {
-    use hiq_demos::runners::zero_noise_extrapolation;
+    use arvak_demos::runners::zero_noise_extrapolation;
 
     // Simulate noisy data with linear decay
     let values = vec![0.9, 0.8, 0.7, 0.6];
@@ -251,7 +251,7 @@ fn test_zne_extrapolation() {
 /// Test measurement mitigator.
 #[test]
 fn test_measurement_mitigator() {
-    use hiq_demos::runners::MeasurementMitigator;
+    use arvak_demos::runners::MeasurementMitigator;
 
     // Create mitigator with 5% error rate for 2 qubits
     let mitigator = MeasurementMitigator::from_error_rate(2, 0.05);

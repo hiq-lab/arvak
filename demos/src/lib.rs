@@ -1,6 +1,6 @@
-//! HIQ Demo Suite
+//! Arvak Demo Suite
 //!
-//! This crate provides demonstrations of HiQ's HPC-quantum orchestration
+//! This crate provides demonstrations of Arvak's HPC-quantum orchestration
 //! capabilities using various quantum algorithms:
 //!
 //! - **Grover's Search**: Simple baseline demo
@@ -10,12 +10,12 @@
 //!
 //! # Scheduler Integration
 //!
-//! The [`runners::ScheduledRunner`] provides integration with HiQ's HPC scheduler
+//! The [`runners::ScheduledRunner`] provides integration with Arvak's HPC scheduler
 //! for submitting quantum workloads to SLURM-managed clusters:
 //!
 //! ```ignore
-//! use hiq_demos::runners::ScheduledRunner;
-//! use hiq_sched::{HpcScheduler, Priority};
+//! use arvak_demos::runners::ScheduledRunner;
+//! use arvak_sched::{HpcScheduler, Priority};
 //!
 //! let scheduler = Arc::new(HpcScheduler::new(config).await?);
 //! let runner = ScheduledRunner::new(scheduler);

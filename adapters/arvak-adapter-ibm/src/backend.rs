@@ -4,12 +4,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use async_trait::async_trait;
-use hiq_hal::{
+use arvak_hal::{
     Backend, BackendConfig, Capabilities, Counts, ExecutionResult, HalError, HalResult, JobId,
     JobStatus, Topology,
 };
-use hiq_ir::Circuit;
-use hiq_qasm3::emit;
+use arvak_ir::Circuit;
+use arvak_qasm3::emit;
 
 use crate::api::{BackendInfo, DEFAULT_ENDPOINT, IbmClient};
 use crate::error::{IbmError, IbmResult};

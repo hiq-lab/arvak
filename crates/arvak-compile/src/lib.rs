@@ -1,4 +1,4 @@
-//! HIQ Compilation and Transpilation Framework
+//! Arvak Compilation and Transpilation Framework
 //!
 //! This crate provides the compilation infrastructure for transforming
 //! quantum circuits to run on target hardware. It implements a pass-based

@@ -1,6 +1,6 @@
 """PennyLane circuit conversion utilities.
 
-This module provides functions to convert between PennyLane and HIQ circuit formats
+This module provides functions to convert between PennyLane and Arvak circuit formats
 using OpenQASM as an interchange format.
 """
 
@@ -11,19 +11,19 @@ if TYPE_CHECKING:
     import arvak
 
 
-def pennylane_to_hiq(qnode_or_tape) -> 'hiq.Circuit':
-    """Convert a PennyLane QNode or QuantumTape to HIQ Circuit.
+def pennylane_to_arvak(qnode_or_tape) -> 'hiq.Circuit':
+    """Convert a PennyLane QNode or QuantumTape to Arvak Circuit.
 
     This function uses OpenQASM as an interchange format:
     1. Construct quantum tape from QNode or use provided tape
     2. Export tape to QASM
-    3. Import QASM into HIQ
+    3. Import QASM into Arvak
 
     Args:
         qnode_or_tape: PennyLane QNode or QuantumTape instance
 
     Returns:
-        HIQ Circuit instance
+        Arvak Circuit instance
 
     Raises:
         ImportError: If pennylane is not installed
@@ -37,7 +37,7 @@ def pennylane_to_hiq(qnode_or_tape) -> 'hiq.Circuit':
         ...     qml.Hadamard(wires=0)
         ...     qml.CNOT(wires=[0, 1])
         ...     return qml.expval(qml.PauliZ(0))
-        >>> hiq_circuit = pennylane_to_hiq(circuit)
+        >>> hiq_circuit = pennylane_to_arvak(circuit)
     """
     try:
         import pennylane as qml
@@ -62,22 +62,22 @@ def pennylane_to_hiq(qnode_or_tape) -> 'hiq.Circuit':
     # We'll create a simple circuit and export via a workaround
     qasm_str = _tape_to_qasm(tape)
 
-    # Import into HIQ
+    # Import into Arvak
     hiq_circuit = hiq.from_qasm(qasm_str)
 
     return hiq_circuit
 
 
 def hiq_to_pennylane(circuit: 'hiq.Circuit', device_name: str = 'default.qubit') -> Callable:
-    """Convert HIQ Circuit to PennyLane QNode.
+    """Convert Arvak Circuit to PennyLane QNode.
 
     This function uses OpenQASM as an interchange format:
-    1. Export HIQ circuit to QASM
+    1. Export Arvak circuit to QASM
     2. Parse QASM and create PennyLane operations
     3. Return as QNode
 
     Args:
-        circuit: HIQ Circuit instance
+        circuit: Arvak Circuit instance
         device_name: PennyLane device to use (default: 'default.qubit')
 
     Returns:
@@ -103,7 +103,7 @@ def hiq_to_pennylane(circuit: 'hiq.Circuit', device_name: str = 'default.qubit')
 
     import arvak
 
-    # Export HIQ circuit to OpenQASM
+    # Export Arvak circuit to OpenQASM
     qasm_str = hiq.to_qasm(circuit)
 
     # Parse QASM and create PennyLane circuit

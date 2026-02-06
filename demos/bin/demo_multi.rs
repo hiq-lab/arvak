@@ -1,11 +1,11 @@
 //! Multi-Job Orchestration Demo
 //!
-//! Demonstrates HiQ's ability to manage multiple quantum workloads simultaneously.
+//! Demonstrates Arvak's ability to manage multiple quantum workloads simultaneously.
 
 use clap::Parser;
 
-use hiq_demos::runners::orchestrator::{DemoJob, default_demo_jobs, run_multi_demo};
-use hiq_demos::{print_header, print_info, print_result, print_section, print_success};
+use arvak_demos::runners::orchestrator::{DemoJob, default_demo_jobs, run_multi_demo};
+use arvak_demos::{print_header, print_info, print_result, print_section, print_success};
 
 #[derive(Parser, Debug)]
 #[command(name = "demo-multi")]
@@ -25,14 +25,14 @@ fn main() {
 
     print_header("Multi-Job Orchestration Demo");
 
-    print_section("HiQ Orchestration Value Proposition");
-    println!("  This demo showcases HiQ's core capability:");
+    print_section("Arvak Orchestration Value Proposition");
+    println!("  This demo showcases Arvak's core capability:");
     println!("  Managing multiple quantum workloads simultaneously.");
     println!();
     println!("  In a production HPC environment:");
     println!("  - Multiple users submit different quantum jobs");
     println!("  - SLURM schedules jobs across available backends");
-    println!("  - HiQ tracks job state and collects results");
+    println!("  - Arvak tracks job state and collects results");
     println!("  - Resources are shared efficiently");
 
     let jobs = if args.minimal {
@@ -107,12 +107,12 @@ fn main() {
     print_result("Average job time", format!("{:.2?}", avg_time));
 
     print_section("Demo Narrative");
-    println!("  This orchestration demo shows HiQ managing:");
+    println!("  This orchestration demo shows Arvak managing:");
     println!("  - Different algorithm types (Grover, VQE, QAOA)");
     println!("  - Various resource requirements");
     println!("  - Batch job processing");
     println!();
-    println!("  In production, HiQ would:");
+    println!("  In production, Arvak would:");
     println!("  - Submit jobs to SLURM queue");
     println!("  - Route to appropriate quantum backends");
     println!("  - Handle job dependencies (workflows)");
@@ -142,5 +142,5 @@ fn main() {
         println!("Warning: {} job(s) failed", result.failed);
     }
     println!();
-    print_info("This is HiQ's core value: orchestrating quantum workloads on HPC infrastructure.");
+    print_info("This is Arvak's core value: orchestrating quantum workloads on HPC infrastructure.");
 }

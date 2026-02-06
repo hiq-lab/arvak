@@ -1,7 +1,7 @@
 """Qrisp backend client for HIQ.
 
 This module implements Qrisp's backend interface, allowing users to execute
-HIQ circuits through Qrisp's backend API.
+Arvak circuits through Qrisp's backend API.
 """
 
 from typing import List, Optional, Union, TYPE_CHECKING, Dict, Any
@@ -11,16 +11,16 @@ if TYPE_CHECKING:
     from qrisp import QuantumCircuit, QuantumSession
 
 
-class HIQBackendClient:
+class ArvakBackendClient:
     """HIQ backend client for Qrisp.
 
     This class implements Qrisp's backend client interface, allowing Qrisp
     programs to execute on HIQ backends.
 
     Example:
-        >>> from arvak.integrations.qrisp import HIQBackendClient
+        >>> from arvak.integrations.qrisp import ArvakBackendClient
         >>> from qrisp import QuantumVariable
-        >>> backend = HIQBackendClient('sim')
+        >>> backend = ArvakBackendClient('sim')
         >>> # Use with Qrisp QuantumSession
         >>> qv = QuantumVariable(2)
         >>> qv.h(0)
@@ -61,11 +61,11 @@ class HIQBackendClient:
             RuntimeWarning
         )
 
-        # Convert to HIQ format
-        from .converter import qrisp_to_hiq
+        # Convert to Arvak format
+        from .converter import qrisp_to_arvak
         import arvak
 
-        hiq_circuit = qrisp_to_hiq(circuit)
+        hiq_circuit = qrisp_to_arvak(circuit)
 
         # Create mock results (would execute here in real implementation)
         return self._mock_results(hiq_circuit, shots)
@@ -74,7 +74,7 @@ class HIQBackendClient:
         """Generate mock results for demonstration.
 
         Args:
-            circuit: HIQ circuit
+            circuit: Arvak circuit
             shots: Number of shots
 
         Returns:
@@ -88,17 +88,17 @@ class HIQBackendClient:
 
     def __repr__(self) -> str:
         """String representation of the backend."""
-        return f"<HIQBackendClient('{self.name}')>"
+        return f"<ArvakBackendClient('{self.name}')>"
 
 
-class HIQProvider:
+class ArvakProvider:
     """HIQ backend provider for Qrisp.
 
     This provider allows Qrisp programs to discover and use HIQ backends.
 
     Example:
-        >>> from arvak.integrations.qrisp import HIQProvider
-        >>> provider = HIQProvider()
+        >>> from arvak.integrations.qrisp import ArvakProvider
+        >>> provider = ArvakProvider()
         >>> backend = provider.get_backend('sim')
     """
 
@@ -106,24 +106,24 @@ class HIQProvider:
         """Initialize the HIQ provider."""
         self._backends = {}
 
-    def get_backend(self, name: str = 'sim') -> HIQBackendClient:
+    def get_backend(self, name: str = 'sim') -> ArvakBackendClient:
         """Get a specific backend by name.
 
         Args:
             name: Backend name (default: 'sim')
 
         Returns:
-            HIQBackendClient instance
+            ArvakBackendClient instance
 
         Raises:
             ValueError: If backend name is unknown
         """
         if name not in self._backends:
-            self._backends[name] = HIQBackendClient(name)
+            self._backends[name] = ArvakBackendClient(name)
 
         return self._backends[name]
 
-    def backends(self, name: Optional[str] = None, **filters) -> List[HIQBackendClient]:
+    def backends(self, name: Optional[str] = None, **filters) -> List[ArvakBackendClient]:
         """Get list of available backends.
 
         Args:
@@ -131,12 +131,12 @@ class HIQProvider:
             **filters: Additional filters (currently unused)
 
         Returns:
-            List of HIQBackendClient instances
+            List of ArvakBackendClient instances
         """
         # Initialize default backends if not already done
         if not self._backends:
             self._backends = {
-                'sim': HIQBackendClient('sim'),
+                'sim': ArvakBackendClient('sim'),
             }
 
         if name:
@@ -147,4 +147,4 @@ class HIQProvider:
 
     def __repr__(self) -> str:
         """String representation of the provider."""
-        return f"<HIQProvider(backends={list(self._backends.keys())})>"
+        return f"<ArvakProvider(backends={list(self._backends.keys())})>"

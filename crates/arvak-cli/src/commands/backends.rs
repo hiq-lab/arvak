@@ -3,18 +3,18 @@
 use anyhow::Result;
 use console::style;
 
-use hiq_adapter_sim::SimulatorBackend;
-use hiq_hal::Backend;
+use arvak_adapter_sim::SimulatorBackend;
+use arvak_hal::Backend;
 
 #[cfg(feature = "iqm")]
-use hiq_adapter_iqm::IqmBackend;
+use arvak_adapter_iqm::IqmBackend;
 
 #[cfg(feature = "ibm")]
-use hiq_adapter_ibm::IbmBackend;
+use arvak_adapter_ibm::IbmBackend;
 
 /// Execute the backends command.
 pub async fn execute() -> Result<()> {
-    println!("{} Available backends:\n", style("HIQ").cyan().bold());
+    println!("{} Available backends:\n", style("Arvak").cyan().bold());
 
     // Simulator
     let sim = SimulatorBackend::new();

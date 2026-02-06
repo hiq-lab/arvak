@@ -1,6 +1,6 @@
-"""HIQ: Rust-native quantum compilation platform.
+"""Arvak: Rust-native quantum compilation platform.
 
-This module provides Python bindings for the HIQ quantum circuit
+This module provides Python bindings for the Arvak quantum circuit
 builder and compilation framework.
 
 Example:

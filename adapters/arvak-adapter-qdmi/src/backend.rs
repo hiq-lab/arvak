@@ -8,12 +8,12 @@ use rustc_hash::FxHashMap;
 use std::sync::{Arc, RwLock};
 use tracing::{debug, info};
 
-use hiq_hal::backend::{Backend, BackendConfig, BackendFactory};
-use hiq_hal::capability::{Capabilities, GateSet, Topology};
-use hiq_hal::error::{HalError, HalResult};
-use hiq_hal::job::{JobId, JobStatus};
-use hiq_hal::result::{Counts, ExecutionResult};
-use hiq_ir::Circuit;
+use arvak_hal::backend::{Backend, BackendConfig, BackendFactory};
+use arvak_hal::capability::{Capabilities, GateSet, Topology};
+use arvak_hal::error::{HalError, HalResult};
+use arvak_hal::job::{JobId, JobStatus};
+use arvak_hal::result::{Counts, ExecutionResult};
+use arvak_ir::Circuit;
 
 use crate::error::{QdmiError, QdmiResult};
 use crate::ffi::{QdmiDeviceStatus, QdmiJobStatus};
@@ -21,7 +21,7 @@ use crate::ffi::{QdmiDeviceStatus, QdmiJobStatus};
 #[cfg(not(feature = "system-qdmi"))]
 use crate::ffi::mock::{MockDevice, MockJob, MockSession};
 
-/// QDMI Backend for HIQ.
+/// QDMI Backend for Arvak.
 ///
 /// This backend connects to quantum devices via the QDMI interface,
 /// which is part of the Munich Quantum Software Stack (MQSS).
@@ -29,8 +29,8 @@ use crate::ffi::mock::{MockDevice, MockJob, MockSession};
 /// # Example
 ///
 /// ```ignore
-/// use hiq_adapter_qdmi::QdmiBackend;
-/// use hiq_hal::Backend;
+/// use arvak_adapter_qdmi::QdmiBackend;
+/// use arvak_hal::Backend;
 ///
 /// let backend = QdmiBackend::new()
 ///     .with_token("your-api-token")

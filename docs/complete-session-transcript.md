@@ -24,17 +24,17 @@ Phase 4 work already completed before this session continued:
 
 ---
 
-## Session Start: Testing hiq-auto
+## Session Start: Testing arvak-auto
 
 ### User Message
 > (Session continued automatically from context)
 
 ### Assistant Actions
 
-#### 1. Added hiq-auto to Workspace
+#### 1. Added arvak-auto to Workspace
 ```toml
 # Cargo.toml
-hiq-auto = { path = "crates/hiq-auto" }
+arvak-auto = { path = "crates/arvak-auto" }
 ```
 
 #### 2. First Test Run - Compilation Errors
@@ -104,7 +104,7 @@ Updated roadmap Phase 4 section with completed items.
 
 #### 2. Git Operations
 ```bash
-git add Cargo.toml README.md crates/hiq-compile/ crates/hiq-auto/ crates/hiq-types/
+git add Cargo.toml README.md crates/arvak-compile/ crates/arvak-auto/ crates/arvak-types/
 git commit -m "Add Phase 4: Advanced optimization, quantum types, and auto-uncomputation..."
 git push origin main
 ```
@@ -122,34 +122,34 @@ git push origin main
 
 #### 1. Enhanced Rustdoc for All Crates
 
-**hiq-ir/src/lib.rs:**
+**arvak-ir/src/lib.rs:**
 - Added overview section
 - Added core components documentation
 - Added example: Building a Bell State
 - Added example: Parameterized Circuit
 - Added supported gates table
 
-**hiq-compile/src/lib.rs:**
+**arvak-compile/src/lib.rs:**
 - Added architecture diagram (ASCII)
 - Added compilation process overview
 - Added optimization levels table
 - Added built-in passes documentation
 - Added custom pass example
 
-**hiq-hal/src/lib.rs:**
+**arvak-hal/src/lib.rs:**
 - Added supported backends table
 - Added example: Running a Circuit
 - Added OIDC authentication section
 - Added custom backend implementation example
 
-**hiq-qasm3/src/lib.rs:**
+**arvak-qasm3/src/lib.rs:**
 - Added supported features table
 - Added example: Parsing QASM
 - Added example: Emitting QASM
 - Added example: Round-Trip
 - Added supported gates list
 
-**hiq-sched/src/lib.rs:**
+**arvak-sched/src/lib.rs:**
 - Added supported schedulers table
 - Added key features list
 - Added example: Single Job Submission
@@ -157,17 +157,17 @@ git push origin main
 - Added example: PBS Configuration
 - Added persistence section
 
-**hiq-adapter-sim/src/lib.rs:**
+**arvak-adapter-sim/src/lib.rs:**
 - Added features list
 - Added performance table (qubits vs memory)
 - Added example usage
 
-**hiq-adapter-iqm/src/lib.rs:**
+**arvak-adapter-iqm/src/lib.rs:**
 - Added supported systems table
 - Added authentication sections (Cloud, HPC)
 - Added native gate set documentation
 
-**hiq-adapter-ibm/src/lib.rs:**
+**arvak-adapter-ibm/src/lib.rs:**
 - Added supported systems table
 - Added authentication section
 - Added native gate set documentation
@@ -287,17 +287,17 @@ assert!(circuit.depth() >= 2);  // H, CX, measure
 #### 7. Final Test Results
 ```
 Total: 300+ tests passing across all crates
-- hiq-adapter-ibm:  5 tests
-- hiq-adapter-iqm:  4 tests
-- hiq-adapter-sim:  9 tests
-- hiq-auto:        17 tests
-- hiq-compile:     33 tests
-- hiq-demos:       51 tests
-- hiq-hal:         17 tests
-- hiq-ir:          27 tests
-- hiq-qasm3:       15 tests
-- hiq-sched:       66 tests
-- hiq-types:       19 tests
+- arvak-adapter-ibm:  5 tests
+- arvak-adapter-iqm:  4 tests
+- arvak-adapter-sim:  9 tests
+- arvak-auto:        17 tests
+- arvak-compile:     33 tests
+- arvak-demos:       51 tests
+- arvak-hal:         17 tests
+- arvak-ir:          27 tests
+- arvak-qasm3:       15 tests
+- arvak-sched:       66 tests
+- arvak-types:       19 tests
 - integration:     14 tests
 - lumi:            11 tests
 ```
@@ -390,12 +390,12 @@ By contributing, you agree that your contributions will be licensed under
 the Apache License, Version 2.0.
 ```
 
-#### 4. Updated hiq-cli/src/commands/version.rs
+#### 4. Updated arvak-cli/src/commands/version.rs
 ```rust
 println!("License:    {}", style("Apache-2.0").dim());
 ```
 
-#### 5. Updated hiq-python/pyproject.toml
+#### 5. Updated arvak-python/pyproject.toml
 ```toml
 license = { text = "Apache-2.0" }
 classifiers = [
@@ -404,7 +404,7 @@ classifiers = [
 ]
 ```
 
-#### 6. Updated hiq-python/README.md
+#### 6. Updated arvak-python/README.md
 ```markdown
 ## License
 Apache-2.0
@@ -470,9 +470,9 @@ fb1e364 - Release Arvak v1.0.0 - Full documentation and release preparation
 ## Files Created/Modified
 
 ### New Files
-- `crates/hiq-types/` (entire crate)
-- `crates/hiq-auto/` (entire crate)
-- `crates/hiq-compile/src/unitary.rs`
+- `crates/arvak-types/` (entire crate)
+- `crates/arvak-auto/` (entire crate)
+- `crates/arvak-compile/src/unitary.rs`
 - `CHANGELOG.md`
 - `CONTRIBUTING.md`
 - `examples/README.md`
@@ -486,20 +486,20 @@ fb1e364 - Release Arvak v1.0.0 - Full documentation and release preparation
 ### Modified Files
 - `Cargo.toml` (workspace)
 - `README.md`
-- `crates/hiq-ir/src/lib.rs`
-- `crates/hiq-compile/src/lib.rs`
-- `crates/hiq-compile/src/manager.rs`
-- `crates/hiq-compile/src/passes/mod.rs`
-- `crates/hiq-compile/src/passes/optimization.rs`
-- `crates/hiq-hal/src/lib.rs`
-- `crates/hiq-qasm3/src/lib.rs`
-- `crates/hiq-sched/src/lib.rs`
-- `crates/hiq-cli/src/commands/version.rs`
-- `crates/hiq-python/pyproject.toml`
-- `crates/hiq-python/README.md`
-- `adapters/hiq-adapter-sim/src/lib.rs`
-- `adapters/hiq-adapter-iqm/src/lib.rs`
-- `adapters/hiq-adapter-ibm/src/lib.rs`
+- `crates/arvak-ir/src/lib.rs`
+- `crates/arvak-compile/src/lib.rs`
+- `crates/arvak-compile/src/manager.rs`
+- `crates/arvak-compile/src/passes/mod.rs`
+- `crates/arvak-compile/src/passes/optimization.rs`
+- `crates/arvak-hal/src/lib.rs`
+- `crates/arvak-qasm3/src/lib.rs`
+- `crates/arvak-sched/src/lib.rs`
+- `crates/arvak-cli/src/commands/version.rs`
+- `crates/arvak-python/pyproject.toml`
+- `crates/arvak-python/README.md`
+- `adapters/arvak-adapter-sim/src/lib.rs`
+- `adapters/arvak-adapter-iqm/src/lib.rs`
+- `adapters/arvak-adapter-ibm/src/lib.rs`
 - `docs/code-specification.md`
 
 ---
@@ -508,7 +508,7 @@ fb1e364 - Release Arvak v1.0.0 - Full documentation and release preparation
 
 This session accomplished:
 
-1. **Completed hiq-auto testing** - 17 tests passing
+1. **Completed arvak-auto testing** - 17 tests passing
 2. **Full test suite verification** - 300+ tests passing
 3. **Comprehensive documentation** - All crates documented
 4. **Release preparation** - CHANGELOG, CONTRIBUTING, examples

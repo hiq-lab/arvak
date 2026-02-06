@@ -5,11 +5,11 @@ use rustc_hash::FxHashMap;
 use std::sync::{Arc, Mutex};
 use tracing::{debug, info, instrument, warn};
 
-use hiq_hal::{
+use arvak_hal::{
     Backend, BackendConfig, BackendFactory, Capabilities, Counts, ExecutionResult, HalError,
     HalResult, Job, JobId, JobStatus, Topology,
 };
-use hiq_ir::Circuit;
+use arvak_ir::Circuit;
 
 use crate::api::{BackendInfo, IqmClient, SubmitRequest};
 use crate::error::{IqmError, IqmResult};

@@ -1,4 +1,4 @@
-//! HIQ HPC Scheduler for SLURM and PBS Clusters
+//! Arvak HPC Scheduler for SLURM and PBS Clusters
 //!
 //! This crate provides enterprise-grade job scheduling for quantum circuits on HPC clusters,
 //! supporting both SLURM and PBS/Torque schedulers with workflow orchestration.

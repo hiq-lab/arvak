@@ -1,2 +1,2 @@
-# HIQ
+# Arvak (Legacy)
 

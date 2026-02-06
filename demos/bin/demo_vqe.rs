@@ -4,11 +4,11 @@
 
 use clap::Parser;
 
-use hiq_demos::problems::{
+use arvak_demos::problems::{
     beh2_hamiltonian, exact_ground_state_energy, h2_hamiltonian, h2o_hamiltonian, lih_hamiltonian,
 };
-use hiq_demos::runners::VqeRunner;
-use hiq_demos::{
+use arvak_demos::runners::VqeRunner;
+use arvak_demos::{
     create_progress_bar, print_header, print_info, print_result, print_section, print_success,
 };
 
@@ -148,7 +148,7 @@ fn main() {
     println!("  - Simulate reaction pathways");
     println!("  - Predict binding affinities");
     println!();
-    println!("  HiQ orchestrates the hybrid workflow:");
+    println!("  Arvak orchestrates the hybrid workflow:");
     println!("  - Classical optimization runs on HPC nodes");
     println!("  - Quantum evaluations are queued on the QPU");
     println!("  - SLURM manages job scheduling across resources");
@@ -156,7 +156,7 @@ fn main() {
     println!();
     print_success("VQE demo complete!");
     println!();
-    print_info("For real-world molecular simulation, HiQ would:");
+    print_info("For real-world molecular simulation, Arvak would:");
     println!("  - Use optimized ansatz circuits (UCCSD, etc.)");
     println!("  - Execute on actual quantum hardware via IQM/IBM");
     println!("  - Run 100+ iterations for convergence");

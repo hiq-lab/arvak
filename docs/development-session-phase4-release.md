@@ -14,7 +14,7 @@ This document captures the development session that completed Phase 4 of Arvak a
 
 ### 1. Advanced Optimization Passes (arvak-compile)
 
-Created three new optimization passes in `crates/hiq-compile/src/passes/optimization.rs`:
+Created three new optimization passes in `crates/arvak-compile/src/passes/optimization.rs`:
 
 #### Optimize1qGates
 Merges consecutive single-qubit gates using ZYZ Euler decomposition:
@@ -33,14 +33,14 @@ Merges same-type rotation gates:
 - Handles angle normalization (PI + (-PI) = 0)
 
 #### Supporting Module: unitary.rs
-New `crates/hiq-compile/src/unitary.rs` provides:
+New `crates/arvak-compile/src/unitary.rs` provides:
 - 2×2 unitary matrix operations
 - Gate matrices (H, X, Y, Z, S, T, Rx, Ry, Rz)
 - ZYZ Euler decomposition algorithm
 
-### 2. Qrisp-like Quantum Types (hiq-types - new crate)
+### 2. Qrisp-like Quantum Types (arvak-types - new crate)
 
-Created `crates/hiq-types/` with:
+Created `crates/arvak-types/` with:
 
 #### QuantumInt<N>
 Fixed-width quantum integer:
@@ -66,9 +66,9 @@ let arr = QuantumArray::<4, 8>::new(&mut circuit);  // 4 elements, 8 qubits each
 #### QubitRegister
 Qubit allocation and management utilities.
 
-### 3. Automatic Uncomputation (hiq-auto - new crate)
+### 3. Automatic Uncomputation (arvak-auto - new crate)
 
-Created `crates/hiq-auto/` with:
+Created `crates/arvak-auto/` with:
 
 #### Gate Inversion (inverse.rs)
 - `inverse_gate()`: Returns inverse of any standard gate
@@ -114,7 +114,7 @@ Updated module documentation for all crates:
 - `arvak-hal`: Backend trait, OIDC auth examples
 - `arvak-qasm3`: Parser/emitter examples, supported features
 - `arvak-sched`: SLURM/PBS examples, workflow patterns
-- `hiq-adapter-*`: Backend-specific docs
+- `arvak-adapter-*`: Backend-specific docs
 
 ### New Files Created
 
@@ -155,9 +155,9 @@ Files updated:
 - `Cargo.toml` - workspace license field
 - `README.md` - badge and license section
 - `CONTRIBUTING.md` - contributor agreement
-- `crates/hiq-cli/src/commands/version.rs` - CLI output
-- `crates/hiq-python/pyproject.toml` - Python package
-- `crates/hiq-python/README.md` - Python docs
+- `crates/arvak-cli/src/commands/version.rs` - CLI output
+- `crates/arvak-python/pyproject.toml` - Python package
+- `crates/arvak-python/README.md` - Python docs
 - `docs/code-specification.md` - spec docs
 
 ---
@@ -167,18 +167,18 @@ Files updated:
 Final test suite: **300+ tests passing**
 
 ```
-hiq-adapter-ibm:  5 tests
-hiq-adapter-iqm:  4 tests
-hiq-adapter-sim:  9 tests
-hiq-auto:        17 tests
-hiq-compile:     33 tests
-hiq-demos:       51 tests + 14 integration
-hiq-hal:         17 tests
-hiq-ir:          27 tests
-hiq-python:       2 tests
-hiq-qasm3:       15 tests
-hiq-sched:       66 tests + 11 LUMI integration
-hiq-types:       19 tests
+arvak-adapter-ibm:  5 tests
+arvak-adapter-iqm:  4 tests
+arvak-adapter-sim:  9 tests
+arvak-auto:        17 tests
+arvak-compile:     33 tests
+arvak-demos:       51 tests + 14 integration
+arvak-hal:         17 tests
+arvak-ir:          27 tests
+arvak-python:       2 tests
+arvak-qasm3:       15 tests
+arvak-sched:       66 tests + 11 LUMI integration
+arvak-types:       19 tests
 ```
 
 ---
@@ -201,19 +201,19 @@ hiq-types:       19 tests
 ```
 HIQ/
 ├── crates/
-│   ├── hiq-ir/          # Circuit IR (DAG-based)
-│   ├── hiq-qasm3/       # OpenQASM 3.0 parser/emitter
-│   ├── hiq-compile/     # Compilation framework + optimization
-│   ├── hiq-hal/         # Hardware abstraction layer
-│   ├── hiq-cli/         # Command-line interface
-│   ├── hiq-python/      # Python bindings (PyO3)
-│   ├── hiq-sched/       # HPC scheduler (SLURM/PBS)
-│   ├── hiq-types/       # Quantum types (NEW)
-│   └── hiq-auto/        # Auto-uncomputation (NEW)
+│   ├── arvak-ir/          # Circuit IR (DAG-based)
+│   ├── arvak-qasm3/       # OpenQASM 3.0 parser/emitter
+│   ├── arvak-compile/     # Compilation framework + optimization
+│   ├── arvak-hal/         # Hardware abstraction layer
+│   ├── arvak-cli/         # Command-line interface
+│   ├── arvak-python/      # Python bindings (PyO3)
+│   ├── arvak-sched/       # HPC scheduler (SLURM/PBS)
+│   ├── arvak-types/       # Quantum types (NEW)
+│   └── arvak-auto/        # Auto-uncomputation (NEW)
 ├── adapters/
-│   ├── hiq-adapter-sim/ # Statevector simulator
-│   ├── hiq-adapter-iqm/ # IQM Quantum
-│   └── hiq-adapter-ibm/ # IBM Quantum
+│   ├── arvak-adapter-sim/ # Statevector simulator
+│   ├── arvak-adapter-iqm/ # IQM Quantum
+│   └── arvak-adapter-ibm/ # IBM Quantum
 ├── demos/               # VQE, QAOA, Grover demos
 ├── examples/            # QASM example circuits
 ├── docs/                # Documentation
@@ -229,7 +229,7 @@ HIQ/
 This session completed the Arvak v1.0.0 release with:
 
 1. **3 new optimization passes** for gate reduction
-2. **2 new crates** (hiq-types, hiq-auto) for Qrisp-like features
+2. **2 new crates** (arvak-types, arvak-auto) for Qrisp-like features
 3. **Comprehensive documentation** for all public APIs
 4. **4 new example circuits** demonstrating quantum algorithms
 5. **Release artifacts** (CHANGELOG, CONTRIBUTING, version updates)
