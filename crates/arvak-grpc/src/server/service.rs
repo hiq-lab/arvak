@@ -163,6 +163,10 @@ impl Default for ArvakServiceImpl {
 
 #[tonic::async_trait]
 impl arvak_service_server::ArvakService for ArvakServiceImpl {
+    type WatchJobStream = std::pin::Pin<
+        Box<dyn tokio_stream::Stream<Item = std::result::Result<JobStatusUpdate, Status>> + Send>,
+    >;
+
     #[instrument(skip(self, request), fields(backend_id, job_id))]
     async fn submit_job(
         &self,
@@ -293,6 +297,69 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         Ok(Response::new(GetJobStatusResponse {
             job: Some(proto_job),
         }))
+    }
+
+    #[instrument(skip(self, request), fields(job_id))]
+    async fn watch_job(
+        &self,
+        request: Request<WatchJobRequest>,
+    ) -> std::result::Result<Response<Self::WatchJobStream>, Status> {
+        let req = request.into_inner();
+        let job_id = JobId::new(req.job_id.clone());
+
+        tracing::Span::current().record("job_id", &job_id.0.as_str());
+        info!("Starting job watch stream");
+
+        let job_store = self.job_store.clone();
+        let (tx, rx) = tokio::sync::mpsc::channel(16);
+
+        // Spawn watcher task
+        tokio::spawn(async move {
+            loop {
+                match job_store.get_job(&job_id).await {
+                    Ok(job) => {
+                        let error_message = match &job.status {
+                            JobStatus::Failed(msg) => msg.clone(),
+                            _ => String::new(),
+                        };
+
+                        let update = JobStatusUpdate {
+                            job_id: job.id.0.clone(),
+                            state: Self::to_proto_state(&job.status) as i32,
+                            timestamp: chrono::Utc::now().timestamp(),
+                            error_message,
+                        };
+
+                        // Send update
+                        if tx.send(Ok(update)).await.is_err() {
+                            // Client disconnected
+                            break;
+                        }
+
+                        // Check if job is in terminal state
+                        match job.status {
+                            JobStatus::Completed | JobStatus::Failed(_) | JobStatus::Cancelled => {
+                                // Job finished, close stream
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    Err(e) => {
+                        let _ = tx
+                            .send(Err(Status::internal(format!("Failed to get job: {}", e))))
+                            .await;
+                        break;
+                    }
+                }
+
+                // Poll every 500ms
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            }
+        });
+
+        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+        Ok(Response::new(Box::pin(stream) as Self::WatchJobStream))
     }
 
     async fn get_job_result(

@@ -81,6 +81,9 @@ service ArvakService {
 
   /// Get detailed information about a specific backend.
   rpc GetBackendInfo(GetBackendInfoRequest) returns (GetBackendInfoResponse);
+
+  /// Watch job status updates in real-time (server streaming).
+  rpc WatchJob(WatchJobRequest) returns (stream JobStatusUpdate);
 }
 
 // ============================================================================
@@ -164,4 +167,17 @@ message GetBackendInfoRequest {
 
 message GetBackendInfoResponse {
   BackendInfo backend = 1;
+}
+
+// --- WatchJob ---
+
+message WatchJobRequest {
+  string job_id = 1;
+}
+
+message JobStatusUpdate {
+  string job_id = 1;
+  JobState state = 2;
+  int64 timestamp = 3;           // Unix timestamp (seconds)
+  string error_message = 4;      // Populated if state == FAILED
 }
