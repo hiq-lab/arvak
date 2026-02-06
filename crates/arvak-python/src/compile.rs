@@ -11,7 +11,7 @@ use crate::qubits::PyQubitId;
 #[pyclass(name = "Layout")]
 #[derive(Clone)]
 pub struct PyLayout {
-    pub(crate) inner: hiq_compile::Layout,
+    pub(crate) inner: arvak_compile::Layout,
 }
 
 #[pymethods]
@@ -20,7 +20,7 @@ impl PyLayout {
     #[new]
     fn new() -> Self {
         Self {
-            inner: hiq_compile::Layout::new(),
+            inner: arvak_compile::Layout::new(),
         }
     }
 
@@ -34,7 +34,7 @@ impl PyLayout {
     #[staticmethod]
     fn trivial(num_qubits: u32) -> Self {
         Self {
-            inner: hiq_compile::Layout::trivial(num_qubits),
+            inner: arvak_compile::Layout::trivial(num_qubits),
         }
     }
 
@@ -44,7 +44,7 @@ impl PyLayout {
     ///     logical: The logical qubit (QubitId or int).
     ///     physical: The physical qubit index.
     fn add(&mut self, logical: u32, physical: u32) {
-        self.inner.add(hiq_ir::QubitId(logical), physical);
+        self.inner.add(arvak_ir::QubitId(logical), physical);
     }
 
     /// Get the physical qubit for a logical qubit.
@@ -55,7 +55,7 @@ impl PyLayout {
     /// Returns:
     ///     The physical qubit index, or None if not mapped.
     fn get_physical(&self, logical: u32) -> Option<u32> {
-        self.inner.get_physical(hiq_ir::QubitId(logical))
+        self.inner.get_physical(arvak_ir::QubitId(logical))
     }
 
     /// Get the logical qubit for a physical qubit.
@@ -96,7 +96,7 @@ impl PyLayout {
 #[pyclass(name = "CouplingMap")]
 #[derive(Clone)]
 pub struct PyCouplingMap {
-    pub(crate) inner: hiq_compile::CouplingMap,
+    pub(crate) inner: arvak_compile::CouplingMap,
 }
 
 #[pymethods]
@@ -105,7 +105,7 @@ impl PyCouplingMap {
     #[new]
     fn new(num_qubits: u32) -> Self {
         Self {
-            inner: hiq_compile::CouplingMap::new(num_qubits),
+            inner: arvak_compile::CouplingMap::new(num_qubits),
         }
     }
 
@@ -141,7 +141,7 @@ impl PyCouplingMap {
     #[staticmethod]
     fn linear(n: u32) -> Self {
         Self {
-            inner: hiq_compile::CouplingMap::linear(n),
+            inner: arvak_compile::CouplingMap::linear(n),
         }
     }
 
@@ -149,7 +149,7 @@ impl PyCouplingMap {
     #[staticmethod]
     fn full(n: u32) -> Self {
         Self {
-            inner: hiq_compile::CouplingMap::full(n),
+            inner: arvak_compile::CouplingMap::full(n),
         }
     }
 
@@ -157,7 +157,7 @@ impl PyCouplingMap {
     #[staticmethod]
     fn star(n: u32) -> Self {
         Self {
-            inner: hiq_compile::CouplingMap::star(n),
+            inner: arvak_compile::CouplingMap::star(n),
         }
     }
 
@@ -177,7 +177,7 @@ impl PyCouplingMap {
 #[pyclass(name = "BasisGates")]
 #[derive(Clone)]
 pub struct PyBasisGates {
-    pub(crate) inner: hiq_compile::BasisGates,
+    pub(crate) inner: arvak_compile::BasisGates,
 }
 
 #[pymethods]
@@ -186,7 +186,7 @@ impl PyBasisGates {
     #[new]
     fn new(gates: Vec<String>) -> Self {
         Self {
-            inner: hiq_compile::BasisGates::new(gates),
+            inner: arvak_compile::BasisGates::new(gates),
         }
     }
 
@@ -204,7 +204,7 @@ impl PyBasisGates {
     #[staticmethod]
     fn iqm() -> Self {
         Self {
-            inner: hiq_compile::BasisGates::iqm(),
+            inner: arvak_compile::BasisGates::iqm(),
         }
     }
 
@@ -212,7 +212,7 @@ impl PyBasisGates {
     #[staticmethod]
     fn ibm() -> Self {
         Self {
-            inner: hiq_compile::BasisGates::ibm(),
+            inner: arvak_compile::BasisGates::ibm(),
         }
     }
 
@@ -220,7 +220,7 @@ impl PyBasisGates {
     #[staticmethod]
     fn universal() -> Self {
         Self {
-            inner: hiq_compile::BasisGates::universal(),
+            inner: arvak_compile::BasisGates::universal(),
         }
     }
 
@@ -235,7 +235,7 @@ impl PyBasisGates {
 /// configuration and intermediate results.
 #[pyclass(name = "PropertySet")]
 pub struct PyPropertySet {
-    pub(crate) inner: hiq_compile::PropertySet,
+    pub(crate) inner: arvak_compile::PropertySet,
 }
 
 #[pymethods]
@@ -244,7 +244,7 @@ impl PyPropertySet {
     #[new]
     fn new() -> Self {
         Self {
-            inner: hiq_compile::PropertySet::new(),
+            inner: arvak_compile::PropertySet::new(),
         }
     }
 

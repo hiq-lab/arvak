@@ -57,14 +57,14 @@ pub enum IqmError {
     QasmError(String),
 }
 
-impl From<IqmError> for hiq_hal::HalError {
+impl From<IqmError> for arvak_hal::HalError {
     fn from(e: IqmError) -> Self {
         match e {
-            IqmError::JobNotFound(id) => hiq_hal::HalError::JobNotFound(id),
-            IqmError::JobFailed(msg) => hiq_hal::HalError::JobFailed(msg),
-            IqmError::Timeout(id) => hiq_hal::HalError::Timeout(id),
-            IqmError::CircuitValidation(msg) => hiq_hal::HalError::InvalidCircuit(msg),
-            _ => hiq_hal::HalError::Backend(e.to_string()),
+            IqmError::JobNotFound(id) => arvak_hal::HalError::JobNotFound(id),
+            IqmError::JobFailed(msg) => arvak_hal::HalError::JobFailed(msg),
+            IqmError::Timeout(id) => arvak_hal::HalError::Timeout(id),
+            IqmError::CircuitValidation(msg) => arvak_hal::HalError::InvalidCircuit(msg),
+            _ => arvak_hal::HalError::Backend(e.to_string()),
         }
     }
 }

@@ -2,7 +2,7 @@
 
 use tracing::{debug, info, instrument};
 
-use hiq_ir::CircuitDag;
+use arvak_ir::CircuitDag;
 
 use crate::error::CompileResult;
 use crate::pass::Pass;
@@ -156,7 +156,7 @@ impl Default for PassManagerBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hiq_ir::{Circuit, QubitId};
+    use arvak_ir::{Circuit, QubitId};
 
     #[test]
     fn test_empty_pass_manager() {

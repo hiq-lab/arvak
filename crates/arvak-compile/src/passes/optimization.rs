@@ -1,11 +1,11 @@
 //! Optimization passes.
 
-use hiq_ir::CircuitDag;
-use hiq_ir::dag::{DagNode, NodeIndex, WireId};
-use hiq_ir::gate::{GateKind, StandardGate};
-use hiq_ir::instruction::{Instruction, InstructionKind};
-use hiq_ir::parameter::ParameterExpression;
-use hiq_ir::qubit::QubitId;
+use arvak_ir::CircuitDag;
+use arvak_ir::dag::{DagNode, NodeIndex, WireId};
+use arvak_ir::gate::{GateKind, StandardGate};
+use arvak_ir::instruction::{Instruction, InstructionKind};
+use arvak_ir::parameter::ParameterExpression;
+use arvak_ir::qubit::QubitId;
 use petgraph::Direction;
 use petgraph::visit::EdgeRef;
 use rustc_hash::FxHashSet;
@@ -695,7 +695,7 @@ impl Pass for CommutativeCancellation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hiq_ir::Circuit;
+    use arvak_ir::Circuit;
 
     #[test]
     fn test_optimize_1q_hh_cancels() {

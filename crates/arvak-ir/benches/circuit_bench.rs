@@ -3,7 +3,7 @@
 //! Run with: cargo bench -p hiq-ir
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use hiq_ir::{Circuit, ClbitId, QubitId};
+use arvak_ir::{Circuit, ClbitId, QubitId};
 use std::f64::consts::PI;
 
 /// Benchmark circuit creation

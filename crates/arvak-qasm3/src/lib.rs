@@ -20,7 +20,7 @@
 //! # Example: Parsing QASM
 //!
 //! ```rust
-//! use hiq_qasm3::parse;
+//! use arvak_qasm3::parse;
 //!
 //! let qasm = r#"
 //!     OPENQASM 3.0;
@@ -39,8 +39,8 @@
 //! # Example: Emitting QASM
 //!
 //! ```rust
-//! use hiq_ir::Circuit;
-//! use hiq_qasm3::emit;
+//! use arvak_ir::Circuit;
+//! use arvak_qasm3::emit;
 //!
 //! // Create a circuit programmatically
 //! let circuit = Circuit::bell().unwrap();
@@ -55,7 +55,7 @@
 //! # Example: Round-Trip
 //!
 //! ```rust
-//! use hiq_qasm3::{parse, emit};
+//! use arvak_qasm3::{parse, emit};
 //!
 //! let original = r#"
 //! OPENQASM 3.0;

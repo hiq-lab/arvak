@@ -1,6 +1,6 @@
 //! Pass trait and types for compilation passes.
 
-use hiq_ir::CircuitDag;
+use arvak_ir::CircuitDag;
 
 use crate::error::CompileResult;
 use crate::property::PropertySet;

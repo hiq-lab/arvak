@@ -40,7 +40,7 @@ fn main() {
 
     // Select Hamiltonian
     let (hamiltonian, molecule_name, exact_energy): (
-        hiq_demos::problems::PauliHamiltonian,
+        arvak_demos::problems::PauliHamiltonian,
         &str,
         Option<f64>,
     ) = match args.molecule.to_lowercase().as_str() {

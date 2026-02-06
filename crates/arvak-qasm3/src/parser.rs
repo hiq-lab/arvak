@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use hiq_ir::{Circuit, ClbitId, ParameterExpression, QubitId};
+use arvak_ir::{Circuit, ClbitId, ParameterExpression, QubitId};
 
 use crate::ast::*;
 use crate::error::{ParseError, ParseResult};

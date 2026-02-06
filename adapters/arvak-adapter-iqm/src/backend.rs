@@ -141,7 +141,7 @@ impl IqmBackend {
 
     /// Convert circuit to QASM3 string.
     fn circuit_to_qasm(&self, circuit: &Circuit) -> IqmResult<String> {
-        hiq_qasm3::emit(circuit).map_err(|e| IqmError::QasmError(e.to_string()))
+        arvak_qasm3::emit(circuit).map_err(|e| IqmError::QasmError(e.to_string()))
     }
 
     /// Convert IQM measurement results to Counts.
@@ -193,7 +193,7 @@ impl Backend for IqmBackend {
                 Ok(Capabilities {
                     name: info.name.clone(),
                     num_qubits: info.num_qubits,
-                    gate_set: hiq_hal::GateSet::iqm(),
+                    gate_set: arvak_hal::GateSet::iqm(),
                     topology,
                     max_shots: info.max_shots.unwrap_or(20_000),
                     is_simulator: false,

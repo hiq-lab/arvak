@@ -7,11 +7,11 @@ use crate::qubits::{PyClbitId, PyQubitId};
 
 /// Convert a Python object to a QubitId.
 /// Accepts either a QubitId or an integer.
-fn to_qubit_id(obj: &Bound<'_, PyAny>) -> PyResult<hiq_ir::QubitId> {
+fn to_qubit_id(obj: &Bound<'_, PyAny>) -> PyResult<arvak_ir::QubitId> {
     if let Ok(qid) = obj.extract::<PyQubitId>() {
         Ok(qid.into())
     } else if let Ok(index) = obj.extract::<u32>() {
-        Ok(hiq_ir::QubitId(index))
+        Ok(arvak_ir::QubitId(index))
     } else {
         Err(pyo3::exceptions::PyTypeError::new_err(
             "Expected QubitId or int",
@@ -21,11 +21,11 @@ fn to_qubit_id(obj: &Bound<'_, PyAny>) -> PyResult<hiq_ir::QubitId> {
 
 /// Convert a Python object to a ClbitId.
 /// Accepts either a ClbitId or an integer.
-fn to_clbit_id(obj: &Bound<'_, PyAny>) -> PyResult<hiq_ir::ClbitId> {
+fn to_clbit_id(obj: &Bound<'_, PyAny>) -> PyResult<arvak_ir::ClbitId> {
     if let Ok(cid) = obj.extract::<PyClbitId>() {
         Ok(cid.into())
     } else if let Ok(index) = obj.extract::<u32>() {
-        Ok(hiq_ir::ClbitId(index))
+        Ok(arvak_ir::ClbitId(index))
     } else {
         Err(pyo3::exceptions::PyTypeError::new_err(
             "Expected ClbitId or int",
@@ -45,7 +45,7 @@ fn to_clbit_id(obj: &Bound<'_, PyAny>) -> PyResult<hiq_ir::ClbitId> {
 ///     2
 #[pyclass(name = "Circuit")]
 pub struct PyCircuit {
-    pub(crate) inner: hiq_ir::Circuit,
+    pub(crate) inner: arvak_ir::Circuit,
 }
 
 #[pymethods]
@@ -63,7 +63,7 @@ impl PyCircuit {
     #[pyo3(signature = (name, num_qubits=0, num_clbits=0))]
     fn new(name: &str, num_qubits: u32, num_clbits: u32) -> Self {
         Self {
-            inner: hiq_ir::Circuit::with_size(name, num_qubits, num_clbits),
+            inner: arvak_ir::Circuit::with_size(name, num_qubits, num_clbits),
         }
     }
 
@@ -571,7 +571,7 @@ impl PyCircuit {
     ///     A 2-qubit circuit that creates a Bell state.
     #[staticmethod]
     fn bell() -> PyResult<Self> {
-        let circuit = hiq_ir::Circuit::bell().map_err(ir_to_py_err)?;
+        let circuit = arvak_ir::Circuit::bell().map_err(ir_to_py_err)?;
         Ok(Self { inner: circuit })
     }
 
@@ -584,7 +584,7 @@ impl PyCircuit {
     ///     An n-qubit circuit that creates a GHZ state.
     #[staticmethod]
     fn ghz(n: u32) -> PyResult<Self> {
-        let circuit = hiq_ir::Circuit::ghz(n).map_err(ir_to_py_err)?;
+        let circuit = arvak_ir::Circuit::ghz(n).map_err(ir_to_py_err)?;
         Ok(Self { inner: circuit })
     }
 
@@ -597,7 +597,7 @@ impl PyCircuit {
     ///     An n-qubit QFT circuit.
     #[staticmethod]
     fn qft(n: u32) -> PyResult<Self> {
-        let circuit = hiq_ir::Circuit::qft(n).map_err(ir_to_py_err)?;
+        let circuit = arvak_ir::Circuit::qft(n).map_err(ir_to_py_err)?;
         Ok(Self { inner: circuit })
     }
 

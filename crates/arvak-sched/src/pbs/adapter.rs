@@ -334,7 +334,7 @@ impl PbsAdapter {
 
         for (i, spec) in job.circuits.iter().enumerate() {
             let circuit = spec.resolve()?;
-            let qasm = hiq_qasm3::emit(&circuit)?;
+            let qasm = arvak_qasm3::emit(&circuit)?;
 
             let filename = if job.circuits.len() == 1 {
                 format!("{}.qasm", job.id)

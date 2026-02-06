@@ -97,8 +97,8 @@ pub enum SchedError {
     Internal(String),
 }
 
-impl From<hiq_hal::HalError> for SchedError {
-    fn from(e: hiq_hal::HalError) -> Self {
+impl From<arvak_hal::HalError> for SchedError {
+    fn from(e: arvak_hal::HalError) -> Self {
         SchedError::BackendError(e.to_string())
     }
 }
@@ -109,8 +109,8 @@ impl From<rusqlite::Error> for SchedError {
     }
 }
 
-impl From<hiq_qasm3::ParseError> for SchedError {
-    fn from(e: hiq_qasm3::ParseError) -> Self {
+impl From<arvak_qasm3::ParseError> for SchedError {
+    fn from(e: arvak_qasm3::ParseError) -> Self {
         SchedError::ParseError(e.to_string())
     }
 }

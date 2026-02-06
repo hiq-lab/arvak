@@ -7,7 +7,7 @@ pub use json_store::JsonStore;
 pub use sqlite_store::SqliteStore;
 
 use async_trait::async_trait;
-use hiq_hal::ExecutionResult;
+use arvak_hal::ExecutionResult;
 
 use crate::error::SchedResult;
 use crate::job::{JobFilter, ScheduledJob, ScheduledJobId, ScheduledJobStatus};

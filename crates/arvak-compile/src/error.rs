@@ -8,7 +8,7 @@ use thiserror::Error;
 pub enum CompileError {
     /// Error from the IR crate.
     #[error("IR error: {0}")]
-    Ir(#[from] hiq_ir::IrError),
+    Ir(#[from] arvak_ir::IrError),
 
     /// Missing coupling map for routing.
     #[error("Missing coupling map for routing")]

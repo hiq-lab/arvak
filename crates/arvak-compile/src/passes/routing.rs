@@ -1,6 +1,6 @@
 //! Routing passes for inserting SWAP gates.
 
-use hiq_ir::{CircuitDag, Instruction, StandardGate};
+use arvak_ir::{CircuitDag, Instruction, StandardGate};
 
 use crate::error::{CompileError, CompileResult};
 use crate::pass::{Pass, PassKind};
@@ -142,7 +142,7 @@ mod tests {
     use super::*;
     use crate::passes::TrivialLayout;
     use crate::property::{BasisGates, CouplingMap};
-    use hiq_ir::{Circuit, QubitId};
+    use arvak_ir::{Circuit, QubitId};
 
     #[test]
     fn test_basic_routing_connected() {

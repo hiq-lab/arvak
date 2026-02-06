@@ -5,7 +5,7 @@
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
-use hiq_ir::{Circuit, CircuitDag, Instruction, InstructionKind, QubitId};
+use arvak_ir::{Circuit, CircuitDag, Instruction, InstructionKind, QubitId};
 
 // ============================================================================
 // Circuit Visualization DTOs
@@ -390,8 +390,8 @@ fn instruction_to_view(instruction: &Instruction) -> OperationView {
 }
 
 /// Format a gate label for display, including parameters.
-fn format_gate_label(gate: &hiq_ir::Gate) -> String {
-    use hiq_ir::GateKind;
+fn format_gate_label(gate: &arvak_ir::Gate) -> String {
+    use arvak_ir::GateKind;
 
     match &gate.kind {
         GateKind::Standard(std_gate) => format_standard_gate_label(std_gate),
@@ -400,8 +400,8 @@ fn format_gate_label(gate: &hiq_ir::Gate) -> String {
 }
 
 /// Format a StandardGate label with parameters.
-fn format_standard_gate_label(gate: &hiq_ir::StandardGate) -> String {
-    use hiq_ir::StandardGate::*;
+fn format_standard_gate_label(gate: &arvak_ir::StandardGate) -> String {
+    use arvak_ir::StandardGate::*;
 
     match gate {
         // Simple gates (no parameters)
@@ -448,7 +448,7 @@ fn format_standard_gate_label(gate: &hiq_ir::StandardGate) -> String {
 }
 
 /// Format a parameter expression for display.
-fn format_param(param: &hiq_ir::ParameterExpression) -> String {
+fn format_param(param: &arvak_ir::ParameterExpression) -> String {
     if let Some(value) = param.as_f64() {
         // Format as a nice number (2 decimal places, or special values)
         let pi = std::f64::consts::PI;

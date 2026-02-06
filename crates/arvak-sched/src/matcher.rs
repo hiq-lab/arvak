@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use hiq_hal::{Backend, Capabilities};
+use arvak_hal::{Backend, Capabilities};
 
 use crate::error::{SchedError, SchedResult};
 use crate::job::{ResourceRequirements, TopologyPreference};
@@ -282,7 +282,7 @@ impl Matcher for ResourceMatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hiq_hal::{Counts, GateSet, Topology, TopologyKind};
+    use arvak_hal::{Counts, GateSet, Topology, TopologyKind};
 
     /// Mock backend for testing.
     struct MockBackend {
@@ -297,41 +297,41 @@ mod tests {
             &self.name
         }
 
-        async fn capabilities(&self) -> hiq_hal::HalResult<Capabilities> {
+        async fn capabilities(&self) -> arvak_hal::HalResult<Capabilities> {
             Ok(self.capabilities.clone())
         }
 
-        async fn is_available(&self) -> hiq_hal::HalResult<bool> {
+        async fn is_available(&self) -> arvak_hal::HalResult<bool> {
             Ok(self.available)
         }
 
         async fn submit(
             &self,
-            _circuit: &hiq_ir::Circuit,
+            _circuit: &arvak_ir::Circuit,
             _shots: u32,
-        ) -> hiq_hal::HalResult<hiq_hal::JobId> {
-            Ok(hiq_hal::JobId("mock".to_string()))
+        ) -> arvak_hal::HalResult<arvak_hal::JobId> {
+            Ok(arvak_hal::JobId("mock".to_string()))
         }
 
-        async fn status(&self, _job_id: &hiq_hal::JobId) -> hiq_hal::HalResult<hiq_hal::JobStatus> {
-            Ok(hiq_hal::JobStatus::Completed)
+        async fn status(&self, _job_id: &arvak_hal::JobId) -> arvak_hal::HalResult<arvak_hal::JobStatus> {
+            Ok(arvak_hal::JobStatus::Completed)
         }
 
         async fn result(
             &self,
-            _job_id: &hiq_hal::JobId,
-        ) -> hiq_hal::HalResult<hiq_hal::ExecutionResult> {
-            Ok(hiq_hal::ExecutionResult::new(Counts::new(), 0))
+            _job_id: &arvak_hal::JobId,
+        ) -> arvak_hal::HalResult<arvak_hal::ExecutionResult> {
+            Ok(arvak_hal::ExecutionResult::new(Counts::new(), 0))
         }
 
-        async fn cancel(&self, _job_id: &hiq_hal::JobId) -> hiq_hal::HalResult<()> {
+        async fn cancel(&self, _job_id: &arvak_hal::JobId) -> arvak_hal::HalResult<()> {
             Ok(())
         }
 
         async fn wait(
             &self,
-            _job_id: &hiq_hal::JobId,
-        ) -> hiq_hal::HalResult<hiq_hal::ExecutionResult> {
+            _job_id: &arvak_hal::JobId,
+        ) -> arvak_hal::HalResult<arvak_hal::ExecutionResult> {
             self.result(_job_id).await
         }
     }

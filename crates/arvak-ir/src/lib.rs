@@ -23,7 +23,7 @@
 //! # Example: Building a Bell State
 //!
 //! ```rust
-//! use hiq_ir::{Circuit, QubitId};
+//! use arvak_ir::{Circuit, QubitId};
 //!
 //! // Create a new circuit with 2 qubits and 2 classical bits
 //! let mut circuit = Circuit::with_size("bell_state", 2, 2);
@@ -42,7 +42,7 @@
 //! # Example: Parameterized Circuit
 //!
 //! ```rust
-//! use hiq_ir::{Circuit, QubitId, ParameterExpression};
+//! use arvak_ir::{Circuit, QubitId, ParameterExpression};
 //! use std::f64::consts::PI;
 //!
 //! // Create a 1-qubit circuit

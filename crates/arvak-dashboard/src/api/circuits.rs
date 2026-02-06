@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use axum::{Json, extract::State};
-use hiq_compile::{BasisGates, CouplingMap, PassManagerBuilder};
-use hiq_ir::Circuit;
+use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
+use arvak_ir::Circuit;
 
 use crate::dto::{
     CircuitVisualization, CompilationStats, CompileRequest, CompileResponse, VisualizeRequest,
@@ -18,7 +18,7 @@ pub async fn visualize(
     Json(req): Json<VisualizeRequest>,
 ) -> Result<Json<CircuitVisualization>, ApiError> {
     // Parse the QASM3 source
-    let circuit = hiq_qasm3::parse(&req.qasm)?;
+    let circuit = arvak_qasm3::parse(&req.qasm)?;
 
     // Convert to visualization format
     let visualization = CircuitVisualization::from_circuit(&circuit);
@@ -32,7 +32,7 @@ pub async fn compile(
     Json(req): Json<CompileRequest>,
 ) -> Result<Json<CompileResponse>, ApiError> {
     // Parse the QASM3 source
-    let circuit = hiq_qasm3::parse(&req.qasm)?;
+    let circuit = arvak_qasm3::parse(&req.qasm)?;
 
     // Get original stats and visualization
     let before = CircuitVisualization::from_circuit(&circuit);
@@ -61,7 +61,7 @@ pub async fn compile(
     let gates_after = count_gates(&compiled);
 
     // Emit compiled QASM
-    let compiled_qasm = hiq_qasm3::emit(&compiled)?;
+    let compiled_qasm = arvak_qasm3::emit(&compiled)?;
 
     Ok(Json(CompileResponse {
         before,

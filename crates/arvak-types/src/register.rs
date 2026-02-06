@@ -1,7 +1,7 @@
 //! Qubit register management for high-level types.
 
-use hiq_ir::Circuit;
-use hiq_ir::qubit::QubitId;
+use arvak_ir::Circuit;
+use arvak_ir::qubit::QubitId;
 use serde::{Deserialize, Serialize};
 
 /// Allocation strategy for qubit registers.

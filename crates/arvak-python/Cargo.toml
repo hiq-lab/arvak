@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Python bindings for the HIQ quantum compilation platform"
+description = "Python bindings for the Arvak quantum compilation platform"
 
 [lib]
-name = "hiq"
+name = "arvak"
 crate-type = ["cdylib"]
 
 [dependencies]

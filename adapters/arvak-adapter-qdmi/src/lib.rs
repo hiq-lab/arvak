@@ -56,8 +56,8 @@
 //!
 //!     // Create a Bell state circuit
 //!     let mut circuit = Circuit::with_size("bell", 2, 2);
-//!     circuit.h(hiq_ir::QubitId(0))?;
-//!     circuit.cx(hiq_ir::QubitId(0), hiq_ir::QubitId(1))?;
+//!     circuit.h(arvak_ir::QubitId(0))?;
+//!     circuit.cx(arvak_ir::QubitId(0), arvak_ir::QubitId(1))?;
 //!     circuit.measure_all();
 //!
 //!     // Submit and wait for results

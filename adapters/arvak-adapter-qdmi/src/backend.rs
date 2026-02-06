@@ -141,7 +141,7 @@ impl QdmiBackend {
 
     /// Convert a Arvak circuit to QASM3 for QDMI submission.
     fn circuit_to_qasm3(&self, circuit: &Circuit) -> QdmiResult<String> {
-        hiq_qasm3::emit(circuit).map_err(|e| QdmiError::CircuitConversion(e.to_string()))
+        arvak_qasm3::emit(circuit).map_err(|e| QdmiError::CircuitConversion(e.to_string()))
     }
 
     /// Parse QDMI results into Arvak Counts.
@@ -476,8 +476,8 @@ mod tests {
 
         // Create a simple Bell state circuit
         let mut circuit = Circuit::with_size("bell", 2, 2);
-        circuit.h(hiq_ir::QubitId(0)).unwrap();
-        circuit.cx(hiq_ir::QubitId(0), hiq_ir::QubitId(1)).unwrap();
+        circuit.h(arvak_ir::QubitId(0)).unwrap();
+        circuit.cx(arvak_ir::QubitId(0), arvak_ir::QubitId(1)).unwrap();
         let _ = circuit.measure_all();
 
         // Submit
@@ -496,7 +496,7 @@ mod tests {
         let backend = QdmiBackend::new();
 
         let mut circuit = Circuit::with_size("test", 1, 1);
-        circuit.h(hiq_ir::QubitId(0)).unwrap();
+        circuit.h(arvak_ir::QubitId(0)).unwrap();
 
         let job_id = backend.submit(&circuit, 100).await.unwrap();
         backend.cancel(&job_id).await.unwrap();

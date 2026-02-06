@@ -198,7 +198,7 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
 
                 for step in 0..*count {
                     // Generate a simple Bell circuit
-                    let _circuit = hiq_ir::Circuit::bell().unwrap();
+                    let _circuit = arvak_ir::Circuit::bell().unwrap();
                     if let Some(ref pb) = pb {
                         pb.set_position(step as u64);
                     }

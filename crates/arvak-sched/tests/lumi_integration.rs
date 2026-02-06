@@ -12,11 +12,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use hiq_hal::{
+use arvak_hal::{
     Backend, Capabilities, Counts, ExecutionResult, HalResult, JobId, JobStatus, TokenProvider,
 };
-use hiq_ir::Circuit;
-use hiq_sched::{
+use arvak_ir::Circuit;
+use arvak_sched::{
     BatchSchedulerType, CircuitSpec, HpcScheduler, PbsConfig, Priority, ResourceRequirements,
     ScheduledJob, ScheduledJobStatus, Scheduler, SchedulerConfig, SlurmConfig,
 };
@@ -104,7 +104,7 @@ fn lumi_scheduler_config() -> SchedulerConfig {
 async fn test_lumi_scheduler_creation() {
     let config = lumi_scheduler_config();
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];
-    let store = Arc::new(hiq_sched::SqliteStore::in_memory().unwrap());
+    let store = Arc::new(arvak_sched::SqliteStore::in_memory().unwrap());
 
     let scheduler = HpcScheduler::with_mock_slurm(config, backends, store);
 
@@ -124,7 +124,7 @@ async fn test_lumi_scheduler_creation() {
 async fn test_lumi_job_requirements() {
     let config = lumi_scheduler_config();
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];
-    let store = Arc::new(hiq_sched::SqliteStore::in_memory().unwrap());
+    let store = Arc::new(arvak_sched::SqliteStore::in_memory().unwrap());
 
     let scheduler = HpcScheduler::with_mock_slurm(config, backends, store);
 
@@ -146,7 +146,7 @@ async fn test_lumi_job_requirements() {
 async fn test_lumi_batch_submission() {
     let config = lumi_scheduler_config();
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];
-    let store = Arc::new(hiq_sched::SqliteStore::in_memory().unwrap());
+    let store = Arc::new(arvak_sched::SqliteStore::in_memory().unwrap());
 
     let scheduler = HpcScheduler::with_mock_slurm(config, backends, store);
 
@@ -186,7 +186,7 @@ async fn test_lumi_slurm_config_values() {
 async fn test_lumi_workflow_submission() {
     let config = lumi_scheduler_config();
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];
-    let store = Arc::new(hiq_sched::SqliteStore::in_memory().unwrap());
+    let store = Arc::new(arvak_sched::SqliteStore::in_memory().unwrap());
 
     let scheduler = HpcScheduler::with_mock_slurm(config, backends, store);
 
@@ -207,7 +207,7 @@ async fn test_lumi_workflow_submission() {
     let workflow_id = scheduler.submit_workflow(workflow).await.unwrap();
     let status = scheduler.workflow_status(&workflow_id).await.unwrap();
 
-    assert!(matches!(status, hiq_sched::WorkflowStatus::Pending));
+    assert!(matches!(status, arvak_sched::WorkflowStatus::Pending));
 }
 
 // ============================================================================
@@ -216,7 +216,7 @@ async fn test_lumi_workflow_submission() {
 
 #[test]
 fn test_lumi_oidc_config() {
-    use hiq_hal::OidcConfig;
+    use arvak_hal::OidcConfig;
 
     let config = OidcConfig::lumi("project_462000123");
 
@@ -229,7 +229,7 @@ fn test_lumi_oidc_config() {
 
 #[test]
 fn test_lrz_oidc_config() {
-    use hiq_hal::OidcConfig;
+    use arvak_hal::OidcConfig;
 
     let config = OidcConfig::lrz("project_lrz_456");
 
@@ -240,7 +240,7 @@ fn test_lrz_oidc_config() {
 
 #[test]
 fn test_env_token_provider_for_lumi() {
-    use hiq_hal::EnvTokenProvider;
+    use arvak_hal::EnvTokenProvider;
 
     // IQM_TOKEN is the standard environment variable for IQM backends
     let provider = EnvTokenProvider::iqm();
@@ -274,7 +274,7 @@ async fn test_pbs_scheduler_creation() {
     };
 
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];
-    let store = Arc::new(hiq_sched::SqliteStore::in_memory().unwrap());
+    let store = Arc::new(arvak_sched::SqliteStore::in_memory().unwrap());
 
     let scheduler = HpcScheduler::with_mock_pbs(config, backends, store);
 
@@ -294,7 +294,7 @@ async fn test_pbs_scheduler_creation() {
 async fn test_circuit_too_large_for_helmi() {
     let config = lumi_scheduler_config();
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];
-    let store = Arc::new(hiq_sched::SqliteStore::in_memory().unwrap());
+    let store = Arc::new(arvak_sched::SqliteStore::in_memory().unwrap());
 
     let scheduler = HpcScheduler::with_mock_slurm(config, backends, store);
 
@@ -313,7 +313,7 @@ async fn test_circuit_too_large_for_helmi() {
 async fn test_job_cancellation() {
     let config = lumi_scheduler_config();
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];
-    let store = Arc::new(hiq_sched::SqliteStore::in_memory().unwrap());
+    let store = Arc::new(arvak_sched::SqliteStore::in_memory().unwrap());
 
     let scheduler = HpcScheduler::with_mock_slurm(config, backends, store);
 
@@ -344,7 +344,7 @@ async fn test_real_lumi_connection() {
     // 2. Valid IQM_TOKEN environment variable
     // 3. Network access to LUMI
 
-    use hiq_hal::{OidcAuth, OidcConfig};
+    use arvak_hal::{OidcAuth, OidcConfig};
 
     let config = OidcConfig::lumi("project_462000xxx");
     let auth = OidcAuth::new(config).expect("Failed to create OIDC auth");

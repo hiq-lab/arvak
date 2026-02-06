@@ -1,8 +1,8 @@
 //! Gate inversion utilities.
 
-use hiq_ir::gate::{GateKind, StandardGate};
-use hiq_ir::instruction::{Instruction, InstructionKind};
-use hiq_ir::parameter::ParameterExpression;
+use arvak_ir::gate::{GateKind, StandardGate};
+use arvak_ir::instruction::{Instruction, InstructionKind};
+use arvak_ir::parameter::ParameterExpression;
 
 use crate::error::{UncomputeError, UncomputeResult};
 
@@ -115,7 +115,7 @@ pub fn inverse_instruction(instruction: &Instruction) -> UncomputeResult<Instruc
             };
 
             Ok(Instruction {
-                kind: InstructionKind::Gate(hiq_ir::gate::Gate {
+                kind: InstructionKind::Gate(arvak_ir::gate::Gate {
                     kind: inverse_gate_kind,
                     label: gate.label.clone(),
                     condition: gate.condition.clone(),
@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_inverse_instruction() {
-        let inst = Instruction::single_qubit_gate(StandardGate::S, hiq_ir::qubit::QubitId(0));
+        let inst = Instruction::single_qubit_gate(StandardGate::S, arvak_ir::qubit::QubitId(0));
         let inv = inverse_instruction(&inst).unwrap();
 
         if let InstructionKind::Gate(gate) = &inv.kind {
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_measure_not_invertible() {
-        let inst = Instruction::measure(hiq_ir::qubit::QubitId(0), hiq_ir::qubit::ClbitId(0));
+        let inst = Instruction::measure(arvak_ir::qubit::QubitId(0), arvak_ir::qubit::ClbitId(0));
         let result = inverse_instruction(&inst);
 
         assert!(result.is_err());

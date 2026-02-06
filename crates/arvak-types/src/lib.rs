@@ -13,8 +13,8 @@
 //! # Example
 //!
 //! ```ignore
-//! use hiq_types::{QuantumInt, QuantumFloat};
-//! use hiq_ir::Circuit;
+//! use arvak_types::{QuantumInt, QuantumFloat};
+//! use arvak_ir::Circuit;
 //!
 //! let mut circuit = Circuit::new("arithmetic");
 //! let a = QuantumInt::<4>::new(&mut circuit); // 4-bit integer

@@ -21,8 +21,8 @@
 //! # Example
 //!
 //! ```ignore
-//! use hiq_auto::{UncomputeContext, uncompute};
-//! use hiq_ir::Circuit;
+//! use arvak_auto::{UncomputeContext, uncompute};
+//! use arvak_ir::Circuit;
 //!
 //! let mut circuit = Circuit::new("with_uncompute");
 //!

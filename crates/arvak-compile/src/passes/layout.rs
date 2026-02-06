@@ -1,6 +1,6 @@
 //! Layout passes for mapping logical qubits to physical qubits.
 
-use hiq_ir::CircuitDag;
+use arvak_ir::CircuitDag;
 
 use crate::error::{CompileError, CompileResult};
 use crate::pass::{Pass, PassKind};
@@ -57,7 +57,7 @@ impl Pass for TrivialLayout {
 mod tests {
     use super::*;
     use crate::property::{BasisGates, CouplingMap};
-    use hiq_ir::{Circuit, QubitId};
+    use arvak_ir::{Circuit, QubitId};
 
     #[test]
     fn test_trivial_layout() {

@@ -18,7 +18,7 @@
 //! ## Basic usage with target configuration
 //!
 //! ```
-//! use hiq_compile::{PropertySet, CouplingMap, BasisGates};
+//! use arvak_compile::{PropertySet, CouplingMap, BasisGates};
 //!
 //! // Create a property set for an IQM backend
 //! let props = PropertySet::new()
@@ -34,7 +34,7 @@
 //! ## Using the PassManager with PropertySet
 //!
 //! ```
-//! use hiq_compile::{PassManagerBuilder, CouplingMap, BasisGates};
+//! use arvak_compile::{PassManagerBuilder, CouplingMap, BasisGates};
 //!
 //! let (pass_manager, props) = PassManagerBuilder::new()
 //!     .with_optimization_level(2)
@@ -48,7 +48,7 @@
 //! ## Custom properties for pass communication
 //!
 //! ```
-//! use hiq_compile::PropertySet;
+//! use arvak_compile::PropertySet;
 //!
 //! // Define a custom property type
 //! #[derive(Debug, Clone, PartialEq)]
@@ -74,7 +74,7 @@ use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 
-use hiq_ir::QubitId;
+use arvak_ir::QubitId;
 
 /// A mapping from logical qubits to physical qubits.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -334,8 +334,8 @@ impl BasisGates {
 /// # Examples
 ///
 /// ```
-/// use hiq_compile::{PropertySet, CouplingMap, BasisGates, Layout};
-/// use hiq_ir::QubitId;
+/// use arvak_compile::{PropertySet, CouplingMap, BasisGates, Layout};
+/// use arvak_ir::QubitId;
 ///
 /// let mut props = PropertySet::new();
 ///
@@ -383,7 +383,7 @@ impl PropertySet {
     /// # Example
     ///
     /// ```
-    /// use hiq_compile::{PropertySet, CouplingMap, BasisGates};
+    /// use arvak_compile::{PropertySet, CouplingMap, BasisGates};
     ///
     /// let props = PropertySet::new()
     ///     .with_target(CouplingMap::linear(5), BasisGates::ibm());
@@ -403,7 +403,7 @@ impl PropertySet {
     /// # Example
     ///
     /// ```
-    /// use hiq_compile::{PropertySet, Layout};
+    /// use arvak_compile::{PropertySet, Layout};
     ///
     /// let props = PropertySet::new()
     ///     .with_layout(Layout::trivial(3));
@@ -447,7 +447,7 @@ impl PropertySet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hiq_ir::QubitId;
+    use arvak_ir::QubitId;
 
     #[test]
     fn test_layout_trivial() {

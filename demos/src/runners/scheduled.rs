@@ -123,7 +123,7 @@ impl ScheduledRunner {
     /// Submit a batch of simple circuits.
     pub async fn submit_batch(
         &self,
-        circuits: Vec<hiq_ir::Circuit>,
+        circuits: Vec<arvak_ir::Circuit>,
         name: &str,
         priority: Priority,
     ) -> SchedResult<ScheduledJobId> {
@@ -144,7 +144,7 @@ impl ScheduledRunner {
     }
 
     /// Create a workflow that runs multiple demo algorithms.
-    pub async fn submit_demo_workflow(&self) -> SchedResult<hiq_sched::WorkflowId> {
+    pub async fn submit_demo_workflow(&self) -> SchedResult<arvak_sched::WorkflowId> {
         // Create circuits for each demo
         let grover_circuit = grover_circuit(4, 7, optimal_iterations(4));
         let vqe_circuit = two_local_ansatz(2, 2, &[0.1; 6]);
@@ -189,7 +189,7 @@ impl ScheduledRunner {
     pub async fn wait(
         &self,
         job_id: &ScheduledJobId,
-    ) -> SchedResult<hiq_hal::result::ExecutionResult> {
+    ) -> SchedResult<arvak_hal::result::ExecutionResult> {
         self.scheduler.wait(job_id).await
     }
 
@@ -199,7 +199,7 @@ impl ScheduledRunner {
     }
 
     /// Wait for a workflow to complete.
-    pub async fn wait_workflow(&self, workflow_id: &hiq_sched::WorkflowId) -> SchedResult<()> {
+    pub async fn wait_workflow(&self, workflow_id: &arvak_sched::WorkflowId) -> SchedResult<()> {
         self.scheduler.wait_workflow(workflow_id).await
     }
 }

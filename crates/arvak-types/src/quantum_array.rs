@@ -1,7 +1,7 @@
 //! Quantum array type.
 
-use hiq_ir::Circuit;
-use hiq_ir::qubit::QubitId;
+use arvak_ir::Circuit;
+use arvak_ir::qubit::QubitId;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{TypeError, TypeResult};
@@ -20,8 +20,8 @@ use crate::register::QubitRegister;
 /// # Example
 ///
 /// ```ignore
-/// use hiq_types::QuantumArray;
-/// use hiq_ir::Circuit;
+/// use arvak_types::QuantumArray;
+/// use arvak_ir::Circuit;
 ///
 /// let mut circuit = Circuit::new("array_ops");
 ///

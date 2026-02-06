@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use hiq_hal::{Backend, ExecutionResult};
+use arvak_hal::{Backend, ExecutionResult};
 use tokio::sync::RwLock;
 use tokio::time::interval;
 
@@ -372,7 +372,7 @@ impl HpcScheduler {
                 // and get the quantum job ID from it
                 ScheduledJobStatus::Completed {
                     slurm_job_id,
-                    quantum_job_id: hiq_hal::JobId("completed".to_string()),
+                    quantum_job_id: arvak_hal::JobId("completed".to_string()),
                 }
             }
             SlurmState::Failed | SlurmState::NodeFail | SlurmState::OutOfMemory => {
@@ -419,7 +419,7 @@ impl HpcScheduler {
                 if info.exit_status == Some(0) || info.exit_status.is_none() {
                     ScheduledJobStatus::Completed {
                         slurm_job_id: pbs_job_id,
-                        quantum_job_id: hiq_hal::JobId("completed".to_string()),
+                        quantum_job_id: arvak_hal::JobId("completed".to_string()),
                     }
                 } else {
                     ScheduledJobStatus::Failed {
@@ -651,7 +651,7 @@ impl Scheduler for HpcScheduler {
 mod tests {
     use super::*;
     use crate::persistence::SqliteStore;
-    use hiq_hal::{Capabilities, Counts};
+    use arvak_hal::{Capabilities, Counts};
 
     /// Mock backend for testing.
     struct MockBackend {
@@ -665,42 +665,42 @@ mod tests {
             &self.name
         }
 
-        async fn capabilities(&self) -> hiq_hal::HalResult<Capabilities> {
+        async fn capabilities(&self) -> arvak_hal::HalResult<Capabilities> {
             Ok(Capabilities::simulator(self.num_qubits))
         }
 
-        async fn is_available(&self) -> hiq_hal::HalResult<bool> {
+        async fn is_available(&self) -> arvak_hal::HalResult<bool> {
             Ok(true)
         }
 
         async fn submit(
             &self,
-            _circuit: &hiq_ir::Circuit,
+            _circuit: &arvak_ir::Circuit,
             _shots: u32,
-        ) -> hiq_hal::HalResult<hiq_hal::JobId> {
-            Ok(hiq_hal::JobId("mock".to_string()))
+        ) -> arvak_hal::HalResult<arvak_hal::JobId> {
+            Ok(arvak_hal::JobId("mock".to_string()))
         }
 
-        async fn status(&self, _job_id: &hiq_hal::JobId) -> hiq_hal::HalResult<hiq_hal::JobStatus> {
-            Ok(hiq_hal::JobStatus::Completed)
+        async fn status(&self, _job_id: &arvak_hal::JobId) -> arvak_hal::HalResult<arvak_hal::JobStatus> {
+            Ok(arvak_hal::JobStatus::Completed)
         }
 
         async fn result(
             &self,
-            _job_id: &hiq_hal::JobId,
-        ) -> hiq_hal::HalResult<hiq_hal::ExecutionResult> {
+            _job_id: &arvak_hal::JobId,
+        ) -> arvak_hal::HalResult<arvak_hal::ExecutionResult> {
             let counts = Counts::from_pairs([("00", 500u64), ("11", 500u64)]);
-            Ok(hiq_hal::ExecutionResult::new(counts, 1000))
+            Ok(arvak_hal::ExecutionResult::new(counts, 1000))
         }
 
-        async fn cancel(&self, _job_id: &hiq_hal::JobId) -> hiq_hal::HalResult<()> {
+        async fn cancel(&self, _job_id: &arvak_hal::JobId) -> arvak_hal::HalResult<()> {
             Ok(())
         }
 
         async fn wait(
             &self,
-            job_id: &hiq_hal::JobId,
-        ) -> hiq_hal::HalResult<hiq_hal::ExecutionResult> {
+            job_id: &arvak_hal::JobId,
+        ) -> arvak_hal::HalResult<arvak_hal::ExecutionResult> {
             self.result(job_id).await
         }
     }

@@ -57,11 +57,11 @@ pub async fn get_backend(
         .map_err(|e| ApiError::BackendError(e.to_string()))?;
 
     let topology_kind = match &capabilities.topology.kind {
-        hiq_hal::TopologyKind::FullyConnected => "fully_connected",
-        hiq_hal::TopologyKind::Linear => "linear",
-        hiq_hal::TopologyKind::Star => "star",
-        hiq_hal::TopologyKind::Grid { .. } => "grid",
-        hiq_hal::TopologyKind::Custom => "custom",
+        arvak_hal::TopologyKind::FullyConnected => "fully_connected",
+        arvak_hal::TopologyKind::Linear => "linear",
+        arvak_hal::TopologyKind::Star => "star",
+        arvak_hal::TopologyKind::Grid { .. } => "grid",
+        arvak_hal::TopologyKind::Custom => "custom",
         _ => "unknown",
     };
 

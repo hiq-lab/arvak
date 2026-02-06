@@ -28,7 +28,7 @@ use crate::error::parse_to_py_err;
 ///     2
 #[pyfunction]
 pub fn from_qasm(qasm: &str) -> PyResult<PyCircuit> {
-    let circuit = hiq_qasm3::parse(qasm).map_err(parse_to_py_err)?;
+    let circuit = arvak_qasm3::parse(qasm).map_err(parse_to_py_err)?;
     Ok(PyCircuit { inner: circuit })
 }
 
@@ -50,5 +50,5 @@ pub fn from_qasm(qasm: &str) -> PyResult<PyCircuit> {
 ///     cx q[0], q[1];
 #[pyfunction]
 pub fn to_qasm(circuit: &PyCircuit) -> PyResult<String> {
-    hiq_qasm3::emit(&circuit.inner).map_err(parse_to_py_err)
+    arvak_qasm3::emit(&circuit.inner).map_err(parse_to_py_err)
 }

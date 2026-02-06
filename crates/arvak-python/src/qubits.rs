@@ -51,14 +51,14 @@ impl PyQubitId {
     }
 }
 
-impl From<PyQubitId> for hiq_ir::QubitId {
+impl From<PyQubitId> for arvak_ir::QubitId {
     fn from(q: PyQubitId) -> Self {
-        hiq_ir::QubitId(q.0)
+        arvak_ir::QubitId(q.0)
     }
 }
 
-impl From<hiq_ir::QubitId> for PyQubitId {
-    fn from(q: hiq_ir::QubitId) -> Self {
+impl From<arvak_ir::QubitId> for PyQubitId {
+    fn from(q: arvak_ir::QubitId) -> Self {
         PyQubitId(q.0)
     }
 }
@@ -112,14 +112,14 @@ impl PyClbitId {
     }
 }
 
-impl From<PyClbitId> for hiq_ir::ClbitId {
+impl From<PyClbitId> for arvak_ir::ClbitId {
     fn from(c: PyClbitId) -> Self {
-        hiq_ir::ClbitId(c.0)
+        arvak_ir::ClbitId(c.0)
     }
 }
 
-impl From<hiq_ir::ClbitId> for PyClbitId {
-    fn from(c: hiq_ir::ClbitId) -> Self {
+impl From<arvak_ir::ClbitId> for PyClbitId {
+    fn from(c: arvak_ir::ClbitId) -> Self {
         PyClbitId(c.0)
     }
 }
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn test_qubit_id_conversion() {
         let py_id = PyQubitId(5);
-        let rust_id: hiq_ir::QubitId = py_id.into();
+        let rust_id: arvak_ir::QubitId = py_id.into();
         assert_eq!(rust_id.0, 5);
 
         let back: PyQubitId = rust_id.into();
@@ -141,7 +141,7 @@ mod tests {
     #[test]
     fn test_clbit_id_conversion() {
         let py_id = PyClbitId(3);
-        let rust_id: hiq_ir::ClbitId = py_id.into();
+        let rust_id: arvak_ir::ClbitId = py_id.into();
         assert_eq!(rust_id.0, 3);
 
         let back: PyClbitId = rust_id.into();

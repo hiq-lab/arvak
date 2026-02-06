@@ -61,16 +61,16 @@ impl From<QdmiStatus> for QdmiError {
     }
 }
 
-impl From<QdmiError> for hiq_hal::error::HalError {
+impl From<QdmiError> for arvak_hal::error::HalError {
     fn from(err: QdmiError) -> Self {
         match err {
-            QdmiError::JobFailed(msg) => hiq_hal::error::HalError::JobFailed(msg),
-            QdmiError::Timeout(id) => hiq_hal::error::HalError::Timeout(id),
-            QdmiError::JobNotFound(id) => hiq_hal::error::HalError::JobNotFound(id),
+            QdmiError::JobFailed(msg) => arvak_hal::error::HalError::JobFailed(msg),
+            QdmiError::Timeout(id) => arvak_hal::error::HalError::Timeout(id),
+            QdmiError::JobNotFound(id) => arvak_hal::error::HalError::JobNotFound(id),
             QdmiError::NoDevice => {
-                hiq_hal::error::HalError::BackendUnavailable("No QDMI device".into())
+                arvak_hal::error::HalError::BackendUnavailable("No QDMI device".into())
             }
-            other => hiq_hal::error::HalError::Backend(other.to_string()),
+            other => arvak_hal::error::HalError::Backend(other.to_string()),
         }
     }
 }

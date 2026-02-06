@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use hiq_ir::Circuit;
+use arvak_ir::Circuit;
 
 use crate::capability::Capabilities;
 use crate::error::HalResult;

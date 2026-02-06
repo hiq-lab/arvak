@@ -1,8 +1,8 @@
 //! Circuit analysis for automatic uncomputation.
 
-use hiq_ir::Circuit;
-use hiq_ir::instruction::InstructionKind;
-use hiq_ir::qubit::QubitId;
+use arvak_ir::Circuit;
+use arvak_ir::instruction::InstructionKind;
+use arvak_ir::qubit::QubitId;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::error::UncomputeResult;
@@ -200,7 +200,7 @@ pub fn find_computational_cone(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hiq_ir::qubit::ClbitId;
+    use arvak_ir::qubit::ClbitId;
 
     #[test]
     fn test_analyze_empty_circuit() {

@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
-use hiq_hal::ExecutionResult;
+use arvak_hal::ExecutionResult;
 use tokio::fs;
 use tokio::sync::RwLock;
 

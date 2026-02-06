@@ -23,9 +23,9 @@
 //! # Example: Running a Circuit
 //!
 //! ```ignore
-//! use hiq_hal::{Backend, BackendConfig};
-//! use hiq_adapter_sim::SimulatorBackend;
-//! use hiq_ir::Circuit;
+//! use arvak_hal::{Backend, BackendConfig};
+//! use arvak_adapter_sim::SimulatorBackend;
+//! use arvak_ir::Circuit;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -57,7 +57,7 @@
 //! For HPC deployments like LUMI (CSC Finland) or LRZ (Germany), use OIDC:
 //!
 //! ```ignore
-//! use hiq_hal::{OidcConfig, OidcAuth};
+//! use arvak_hal::{OidcConfig, OidcAuth};
 //!
 //! // Configure for LUMI
 //! let config = OidcConfig::lumi();
@@ -70,8 +70,8 @@
 //! # Implementing a Custom Backend
 //!
 //! ```ignore
-//! use hiq_hal::{Backend, Capabilities, JobId, JobStatus, ExecutionResult, HalResult};
-//! use hiq_ir::Circuit;
+//! use arvak_hal::{Backend, Capabilities, JobId, JobStatus, ExecutionResult, HalResult};
+//! use arvak_ir::Circuit;
 //! use async_trait::async_trait;
 //!
 //! struct MyBackend { /* ... */ }

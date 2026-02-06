@@ -185,7 +185,7 @@ impl Backend for IbmBackend {
                 Ok(Capabilities {
                     name: info.name,
                     num_qubits: info.num_qubits as u32,
-                    gate_set: hiq_hal::GateSet::ibm(),
+                    gate_set: arvak_hal::GateSet::ibm(),
                     topology,
                     max_shots: info.max_shots.unwrap_or(100_000),
                     is_simulator: info.simulator,

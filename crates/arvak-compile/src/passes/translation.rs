@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-use hiq_ir::{
+use arvak_ir::{
     CircuitDag, Gate, GateKind, Instruction, InstructionKind, ParameterExpression, StandardGate,
 };
 
@@ -105,7 +105,7 @@ fn translate_gate(
 /// Translate a standard gate to IQM basis (PRX + CZ).
 fn translate_to_iqm(
     gate: &StandardGate,
-    qubits: &[hiq_ir::QubitId],
+    qubits: &[arvak_ir::QubitId],
 ) -> CompileResult<Vec<Instruction>> {
     let q0 = qubits[0];
 
@@ -218,7 +218,7 @@ fn translate_to_iqm(
 /// Translate a standard gate to IBM basis (RZ + SX + X + CX).
 fn translate_to_ibm(
     gate: &StandardGate,
-    qubits: &[hiq_ir::QubitId],
+    qubits: &[arvak_ir::QubitId],
 ) -> CompileResult<Vec<Instruction>> {
     let q0 = qubits[0];
 
@@ -306,7 +306,7 @@ fn translate_to_ibm(
 mod tests {
     use super::*;
     use crate::property::{BasisGates, CouplingMap};
-    use hiq_ir::{Circuit, QubitId};
+    use arvak_ir::{Circuit, QubitId};
 
     #[test]
     fn test_iqm_translation_h() {

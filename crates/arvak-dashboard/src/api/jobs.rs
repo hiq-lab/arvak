@@ -6,7 +6,7 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
-use hiq_sched::{
+use arvak_sched::{
     CircuitSpec, JobFilter, Priority, ScheduledJob, ScheduledJobId, ScheduledJobStatus,
 };
 
@@ -86,7 +86,7 @@ pub async fn create_job(
         .ok_or_else(|| ApiError::Internal("No job store configured".to_string()))?;
 
     // Validate QASM
-    let _ = hiq_qasm3::parse(&req.qasm)?;
+    let _ = arvak_qasm3::parse(&req.qasm)?;
 
     // Create circuit spec
     let circuit = CircuitSpec::from_qasm(&req.qasm);
@@ -263,7 +263,7 @@ fn job_to_details(job: &ScheduledJob) -> JobDetails {
     }
 }
 
-fn result_to_histogram(job_id: &str, result: &hiq_hal::ExecutionResult) -> ResultHistogram {
+fn result_to_histogram(job_id: &str, result: &arvak_hal::ExecutionResult) -> ResultHistogram {
     let mut bars: Vec<HistogramBar> = result
         .counts
         .iter()

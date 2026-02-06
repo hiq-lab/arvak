@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use hiq_hal::auth::{OidcAuth, OidcConfig};
+//! use arvak_hal::auth::{OidcAuth, OidcConfig};
 //!
 //! // Create OIDC config for LUMI
 //! let config = OidcConfig::lumi("project_462000123");

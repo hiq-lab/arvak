@@ -35,8 +35,8 @@
 //! # Example: Basic Compilation
 //!
 //! ```rust
-//! use hiq_compile::{PassManagerBuilder, CouplingMap, BasisGates};
-//! use hiq_ir::Circuit;
+//! use arvak_compile::{PassManagerBuilder, CouplingMap, BasisGates};
+//! use arvak_ir::Circuit;
 //!
 //! // Create a circuit
 //! let circuit = Circuit::bell().unwrap();
@@ -86,8 +86,8 @@
 //! Implement the [`Pass`] trait to create custom compilation passes:
 //!
 //! ```rust
-//! use hiq_compile::{Pass, PassKind, CompileResult, PropertySet};
-//! use hiq_ir::CircuitDag;
+//! use arvak_compile::{Pass, PassKind, CompileResult, PropertySet};
+//! use arvak_ir::CircuitDag;
 //!
 //! struct MyCustomPass;
 //!

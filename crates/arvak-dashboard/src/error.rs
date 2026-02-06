@@ -55,20 +55,20 @@ impl IntoResponse for ApiError {
     }
 }
 
-impl From<hiq_qasm3::ParseError> for ApiError {
-    fn from(e: hiq_qasm3::ParseError) -> Self {
+impl From<arvak_qasm3::ParseError> for ApiError {
+    fn from(e: arvak_qasm3::ParseError) -> Self {
         ApiError::ParseError(e.to_string())
     }
 }
 
-impl From<hiq_compile::CompileError> for ApiError {
-    fn from(e: hiq_compile::CompileError) -> Self {
+impl From<arvak_compile::CompileError> for ApiError {
+    fn from(e: arvak_compile::CompileError) -> Self {
         ApiError::CompileError(e.to_string())
     }
 }
 
-impl From<hiq_hal::HalError> for ApiError {
-    fn from(e: hiq_hal::HalError) -> Self {
+impl From<arvak_hal::HalError> for ApiError {
+    fn from(e: arvak_hal::HalError) -> Self {
         ApiError::BackendError(e.to_string())
     }
 }

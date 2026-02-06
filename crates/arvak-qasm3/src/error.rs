@@ -64,7 +64,7 @@ pub enum ParseError {
 
     /// IR error during circuit construction.
     #[error("Circuit error: {0}")]
-    CircuitError(#[from] hiq_ir::IrError),
+    CircuitError(#[from] arvak_ir::IrError),
 
     /// Generic parse error.
     #[error("Parse error: {0}")]

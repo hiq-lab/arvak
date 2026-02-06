@@ -260,7 +260,7 @@ fn sample_best_solution(graph: &Graph, gamma: &[f64], beta: &[f64]) -> (usize, f
 
 /// Simplified statevector simulation for QAOA.
 fn simulate_qaoa_statevector(
-    circuit: &hiq_ir::Circuit,
+    circuit: &arvak_ir::Circuit,
     n_qubits: usize,
 ) -> Vec<num_complex::Complex64> {
     use num_complex::Complex64;
@@ -271,11 +271,11 @@ fn simulate_qaoa_statevector(
 
     // Apply gates from the circuit DAG
     for (_, instr) in circuit.dag().topological_ops() {
-        if let hiq_ir::instruction::InstructionKind::Gate(gate) = &instr.kind {
+        if let arvak_ir::instruction::InstructionKind::Gate(gate) = &instr.kind {
             let qubits: Vec<usize> = instr.qubits.iter().map(|q| q.0 as usize).collect();
 
             match &gate.kind {
-                hiq_ir::gate::GateKind::Standard(std_gate) => {
+                arvak_ir::gate::GateKind::Standard(std_gate) => {
                     apply_gate(&mut state, std_gate, &qubits);
                 }
                 _ => {}
@@ -289,7 +289,7 @@ fn simulate_qaoa_statevector(
 /// Apply a standard gate to the statevector.
 fn apply_gate(
     state: &mut [num_complex::Complex64],
-    gate: &hiq_ir::gate::StandardGate,
+    gate: &arvak_ir::gate::StandardGate,
     qubits: &[usize],
 ) {
     use arvak_ir::gate::StandardGate;

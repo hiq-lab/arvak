@@ -3,8 +3,8 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use hiq_hal::Backend;
-use hiq_sched::StateStore;
+use arvak_hal::Backend;
+use arvak_sched::StateStore;
 use rustc_hash::FxHashMap;
 use tokio::sync::RwLock;
 

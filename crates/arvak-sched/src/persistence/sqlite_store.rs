@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use hiq_hal::ExecutionResult;
+use arvak_hal::ExecutionResult;
 use rusqlite::Connection;
 use std::sync::Mutex;
 
@@ -466,7 +466,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sqlite_store_results() {
-        use hiq_hal::Counts;
+        use arvak_hal::Counts;
 
         let store = SqliteStore::in_memory().unwrap();
 

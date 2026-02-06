@@ -1,6 +1,6 @@
-//! Python bindings for the HIQ quantum compilation platform.
+//! Python bindings for the Arvak quantum compilation platform.
 //!
-//! This crate provides Python bindings for the core HIQ types,
+//! This crate provides Python bindings for the core Arvak types,
 //! enabling quantum circuit construction, QASM I/O, and compilation.
 //!
 //! # Example
@@ -9,15 +9,15 @@
 //! import arvak
 //!
 //! # Create a Bell state circuit
-//! qc = hiq.Circuit("bell", num_qubits=2)
+//! qc = arvak.Circuit("bell", num_qubits=2)
 //! qc.h(0).cx(0, 1).measure_all()
 //!
 //! # Convert to QASM
-//! qasm = hiq.to_qasm(qc)
+//! qasm = arvak.to_qasm(qc)
 //! print(qasm)
 //!
 //! # Parse QASM back to circuit
-//! qc2 = hiq.from_qasm(qasm)
+//! qc2 = arvak.from_qasm(qasm)
 //! ```
 
 mod circuit;
@@ -28,7 +28,7 @@ mod qubits;
 
 use pyo3::prelude::*;
 
-/// HIQ: Rust-native quantum compilation platform.
+/// Arvak: Rust-native quantum compilation platform.
 ///
 /// This module provides:
 /// - Circuit: Quantum circuit builder with fluent API

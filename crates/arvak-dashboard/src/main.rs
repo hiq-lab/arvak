@@ -27,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
     // Optionally register the simulator backend if the feature is enabled
     #[cfg(feature = "with-simulator")]
     {
-        use hiq_adapter_sim::SimulatorBackend;
+        use arvak_adapter_sim::SimulatorBackend;
         let sim = Arc::new(SimulatorBackend::new());
         state.register_backend(sim).await;
         tracing::info!("Registered simulator backend");

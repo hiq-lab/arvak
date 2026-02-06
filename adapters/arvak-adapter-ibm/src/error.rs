@@ -71,25 +71,25 @@ pub enum IbmError {
     InvalidParameter(String),
 }
 
-impl From<IbmError> for hiq_hal::HalError {
+impl From<IbmError> for arvak_hal::HalError {
     fn from(e: IbmError) -> Self {
         match e {
             IbmError::MissingToken | IbmError::InvalidToken => {
-                hiq_hal::HalError::AuthenticationFailed(e.to_string())
+                arvak_hal::HalError::AuthenticationFailed(e.to_string())
             }
-            IbmError::JobNotFound(id) => hiq_hal::HalError::JobNotFound(id),
-            IbmError::JobFailed(msg) => hiq_hal::HalError::JobFailed(msg),
-            IbmError::JobCancelled(_) => hiq_hal::HalError::JobCancelled,
-            IbmError::BackendUnavailable(msg) => hiq_hal::HalError::BackendUnavailable(msg),
-            IbmError::Timeout => hiq_hal::HalError::Timeout("IBM job".to_string()),
+            IbmError::JobNotFound(id) => arvak_hal::HalError::JobNotFound(id),
+            IbmError::JobFailed(msg) => arvak_hal::HalError::JobFailed(msg),
+            IbmError::JobCancelled(_) => arvak_hal::HalError::JobCancelled,
+            IbmError::BackendUnavailable(msg) => arvak_hal::HalError::BackendUnavailable(msg),
+            IbmError::Timeout => arvak_hal::HalError::Timeout("IBM job".to_string()),
             IbmError::TooManyQubits {
                 required,
                 available,
-            } => hiq_hal::HalError::CircuitTooLarge(format!(
+            } => arvak_hal::HalError::CircuitTooLarge(format!(
                 "Circuit requires {} qubits but backend only has {}",
                 required, available
             )),
-            _ => hiq_hal::HalError::Backend(e.to_string()),
+            _ => arvak_hal::HalError::Backend(e.to_string()),
         }
     }
 }

@@ -1,6 +1,6 @@
 //! QASM3 emitter for serializing circuits.
 
-use hiq_ir::{Circuit, GateKind, Instruction, InstructionKind, ParameterExpression, StandardGate};
+use arvak_ir::{Circuit, GateKind, Instruction, InstructionKind, ParameterExpression, StandardGate};
 
 use crate::error::ParseResult;
 
@@ -204,7 +204,7 @@ impl Emitter {
         }
     }
 
-    fn emit_qubits(&self, qubits: &[hiq_ir::QubitId]) -> String {
+    fn emit_qubits(&self, qubits: &[arvak_ir::QubitId]) -> String {
         qubits
             .iter()
             .map(|q| format!("q[{}]", q.0))
@@ -212,7 +212,7 @@ impl Emitter {
             .join(", ")
     }
 
-    fn emit_clbits(&self, clbits: &[hiq_ir::ClbitId]) -> String {
+    fn emit_clbits(&self, clbits: &[arvak_ir::ClbitId]) -> String {
         if clbits.len() == 1 {
             format!("c[{}]", clbits[0].0)
         } else {
@@ -235,7 +235,7 @@ impl Emitter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hiq_ir::QubitId;
+    use arvak_ir::QubitId;
 
     #[test]
     fn test_emit_bell_state() {

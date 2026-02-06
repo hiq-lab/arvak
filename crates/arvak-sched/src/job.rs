@@ -1,8 +1,8 @@
 //! Job types for the HPC scheduler.
 
 use chrono::{DateTime, Utc};
-use hiq_hal::JobId;
-use hiq_ir::Circuit;
+use arvak_hal::JobId;
+use arvak_ir::Circuit;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -359,7 +359,7 @@ pub enum CircuitSpec {
 impl CircuitSpec {
     /// Create a circuit spec from a circuit (converts to QASM3).
     pub fn from_circuit(circuit: &Circuit) -> crate::SchedResult<Self> {
-        let qasm = hiq_qasm3::emit(circuit)?;
+        let qasm = arvak_qasm3::emit(circuit)?;
         Ok(CircuitSpec::Qasm3(qasm))
     }
 
@@ -376,10 +376,10 @@ impl CircuitSpec {
     /// Resolve the circuit spec to a circuit.
     pub fn resolve(&self) -> crate::SchedResult<Circuit> {
         match self {
-            CircuitSpec::Qasm3(qasm) => Ok(hiq_qasm3::parse(qasm)?),
+            CircuitSpec::Qasm3(qasm) => Ok(arvak_qasm3::parse(qasm)?),
             CircuitSpec::QasmFile(path) => {
                 let qasm = std::fs::read_to_string(path)?;
-                Ok(hiq_qasm3::parse(&qasm)?)
+                Ok(arvak_qasm3::parse(&qasm)?)
             }
         }
     }

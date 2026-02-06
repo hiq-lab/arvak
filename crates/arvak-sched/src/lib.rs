@@ -29,8 +29,8 @@
 //! # Example: Single Job Submission
 //!
 //! ```ignore
-//! use hiq_sched::{HpcScheduler, SchedulerConfig, ScheduledJob, Priority};
-//! use hiq_ir::Circuit;
+//! use arvak_sched::{HpcScheduler, SchedulerConfig, ScheduledJob, Priority};
+//! use arvak_ir::Circuit;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -61,7 +61,7 @@
 //! # Example: Workflow with Dependencies
 //!
 //! ```ignore
-//! use hiq_sched::{WorkflowBuilder, HpcScheduler};
+//! use arvak_sched::{WorkflowBuilder, HpcScheduler};
 //!
 //! // Create a VQE-style workflow
 //! let workflow = WorkflowBuilder::new("vqe_optimization")
@@ -80,7 +80,7 @@
 //! # Example: PBS Configuration
 //!
 //! ```ignore
-//! use hiq_sched::{SchedulerConfig, PbsConfig};
+//! use arvak_sched::{SchedulerConfig, PbsConfig};
 //!
 //! let config = SchedulerConfig::pbs()
 //!     .with_queue("quantum")
@@ -95,7 +95,7 @@
 //! Job state can be persisted for recovery and auditing:
 //!
 //! ```ignore
-//! use hiq_sched::{JsonStore, SqliteStore, StateStore};
+//! use arvak_sched::{JsonStore, SqliteStore, StateStore};
 //!
 //! // JSON file storage (simple, portable)
 //! let store = JsonStore::new("./jobs.json")?;
