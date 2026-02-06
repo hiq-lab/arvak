@@ -53,6 +53,10 @@ pub struct ServerConfig {
     /// Maximum concurrent connections
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
+
+    /// Graceful shutdown timeout in seconds
+    #[serde(default = "default_shutdown_timeout")]
+    pub shutdown_timeout_seconds: u64,
 }
 
 /// Storage backend configuration.
@@ -238,6 +242,10 @@ fn default_rate_limit() -> u32 {
     100
 }
 
+fn default_shutdown_timeout() -> u64 {
+    30 // 30 seconds
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -246,6 +254,7 @@ impl Default for Config {
                 timeout_seconds: default_timeout(),
                 keepalive_seconds: default_keepalive(),
                 max_connections: default_max_connections(),
+                shutdown_timeout_seconds: default_shutdown_timeout(),
             },
             storage: StorageConfig {
                 backend: default_storage_type(),

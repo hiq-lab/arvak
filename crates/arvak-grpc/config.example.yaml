@@ -17,6 +17,9 @@ server:
   # Maximum concurrent connections
   max_connections: 1000
 
+  # Graceful shutdown timeout in seconds
+  shutdown_timeout_seconds: 30
+
 # Storage backend configuration
 storage:
   # Backend type: "memory", "sqlite", "postgres"
