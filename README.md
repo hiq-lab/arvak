@@ -658,7 +658,7 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 ### The HAL Contract
 
-Arvak is developed and maintained by **[The HAL Contract](https://www.hal-contract.org)**, an organization dedicated to advancing quantum computing infrastructure for European HPC centers.
+Arvak is developed and maintained by **[The HAL Contract](https://www.hal-contract.org)**, an initiative dedicated to advancing quantum computing infrastructure for European HPC centers.
 
 - **Website**: [www.hal-contract.org](https://www.hal-contract.org)
 - **Email**: [daniel@hal-contract.org](mailto:daniel@hal-contract.org)
