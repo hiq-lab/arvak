@@ -1,4 +1,4 @@
-# HIQ Framework Integration Guide
+# Arvak Framework Integration Guide
 
 This guide explains how to add new quantum framework integrations to HIQ, making it easy to support additional frameworks like Qrisp, Cirq, PennyLane, and more.
 
@@ -19,14 +19,14 @@ HIQ's integration system is designed to be:
 - **Extensible**: Add new frameworks by implementing a simple interface
 - **Modular**: Each integration is self-contained
 - **Auto-discovered**: Frameworks are automatically registered when dependencies are available
-- **Zero-dependency**: Core HIQ works without any framework integrations installed
+- **Zero-dependency**: Core Arvak works without any framework integrations installed
 
 ### What You Get
 
 When you add a framework integration:
 
-1. **Bi-directional conversion**: Framework ↔ HIQ circuit conversion
-2. **Backend provider**: Execute HIQ circuits through framework's API
+1. **Bi-directional conversion**: Framework ↔ Arvak circuit conversion
+2. **Backend provider**: Execute Arvak circuits through framework's API
 3. **Auto-discovery**: Integration is automatically available when dependencies are installed
 4. **Consistent API**: Users interact with all integrations the same way
 5. **Template notebook**: Generate example notebooks automatically
@@ -143,16 +143,16 @@ class YourFrameworkIntegration(FrameworkIntegration):
             circuit: YourFramework Circuit
 
         Returns:
-            HIQ Circuit
+            Arvak Circuit
         """
         from .converter import yourframework_to_hiq
         return yourframework_to_hiq(circuit)
 
     def from_hiq(self, circuit):
-        """Convert HIQ circuit to YourFramework.
+        """Convert Arvak circuit to YourFramework.
 
         Args:
-            circuit: HIQ Circuit
+            circuit: Arvak Circuit
 
         Returns:
             YourFramework Circuit
@@ -161,7 +161,7 @@ class YourFrameworkIntegration(FrameworkIntegration):
         return hiq_to_yourframework(circuit)
 
     def get_backend_provider(self):
-        """Get HIQ backend provider for YourFramework.
+        """Get Arvak backend provider for YourFramework.
 
         Returns:
             YourFrameworkProvider instance
@@ -205,13 +205,13 @@ if TYPE_CHECKING:
 
 
 def yourframework_to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
-    """Convert YourFramework circuit to HIQ via OpenQASM 3.0.
+    """Convert YourFramework circuit to Arvak via OpenQASM 3.0.
 
     Args:
         circuit: YourFramework Circuit instance
 
     Returns:
-        HIQ Circuit instance
+        Arvak Circuit instance
 
     Raises:
         ImportError: If yourframework is not installed
@@ -238,10 +238,10 @@ def yourframework_to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
 
 
 def hiq_to_yourframework(circuit: 'hiq.Circuit') -> 'Circuit':
-    """Convert HIQ circuit to YourFramework via OpenQASM 3.0.
+    """Convert Arvak circuit to YourFramework via OpenQASM 3.0.
 
     Args:
-        circuit: HIQ Circuit instance
+        circuit: Arvak Circuit instance
 
     Returns:
         YourFramework Circuit instance
@@ -260,7 +260,7 @@ def hiq_to_yourframework(circuit: 'hiq.Circuit') -> 'Circuit':
 
     import hiq
 
-    # Export HIQ to QASM3
+    # Export Arvak to QASM3
     qasm_str = hiq.to_qasm(circuit)
 
     # Import into YourFramework
@@ -285,14 +285,14 @@ if TYPE_CHECKING:
 
 
 class YourFrameworkProvider:
-    """YourFramework provider for HIQ backends.
+    """YourFramework provider for Arvak backends.
 
-    This provider allows users to access HIQ execution capabilities through
+    This provider allows users to access Arvak execution capabilities through
     YourFramework's standard provider interface.
     """
 
     def __init__(self):
-        """Initialize the HIQ provider."""
+        """Initialize the Arvak provider."""
         self._backends = {}
 
     def backends(self, name: Optional[str] = None, **filters) -> List:
@@ -339,7 +339,7 @@ class YourFrameworkProvider:
 
 
 class HIQSimulatorBackend:
-    """HIQ simulator backend with YourFramework-compatible interface."""
+    """Arvak simulator backend with YourFramework-compatible interface."""
 
     def __init__(self, provider: YourFrameworkProvider):
         """Initialize the simulator backend.
@@ -349,7 +349,7 @@ class HIQSimulatorBackend:
         """
         self._provider = provider
         self.name = 'hiq_simulator'
-        self.description = 'HIQ quantum circuit simulator'
+        self.description = 'Arvak quantum circuit simulator'
 
     @property
     def num_qubits(self) -> int:
@@ -369,12 +369,12 @@ class HIQSimulatorBackend:
             Job instance
         """
         warnings.warn(
-            "HIQ backend execution through YourFramework is not yet fully implemented. "
-            "Use HIQ CLI for execution: 'hiq run circuit.qasm --backend sim --shots 1000'",
+            "Arvak backend execution through YourFramework is not yet fully implemented. "
+            "Use Arvak CLI for execution: 'hiq run circuit.qasm --backend sim --shots 1000'",
             RuntimeWarning
         )
 
-        # Convert circuits to HIQ format
+        # Convert circuits to Arvak format
         from .converter import yourframework_to_hiq
 
         if not isinstance(circuits, list):
@@ -394,7 +394,7 @@ class HIQSimulatorBackend:
 
 
 class HIQJob:
-    """Mock job for HIQ backend execution."""
+    """Mock job for Arvak backend execution."""
 
     def __init__(self, backend, circuits, shots, options):
         self._backend = backend
@@ -419,7 +419,7 @@ class HIQJob:
 
 
 class HIQResult:
-    """Mock result for HIQ backend execution."""
+    """Mock result for Arvak backend execution."""
 
     def __init__(self, backend_name, circuits, shots):
         self.backend_name = backend_name
@@ -429,7 +429,7 @@ class HIQResult:
     def get_counts(self, circuit=None):
         """Get measurement counts."""
         warnings.warn(
-            "Returning mock results. Use HIQ CLI for actual execution.",
+            "Returning mock results. Use Arvak CLI for actual execution.",
             RuntimeWarning
         )
 
@@ -447,7 +447,7 @@ Add your framework to the optional dependencies:
 ```toml
 [project.optional-dependencies]
 yourframework = ["yourframework>=X.Y.Z", "additional-dependency>=A.B.C"]
-all = ["hiq-quantum[qiskit,qrisp,cirq,yourframework,notebook]"]
+all = ["arvak[qiskit,qrisp,cirq,yourframework,notebook]"]
 ```
 
 ### Step 6: Generate Notebook
@@ -502,7 +502,7 @@ def test_yourframework_to_hiq():
 
 
 def test_hiq_to_yourframework():
-    """Test converting HIQ circuit to YourFramework."""
+    """Test converting Arvak circuit to YourFramework."""
     hiq_circuit = hiq.Circuit.bell()
 
     integration = hiq.get_integration('yourframework')
@@ -574,7 +574,7 @@ See `python/hiq/integrations/qiskit/` for a complete working example.
 Key points:
 - OpenQASM 3.0 as interchange format
 - Auto-registration when dependencies available
-- Mock backend until HIQ execution is exposed to Python
+- Mock backend until Arvak execution is exposed to Python
 
 ## Best Practices
 
@@ -647,9 +647,9 @@ A: Either decompose them into standard gates before conversion, or extend HIQ's 
 
 ### Q: Can I add hardware backends?
 
-A: Yes! Just extend the backend provider to support additional backend names. The actual execution will happen through HIQ CLI or when HIQ execution is exposed to Python.
+A: Yes! Just extend the backend provider to support additional backend names. The actual execution will happen through Arvak CLI or when Arvak execution is exposed to Python.
 
-### Q: Do I need to modify core HIQ code?
+### Q: Do I need to modify core Arvak code?
 
 A: No! Integrations are completely self-contained and auto-discovered.
 
@@ -672,7 +672,7 @@ To contribute a new integration:
 
 ## Resources
 
-- HIQ GitHub: https://github.com/hiq-lab/HIQ
+- Arvak GitHub: https://github.com/hiq-lab/HIQ
 - OpenQASM 3.0 Spec: https://openqasm.com/
 - Example integrations: `python/hiq/integrations/qiskit/`
 

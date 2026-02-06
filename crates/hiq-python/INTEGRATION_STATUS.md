@@ -15,7 +15,7 @@ HIQ now supports **extensible multi-framework integration** with a plugin archit
   - Backend provider (use HIQ as Qiskit backend)
   - OpenQASM 3.0 interchange format
   - Standard Qiskit API compatibility
-- **Installation**: `pip install hiq-quantum[qiskit]`
+- **Installation**: `pip install arvak[qiskit]`
 
 ### ✅ Qrisp Integration (Complete)
 - **Status**: Production ready
@@ -27,7 +27,7 @@ HIQ now supports **extensible multi-framework integration** with a plugin archit
   - Automatic uncomputation compatibility
   - High-level quantum programming with HIQ compilation
   - Backend client for execution
-- **Installation**: `pip install hiq-quantum[qrisp]`
+- **Installation**: `pip install arvak[qrisp]`
 
 ### ⏸️ Cirq Integration (Planned)
 - **Status**: Template ready, ~30 minutes to implement
@@ -36,7 +36,7 @@ HIQ now supports **extensible multi-framework integration** with a plugin archit
   2. Create `python/hiq/integrations/cirq/`
   3. Implement converter and backend
   4. Add tests
-- **Installation**: `pip install hiq-quantum[cirq]` (when ready)
+- **Installation**: `pip install arvak[cirq]` (when ready)
 
 ## Architecture
 
@@ -61,7 +61,7 @@ python/hiq/
 ## Public API
 
 ```python
-import hiq
+import arvak
 
 # List available integrations
 integrations = hiq.list_integrations()
@@ -91,22 +91,22 @@ hiq_circuit = qiskit.to_hiq(qiskit_circuit)
 
 ```bash
 # Core HIQ only (no framework dependencies)
-pip install hiq-quantum
+pip install arvak
 
 # With Qiskit
-pip install hiq-quantum[qiskit]
+pip install arvak[qiskit]
 
 # With Qrisp
-pip install hiq-quantum[qrisp]
+pip install arvak[qrisp]
 
 # With Cirq (when implemented)
-pip install hiq-quantum[cirq]
+pip install arvak[cirq]
 
 # With notebooks support
-pip install hiq-quantum[notebook]
+pip install arvak[notebook]
 
 # Everything
-pip install hiq-quantum[all]
+pip install arvak[all]
 ```
 
 ## Documentation
@@ -165,7 +165,7 @@ $ python3 verify_integration_system.py
 
 ```python
 from qiskit import QuantumCircuit
-import hiq
+import arvak
 
 # Create Qiskit circuit
 qc = QuantumCircuit(2)
@@ -190,7 +190,7 @@ result = job.result()
 
 ```python
 from qrisp import QuantumCircuit, QuantumVariable
-import hiq
+import arvak
 
 # Method 1: QuantumCircuit
 qc = QuantumCircuit(2)

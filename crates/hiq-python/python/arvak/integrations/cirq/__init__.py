@@ -13,7 +13,7 @@ Cirq is Google's quantum computing framework that emphasizes:
 
 Example:
     >>> import cirq
-    >>> from hiq.integrations.cirq import cirq_to_hiq, HIQSampler
+    >>> from arvak.integrations.cirq import cirq_to_hiq, HIQSampler
     >>>
     >>> # Convert Cirq circuit to HIQ
     >>> qubits = cirq.LineQubit.range(2)

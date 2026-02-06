@@ -18,7 +18,7 @@ class HIQBackendClient:
     programs to execute on HIQ backends.
 
     Example:
-        >>> from hiq.integrations.qrisp import HIQBackendClient
+        >>> from arvak.integrations.qrisp import HIQBackendClient
         >>> from qrisp import QuantumVariable
         >>> backend = HIQBackendClient('sim')
         >>> # Use with Qrisp QuantumSession
@@ -63,7 +63,7 @@ class HIQBackendClient:
 
         # Convert to HIQ format
         from .converter import qrisp_to_hiq
-        import hiq
+        import arvak
 
         hiq_circuit = qrisp_to_hiq(circuit)
 
@@ -97,7 +97,7 @@ class HIQProvider:
     This provider allows Qrisp programs to discover and use HIQ backends.
 
     Example:
-        >>> from hiq.integrations.qrisp import HIQProvider
+        >>> from arvak.integrations.qrisp import HIQProvider
         >>> provider = HIQProvider()
         >>> backend = provider.get_backend('sim')
     """

@@ -1,8 +1,8 @@
-# HIQ Architecture
+# Arvak Architecture
 
 ## Overview
 
-HIQ is a Rust-native quantum compilation and orchestration stack designed for HPC environments. This document describes the system architecture, components, and design decisions.
+Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. This document describes the system architecture, components, and design decisions.
 
 ## Design Principles
 
@@ -255,7 +255,7 @@ PyO3-based Python interface:
 
 ### vs Qiskit
 
-| Aspect | HIQ | Qiskit |
+| Aspect | Arvak | Qiskit |
 |--------|-----|--------|
 | Language | Rust (with Python bindings) | Python (with Rust internals) |
 | Focus | HPC integration, compilation | Full quantum stack |
@@ -265,7 +265,7 @@ PyO3-based Python interface:
 
 ### vs Qrisp
 
-| Aspect | HIQ | Qrisp |
+| Aspect | Arvak | Qrisp |
 |--------|-----|-------|
 | Language | Rust | Python |
 | Abstraction | Mid-level (IR focus) | High-level (variables) |
@@ -274,7 +274,7 @@ PyO3-based Python interface:
 
 ### vs XACC
 
-| Aspect | HIQ | XACC |
+| Aspect | Arvak | XACC |
 |--------|-----|------|
 | Language | Rust | C++ |
 | Focus | Compilation + HPC | HPC acceleration |

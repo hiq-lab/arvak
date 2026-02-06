@@ -8,7 +8,7 @@ import pytest
 
 # Try to import dependencies
 try:
-    import hiq
+    import arvak
     from qiskit import QuantumCircuit
     from qiskit.qasm3 import dumps, loads
     QISKIT_AVAILABLE = True

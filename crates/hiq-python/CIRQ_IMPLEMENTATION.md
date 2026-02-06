@@ -123,7 +123,7 @@ if _integration.is_available():
 ### LineQubit Conversion
 
 ```python
-import hiq
+import arvak
 import cirq
 
 # Create Cirq circuit with LineQubit
@@ -311,7 +311,7 @@ Summary
 
 ```bash
 # Install HIQ with Cirq support
-pip install hiq-quantum[cirq]
+pip install arvak[cirq]
 
 # Or install manually
 pip install cirq>=1.0.0 cirq-core>=1.0.0
@@ -343,4 +343,4 @@ The integration system has now been **proven with three major frameworks**, vali
 **Tests**: 25+ (all skip gracefully without Cirq)
 **Verification**: ✅ All checks pass
 
-🚀 **Ready for users to install with**: `pip install hiq-quantum[cirq]`
+🚀 **Ready for users to install with**: `pip install arvak[cirq]`

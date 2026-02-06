@@ -17,21 +17,21 @@ def test_imports():
     print("Testing imports...")
 
     try:
-        import hiq
+        import arvak
         print("  ✓ hiq imported")
     except ImportError as e:
         print(f"  ✗ Failed to import hiq: {e}")
         return False
 
     try:
-        from hiq.integrations import IntegrationRegistry, FrameworkIntegration
+        from arvak.integrations import IntegrationRegistry, FrameworkIntegration
         print("  ✓ Integration registry imported")
     except ImportError as e:
         print(f"  ✗ Failed to import integration registry: {e}")
         return False
 
     try:
-        from hiq.integrations._base import FrameworkIntegration
+        from arvak.integrations._base import FrameworkIntegration
         print("  ✓ Base integration class imported")
     except ImportError as e:
         print(f"  ✗ Failed to import base class: {e}")
@@ -44,7 +44,7 @@ def test_api():
     """Test the public API functions."""
     print("\nTesting public API...")
 
-    import hiq
+    import arvak
 
     # Test list_integrations
     try:
@@ -80,7 +80,7 @@ def test_registry():
     """Test the integration registry."""
     print("\nTesting integration registry...")
 
-    from hiq.integrations import IntegrationRegistry, FrameworkIntegration
+    from arvak.integrations import IntegrationRegistry, FrameworkIntegration
     from typing import List, Any
 
     # Create a mock integration
@@ -171,7 +171,7 @@ def test_qiskit_integration():
     if not qiskit_available:
         return True
 
-    import hiq
+    import arvak
 
     # Check if integration is registered
     status = hiq.integration_status()

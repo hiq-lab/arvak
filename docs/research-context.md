@@ -1,4 +1,4 @@
-# HIQ Research Context
+# Arvak Research Context
 
 ## Background Research
 
@@ -235,7 +235,7 @@ This document captures the research conducted on existing quantum computing fram
 3. Limited HPC scheduler integration
 4. Primarily academic community
 
-### HIQ's Niche
+### Arvak's Niche
 
 1. **Rust-native** — Performance, single binary, no GC
 2. **HPC-first** — Slurm/PBS integration as primary use case

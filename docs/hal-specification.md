@@ -1,4 +1,4 @@
-# HIQ Hardware Abstraction Layer (HAL)
+# Arvak Hardware Abstraction Layer (HAL)
 
 ## Overview
 

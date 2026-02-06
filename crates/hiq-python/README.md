@@ -1,17 +1,17 @@
-# HIQ Python Bindings
+# Arvak Python Bindings
 
-Python bindings for the HIQ quantum compilation platform.
+Python bindings for the Arvak quantum compilation platform.
 
 ## Installation
 
 ```bash
-pip install hiq
+pip install arvak
 ```
 
 ## Quick Start
 
 ```python
-import hiq
+import arvak
 
 # Create a Bell state circuit
 qc = hiq.Circuit("bell", num_qubits=2)

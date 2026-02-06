@@ -1,0 +1,36 @@
+# Build artifacts
+target/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (not needed for build)
+docs/
+*.md
+LICENSE
+REVIEW_NOTES.json
+
+# Python bindings (excluded from workspace build)
+crates/hiq-python/
+
+# macOS
+.DS_Store
+
+# Python artifacts
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# GitHub
+.github/

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to HIQ will be documented in this file.
+All notable changes to Arvak will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Framework Integrations (4 Complete)
 - **Qiskit Integration** (IBM Quantum ecosystem)
   - `QiskitIntegration` class with BackendV2 provider implementation
-  - `HIQProvider` and `HIQBackend` for using HIQ as Qiskit backend
+  - `HIQProvider` and `HIQBackend` for using Arvak as Qiskit backend
   - Circuit conversion via OpenQASM 3.0 interchange format
   - ~15 comprehensive tests with graceful dependency skipping
   - Full documentation and interactive notebook
@@ -97,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - High-level Circuit builder API
 
 - **hiq-qasm3**: Full OpenQASM 3.0 parser and emitter
-  - Parse QASM files into HIQ circuits
+  - Parse QASM files into Arvak circuits
   - Emit circuits back to valid QASM
   - Round-trip support for circuit serialization
 

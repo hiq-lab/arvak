@@ -144,7 +144,7 @@ if _integration.is_available():
 ### Basic Conversion
 
 ```python
-import hiq
+import arvak
 from qrisp import QuantumCircuit
 
 # Create Qrisp circuit
@@ -229,7 +229,7 @@ tests/integrations/
 ## Integration Status
 
 ```python
->>> import hiq
+>>> import arvak
 >>> status = hiq.integration_status()
 >>> print(status)
 {
@@ -241,7 +241,7 @@ tests/integrations/
 **When Qrisp is installed**:
 ```bash
 $ pip install qrisp
-$ python -c "import hiq; print(hiq.list_integrations())"
+$ python -c "import arvak; print(hiq.list_integrations())"
 {'qiskit': False, 'qrisp': True}
 ```
 
@@ -314,7 +314,7 @@ qf = QuantumFloat(3, -3)  # 3 integer bits, precision 2^-3
 
 ```bash
 # Install HIQ with Qrisp support
-pip install hiq-quantum[qrisp]
+pip install arvak[qrisp]
 
 # Or install manually
 pip install qrisp>=0.4.0
@@ -382,4 +382,4 @@ The integration system has now proven itself with two major frameworks (Qiskit a
 **Tests**: 22 (all skip gracefully without Qrisp)
 **Verification**: ✅ All checks pass
 
-🚀 **Ready for users to install with**: `pip install hiq-quantum[qrisp]`
+🚀 **Ready for users to install with**: `pip install arvak[qrisp]`

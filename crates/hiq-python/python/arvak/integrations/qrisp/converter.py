@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from qrisp import QuantumCircuit, QuantumSession
-    import hiq
+    import arvak
 
 
 def qrisp_to_hiq(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.Circuit':
@@ -43,7 +43,7 @@ def qrisp_to_hiq(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.Cir
             "Install with: pip install qrisp>=0.4.0"
         )
 
-    import hiq
+    import arvak
 
     # Handle QuantumSession by getting its circuit
     if isinstance(circuit, QuantumSession):
@@ -77,7 +77,7 @@ def hiq_to_qrisp(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
         ValueError: If circuit cannot be converted
 
     Example:
-        >>> import hiq
+        >>> import arvak
         >>> hiq_circuit = hiq.Circuit.bell()
         >>> qrisp_circuit = hiq_to_qrisp(hiq_circuit)
     """
@@ -89,7 +89,7 @@ def hiq_to_qrisp(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
             "Install with: pip install qrisp>=0.4.0"
         )
 
-    import hiq
+    import arvak
 
     # Export HIQ circuit to OpenQASM
     qasm_str = hiq.to_qasm(circuit)

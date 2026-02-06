@@ -7,7 +7,7 @@ This module provides seamless integration between Qiskit and HIQ, enabling:
 
 Example:
     >>> from qiskit import QuantumCircuit
-    >>> from hiq.integrations.qiskit import qiskit_to_hiq, HIQProvider
+    >>> from arvak.integrations.qiskit import qiskit_to_hiq, HIQProvider
     >>>
     >>> # Convert Qiskit circuit to HIQ
     >>> qc = QuantumCircuit(2)

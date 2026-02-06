@@ -2,8 +2,8 @@
 
 import pytest
 
-import hiq
-from hiq import Circuit, QubitId, ClbitId
+import arvak
+from arvak import Circuit, QubitId, ClbitId
 
 
 class TestCircuitBasics:

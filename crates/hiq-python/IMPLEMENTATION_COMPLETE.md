@@ -31,7 +31,7 @@ The extensible multi-framework integration system for HIQ has been **successfull
 
 #### Public API
 ```python
-import hiq
+import arvak
 
 # Check available integrations
 status = hiq.integration_status()
@@ -138,19 +138,19 @@ qiskit = ["qiskit>=1.0.0", "qiskit-aer>=0.13.0"]
 qrisp = ["qrisp>=0.4.0"]
 cirq = ["cirq>=1.0.0", "cirq-core>=1.0.0"]
 notebook = ["jupyter>=1.0.0", "matplotlib>=3.5.0"]
-all = ["hiq-quantum[qiskit,qrisp,cirq,notebook]"]
+all = ["arvak[qiskit,qrisp,cirq,notebook]"]
 ```
 
 #### Installation Options
 ```bash
 # Core only
-pip install hiq-quantum
+pip install arvak
 
 # With Qiskit
-pip install hiq-quantum[qiskit]
+pip install arvak[qiskit]
 
 # Everything
-pip install hiq-quantum[all]
+pip install arvak[all]
 ```
 
 ## File Inventory

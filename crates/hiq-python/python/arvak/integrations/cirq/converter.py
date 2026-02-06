@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import cirq
-    import hiq
+    import arvak
 
 
 def cirq_to_hiq(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
@@ -45,7 +45,7 @@ def cirq_to_hiq(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
             "Install with: pip install cirq>=1.0.0"
         )
 
-    import hiq
+    import arvak
 
     # Convert Cirq circuit to OpenQASM 2.0
     # Cirq uses qasm() method for QASM 2.0 export
@@ -75,7 +75,7 @@ def hiq_to_cirq(circuit: 'hiq.Circuit') -> 'cirq.Circuit':
         ValueError: If circuit cannot be converted
 
     Example:
-        >>> import hiq
+        >>> import arvak
         >>> hiq_circuit = hiq.Circuit.bell()
         >>> cirq_circuit = hiq_to_cirq(hiq_circuit)
     """
@@ -87,7 +87,7 @@ def hiq_to_cirq(circuit: 'hiq.Circuit') -> 'cirq.Circuit':
             "Install with: pip install cirq>=1.0.0"
         )
 
-    import hiq
+    import arvak
 
     # Export HIQ circuit to OpenQASM
     qasm_str = hiq.to_qasm(circuit)

@@ -82,20 +82,20 @@ The HIQ framework integration system has been successfully implemented with **FO
 
 ```bash
 # Individual frameworks
-pip install hiq-quantum[qiskit]     # IBM Quantum
-pip install hiq-quantum[qrisp]      # High-level programming
-pip install hiq-quantum[cirq]       # Google Quantum AI
-pip install hiq-quantum[pennylane]  # Quantum ML
+pip install arvak[qiskit]     # IBM Quantum
+pip install arvak[qrisp]      # High-level programming
+pip install arvak[cirq]       # Google Quantum AI
+pip install arvak[pennylane]  # Quantum ML
 
 # All four frameworks
-pip install hiq-quantum[all]
+pip install arvak[all]
 ```
 
 ## 💡 Usage Examples
 
 ### Check Available Integrations
 ```python
-import hiq
+import arvak
 
 # See what's installed
 status = hiq.integration_status()
