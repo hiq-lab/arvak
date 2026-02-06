@@ -30,10 +30,12 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter --skip cp314
+          args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: auto
           working-directory: crates/hiq-python
+        env:
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -59,10 +61,12 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter --skip cp314
+          args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: musllinux_1_2
           working-directory: crates/hiq-python
+        env:
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -87,9 +91,11 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter --skip cp314
+          args: --release --out dist --find-interpreter
           sccache: 'true'
           working-directory: crates/hiq-python
+        env:
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -117,9 +123,11 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter --skip cp314
+          args: --release --out dist --find-interpreter
           sccache: 'true'
           working-directory: crates/hiq-python
+        env:
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
