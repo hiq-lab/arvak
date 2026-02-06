@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```python
-//! import hiq
+//! import arvak
 //!
 //! # Create a Bell state circuit
 //! qc = hiq.Circuit("bell", num_qubits=2)
@@ -36,7 +36,7 @@ use pyo3::prelude::*;
 /// - from_qasm, to_qasm: QASM3 parsing and emission
 /// - Layout, CouplingMap, BasisGates, PropertySet: Compilation types
 #[pymodule]
-fn hiq(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn arvak(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Core types
     m.add_class::<qubits::PyQubitId>()?;
     m.add_class::<qubits::PyClbitId>()?;
