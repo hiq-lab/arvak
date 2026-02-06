@@ -9,7 +9,11 @@ description = "Rust-native quantum compilation platform"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
+authors = [
+    { name = "Daniel Hinderink", email = "daniel@hal-contract.org" }
+]
 keywords = ["quantum", "compiler", "qasm", "circuit"]
+urls = { Homepage = "https://github.com/hiq-lab/HIQ", Repository = "https://github.com/hiq-lab/HIQ", Issues = "https://github.com/hiq-lab/HIQ/issues" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
