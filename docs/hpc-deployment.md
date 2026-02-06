@@ -1,8 +1,8 @@
-# HIQ HPC Deployment Guide
+# Arvak HPC Deployment Guide
 
 ## Overview
 
-HIQ is designed for deployment in High-Performance Computing (HPC) environments, with first-class support for job schedulers like Slurm and PBS. This guide covers deployment at HPC centers with quantum computing resources.
+Arvak is designed for deployment in High-Performance Computing (HPC) environments, with first-class support for job schedulers like Slurm and PBS. This guide covers deployment at HPC centers with quantum computing resources.
 
 ## Architecture in HPC Context
 
@@ -13,7 +13,7 @@ HIQ is designed for deployment in High-Performance Computing (HPC) environments,
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │                         Login Node                                   │   │
 │  │  ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐   │   │
-│  │  │  User CLI   │────▶│  HIQ Core   │────▶│  Scheduler Adapter  │   │   │
+│  │  │  User CLI   │────▶│  Arvak Core   │────▶│  Scheduler Adapter  │   │   │
 │  │  │  (hiq)      │     │             │     │  (Slurm/PBS)        │   │   │
 │  │  └─────────────┘     └─────────────┘     └──────────┬──────────┘   │   │
 │  └──────────────────────────────────────────────────────┼──────────────┘   │
@@ -72,7 +72,7 @@ impl Scheduler for SlurmAdapter {
 
 ```bash
 #!/bin/bash
-#SBATCH --job-name=hiq-quantum-job
+#SBATCH --job-name=arvak-job
 #SBATCH --partition=q_fiqci
 #SBATCH --account=project_462000xxx
 #SBATCH --time=00:30:00
@@ -136,7 +136,7 @@ defaults:
 
 **Module Setup:**
 ```bash
-# Load HIQ module (if installed system-wide)
+# Load Arvak module (if installed system-wide)
 module load hiq
 
 # Or use local installation
@@ -261,7 +261,7 @@ hiq submit -i circuit.qasm \
 ### Check Status
 
 ```bash
-# HIQ job status
+# Arvak job status
 hiq status hiq-12345
 
 # Or directly via Slurm
@@ -435,7 +435,7 @@ cat hiq_98765.err
 ### Support Channels
 
 - HPC center support desk
-- HIQ GitHub issues
+- Arvak GitHub issues
 - IQM/IBM support (for backend issues)
 
 ## Security Considerations

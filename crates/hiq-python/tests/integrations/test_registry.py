@@ -1,8 +1,8 @@
 """Tests for the integration registry system."""
 
 import pytest
-import hiq
-from hiq.integrations import IntegrationRegistry, FrameworkIntegration
+import arvak
+from arvak.integrations import IntegrationRegistry, FrameworkIntegration
 from typing import List, Any
 
 

@@ -19,7 +19,7 @@ class HIQProvider:
     Qiskit's standard provider interface.
 
     Example:
-        >>> from hiq.integrations.qiskit import HIQProvider
+        >>> from arvak.integrations.qiskit import HIQProvider
         >>> provider = HIQProvider()
         >>> backend = provider.get_backend('sim')
         >>> job = backend.run(qiskit_circuit, shots=1000)
@@ -163,7 +163,7 @@ class HIQSimulatorBackend:
 
         # Import here to avoid circular dependency
         from .converter import qiskit_to_hiq
-        import hiq
+        import arvak
 
         # Convert circuits to HIQ format
         hiq_circuits = [qiskit_to_hiq(qc) for qc in circuits]

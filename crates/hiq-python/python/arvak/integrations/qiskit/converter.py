@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from qiskit import QuantumCircuit
-    import hiq
+    import arvak
 
 
 def qiskit_to_hiq(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
@@ -43,7 +43,7 @@ def qiskit_to_hiq(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
             "Install with: pip install qiskit>=1.0.0"
         )
 
-    import hiq
+    import arvak
 
     # Convert Qiskit circuit to OpenQASM 3.0
     qasm_str = dumps(circuit)
@@ -72,7 +72,7 @@ def hiq_to_qiskit(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
         ValueError: If circuit cannot be converted
 
     Example:
-        >>> import hiq
+        >>> import arvak
         >>> hiq_circuit = hiq.Circuit.bell()
         >>> qiskit_circuit = hiq_to_qiskit(hiq_circuit)
     """
@@ -84,7 +84,7 @@ def hiq_to_qiskit(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
             "Install with: pip install qiskit>=1.0.0"
         )
 
-    import hiq
+    import arvak
 
     # Export HIQ circuit to OpenQASM 3.0
     qasm_str = hiq.to_qasm(circuit)

@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import hiq
+    import arvak
 
 
 class FrameworkIntegration(ABC):

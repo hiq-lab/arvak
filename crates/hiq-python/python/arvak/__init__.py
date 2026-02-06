@@ -4,7 +4,7 @@ This module provides Python bindings for the HIQ quantum circuit
 builder and compilation framework.
 
 Example:
-    >>> import hiq
+    >>> import arvak
     >>> qc = hiq.Circuit("bell", num_qubits=2)
     >>> qc.h(0).cx(0, 1)
     >>> print(hiq.to_qasm(qc))
@@ -21,7 +21,7 @@ Framework Integrations:
 """
 
 # Re-export everything from the native extension
-from hiq.hiq import (
+from arvak.hiq import (
     # Core types
     Circuit,
     QubitId,
@@ -37,7 +37,7 @@ from hiq.hiq import (
 )
 
 # Import integration registry
-from hiq.integrations import IntegrationRegistry
+from arvak.integrations import IntegrationRegistry
 
 # Integration API
 def list_integrations():

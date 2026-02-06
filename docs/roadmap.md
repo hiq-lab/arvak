@@ -1,19 +1,19 @@
-# HIQ Roadmap
+# Arvak Roadmap
 
 ## Vision
 
-HIQ aims to be the Rust-native quantum compilation and orchestration stack for HPC environments, providing fast compilation, first-class HPC scheduler integration, and unified access to quantum backends.
+Arvak aims to be the Rust-native quantum compilation and orchestration stack for HPC environments, providing fast compilation, first-class HPC scheduler integration, and unified access to quantum backends.
 
 ## Strategic Positioning
 
-### What HIQ Is
+### What Arvak Is
 
 - A Rust-native compilation core for performance-critical quantum workflows
 - An HPC-first orchestration layer for quantum job management
 - A unified interface for heterogeneous quantum backends
 - A complement to existing quantum SDKs (Qiskit, Qrisp)
 
-### What HIQ Is Not
+### What Arvak Is Not
 
 - A replacement for Qiskit or Qrisp at the algorithm level
 - A quantum algorithm library

@@ -18,7 +18,7 @@ class HIQSampler:
     Cirq's standard sampling API.
 
     Example:
-        >>> from hiq.integrations.cirq import HIQSampler
+        >>> from arvak.integrations.cirq import HIQSampler
         >>> import cirq
         >>>
         >>> qubits = cirq.LineQubit.range(2)
@@ -69,7 +69,7 @@ class HIQSampler:
 
         # Convert to HIQ format
         from .converter import cirq_to_hiq
-        import hiq
+        import arvak
 
         hiq_circuit = cirq_to_hiq(program)
 

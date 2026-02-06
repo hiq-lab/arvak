@@ -13,7 +13,7 @@ PennyLane is a quantum machine learning library that emphasizes:
 
 Example:
     >>> import pennylane as qml
-    >>> from hiq.integrations.pennylane import HIQDevice, pennylane_to_hiq
+    >>> from arvak.integrations.pennylane import HIQDevice, pennylane_to_hiq
     >>>
     >>> # Use HIQ as PennyLane device
     >>> dev = HIQDevice(wires=2, backend='sim')

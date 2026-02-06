@@ -1,19 +1,19 @@
-# HIQ: Rust-Native Quantum Compilation Stack
+# Arvak: Rust-Native Quantum Compilation Stack
 
 [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/hiq-project/hiq/releases/tag/v1.1.0)
-[![PyPI](https://img.shields.io/pypi/v/hiq-quantum.svg)](https://pypi.org/project/hiq-quantum/)
+[![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
 **HPC-Integrated Quantum Orchestration Platform**
 
-HIQ is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides fast compilation, first-class HPC scheduler integration, and unified access to quantum backends including IQM and IBM Quantum.
+Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides fast compilation, first-class HPC scheduler integration, and unified access to quantum backends including IQM and IBM Quantum.
 
 > **v1.1.0 Released!** Multi-framework integration system with Qiskit, Qrisp, Cirq, and PennyLane support. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Vision
 
-HIQ is **not** a Qiskit replacement. It's a complementary tool that:
+Arvak is **not** a Qiskit replacement. It's a complementary tool that:
 
 1. **Doesn't compete** with Qiskit/Cirq/Qrisp at the algorithm level
 2. **Provides** a Rust-native compilation core for performance-critical paths
@@ -244,14 +244,14 @@ fn main() -> anyhow::Result<()> {
 
 ```bash
 # Install from PyPI
-pip install hiq-quantum
+pip install arvak
 
 # With framework integrations
-pip install hiq-quantum[qiskit]      # IBM Quantum ecosystem
-pip install hiq-quantum[qrisp]       # High-level quantum programming
-pip install hiq-quantum[cirq]        # Google Quantum AI
-pip install hiq-quantum[pennylane]   # Quantum machine learning
-pip install hiq-quantum[all]         # All frameworks + notebooks
+pip install arvak[qiskit]      # IBM Quantum ecosystem
+pip install arvak[qrisp]       # High-level quantum programming
+pip install arvak[cirq]        # Google Quantum AI
+pip install arvak[pennylane]   # Quantum machine learning
+pip install arvak[all]         # All frameworks + notebooks
 
 # Or install from source
 cd crates/hiq-python

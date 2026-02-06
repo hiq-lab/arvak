@@ -3,17 +3,17 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "hiq-quantum"
+name = "arvak"
 version = "1.1.0"
-description = "Rust-native quantum compilation platform"
+description = "Arvak - Rust-native quantum compilation and orchestration platform for HPC"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
 authors = [
     { name = "Daniel Hinderink", email = "daniel@hal-contract.org" }
 ]
-keywords = ["quantum", "compiler", "qasm", "circuit"]
-urls = { Homepage = "https://github.com/hiq-lab/HIQ", Repository = "https://github.com/hiq-lab/HIQ", Issues = "https://github.com/hiq-lab/HIQ/issues" }
+keywords = ["quantum", "compiler", "qasm", "circuit", "hpc", "orchestration"]
+urls = { Homepage = "https://arvak.io", Repository = "https://github.com/hiq-lab/HIQ", Issues = "https://github.com/hiq-lab/HIQ/issues", Documentation = "https://arvak.io" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
@@ -38,9 +38,9 @@ pennylane = ["pennylane>=0.32.0"]
 # Notebook support
 notebook = ["jupyter>=1.0.0", "matplotlib>=3.5.0"]
 # All integrations
-all = ["hiq-quantum[qiskit,qrisp,cirq,pennylane,notebook]"]
+all = ["arvak[qiskit,qrisp,cirq,pennylane,notebook]"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "python"
-module-name = "hiq_quantum"
+module-name = "arvak"

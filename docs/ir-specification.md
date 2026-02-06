@@ -1,8 +1,8 @@
-# HIQ IR Specification
+# Arvak IR Specification
 
 ## Overview
 
-The HIQ Intermediate Representation (IR) is a DAG-based circuit representation optimized for compilation and transformation passes. It draws inspiration from Qiskit's DAGCircuit while providing a Rust-native implementation.
+The Arvak Intermediate Representation (IR) is a DAG-based circuit representation optimized for compilation and transformation passes. It draws inspiration from Qiskit's DAGCircuit while providing a Rust-native implementation.
 
 ## Core Types
 
@@ -427,7 +427,7 @@ pub type IrResult<T> = Result<T, IrError>;
 
 ## IQM Native Gates
 
-HIQ includes IQM's native gate set for efficient compilation.
+Arvak includes IQM's native gate set for efficient compilation.
 
 ### PRX Gate
 

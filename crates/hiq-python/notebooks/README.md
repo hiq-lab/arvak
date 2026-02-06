@@ -12,17 +12,17 @@ This directory contains example notebooks demonstrating HIQ's capabilities and f
   - Pre-built circuits (Bell, GHZ, QFT)
 
 ### Framework Integrations
-- **02_qiskit_integration.ipynb** - Qiskit ↔ HIQ integration (requires: `pip install hiq-quantum[qiskit]`)
+- **02_qiskit_integration.ipynb** - Qiskit ↔ HIQ integration (requires: `pip install arvak[qiskit]`)
   - Circuit conversion between Qiskit and HIQ
   - Using HIQ as a Qiskit backend
   - Comparing compilation strategies
 
-- **03_qrisp_integration.ipynb** - Qrisp ↔ HIQ integration (requires: `pip install hiq-quantum[qrisp]`)
+- **03_qrisp_integration.ipynb** - Qrisp ↔ HIQ integration (requires: `pip install arvak[qrisp]`)
   - High-level quantum programming with Qrisp
   - Converting Qrisp circuits to HIQ
   - Leveraging HIQ's compilation for Qrisp programs
 
-- **04_cirq_integration.ipynb** - Cirq ↔ HIQ integration (requires: `pip install hiq-quantum[cirq]`)
+- **04_cirq_integration.ipynb** - Cirq ↔ HIQ integration (requires: `pip install arvak[cirq]`)
   - Google Cirq circuit conversion
   - Using HIQ compilation with Cirq
   - Grid qubit and line qubit support
@@ -38,12 +38,12 @@ pip install jupyter matplotlib
 
 ### With Qiskit Integration
 ```bash
-pip install 'hiq-quantum[qiskit,notebook]'
+pip install 'arvak[qiskit,notebook]'
 ```
 
 ### With All Integrations
 ```bash
-pip install 'hiq-quantum[all]'
+pip install 'arvak[all]'
 ```
 
 ## Running Notebooks
@@ -98,7 +98,7 @@ class YourFrameworkIntegration(FrameworkIntegration):
         return yourframework_to_hiq(circuit)
 
     def from_hiq(self, circuit):
-        from .converter import hiq_to_yourframework
+        from .converter import arvak_to_yourframework
         return hiq_to_yourframework(circuit)
 
     def get_backend_provider(self):
@@ -119,7 +119,7 @@ In `converter.py`, implement conversion using OpenQASM 3.0:
 ```python
 def yourframework_to_hiq(circuit):
     """Convert framework circuit to HIQ via QASM3."""
-    import hiq
+    import arvak
     # Export to QASM3
     qasm_str = circuit.to_qasm3()  # Framework-specific method
     # Import to HIQ
@@ -127,7 +127,7 @@ def yourframework_to_hiq(circuit):
 
 def hiq_to_yourframework(circuit):
     """Convert HIQ circuit to framework via QASM3."""
-    import hiq
+    import arvak
     import yourframework
     # Export from HIQ
     qasm_str = hiq.to_qasm(circuit)
@@ -140,7 +140,7 @@ def hiq_to_yourframework(circuit):
 ```toml
 [project.optional-dependencies]
 yourframework = ["yourframework>=1.0.0"]
-all = ["hiq-quantum[qiskit,qrisp,cirq,yourframework,notebook]"]
+all = ["arvak[qiskit,qrisp,cirq,yourframework,notebook]"]
 ```
 
 ### 5. Generate Notebook
@@ -154,7 +154,7 @@ Then fill in the generated notebook with framework-specific examples.
 ### 6. Test the Integration
 
 ```python
-import hiq
+import arvak
 
 # Check it's registered
 status = hiq.integration_status()
@@ -166,7 +166,7 @@ integration = hiq.get_integration('yourframework')
 hiq_circuit = integration.to_hiq(your_circuit)
 ```
 
-That's it! Your integration will be automatically discovered and available when users install `hiq-quantum[yourframework]`.
+That's it! Your integration will be automatically discovered and available when users install `arvak[yourframework]`.
 
 ## Template Files
 

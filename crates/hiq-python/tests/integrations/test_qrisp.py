@@ -8,7 +8,7 @@ import pytest
 
 # Try to import dependencies
 try:
-    import hiq
+    import arvak
     from qrisp import QuantumCircuit, QuantumVariable, QuantumSession
     QRISP_AVAILABLE = True
 except ImportError:
@@ -274,7 +274,7 @@ class TestQrispConverter:
 
     def test_qrisp_to_hiq_function(self, qrisp_bell_circuit):
         """Test qrisp_to_hiq converter function."""
-        from hiq.integrations.qrisp import qrisp_to_hiq
+        from arvak.integrations.qrisp import qrisp_to_hiq
 
         hiq_circuit = qrisp_to_hiq(qrisp_bell_circuit)
         assert hiq_circuit is not None
@@ -282,7 +282,7 @@ class TestQrispConverter:
 
     def test_hiq_to_qrisp_function(self, hiq_bell_circuit):
         """Test hiq_to_qrisp converter function."""
-        from hiq.integrations.qrisp import hiq_to_qrisp
+        from arvak.integrations.qrisp import hiq_to_qrisp
 
         qrisp_circuit = hiq_to_qrisp(hiq_bell_circuit)
         assert qrisp_circuit is not None

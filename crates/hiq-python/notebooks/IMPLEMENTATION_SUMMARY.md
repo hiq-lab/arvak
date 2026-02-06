@@ -48,19 +48,19 @@ This implementation establishes an extensible, plugin-based architecture for int
   qrisp = ["qrisp>=0.4.0"]
   cirq = ["cirq>=1.0.0", "cirq-core>=1.0.0"]
   notebook = ["jupyter>=1.0.0", "matplotlib>=3.5.0"]
-  all = ["hiq-quantum[qiskit,qrisp,cirq,notebook]"]
+  all = ["arvak[qiskit,qrisp,cirq,notebook]"]
   ```
 
 #### Installation Examples
 ```bash
 # Core HIQ only
-pip install hiq-quantum
+pip install arvak
 
 # With Qiskit
-pip install hiq-quantum[qiskit]
+pip install arvak[qiskit]
 
 # With all integrations
-pip install hiq-quantum[all]
+pip install arvak[all]
 ```
 
 ### 4. Jupyter Notebooks ✓
@@ -187,7 +187,7 @@ crates/hiq-python/
 ### Check Available Integrations
 
 ```python
-import hiq
+import arvak
 
 # Simple list
 integrations = hiq.list_integrations()

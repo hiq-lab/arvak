@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     import pennylane as qml
-    import hiq
+    import arvak
 
 
 def pennylane_to_hiq(qnode_or_tape) -> 'hiq.Circuit':
@@ -47,7 +47,7 @@ def pennylane_to_hiq(qnode_or_tape) -> 'hiq.Circuit':
             "Install with: pip install pennylane>=0.32.0"
         )
 
-    import hiq
+    import arvak
 
     # Handle QNode - execute to get tape
     if isinstance(qnode_or_tape, qml.QNode):
@@ -88,7 +88,7 @@ def hiq_to_pennylane(circuit: 'hiq.Circuit', device_name: str = 'default.qubit')
         ValueError: If circuit cannot be converted
 
     Example:
-        >>> import hiq
+        >>> import arvak
         >>> hiq_circuit = hiq.Circuit.bell()
         >>> qnode = hiq_to_pennylane(hiq_circuit)
         >>> result = qnode()
@@ -101,7 +101,7 @@ def hiq_to_pennylane(circuit: 'hiq.Circuit', device_name: str = 'default.qubit')
             "Install with: pip install pennylane>=0.32.0"
         )
 
-    import hiq
+    import arvak
 
     # Export HIQ circuit to OpenQASM
     qasm_str = hiq.to_qasm(circuit)

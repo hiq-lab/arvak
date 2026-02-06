@@ -12,7 +12,7 @@ Qrisp is a high-level quantum programming framework that emphasizes:
 
 Example:
     >>> from qrisp import QuantumCircuit
-    >>> from hiq.integrations.qrisp import qrisp_to_hiq, HIQBackendClient
+    >>> from arvak.integrations.qrisp import qrisp_to_hiq, HIQBackendClient
     >>>
     >>> # Convert Qrisp circuit to HIQ
     >>> qc = QuantumCircuit(2)

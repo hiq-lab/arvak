@@ -31,7 +31,7 @@ maturin develop
 ### 1. Test Core Integration System
 
 ```python
-import hiq
+import arvak
 
 # Check available integrations
 status = hiq.integration_status()
@@ -63,7 +63,7 @@ Integration list: {'qiskit': True}
 ### 2. Test Qiskit Integration (If Installed)
 
 ```python
-import hiq
+import arvak
 from qiskit import QuantumCircuit
 
 # Create Qiskit circuit
@@ -134,7 +134,7 @@ cp -r python/hiq/integrations/qiskit python/hiq/integrations/yourframework
 
 # 5. Test it
 python3 -c "
-import hiq
+import arvak
 print(hiq.integration_status())
 integration = hiq.get_integration('yourframework')
 print(f'✓ {integration.framework_name} integration works!')
@@ -234,7 +234,7 @@ For questions or issues:
 If you can run this without errors, you're all set:
 
 ```python
-import hiq
+import arvak
 print("HIQ version:", hiq.__version__ if hasattr(hiq, '__version__') else "dev")
 print("Available integrations:", list(hiq.list_integrations().keys()))
 print("✓ HIQ integration system ready!")

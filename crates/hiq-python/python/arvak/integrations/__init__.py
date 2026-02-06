@@ -5,7 +5,7 @@ frameworks like Qiskit, Qrisp, and Cirq. Integrations are automatically
 discovered and registered when their dependencies are available.
 
 Usage:
-    >>> import hiq
+    >>> import arvak
     >>> # Check available integrations
     >>> print(hiq.integration_status())
     >>>

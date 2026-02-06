@@ -1,8 +1,8 @@
-# HIQ Compilation Framework
+# Arvak Compilation Framework
 
 ## Overview
 
-The HIQ compilation framework provides a pass-based transpilation system for transforming quantum circuits to target hardware. It follows the design patterns established by Qiskit while providing a Rust-native implementation.
+The Arvak compilation framework provides a pass-based transpilation system for transforming quantum circuits to target hardware. It follows the design patterns established by Qiskit while providing a Rust-native implementation.
 
 ## Compilation Pipeline
 

@@ -8,7 +8,7 @@ import pytest
 
 # Try to import dependencies
 try:
-    import hiq
+    import arvak
     import cirq
     CIRQ_AVAILABLE = True
 except ImportError:
@@ -261,7 +261,7 @@ class TestCirqConverter:
 
     def test_cirq_to_hiq_function(self, cirq_bell_circuit):
         """Test cirq_to_hiq converter function."""
-        from hiq.integrations.cirq import cirq_to_hiq
+        from arvak.integrations.cirq import cirq_to_hiq
 
         hiq_circuit = cirq_to_hiq(cirq_bell_circuit)
         assert hiq_circuit is not None
@@ -269,7 +269,7 @@ class TestCirqConverter:
 
     def test_hiq_to_cirq_function(self, hiq_bell_circuit):
         """Test hiq_to_cirq converter function."""
-        from hiq.integrations.cirq import hiq_to_cirq
+        from arvak.integrations.cirq import hiq_to_cirq
 
         cirq_circuit = hiq_to_cirq(hiq_bell_circuit)
         assert cirq_circuit is not None

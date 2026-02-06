@@ -20,7 +20,7 @@ class HIQDevice:
 
     Example:
         >>> import pennylane as qml
-        >>> from hiq.integrations.pennylane import HIQDevice
+        >>> from arvak.integrations.pennylane import HIQDevice
         >>>
         >>> dev = HIQDevice(wires=2, backend='sim')
         >>>
@@ -89,7 +89,7 @@ class HIQDevice:
 
         # Convert operations to HIQ circuit
         from .converter import _tape_to_qasm
-        import hiq
+        import arvak
 
         # Build a simple tape-like object
         class MockTape:

@@ -1,12 +1,12 @@
-# HIQ Development Session: Phase 4 & v1.0.0 Release
+# Arvak Development Session: Phase 4 & v1.0.0 Release
 
-This document captures the development session that completed Phase 4 of HIQ and prepared the v1.0.0 release.
+This document captures the development session that completed Phase 4 of Arvak and prepared the v1.0.0 release.
 
 ## Session Overview
 
 **Date:** February 5, 2025
 **Objective:** Complete Phase 4 (Production) and prepare 1.0 release
-**Outcome:** Successfully released HIQ v1.0.0
+**Outcome:** Successfully released Arvak v1.0.0
 
 ---
 
@@ -187,7 +187,7 @@ hiq-types:       19 tests
 
 ### Commits
 1. `59777e1` - Add Phase 4: Advanced optimization, quantum types, and auto-uncomputation
-2. `fb1e364` - Release HIQ v1.0.0 - Full documentation and release preparation
+2. `fb1e364` - Release Arvak v1.0.0 - Full documentation and release preparation
 3. `8bc7961` - Update README for v1.0.0 release
 4. `eefc67c` - Change license to Apache-2.0 only
 
@@ -226,7 +226,7 @@ HIQ/
 
 ## Summary
 
-This session completed the HIQ v1.0.0 release with:
+This session completed the Arvak v1.0.0 release with:
 
 1. **3 new optimization passes** for gate reduction
 2. **2 new crates** (hiq-types, hiq-auto) for Qrisp-like features

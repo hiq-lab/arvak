@@ -2,7 +2,7 @@
 
 import pytest
 
-from hiq import Layout, CouplingMap, BasisGates, PropertySet, QubitId
+from arvak import Layout, CouplingMap, BasisGates, PropertySet, QubitId
 
 
 class TestLayout:

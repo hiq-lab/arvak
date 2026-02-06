@@ -1,8 +1,8 @@
-# HIQ HAL Contract Specification
+# Arvak HAL Contract Specification
 
 ## Overview
 
-The HAL (Hardware Abstraction Layer) Contract defines the formal interface between HIQ and quantum backends. It provides a stable, versioned API that third parties can implement to make their quantum hardware or simulators accessible through HIQ.
+The HAL (Hardware Abstraction Layer) Contract defines the formal interface between Arvak and quantum backends. It provides a stable, versioned API that third parties can implement to make their quantum hardware or simulators accessible through HIQ.
 
 ## Design Goals
 
@@ -56,7 +56,7 @@ The core contract defines the minimum interface that all backends MUST implement
 ### Rust Trait Definition
 
 ```rust
-//! HIQ HAL Core Contract v1
+//! Arvak HAL Core Contract v1
 //!
 //! This is the minimum interface a backend MUST implement.
 
@@ -224,7 +224,7 @@ The capabilities contract exposes device information for compilation and validat
 ### Rust Trait Definition
 
 ```rust
-//! HIQ HAL Capabilities Contract v1
+//! Arvak HAL Capabilities Contract v1
 //!
 //! Backends MUST implement this to expose device capabilities.
 
@@ -555,7 +555,7 @@ For backends that prefer HTTP/REST over native Rust integration.
 ```yaml
 openapi: 3.1.0
 info:
-  title: HIQ HAL Contract
+  title: Arvak HAL Contract
   version: "1.0.0"
   description: |
     Hardware Abstraction Layer contract for quantum backends.
@@ -1222,7 +1222,7 @@ X-HAL-Deprecated: feature_name; sunset=2025-06-01
 
 ### Test Suite
 
-HIQ provides a compliance test suite that backend implementers can run to verify their implementation.
+Arvak provides a compliance test suite that backend implementers can run to verify their implementation.
 
 ```rust
 /// Compliance test for HAL implementations.

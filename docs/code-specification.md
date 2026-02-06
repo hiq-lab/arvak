@@ -1,4 +1,4 @@
-# HIQ Code Specification
+# Arvak Code Specification
 
 ## Workspace Configuration
 

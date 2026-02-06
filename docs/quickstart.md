@@ -1,4 +1,4 @@
-# HIQ Quick Start Guide
+# Arvak Quick Start Guide
 
 ## Installation
 
