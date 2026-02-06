@@ -1,4 +1,4 @@
-// HIQ Dashboard Frontend Application
+// Arvak Dashboard Frontend Application
 
 // ============================================================================
 // State Management
