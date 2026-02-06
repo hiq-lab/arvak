@@ -1,6 +1,6 @@
 # Arvak Framework Integration Guide
 
-This guide explains how to add new quantum framework integrations to HIQ, making it easy to support additional frameworks like Qrisp, Cirq, PennyLane, and more.
+This guide explains how to add new quantum framework integrations to Arvak, making it easy to support additional frameworks like Qrisp, Cirq, PennyLane, and more.
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ This guide explains how to add new quantum framework integrations to HIQ, making
 
 ## Overview
 
-HIQ's integration system is designed to be:
+Arvak's integration system is designed to be:
 
 - **Extensible**: Add new frameworks by implementing a simple interface
 - **Modular**: Each integration is self-contained
@@ -37,7 +37,7 @@ When you add a framework integration:
 
 ```
 crates/arvak-python/
-├── python/hiq/
+├── python/arvak/
 │   ├── __init__.py                    # Main API + integration exports
 │   ├── integrations/
 │   │   ├── __init__.py                # Registry + auto-discovery
@@ -74,15 +74,15 @@ Adding a new framework takes about 30 minutes:
 
 ```bash
 # 1. Create directory structure
-mkdir -p python/hiq/integrations/yourframework
+mkdir -p python/arvak/integrations/yourframework
 
 # 2. Generate notebook from template
 python notebooks/generate_notebook.py yourframework 03
 
 # 3. Copy and adapt Qiskit integration
-cp python/hiq/integrations/qiskit/__init__.py python/hiq/integrations/yourframework/
-cp python/hiq/integrations/qiskit/converter.py python/hiq/integrations/yourframework/
-cp python/hiq/integrations/qiskit/backend.py python/hiq/integrations/yourframework/
+cp python/arvak/integrations/qiskit/__init__.py python/arvak/integrations/yourframework/
+cp python/arvak/integrations/qiskit/converter.py python/arvak/integrations/yourframework/
+cp python/arvak/integrations/qiskit/backend.py python/arvak/integrations/yourframework/
 
 # 4. Update pyproject.toml
 # Add: yourframework = ["yourframework>=X.Y.Z"]
@@ -98,10 +98,10 @@ pytest tests/integrations/test_yourframework.py
 Create the directory structure:
 
 ```bash
-mkdir -p python/hiq/integrations/yourframework
-touch python/hiq/integrations/yourframework/__init__.py
-touch python/hiq/integrations/yourframework/converter.py
-touch python/hiq/integrations/yourframework/backend.py
+mkdir -p python/arvak/integrations/yourframework
+touch python/arvak/integrations/yourframework/__init__.py
+touch python/arvak/integrations/yourframework/converter.py
+touch python/arvak/integrations/yourframework/backend.py
 ```
 
 ### Step 2: Implement FrameworkIntegration Class
@@ -109,14 +109,14 @@ touch python/hiq/integrations/yourframework/backend.py
 Edit `yourframework/__init__.py`:
 
 ```python
-"""YourFramework integration for HIQ."""
+"""YourFramework integration for Arvak."""
 
 from typing import List
 from .._base import FrameworkIntegration
 
 
 class YourFrameworkIntegration(FrameworkIntegration):
-    """YourFramework framework integration for HIQ."""
+    """YourFramework framework integration for Arvak."""
 
     @property
     def framework_name(self) -> str:
@@ -137,7 +137,7 @@ class YourFrameworkIntegration(FrameworkIntegration):
             return False
 
     def to_hiq(self, circuit):
-        """Convert YourFramework circuit to HIQ.
+        """Convert YourFramework circuit to Arvak.
 
         Args:
             circuit: YourFramework Circuit
@@ -157,7 +157,7 @@ class YourFrameworkIntegration(FrameworkIntegration):
         Returns:
             YourFramework Circuit
         """
-        from .converter import hiq_to_yourframework
+        from .converter import arvak_to_yourframework
         return hiq_to_yourframework(circuit)
 
     def get_backend_provider(self):
@@ -201,7 +201,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from yourframework import Circuit
-    import hiq
+    import arvak
 
 
 def yourframework_to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
@@ -225,13 +225,13 @@ def yourframework_to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
             "Install with: pip install yourframework>=X.Y.Z"
         )
 
-    import hiq
+    import arvak
 
     # Convert to QASM3
     # Adapt this to your framework's QASM export method
     qasm_str = circuit.to_qasm3()  # or circuit.qasm() or dumps(circuit)
 
-    # Import into HIQ
+    # Import into Arvak
     hiq_circuit = hiq.from_qasm(qasm_str)
 
     return hiq_circuit
@@ -258,7 +258,7 @@ def hiq_to_yourframework(circuit: 'hiq.Circuit') -> 'Circuit':
             "Install with: pip install yourframework>=X.Y.Z"
         )
 
-    import hiq
+    import arvak
 
     # Export Arvak to QASM3
     qasm_str = hiq.to_qasm(circuit)
@@ -275,7 +275,7 @@ def hiq_to_yourframework(circuit: 'hiq.Circuit') -> 'Circuit':
 Edit `yourframework/backend.py`:
 
 ```python
-"""YourFramework backend provider for HIQ."""
+"""YourFramework backend provider for Arvak."""
 
 from typing import List, Optional, Union, TYPE_CHECKING
 import warnings
@@ -370,7 +370,7 @@ class HIQSimulatorBackend:
         """
         warnings.warn(
             "Arvak backend execution through YourFramework is not yet fully implemented. "
-            "Use Arvak CLI for execution: 'hiq run circuit.qasm --backend sim --shots 1000'",
+            "Use Arvak CLI for execution: 'arvak run circuit.qasm --backend sim --shots 1000'",
             RuntimeWarning
         )
 
@@ -468,7 +468,7 @@ Create `tests/integrations/test_yourframework.py`:
 import pytest
 
 try:
-    import hiq
+    import arvak
     import yourframework
     YOURFRAMEWORK_AVAILABLE = True
 except ImportError:
@@ -488,13 +488,13 @@ def test_integration_registered():
 
 
 def test_yourframework_to_hiq():
-    """Test converting YourFramework circuit to HIQ."""
+    """Test converting YourFramework circuit to Arvak."""
     # Create YourFramework circuit
     circuit = yourframework.Circuit(2)
     circuit.h(0)
     circuit.cx(0, 1)
 
-    # Convert to HIQ
+    # Convert to Arvak
     integration = hiq.get_integration('yourframework')
     hiq_circuit = integration.to_hiq(circuit)
 
@@ -540,7 +540,7 @@ pytest tests/integrations/test_yourframework.py -v
 ### Manual Testing
 
 ```python
-import hiq
+import arvak
 
 # Check integration status
 status = hiq.integration_status()
@@ -569,7 +569,7 @@ print(f"Backend: {backend.name}")
 
 ### Minimal Integration (Qrisp)
 
-See `python/hiq/integrations/qiskit/` for a complete working example.
+See `python/arvak/integrations/qiskit/` for a complete working example.
 
 Key points:
 - OpenQASM 3.0 as interchange format
@@ -618,7 +618,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from yourframework import Circuit
-    import hiq
+    import arvak
 
 def to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
     ...
@@ -674,7 +674,7 @@ To contribute a new integration:
 
 - Arvak GitHub: https://github.com/arvak-lab/arvak
 - OpenQASM 3.0 Spec: https://openqasm.com/
-- Example integrations: `python/hiq/integrations/qiskit/`
+- Example integrations: `python/arvak/integrations/qiskit/`
 
 ## Support
 

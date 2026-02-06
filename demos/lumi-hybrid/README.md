@@ -2,7 +2,7 @@
 
 **Quantum-Classical Hybrid Workflow on LUMI Supercomputer**
 
-This demo showcases HIQ's ability to orchestrate quantum-classical hybrid workloads on LUMI, Europe's most powerful supercomputer. It implements the Variational Quantum Eigensolver (VQE) algorithm to compute the ground state energy of the H₂ molecule.
+This demo showcases Arvak's ability to orchestrate quantum-classical hybrid workloads on LUMI, Europe's most powerful supercomputer. It implements the Variational Quantum Eigensolver (VQE) algorithm to compute the ground state energy of the H₂ molecule.
 
 ## Architecture
 
