@@ -42,8 +42,8 @@ impl ArvakServiceImpl {
         Self::with_components(JobStore::new(), create_default_registry())
     }
 
-    /// Parse circuit from protobuf payload.
-    fn parse_circuit(&self, payload: Option<CircuitPayload>) -> Result<Circuit> {
+    /// Parse circuit from protobuf payload (static version for use in async contexts).
+    fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Circuit> {
         let payload = payload.ok_or_else(|| Error::InvalidCircuit("Missing circuit payload".to_string()))?;
 
         match payload.format {
@@ -52,10 +52,78 @@ impl ArvakServiceImpl {
                 Ok(circuit)
             }
             Some(circuit_payload::Format::ArvakIrJson(_json)) => {
-                // TODO: Implement Circuit JSON deserialization
                 Err(Error::InvalidCircuit("Arvak IR JSON format not yet supported".to_string()))
             }
             None => Err(Error::InvalidCircuit("No circuit format specified".to_string())),
+        }
+    }
+
+    /// Parse circuit from protobuf payload.
+    fn parse_circuit(&self, payload: Option<CircuitPayload>) -> Result<Circuit> {
+        Self::parse_circuit_static(payload)
+    }
+
+    /// Execute a job synchronously (wait for completion).
+    async fn execute_job_sync(
+        job_store: Arc<JobStore>,
+        backend: Arc<dyn Backend>,
+        job_id: JobId,
+        metrics: Metrics,
+    ) {
+        // Get job details
+        let job = match job_store.get_job(&job_id).await {
+            Ok(job) => job,
+            Err(e) => {
+                error!("Failed to get job: {}", e);
+                return;
+            }
+        };
+
+        let backend_id = job.backend_id.clone();
+        let submitted_at = job.submitted_at;
+
+        // Update to RUNNING
+        if let Err(e) = job_store.update_status(&job_id, JobStatus::Running).await {
+            error!("Failed to update job status to running: {}", e);
+            metrics.record_job_failed(&backend_id, "status_update_error");
+            return;
+        }
+
+        metrics.record_job_started(&backend_id);
+        let queue_time = chrono::Utc::now()
+            .signed_duration_since(submitted_at)
+            .num_milliseconds() as u64;
+        metrics.record_queue_time(&backend_id, queue_time);
+
+        // Execute on backend
+        let execution_start = chrono::Utc::now();
+        match backend.submit(&job.circuit, job.shots).await {
+            Ok(backend_job_id) => {
+                match backend.wait(&backend_job_id).await {
+                    Ok(result) => {
+                        let duration = chrono::Utc::now()
+                            .signed_duration_since(execution_start)
+                            .num_milliseconds() as u64;
+
+                        if let Err(e) = job_store.store_result(&job_id, result).await {
+                            error!("Failed to store job result: {}", e);
+                            metrics.record_job_failed(&backend_id, "storage_error");
+                        } else {
+                            metrics.record_job_completed(&backend_id, duration);
+                        }
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Backend wait failed: {}", e);
+                        metrics.record_job_failed(&backend_id, "backend_wait_error");
+                        let _ = job_store.update_status(&job_id, JobStatus::Failed(error_msg)).await;
+                    }
+                }
+            }
+            Err(e) => {
+                let error_msg = format!("Backend submit failed: {}", e);
+                metrics.record_job_failed(&backend_id, "backend_submit_error");
+                let _ = job_store.update_status(&job_id, JobStatus::Failed(error_msg)).await;
+            }
         }
     }
 
@@ -165,6 +233,14 @@ impl Default for ArvakServiceImpl {
 impl arvak_service_server::ArvakService for ArvakServiceImpl {
     type WatchJobStream = std::pin::Pin<
         Box<dyn tokio_stream::Stream<Item = std::result::Result<JobStatusUpdate, Status>> + Send>,
+    >;
+
+    type StreamResultsStream = std::pin::Pin<
+        Box<dyn tokio_stream::Stream<Item = std::result::Result<ResultChunk, Status>> + Send>,
+    >;
+
+    type SubmitBatchStreamStream = std::pin::Pin<
+        Box<dyn tokio_stream::Stream<Item = std::result::Result<BatchJobResult, Status>> + Send>,
     >;
 
     #[instrument(skip(self, request), fields(backend_id, job_id))]
@@ -360,6 +436,190 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
         Ok(Response::new(Box::pin(stream) as Self::WatchJobStream))
+    }
+
+    #[instrument(skip(self, request), fields(job_id))]
+    async fn stream_results(
+        &self,
+        request: Request<StreamResultsRequest>,
+    ) -> std::result::Result<Response<Self::StreamResultsStream>, Status> {
+        let req = request.into_inner();
+        let job_id = JobId::new(req.job_id.clone());
+        let chunk_size = if req.chunk_size > 0 {
+            req.chunk_size as usize
+        } else {
+            1000 // Default chunk size
+        };
+
+        tracing::Span::current().record("job_id", &job_id.0.as_str());
+        info!(chunk_size = chunk_size, "Starting result stream");
+
+        // Get the complete result first
+        let result = self.job_store.get_result(&job_id).await
+            .map_err(|e| Status::from(e))?;
+
+        let (tx, rx) = tokio::sync::mpsc::channel(16);
+
+        // Spawn task to stream result chunks
+        tokio::spawn(async move {
+            let all_counts: Vec<(String, u64)> = result.counts.iter()
+                .map(|(k, v)| (k.clone(), *v))
+                .collect();
+
+            let total_entries = all_counts.len();
+            let total_chunks = (total_entries + chunk_size - 1) / chunk_size;
+
+            for (chunk_index, chunk_entries) in all_counts.chunks(chunk_size).enumerate() {
+                let mut chunk_counts = std::collections::HashMap::new();
+                for (bitstring, count) in chunk_entries {
+                    chunk_counts.insert(bitstring.clone(), *count);
+                }
+
+                let is_final = chunk_index == total_chunks - 1;
+                let chunk = ResultChunk {
+                    job_id: req.job_id.clone(),
+                    counts: chunk_counts,
+                    is_final,
+                    chunk_index: chunk_index as u32,
+                    total_chunks: total_chunks as u32,
+                };
+
+                if tx.send(Ok(chunk)).await.is_err() {
+                    // Client disconnected
+                    break;
+                }
+            }
+        });
+
+        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+        Ok(Response::new(Box::pin(stream) as Self::StreamResultsStream))
+    }
+
+    #[instrument(skip(self, request))]
+    async fn submit_batch_stream(
+        &self,
+        request: Request<tonic::Streaming<BatchJobSubmission>>,
+    ) -> std::result::Result<Response<Self::SubmitBatchStreamStream>, Status> {
+        info!("Starting batch stream submission");
+
+        let mut in_stream = request.into_inner();
+        let (tx, rx) = tokio::sync::mpsc::channel(16);
+
+        let job_store = self.job_store.clone();
+        let backends = self.backends.clone();
+        let metrics = self.metrics.clone();
+
+        // Spawn task to handle incoming submissions
+        tokio::spawn(async move {
+            while let Some(result) = in_stream.message().await.transpose() {
+                match result {
+                    Ok(submission) => {
+                        let client_request_id = submission.client_request_id.clone();
+
+                        // Parse circuit
+                        let circuit = match Self::parse_circuit_static(submission.circuit) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                let _ = tx.send(Ok(BatchJobResult {
+                                    job_id: String::new(),
+                                    client_request_id,
+                                    result: Some(batch_job_result::Result::Error(
+                                        format!("Circuit parsing failed: {}", e)
+                                    )),
+                                })).await;
+                                continue;
+                            }
+                        };
+
+                        // Get backend
+                        let backend = match backends.get(&submission.backend_id) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                let _ = tx.send(Ok(BatchJobResult {
+                                    job_id: String::new(),
+                                    client_request_id,
+                                    result: Some(batch_job_result::Result::Error(
+                                        format!("Backend not found: {}", e)
+                                    )),
+                                })).await;
+                                continue;
+                            }
+                        };
+
+                        // Create job
+                        match job_store.create_job(circuit, submission.backend_id.clone(), submission.shots).await {
+                            Ok(job_id) => {
+                                // Send submission confirmation
+                                let _ = tx.send(Ok(BatchJobResult {
+                                    job_id: job_id.0.clone(),
+                                    client_request_id: client_request_id.clone(),
+                                    result: Some(batch_job_result::Result::Submitted(
+                                        "Job submitted successfully".to_string()
+                                    )),
+                                })).await;
+
+                                metrics.record_job_submitted(&submission.backend_id);
+
+                                // Spawn execution and wait for result
+                                let job_store_clone = job_store.clone();
+                                let tx_clone = tx.clone();
+                                let backend_clone = backend.clone();
+                                let metrics_clone = metrics.clone();
+                                let _backend_id = submission.backend_id.clone();
+
+                                tokio::spawn(async move {
+                                    Self::execute_job_sync(
+                                        job_store_clone.clone(),
+                                        backend_clone,
+                                        job_id.clone(),
+                                        metrics_clone,
+                                    ).await;
+
+                                    // Send completion notification
+                                    if let Ok(result) = job_store_clone.get_result(&job_id).await {
+                                        let mut counts = std::collections::HashMap::new();
+                                        for (k, v) in result.counts.iter() {
+                                            counts.insert(k.clone(), *v);
+                                        }
+
+                                        let metadata_json = serde_json::to_string(&result.metadata)
+                                            .unwrap_or_else(|_| "{}".to_string());
+
+                                        let _ = tx_clone.send(Ok(BatchJobResult {
+                                            job_id: job_id.0.clone(),
+                                            client_request_id,
+                                            result: Some(batch_job_result::Result::Completed(JobResult {
+                                                job_id: job_id.0,
+                                                counts,
+                                                shots: result.shots,
+                                                execution_time_ms: result.execution_time_ms.unwrap_or(0),
+                                                metadata_json,
+                                            })),
+                                        })).await;
+                                    }
+                                });
+                            }
+                            Err(e) => {
+                                let _ = tx.send(Ok(BatchJobResult {
+                                    job_id: String::new(),
+                                    client_request_id,
+                                    result: Some(batch_job_result::Result::Error(
+                                        format!("Job creation failed: {}", e)
+                                    )),
+                                })).await;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Err(Status::internal(format!("Stream error: {}", e)))).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+        Ok(Response::new(Box::pin(stream) as Self::SubmitBatchStreamStream))
     }
 
     async fn get_job_result(
