@@ -61,4 +61,7 @@ pub use metrics::Metrics;
 pub use resource_manager::{ResourceError, ResourceManager, ResourceStats};
 pub use server::{ArvakServiceImpl, BackendRegistry, JobStore};
 pub use storage::{JobStorage, MemoryStorage, StoredJob};
+
+#[cfg(feature = "sqlite")]
+pub use storage::SqliteStorage;
 pub use tracing_config::{init_default_tracing, init_tracing, TracingConfig, TracingFormat};

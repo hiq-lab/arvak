@@ -30,6 +30,9 @@ arvak-types = { workspace = true }
 # Arvak backends (feature-gated)
 arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim", optional = true }
 
+# Storage backends (feature-gated)
+rusqlite = { version = "0.31", features = ["bundled"], optional = true }
+
 # Data structures
 rustc-hash = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
@@ -79,7 +82,8 @@ async-stream = "0.3"
 [features]
 default = ["simulator"]
 simulator = ["arvak-adapter-sim"]
-# TODO: Add sqlite and postgres features once dependency conflicts are resolved
+sqlite = ["rusqlite"]
+# TODO: Add postgres feature once needed
 
 [[bin]]
 name = "arvak-grpc-server"
