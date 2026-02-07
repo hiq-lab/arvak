@@ -5,7 +5,7 @@ This directory contains example notebooks demonstrating Arvak's capabilities and
 ## Available Notebooks
 
 ### Core Arvak
-- **01_core_hiq.ipynb** - Introduction to Arvak's Python API without external dependencies
+- **01_core_arvak.ipynb** - Introduction to Arvak's Python API without external dependencies
   - Circuit construction with fluent API
   - OpenQASM 3.0 import/export
   - Compilation configuration (coupling maps, basis gates)
@@ -93,13 +93,13 @@ class YourFrameworkIntegration(FrameworkIntegration):
         except ImportError:
             return False
 
-    def to_hiq(self, circuit):
-        from .converter import yourframework_to_hiq
-        return yourframework_to_hiq(circuit)
+    def to_arvak(self, circuit):
+        from .converter import yourframework_to_arvak
+        return yourframework_to_arvak(circuit)
 
-    def from_hiq(self, circuit):
+    def from_arvak(self, circuit):
         from .converter import arvak_to_yourframework
-        return hiq_to_yourframework(circuit)
+        return arvak_to_yourframework(circuit)
 
     def get_backend_provider(self):
         from .backend import YourFrameworkProvider
@@ -117,7 +117,7 @@ if _integration.is_available():
 In `converter.py`, implement conversion using OpenQASM 3.0:
 
 ```python
-def yourframework_to_hiq(circuit):
+def yourframework_to_arvak(circuit):
     """Convert framework circuit to Arvak via QASM3."""
     import arvak
     # Export to QASM3
@@ -125,7 +125,7 @@ def yourframework_to_hiq(circuit):
     # Import to Arvak
     return arvak.from_qasm(qasm_str)
 
-def hiq_to_yourframework(circuit):
+def arvak_to_yourframework(circuit):
     """Convert Arvak circuit to framework via QASM3."""
     import arvak
     import yourframework
@@ -163,7 +163,7 @@ assert status['yourframework']['available'] == True
 
 # Test conversion
 integration = arvak.get_integration('yourframework')
-hiq_circuit = integration.to_hiq(your_circuit)
+arvak_circuit = integration.to_arvak(your_circuit)
 ```
 
 That's it! Your integration will be automatically discovered and available when users install `arvak[yourframework]`.

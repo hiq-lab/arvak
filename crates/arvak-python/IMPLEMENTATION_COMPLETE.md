@@ -39,7 +39,7 @@ integrations = arvak.list_integrations()
 
 # Get specific integration
 qiskit = arvak.get_integration('qiskit')
-hiq_circuit = qiskit.to_arvak(qiskit_circuit)
+arvak_circuit = qiskit.to_arvak(qiskit_circuit)
 ```
 
 ### 2. Qiskit Integration ✅
@@ -58,7 +58,7 @@ from arvak.integrations.qiskit import ArvakProvider, qiskit_to_arvak
 qc = QuantumCircuit(2)
 qc.h(0)
 qc.cx(0, 1)
-hiq_circuit = qiskit_to_arvak(qc)
+arvak_circuit = qiskit_to_arvak(qc)
 
 # Use as backend
 provider = ArvakProvider()
@@ -321,7 +321,7 @@ Universal compatibility through standardized format:
 ```python
 # Any framework with QASM support can integrate
 qasm_str = framework_circuit.to_qasm3()
-hiq_circuit = arvak.from_qasm(qasm_str)
+arvak_circuit = arvak.from_qasm(qasm_str)
 ```
 
 ### Graceful Degradation
