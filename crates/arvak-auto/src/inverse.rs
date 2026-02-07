@@ -138,6 +138,18 @@ pub fn inverse_instruction(instruction: &Instruction) -> UncomputeResult<Instruc
             // Delays don't need inversion
             Ok(instruction.clone())
         }
+
+        InstructionKind::Shuttle { from_zone, to_zone } => {
+            // Inverse of a shuttle is shuttling back
+            Ok(Instruction {
+                kind: InstructionKind::Shuttle {
+                    from_zone: *to_zone,
+                    to_zone: *from_zone,
+                },
+                qubits: instruction.qubits.clone(),
+                clbits: instruction.clbits.clone(),
+            })
+        }
     }
 }
 

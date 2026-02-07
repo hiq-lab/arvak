@@ -239,6 +239,31 @@ impl CouplingMap {
         map
     }
 
+    /// Create a zoned coupling map for neutral-atom devices.
+    ///
+    /// Qubits within each zone are fully connected; qubits across zones are not
+    /// (they require shuttle operations).
+    pub fn zoned(num_qubits: u32, zones: u32) -> Self {
+        let mut map = Self::new(num_qubits);
+        let qubits_per_zone = num_qubits / zones.max(1);
+
+        for z in 0..zones {
+            let start = z * qubits_per_zone;
+            let end = if z == zones - 1 {
+                num_qubits
+            } else {
+                start + qubits_per_zone
+            };
+            for i in start..end {
+                for j in (i + 1)..end {
+                    map.add_edge(i, j);
+                }
+            }
+        }
+
+        map
+    }
+
     /// Calculate shortest path distance between two qubits.
     pub fn distance(&self, from: u32, to: u32) -> Option<u32> {
         if from == to {
@@ -300,6 +325,11 @@ impl BasisGates {
     /// Create IBM basis gates (RZ + SX + X + CX).
     pub fn ibm() -> Self {
         Self::new(["rz", "sx", "x", "cx", "measure", "barrier", "id"])
+    }
+
+    /// Create neutral-atom basis gates (RZ + RX + RY + CZ + shuttle).
+    pub fn neutral_atom() -> Self {
+        Self::new(["rz", "rx", "ry", "cz", "measure", "barrier", "shuttle"])
     }
 
     /// Create a universal basis (all standard gates).

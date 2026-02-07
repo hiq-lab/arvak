@@ -61,6 +61,18 @@ impl Capabilities {
             features: vec!["dynamic_circuits".into()],
         }
     }
+    /// Create capabilities for a neutral-atom device (e.g., planqc, Pasqal).
+    pub fn neutral_atom(name: impl Into<String>, num_qubits: u32, zones: u32) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits,
+            gate_set: GateSet::neutral_atom(),
+            topology: Topology::neutral_atom(num_qubits, zones),
+            max_shots: 100_000,
+            is_simulator: false,
+            features: vec!["shuttling".into(), "zoned".into()],
+        }
+    }
 }
 
 /// Gate set supported by a backend.
@@ -131,6 +143,17 @@ impl GateSet {
                 "rzz".into(),
             ],
             native: vec![],
+        }
+    }
+
+    /// Create a neutral-atom gate set.
+    ///
+    /// Native gates: Global RZ, Rydberg CZ/CCZ.
+    pub fn neutral_atom() -> Self {
+        Self {
+            single_qubit: vec!["rz".into(), "rx".into(), "ry".into()],
+            two_qubit: vec!["cz".into()],
+            native: vec!["rz".into(), "rx".into(), "ry".into(), "cz".into()],
         }
     }
 
@@ -212,6 +235,35 @@ impl Topology {
         }
     }
 
+    /// Create a neutral-atom topology with zones.
+    ///
+    /// Qubits within a zone are fully connected (Rydberg interaction radius).
+    /// Qubits across zones require shuttling.
+    pub fn neutral_atom(num_qubits: u32, zones: u32) -> Self {
+        let qubits_per_zone = num_qubits / zones.max(1);
+        let mut edges = vec![];
+
+        // Full connectivity within each zone
+        for z in 0..zones {
+            let start = z * qubits_per_zone;
+            let end = if z == zones - 1 {
+                num_qubits
+            } else {
+                start + qubits_per_zone
+            };
+            for i in start..end {
+                for j in (i + 1)..end {
+                    edges.push((i, j));
+                }
+            }
+        }
+
+        Self {
+            kind: TopologyKind::NeutralAtom { zones },
+            edges,
+        }
+    }
+
     /// Check if two qubits are connected.
     pub fn is_connected(&self, q1: u32, q2: u32) -> bool {
         self.edges
@@ -234,6 +286,11 @@ pub enum TopologyKind {
     Grid { rows: u32, cols: u32 },
     /// Custom topology.
     Custom,
+    /// Neutral-atom topology with reconfigurable zones.
+    NeutralAtom {
+        /// Number of interaction zones.
+        zones: u32,
+    },
 }
 
 #[cfg(test)]
@@ -285,5 +342,37 @@ mod tests {
         assert!(topo.is_connected(0, 3));
         assert!(topo.is_connected(1, 4));
         assert!(!topo.is_connected(0, 4)); // Diagonal not connected
+    }
+
+    #[test]
+    fn test_topology_neutral_atom() {
+        // 6 qubits, 2 zones: zone0=[0,1,2], zone1=[3,4,5]
+        let topo = Topology::neutral_atom(6, 2);
+        assert_eq!(topo.kind, TopologyKind::NeutralAtom { zones: 2 });
+
+        // Within zone 0: fully connected
+        assert!(topo.is_connected(0, 1));
+        assert!(topo.is_connected(0, 2));
+        assert!(topo.is_connected(1, 2));
+
+        // Within zone 1: fully connected
+        assert!(topo.is_connected(3, 4));
+        assert!(topo.is_connected(3, 5));
+        assert!(topo.is_connected(4, 5));
+
+        // Across zones: not connected (requires shuttling)
+        assert!(!topo.is_connected(2, 3));
+        assert!(!topo.is_connected(0, 5));
+    }
+
+    #[test]
+    fn test_capabilities_neutral_atom() {
+        let caps = Capabilities::neutral_atom("planqc-atom1", 100, 4);
+        assert!(!caps.is_simulator);
+        assert_eq!(caps.num_qubits, 100);
+        assert!(caps.gate_set.contains("cz"));
+        assert!(caps.gate_set.contains("rz"));
+        assert!(!caps.gate_set.contains("cx"));
+        assert!(caps.features.contains(&"shuttling".to_string()));
     }
 }

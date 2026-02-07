@@ -103,6 +103,8 @@ pub mod backend;
 pub mod capability;
 pub mod error;
 pub mod job;
+pub mod plugin;
+pub mod registry;
 pub mod result;
 
 pub use auth::{CachedToken, EnvTokenProvider, OidcAuth, OidcConfig, TokenProvider};
@@ -110,4 +112,6 @@ pub use backend::{Backend, BackendConfig, BackendFactory};
 pub use capability::{Capabilities, GateSet, Topology, TopologyKind};
 pub use error::{HalError, HalResult};
 pub use job::{Job, JobId, JobStatus};
+pub use plugin::{BackendPlugin, PluginInfo};
+pub use registry::BackendRegistry;
 pub use result::{Counts, ExecutionResult};

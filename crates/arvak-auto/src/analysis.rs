@@ -164,6 +164,10 @@ pub fn find_reversible_ops(circuit: &Circuit) -> Vec<usize> {
             InstructionKind::Measure | InstructionKind::Reset => {
                 // Non-reversible operations
             }
+            InstructionKind::Shuttle { .. } => {
+                // Shuttling is reversible (swap zones)
+                reversible.push(idx);
+            }
         }
     }
 
