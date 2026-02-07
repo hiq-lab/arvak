@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.1.1)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.2.0)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.1.1 Released!** Multi-framework integration system with Qiskit, Qrisp, Cirq, and PennyLane support + 5 interactive Jupyter notebooks. gRPC Python client v1.6.0 with async/await, caching, and advanced analysis. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **v1.2.0 Released!** Docker deployment with dashboard and gRPC services, SSL/HTTPS support, live demo at [arvak.io](https://arvak.io). See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Quick Install
 
@@ -906,7 +906,7 @@ python tests/verify_integration_system.py
 - [x] 5 interactive Jupyter notebooks
 - [x] Complete integration guide (INTEGRATION_GUIDE.md)
 - [x] PyPI publication as `arvak`
-- [x] **v1.1.0 release → v1.1.1 release**
+- [x] **v1.1.0 → v1.1.1 → v1.2.0 release**
 
 ### Phase 6: Advanced Features 🔄 IN PROGRESS
 - [ ] Error mitigation (ZNE, readout correction, Pauli twirling)
