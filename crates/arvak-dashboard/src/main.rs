@@ -24,8 +24,14 @@ async fn main() -> anyhow::Result<()> {
     }
     let bind_addr = config.bind_address;
 
+    // Create job store (in-memory SQLite)
+    let store = Arc::new(
+        arvak_sched::SqliteStore::in_memory().expect("Failed to create in-memory job store"),
+    );
+    tracing::info!("Initialized in-memory job store");
+
     // Create application state
-    let state = Arc::new(AppState::with_config(config));
+    let state = Arc::new(AppState::with_config(config).with_store(store));
 
     // Optionally register the simulator backend if the feature is enabled
     #[cfg(feature = "with-simulator")]
