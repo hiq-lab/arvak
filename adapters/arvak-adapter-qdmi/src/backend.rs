@@ -26,7 +26,7 @@ use crate::ffi::mock::{MockDevice, MockJob, MockSession};
 #[cfg(feature = "system-qdmi")]
 use crate::ffi::{
     self, QdmiDevice, QdmiJob, QdmiJobParameter, QdmiJobResult, QdmiProgramFormat, QdmiSession,
-    QdmiSessionParameter,
+    QdmiSessionParameter, QdmiSessionProperty,
 };
 
 #[cfg(feature = "system-qdmi")]
@@ -268,24 +268,16 @@ impl QdmiBackend {
             }
 
             // 2. Set session parameters
-            if let Some(ref base_url) = self.config.endpoint {
-                let c_url = CString::new(base_url.as_str())
-                    .map_err(|e| QdmiError::InvalidParameter(e.to_string()))?;
-                let status = ffi::QDMI_session_set_parameter(
-                    session,
-                    QdmiSessionParameter::BaseUrl as c_int,
-                    c_url.as_ptr() as *const c_void,
-                );
-                ffi::check_status(status)
-                    .map_err(|s| QdmiError::Ffi(format!("set BaseUrl failed: {s:?}")))?;
-            }
-
+            // Note: In QDMI v1.2.1, BaseUrl moved to device-session layer.
+            // The client-session layer uses Token, AuthFile, etc.
             if let Some(ref token) = self.config.token {
                 let c_token = CString::new(token.as_str())
                     .map_err(|e| QdmiError::InvalidParameter(e.to_string()))?;
+                let token_bytes = c_token.as_bytes_with_nul();
                 let status = ffi::QDMI_session_set_parameter(
                     session,
                     QdmiSessionParameter::Token as c_int,
+                    token_bytes.len(),
                     c_token.as_ptr() as *const c_void,
                 );
                 ffi::check_status(status)
@@ -297,22 +289,44 @@ impl QdmiBackend {
             ffi::check_status(status)
                 .map_err(|s| QdmiError::Ffi(format!("session_init failed: {s:?}")))?;
 
-            // 4. Get devices
-            let mut devices: *mut QdmiDevice = std::ptr::null_mut();
-            let mut device_count: usize = 0;
-            let status = ffi::QDMI_session_get_devices(session, &mut devices, &mut device_count);
-            ffi::check_status(status)
-                .map_err(|s| QdmiError::Ffi(format!("get_devices failed: {s:?}")))?;
+            // 4. Discover devices via session property query (buffer-query pattern)
+            // First call: get required buffer size
+            let mut devices_size: usize = 0;
+            let status = ffi::QDMI_session_query_session_property(
+                session,
+                QdmiSessionProperty::Devices as c_int,
+                0,
+                std::ptr::null_mut(),
+                &mut devices_size,
+            );
+            // ErrorInvalidArgument with size_ret > 0 means "buffer too small, here's the size"
+            if devices_size == 0 {
+                ffi::QDMI_session_free(session);
+                return Err(QdmiError::NoDevice);
+            }
 
-            if device_count == 0 || devices.is_null() {
-                // Clean up session on failure
+            // Second call: retrieve device pointers
+            let device_count = devices_size / std::mem::size_of::<*mut QdmiDevice>();
+            let mut device_ptrs: Vec<*mut QdmiDevice> =
+                vec![std::ptr::null_mut(); device_count];
+            let status = ffi::QDMI_session_query_session_property(
+                session,
+                QdmiSessionProperty::Devices as c_int,
+                devices_size,
+                device_ptrs.as_mut_ptr() as *mut c_void,
+                &mut devices_size,
+            );
+            ffi::check_status(status)
+                .map_err(|s| QdmiError::Ffi(format!("query devices failed: {s:?}")))?;
+
+            if device_ptrs.is_empty() || device_ptrs[0].is_null() {
                 ffi::QDMI_session_free(session);
                 return Err(QdmiError::NoDevice);
             }
 
             // Use the first available device
             state.session = session;
-            state.device = devices;
+            state.device = device_ptrs[0];
             state.initialized = true;
 
             info!("QDMI session initialized with {} device(s)", device_count);
@@ -362,28 +376,42 @@ impl QdmiBackend {
         unsafe {
             use crate::ffi::QdmiDeviceProperty;
 
-            // Query device name
-            let mut name_buf = [0u8; 256];
-            let mut name_size = name_buf.len();
-            let status = ffi::QDMI_device_query_device_property(
+            // Query device name (buffer-query pattern)
+            let mut name_size: usize = 0;
+            // First call: get required size
+            let _status = ffi::QDMI_device_query_device_property(
                 state.device,
                 QdmiDeviceProperty::Name as c_int,
-                name_buf.as_mut_ptr() as *mut c_void,
+                0,
+                std::ptr::null_mut(),
                 &mut name_size,
             );
-            let device_name = if ffi::check_status(status).is_ok() && name_size > 0 {
-                String::from_utf8_lossy(&name_buf[..name_size.saturating_sub(1)]).to_string()
+            let device_name = if name_size > 0 {
+                let mut name_buf = vec![0u8; name_size];
+                let status = ffi::QDMI_device_query_device_property(
+                    state.device,
+                    QdmiDeviceProperty::Name as c_int,
+                    name_size,
+                    name_buf.as_mut_ptr() as *mut c_void,
+                    &mut name_size,
+                );
+                if ffi::check_status(status).is_ok() {
+                    String::from_utf8_lossy(&name_buf[..name_size.saturating_sub(1)]).to_string()
+                } else {
+                    "QDMI Device".to_string()
+                }
             } else {
                 "QDMI Device".to_string()
             };
 
-            // Query number of qubits
-            let mut num_qubits: c_int = 0;
-            let mut qubits_size = std::mem::size_of::<c_int>();
+            // Query number of qubits (QubitsNum is size_t in v1.2.1)
+            let mut num_qubits: usize = 0;
+            let mut qubits_size = std::mem::size_of::<usize>();
             let status = ffi::QDMI_device_query_device_property(
                 state.device,
                 QdmiDeviceProperty::QubitsNum as c_int,
-                &mut num_qubits as *mut c_int as *mut c_void,
+                qubits_size,
+                &mut num_qubits as *mut usize as *mut c_void,
                 &mut qubits_size,
             );
             let num_qubits = if ffi::check_status(status).is_ok() {
@@ -538,6 +566,7 @@ impl Backend for QdmiBackend {
                     let result = ffi::QDMI_device_query_device_property(
                         state.device,
                         QdmiDeviceProperty::Status as c_int,
+                        size,
                         &mut status_val as *mut c_int as *mut c_void,
                         &mut size,
                     );
@@ -632,6 +661,7 @@ impl Backend for QdmiBackend {
                 let status = ffi::QDMI_job_set_parameter(
                     job,
                     QdmiJobParameter::ProgramFormat as c_int,
+                    std::mem::size_of::<c_int>(),
                     &format as *const c_int as *const c_void,
                 );
                 ffi::check_status(status)
@@ -640,9 +670,11 @@ impl Backend for QdmiBackend {
                 // 3. Set program
                 let c_qasm = CString::new(qasm.as_str())
                     .map_err(|e| HalError::Backend(format!("Invalid QASM string: {e}")))?;
+                let qasm_bytes = c_qasm.as_bytes_with_nul();
                 let status = ffi::QDMI_job_set_parameter(
                     job,
                     QdmiJobParameter::Program as c_int,
+                    qasm_bytes.len(),
                     c_qasm.as_ptr() as *const c_void,
                 );
                 ffi::check_status(status)
@@ -653,6 +685,7 @@ impl Backend for QdmiBackend {
                 let status = ffi::QDMI_job_set_parameter(
                     job,
                     QdmiJobParameter::ShotsNum as c_int,
+                    std::mem::size_of::<c_int>(),
                     &shots_val as *const c_int as *const c_void,
                 );
                 ffi::check_status(status)
@@ -780,24 +813,26 @@ impl Backend for QdmiBackend {
                 .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))?;
 
             unsafe {
-                // First get the size of histogram keys
+                // First get the size of histogram keys (buffer-query pattern)
                 let mut keys_size: usize = 0;
-                let status = ffi::QDMI_job_get_results(
+                let _status = ffi::QDMI_job_get_results(
                     job_ptr,
                     QdmiJobResult::HistKeys as c_int,
+                    0,
                     std::ptr::null_mut(),
                     &mut keys_size,
                 );
-                // NotFound or zero size means no results yet
-                if !ffi::check_status(status).is_ok() || keys_size == 0 {
+                // Zero size means no results yet
+                if keys_size == 0 {
                     return Err(HalError::JobFailed("No results available".into()));
                 }
 
-                // Allocate and get histogram keys
+                // Second call: retrieve histogram keys
                 let mut keys_buf = vec![0u8; keys_size];
                 let status = ffi::QDMI_job_get_results(
                     job_ptr,
                     QdmiJobResult::HistKeys as c_int,
+                    keys_size,
                     keys_buf.as_mut_ptr() as *mut c_void,
                     &mut keys_size,
                 );
@@ -812,13 +847,15 @@ impl Backend for QdmiBackend {
                     .map(|s| s.to_string())
                     .collect();
 
-                // Get histogram values
+                // Get histogram values (buffer-query pattern)
                 let num_keys = hist_keys.len();
+                let values_buf_size = num_keys * std::mem::size_of::<u64>();
                 let mut hist_values = vec![0u64; num_keys];
-                let mut values_size = num_keys * std::mem::size_of::<u64>();
+                let mut values_size = values_buf_size;
                 let status = ffi::QDMI_job_get_results(
                     job_ptr,
                     QdmiJobResult::HistValues as c_int,
+                    values_buf_size,
                     hist_values.as_mut_ptr() as *mut c_void,
                     &mut values_size,
                 );

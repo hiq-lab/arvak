@@ -111,10 +111,11 @@ Transpilation infrastructure:
 - **PassManager** — Orchestrates pass execution
 - **PropertySet** — Inter-pass communication
 - **Built-in Passes:**
-  - Layout (TrivialLayout, DenseLayout)
-  - Routing (BasicRouting, SABRE)
+  - Layout (TrivialLayout)
+  - Routing (BasicRouting, NeutralAtomRouting)
   - BasisTranslation
-  - Optimization (Optimize1qGates, CancelCx)
+  - Optimization (Optimize1qGates, CancelCX, CommutativeCancellation)
+  - Verification (MeasurementBarrierVerification)
 
 ### arvak-auto (Automatic Uncomputation)
 

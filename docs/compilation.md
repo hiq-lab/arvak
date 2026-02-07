@@ -19,13 +19,8 @@ The Arvak compilation framework provides a pass-based transpilation system for t
 │                    Compilation Stages                    │
 │                                                         │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐    │
-│  │  Init   │─▶│ Layout  │─▶│ Routing │─▶│ Basis   │    │
+│  │ Layout  │─▶│ Routing │─▶│ Basis   │─▶│Optimize │    │
 │  └─────────┘  └─────────┘  └─────────┘  └─────────┘    │
-│                                               │         │
-│                                               ▼         │
-│                                         ┌─────────┐    │
-│                                         │Optimize │    │
-│                                         └─────────┘    │
 └─────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -186,16 +181,6 @@ pm.run(&mut dag, &mut props)?;
 
 ## Built-in Passes
 
-### Init Stage
-
-#### RemoveBarriers
-
-Removes barrier instructions that would prevent optimization.
-
-```rust
-pub struct RemoveBarriers;
-```
-
 ### Layout Stage
 
 #### TrivialLayout
@@ -210,9 +195,9 @@ pub struct TrivialLayout;
 //         ...
 ```
 
-#### DenseLayout (Planned)
+#### DenseLayout (Planned -- Not Yet Implemented)
 
-Selects physical qubits to minimize circuit depth based on error rates and connectivity.
+Selects physical qubits to minimize circuit depth based on error rates and connectivity. Currently only `TrivialLayout` is available.
 
 ### Routing Stage
 
@@ -224,7 +209,15 @@ Simple routing that checks connectivity constraints. Errors if qubits aren't con
 pub struct BasicRouting;
 ```
 
-#### SabreRouting (Planned)
+#### NeutralAtomRouting
+
+Routing pass for neutral-atom devices with zone-based qubit connectivity and shuttling.
+
+```rust
+pub struct NeutralAtomRouting;
+```
+
+#### SabreRouting (Planned -- Not Yet Implemented)
 
 SWAP-based routing using the SABRE algorithm.
 
@@ -266,22 +259,26 @@ pub struct Optimize1qGates;
 // After:  Rz(π/2) · Rx(π/2)
 ```
 
-#### CancelCx
+#### CancelCX
 
 Cancels adjacent CX gates on the same qubits.
 
 ```rust
-pub struct CancelCx;
+pub struct CancelCX;
 
 // Before: CX(a,b) · CX(a,b)
 // After:  (identity, removed)
 ```
 
-#### CommutativeAnalysis (Planned)
+#### CommutativeCancellation
 
-Finds commutation relations to enable gate reordering.
+Uses gate commutation rules to merge adjacent same-type rotation gates (e.g., `Rz(a) + Rz(b) = Rz(a+b)`). Also detects diagonal gate commutation with CZ.
 
-#### ConsolidateBlocks (Planned)
+```rust
+pub struct CommutativeCancellation;
+```
+
+#### ConsolidateBlocks (Planned -- Not Yet Implemented)
 
 Consolidates sequences of gates into optimal decompositions.
 
@@ -374,9 +371,13 @@ pub enum CompileError {
     Ir(IrError),
     MissingCouplingMap,
     MissingLayout,
+    MissingBasisGates,
     RoutingFailed { qubit1: u32, qubit2: u32 },
     GateNotInBasis(String),
-    PassFailed(String, String),
+    PassFailed { name: String, reason: String },
+    InvalidConfiguration(String),
+    CircuitTooLarge { required: usize, available: u32 },
+    MeasurementViolation { gate_name: String, qubit: u32, detail: String },
 }
 ```
 
@@ -406,6 +407,7 @@ match pm.run(&mut dag, &mut props) {
 
 | Pass | Stage | Description |
 |------|-------|-------------|
+| DenseLayout | Layout | Pack qubits into well-connected region |
 | SabreLayout | Layout | Error-aware qubit selection |
 | SabreRouting | Routing | SABRE SWAP insertion |
 | GateDirection | Translation | Respect native gate directions |

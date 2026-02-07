@@ -1,4 +1,4 @@
-"""Type stubs for hiq Python bindings."""
+"""Type stubs for Arvak Python bindings."""
 
 from typing import List, Optional, Union
 

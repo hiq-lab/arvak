@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import arvak
 
 
-def qrisp_to_arvak(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.Circuit':
+def qrisp_to_arvak(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'arvak.Circuit':
     """Convert a Qrisp QuantumCircuit or QuantumSession to Arvak Circuit.
 
     This function uses OpenQASM as an interchange format:
@@ -33,7 +33,7 @@ def qrisp_to_arvak(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.C
         >>> qc = QuantumCircuit(2)
         >>> qc.h(0)
         >>> qc.cx(0, 1)
-        >>> hiq_circuit = qrisp_to_arvak(qc)
+        >>> arvak_circuit = qrisp_to_arvak(qc)
     """
     try:
         from qrisp import QuantumCircuit, QuantumSession
@@ -54,12 +54,12 @@ def qrisp_to_arvak(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'hiq.C
     qasm_str = circuit.qasm()
 
     # Import into Arvak
-    hiq_circuit = hiq.from_qasm(qasm_str)
+    arvak_circuit = arvak.from_qasm(qasm_str)
 
-    return hiq_circuit
+    return arvak_circuit
 
 
-def hiq_to_qrisp(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
+def arvak_to_qrisp(circuit: 'arvak.Circuit') -> 'QuantumCircuit':
     """Convert Arvak Circuit to Qrisp QuantumCircuit.
 
     This function uses OpenQASM as an interchange format:
@@ -78,8 +78,8 @@ def hiq_to_qrisp(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
 
     Example:
         >>> import arvak
-        >>> hiq_circuit = hiq.Circuit.bell()
-        >>> qrisp_circuit = hiq_to_qrisp(hiq_circuit)
+        >>> arvak_circuit = arvak.Circuit.bell()
+        >>> qrisp_circuit = arvak_to_qrisp(arvak_circuit)
     """
     try:
         from qrisp import QuantumCircuit
@@ -92,7 +92,7 @@ def hiq_to_qrisp(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
     import arvak
 
     # Export Arvak circuit to OpenQASM
-    qasm_str = hiq.to_qasm(circuit)
+    qasm_str = arvak.to_qasm(circuit)
 
     # Import into Qrisp
     # Qrisp can import from QASM string

@@ -68,7 +68,7 @@ The **Cirq integration** for Arvak has been successfully implemented, completing
 
 #### Cirq to Arvak:
 ```python
-def cirq_to_hiq(circuit: cirq.Circuit) -> arvak.Circuit:
+def cirq_to_arvak(circuit: cirq.Circuit) -> arvak.Circuit:
     """Convert Cirq circuit to Arvak via OpenQASM."""
     # Export to QASM (Cirq uses QASM 2.0)
     qasm_str = cirq.qasm(circuit)
@@ -79,7 +79,7 @@ def cirq_to_hiq(circuit: cirq.Circuit) -> arvak.Circuit:
 
 #### Arvak to Cirq:
 ```python
-def hiq_to_cirq(circuit: arvak.Circuit) -> cirq.Circuit:
+def arvak_to_cirq(circuit: arvak.Circuit) -> cirq.Circuit:
     """Convert Arvak circuit to Cirq via OpenQASM."""
     # Export Arvak to QASM
     qasm_str = arvak.to_qasm(circuit)
@@ -98,10 +98,10 @@ class ArvakSampler:
             repetitions: int = 1) -> cirq.Result:
         """Run circuit using Cirq's standard API."""
         # Convert to Arvak
-        hiq_circuit = cirq_to_hiq(program)
+        arvak_circuit = cirq_to_arvak(program)
         
         # Execute (currently mock - returns example results)
-        return self._mock_result(program, hiq_circuit, repetitions)
+        return self._mock_result(program, arvak_circuit, repetitions)
 ```
 
 ### Auto-Registration
@@ -115,7 +115,7 @@ if _integration.is_available():
     
     # Expose public API
     from .backend import ArvakSampler, ArvakEngine
-    from .converter import cirq_to_hiq, hiq_to_cirq
+    from .converter import cirq_to_arvak, arvak_to_cirq
 ```
 
 ## Usage Examples
@@ -138,8 +138,8 @@ circuit = cirq.Circuit(
 integration = arvak.get_integration('cirq')
 
 # Convert to Arvak
-hiq_circuit = integration.to_hiq(circuit)
-print(f"Arvak circuit: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
+arvak_circuit = integration.to_arvak(circuit)
+print(f"Arvak circuit: {arvak_circuit.num_qubits} qubits, depth {arvak_circuit.depth()}")
 ```
 
 ### GridQubit Support
@@ -160,7 +160,7 @@ grid_circuit = cirq.Circuit(
 )
 
 # Convert to Arvak
-hiq_grid = integration.to_hiq(grid_circuit)
+arvak_grid = integration.to_arvak(grid_circuit)
 ```
 
 ### Sampler Execution
@@ -205,7 +205,7 @@ resolved = cirq.resolve_parameters(param_circuit, {
 })
 
 # Convert to Arvak
-hiq_resolved = integration.to_hiq(resolved)
+arvak_resolved = integration.to_arvak(resolved)
 ```
 
 ## Unique Cirq Features Supported
@@ -252,7 +252,7 @@ circuit = cirq.Circuit(cirq.rx(theta)(q0))
 ```
 python/arvak/integrations/cirq/
 ├── __init__.py         ✅ CirqIntegration class (auto-registers)
-├── converter.py        ✅ cirq_to_hiq, hiq_to_cirq
+├── converter.py        ✅ cirq_to_arvak, arvak_to_cirq
 └── backend.py          ✅ ArvakSampler, ArvakEngine
 
 notebooks/

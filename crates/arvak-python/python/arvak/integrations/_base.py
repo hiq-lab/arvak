@@ -16,7 +16,7 @@ class FrameworkIntegration(ABC):
 
     Each framework integration (Qiskit, Qrisp, Cirq, etc.) must inherit from
     this class and implement all abstract methods to enable:
-    - Circuit conversion to/from HIQ
+    - Circuit conversion to/from Arvak
     - Backend execution through the framework's native API
     - Automatic discovery and registration
 
@@ -60,7 +60,7 @@ class FrameworkIntegration(ABC):
         pass
 
     @abstractmethod
-    def to_arvak(self, circuit: Any) -> 'hiq.Circuit':
+    def to_arvak(self, circuit: Any) -> 'arvak.Circuit':
         """Convert a framework circuit to Arvak.
 
         Args:
@@ -76,7 +76,7 @@ class FrameworkIntegration(ABC):
         pass
 
     @abstractmethod
-    def from_arvak(self, circuit: 'hiq.Circuit') -> Any:
+    def from_arvak(self, circuit: 'arvak.Circuit') -> Any:
         """Convert Arvak circuit to framework format.
 
         Args:

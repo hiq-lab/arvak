@@ -168,6 +168,13 @@ impl Circuit {
         Ok(self)
     }
 
+    /// Apply sqrt(X)-dagger gate.
+    pub fn sxdg(&mut self, qubit: QubitId) -> IrResult<&mut Self> {
+        self.dag
+            .apply(Instruction::single_qubit_gate(StandardGate::SXdg, qubit))?;
+        Ok(self)
+    }
+
     /// Apply Rx rotation gate.
     pub fn rx(
         &mut self,
@@ -309,6 +316,91 @@ impl Circuit {
             StandardGate::CP(theta.into()),
             control,
             target,
+        ))?;
+        Ok(self)
+    }
+
+    /// Apply controlled-Hadamard gate.
+    pub fn ch(&mut self, control: QubitId, target: QubitId) -> IrResult<&mut Self> {
+        self.dag.apply(Instruction::two_qubit_gate(
+            StandardGate::CH,
+            control,
+            target,
+        ))?;
+        Ok(self)
+    }
+
+    /// Apply controlled-Rx gate.
+    pub fn crx(
+        &mut self,
+        theta: impl Into<ParameterExpression>,
+        control: QubitId,
+        target: QubitId,
+    ) -> IrResult<&mut Self> {
+        self.dag.apply(Instruction::two_qubit_gate(
+            StandardGate::CRx(theta.into()),
+            control,
+            target,
+        ))?;
+        Ok(self)
+    }
+
+    /// Apply controlled-Ry gate.
+    pub fn cry(
+        &mut self,
+        theta: impl Into<ParameterExpression>,
+        control: QubitId,
+        target: QubitId,
+    ) -> IrResult<&mut Self> {
+        self.dag.apply(Instruction::two_qubit_gate(
+            StandardGate::CRy(theta.into()),
+            control,
+            target,
+        ))?;
+        Ok(self)
+    }
+
+    /// Apply RXX (XX rotation) gate.
+    pub fn rxx(
+        &mut self,
+        theta: impl Into<ParameterExpression>,
+        q1: QubitId,
+        q2: QubitId,
+    ) -> IrResult<&mut Self> {
+        self.dag.apply(Instruction::two_qubit_gate(
+            StandardGate::RXX(theta.into()),
+            q1,
+            q2,
+        ))?;
+        Ok(self)
+    }
+
+    /// Apply RYY (YY rotation) gate.
+    pub fn ryy(
+        &mut self,
+        theta: impl Into<ParameterExpression>,
+        q1: QubitId,
+        q2: QubitId,
+    ) -> IrResult<&mut Self> {
+        self.dag.apply(Instruction::two_qubit_gate(
+            StandardGate::RYY(theta.into()),
+            q1,
+            q2,
+        ))?;
+        Ok(self)
+    }
+
+    /// Apply RZZ (ZZ rotation) gate.
+    pub fn rzz(
+        &mut self,
+        theta: impl Into<ParameterExpression>,
+        q1: QubitId,
+        q2: QubitId,
+    ) -> IrResult<&mut Self> {
+        self.dag.apply(Instruction::two_qubit_gate(
+            StandardGate::RZZ(theta.into()),
+            q1,
+            q2,
         ))?;
         Ok(self)
     }

@@ -226,13 +226,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Rust gRPC Server
 - **arvak-grpc**: Complete gRPC service implementation
-  - 7 RPCs: SubmitJob, SubmitBatch, GetJobStatus, GetJobResult, CancelJob, ListBackends, GetBackendInfo
-  - Protobuf schema (arvak.proto) with 11 messages
+  - 10 RPCs: SubmitJob, SubmitBatch, GetJobStatus, GetJobResult, CancelJob, ListBackends, GetBackendInfo, WatchJob, StreamResults, SubmitBatchStream
+  - Protobuf schema (arvak.proto) with 25 messages
   - Thread-safe in-memory job storage with `Arc<RwLock<FxHashMap>>`
   - Non-blocking job execution with tokio::spawn
   - Backend registry with feature-gated backends
   - Automatic timestamp management
-  - Circuit format support: OpenQASM 3.0 and Arvak IR JSON
+  - Circuit format support: OpenQASM 3.0 (Arvak IR JSON format defined in proto but not yet implemented)
 
 #### Python Client Library
 - **ArvakClient**: Synchronous blocking client
@@ -336,13 +336,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Framework-specific implementation documentation
 
 #### PyPI Package
-- Published as `hiq-quantum` on PyPI
+- Published as `arvak` on PyPI
 - Optional dependencies for framework integrations:
-  - `pip install hiq-quantum[qiskit]` - IBM Quantum
-  - `pip install hiq-quantum[qrisp]` - High-level programming
-  - `pip install hiq-quantum[cirq]` - Google Quantum AI
-  - `pip install hiq-quantum[pennylane]` - Quantum ML
-  - `pip install hiq-quantum[all]` - All frameworks
+  - `pip install arvak[qiskit]` - IBM Quantum
+  - `pip install arvak[qrisp]` - High-level programming
+  - `pip install arvak[cirq]` - Google Quantum AI
+  - `pip install arvak[pennylane]` - Quantum ML
+  - `pip install arvak[all]` - All frameworks
 
 ### Changed
 - **Python bindings** now include framework integration infrastructure
@@ -440,7 +440,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-algorithm benchmarking
 
 #### Python Bindings
-- **hiq-python**: PyO3-based Python interface
+- **arvak-python**: PyO3-based Python interface
   - Circuit building from Python
   - Compilation and optimization
   - QASM import/export

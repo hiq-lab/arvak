@@ -1,4 +1,4 @@
-"""Framework integrations for HIQ.
+"""Framework integrations for Arvak.
 
 This package provides optional integrations with popular quantum computing
 frameworks like Qiskit, Qrisp, and Cirq. Integrations are automatically
@@ -7,11 +7,11 @@ discovered and registered when their dependencies are available.
 Usage:
     >>> import arvak
     >>> # Check available integrations
-    >>> print(hiq.integration_status())
+    >>> print(arvak.integration_status())
     >>>
     >>> # Get specific integration
-    >>> qiskit = hiq.get_integration('qiskit')
-    >>> hiq_circuit = qiskit.to_arvak(qiskit_circuit)
+    >>> qiskit = arvak.get_integration('qiskit')
+    >>> arvak_circuit = qiskit.to_arvak(qiskit_circuit)
 
 Adding new integrations:
     1. Create a new directory: integrations/yourframework/

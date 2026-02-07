@@ -1,7 +1,7 @@
-"""Qiskit integration for HIQ.
+"""Qiskit integration for Arvak.
 
-This module provides seamless integration between Qiskit and HIQ, enabling:
-- Circuit conversion (Qiskit ↔ HIQ)
+This module provides seamless integration between Qiskit and Arvak, enabling:
+- Circuit conversion (Qiskit ↔ Arvak)
 - Execution of Arvak circuits through Qiskit's backend API
 - Access to Arvak's advanced compilation capabilities from Qiskit
 
@@ -13,9 +13,9 @@ Example:
     >>> qc = QuantumCircuit(2)
     >>> qc.h(0)
     >>> qc.cx(0, 1)
-    >>> hiq_circuit = qiskit_to_arvak(qc)
+    >>> arvak_circuit = qiskit_to_arvak(qc)
     >>>
-    >>> # Use HIQ as Qiskit backend
+    >>> # Use Arvak as Qiskit backend
     >>> provider = ArvakProvider()
     >>> backend = provider.get_backend('sim')
     >>> job = backend.run(qc, shots=1000)
@@ -27,9 +27,9 @@ from .._base import FrameworkIntegration
 
 
 class QiskitIntegration(FrameworkIntegration):
-    """Qiskit framework integration for HIQ.
+    """Qiskit framework integration for Arvak.
 
-    This integration enables bi-directional conversion between Qiskit and HIQ
+    This integration enables bi-directional conversion between Qiskit and Arvak
     circuits using OpenQASM 3.0 as an interchange format, and provides a
     Qiskit-compatible backend provider for executing circuits.
     """
@@ -73,11 +73,11 @@ class QiskitIntegration(FrameworkIntegration):
         Returns:
             Qiskit QuantumCircuit
         """
-        from .converter import hiq_to_qiskit
-        return hiq_to_qiskit(circuit)
+        from .converter import arvak_to_qiskit
+        return arvak_to_qiskit(circuit)
 
     def get_backend_provider(self):
-        """Get HIQ backend provider for Qiskit.
+        """Get Arvak backend provider for Qiskit.
 
         Returns:
             ArvakProvider instance
@@ -94,8 +94,8 @@ if _integration.is_available():
 
     # Expose public API at package level
     from .backend import ArvakProvider
-    from .converter import qiskit_to_arvak, hiq_to_qiskit
+    from .converter import qiskit_to_arvak, arvak_to_qiskit
 
-    __all__ = ['ArvakProvider', 'qiskit_to_arvak', 'hiq_to_qiskit', 'QiskitIntegration']
+    __all__ = ['ArvakProvider', 'qiskit_to_arvak', 'arvak_to_qiskit', 'QiskitIntegration']
 else:
     __all__ = ['QiskitIntegration']

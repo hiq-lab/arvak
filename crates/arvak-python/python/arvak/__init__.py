@@ -5,23 +5,23 @@ builder and compilation framework.
 
 Example:
     >>> import arvak
-    >>> qc = hiq.Circuit("bell", num_qubits=2)
+    >>> qc = arvak.Circuit("bell", num_qubits=2)
     >>> qc.h(0).cx(0, 1)
-    >>> print(hiq.to_qasm(qc))
+    >>> print(arvak.to_qasm(qc))
 
 Framework Integrations:
     >>> # Check available integrations
-    >>> status = hiq.integration_status()
+    >>> status = arvak.integration_status()
     >>> print(status)
     >>>
     >>> # Use Qiskit integration (if installed)
-    >>> if hiq.QISKIT_AVAILABLE:
-    ...     qiskit_integration = hiq.get_integration('qiskit')
-    ...     hiq_circuit = qiskit_integration.to_hiq(qiskit_circuit)
+    >>> if arvak.QISKIT_AVAILABLE:
+    ...     qiskit_integration = arvak.get_integration('qiskit')
+    ...     arvak_circuit = qiskit_integration.to_arvak(qiskit_circuit)
 """
 
 # Re-export everything from the native extension
-from arvak.hiq import (
+from arvak._native import (
     # Core types
     Circuit,
     QubitId,
@@ -47,7 +47,7 @@ def list_integrations():
         Dictionary mapping framework names to availability status (True/False).
 
     Example:
-        >>> integrations = hiq.list_integrations()
+        >>> integrations = arvak.list_integrations()
         >>> print(integrations)
         {'qiskit': True, 'qrisp': False, 'cirq': True}
     """
@@ -62,7 +62,7 @@ def integration_status():
         availability, and required packages.
 
     Example:
-        >>> status = hiq.integration_status()
+        >>> status = arvak.integration_status()
         >>> print(status['qiskit'])
         {'name': 'qiskit', 'available': True, 'packages': ['qiskit>=1.0.0']}
     """
@@ -83,8 +83,8 @@ def get_integration(framework: str):
         ImportError: If framework is not installed
 
     Example:
-        >>> qiskit = hiq.get_integration('qiskit')
-        >>> hiq_circuit = qiskit.to_hiq(qiskit_circuit)
+        >>> qiskit = arvak.get_integration('qiskit')
+        >>> arvak_circuit = qiskit.to_arvak(qiskit_circuit)
     """
     integration = IntegrationRegistry.get(framework)
     if integration is None:
@@ -122,7 +122,7 @@ def CIRQ_AVAILABLE():
 
 
 # Note: Properties need to be accessed as functions in Python
-# e.g., hiq.QISKIT_AVAILABLE() instead of hiq.QISKIT_AVAILABLE
+# e.g., arvak.QISKIT_AVAILABLE() instead of arvak.QISKIT_AVAILABLE
 # So we provide both property and direct boolean access
 def _check_availability(framework: str) -> bool:
     """Internal helper to check framework availability."""

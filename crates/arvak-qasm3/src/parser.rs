@@ -866,6 +866,12 @@ impl Lowerer {
                 }
                 Ok(())
             }
+            "sxdg" => {
+                for q in qubits {
+                    circuit.sxdg(q)?;
+                }
+                Ok(())
+            }
             "rx" => {
                 check_param_count("rx", &params, 1)?;
                 for q in qubits {
@@ -945,6 +951,41 @@ impl Lowerer {
                 check_param_count("cp", &params, 1)?;
                 check_qubit_count("cp", &qubits, 2)?;
                 circuit.cp(params[0].clone(), qubits[0], qubits[1])?;
+                Ok(())
+            }
+            "ch" => {
+                check_qubit_count("ch", &qubits, 2)?;
+                circuit.ch(qubits[0], qubits[1])?;
+                Ok(())
+            }
+            "crx" => {
+                check_param_count("crx", &params, 1)?;
+                check_qubit_count("crx", &qubits, 2)?;
+                circuit.crx(params[0].clone(), qubits[0], qubits[1])?;
+                Ok(())
+            }
+            "cry" => {
+                check_param_count("cry", &params, 1)?;
+                check_qubit_count("cry", &qubits, 2)?;
+                circuit.cry(params[0].clone(), qubits[0], qubits[1])?;
+                Ok(())
+            }
+            "rxx" => {
+                check_param_count("rxx", &params, 1)?;
+                check_qubit_count("rxx", &qubits, 2)?;
+                circuit.rxx(params[0].clone(), qubits[0], qubits[1])?;
+                Ok(())
+            }
+            "ryy" => {
+                check_param_count("ryy", &params, 1)?;
+                check_qubit_count("ryy", &qubits, 2)?;
+                circuit.ryy(params[0].clone(), qubits[0], qubits[1])?;
+                Ok(())
+            }
+            "rzz" => {
+                check_param_count("rzz", &params, 1)?;
+                check_qubit_count("rzz", &qubits, 2)?;
+                circuit.rzz(params[0].clone(), qubits[0], qubits[1])?;
                 Ok(())
             }
 

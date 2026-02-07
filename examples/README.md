@@ -36,13 +36,13 @@ Quantum teleportation protocol using 3 qubits.
 
 ```bash
 # Run on simulator
-hiq run examples/bell.qasm --backend sim --shots 1000
+arvak run examples/bell.qasm --backend sim --shots 1000
 
 # Compile for IQM
-hiq compile examples/bell.qasm --target iqm --output bell_iqm.qasm
+arvak compile examples/bell.qasm --target iqm --output bell_iqm.qasm
 
 # Run on IQM (requires IQM_TOKEN)
-hiq run examples/bell.qasm --backend iqm --shots 1000
+arvak run examples/bell.qasm --backend iqm --shots 1000
 ```
 
 ### Using Rust
