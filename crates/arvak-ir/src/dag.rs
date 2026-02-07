@@ -85,6 +85,20 @@ pub struct DagEdge {
     pub wire: WireId,
 }
 
+/// The abstraction level of a circuit in the compilation pipeline.
+///
+/// Circuits start at the `Logical` level (abstract qubits) and are
+/// lowered to the `Physical` level by layout and routing passes
+/// (qubits mapped to physical device positions).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum CircuitLevel {
+    /// Logical level: qubits are abstract, no physical mapping applied.
+    #[default]
+    Logical,
+    /// Physical level: qubits are mapped to physical device positions.
+    Physical,
+}
+
 /// DAG-based circuit representation.
 ///
 /// The circuit is represented as a directed acyclic graph where:
@@ -105,6 +119,8 @@ pub struct CircuitDag {
     clbit_outputs: FxHashMap<ClbitId, NodeIndex>,
     /// Global phase of the circuit.
     global_phase: f64,
+    /// Abstraction level of the circuit.
+    level: CircuitLevel,
 }
 
 impl CircuitDag {
@@ -117,6 +133,7 @@ impl CircuitDag {
             clbit_inputs: FxHashMap::default(),
             clbit_outputs: FxHashMap::default(),
             global_phase: 0.0,
+            level: CircuitLevel::Logical,
         }
     }
 
@@ -408,6 +425,16 @@ impl CircuitDag {
         self.global_phase = phase;
     }
 
+    /// Get the abstraction level of this circuit.
+    pub fn level(&self) -> CircuitLevel {
+        self.level
+    }
+
+    /// Set the abstraction level of this circuit.
+    pub fn set_level(&mut self, level: CircuitLevel) {
+        self.level = level;
+    }
+
     /// Get a reference to the underlying graph.
     pub fn graph(&self) -> &DiGraph<DagNode, DagEdge, u32> {
         &self.graph
@@ -578,6 +605,7 @@ impl Clone for CircuitDag {
             clbit_inputs: self.clbit_inputs.clone(),
             clbit_outputs: self.clbit_outputs.clone(),
             global_phase: self.global_phase,
+            level: self.level,
         }
     }
 }

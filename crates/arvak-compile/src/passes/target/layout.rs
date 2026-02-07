@@ -1,6 +1,6 @@
 //! Layout passes for mapping logical qubits to physical qubits.
 
-use arvak_ir::CircuitDag;
+use arvak_ir::{CircuitDag, CircuitLevel};
 
 use crate::error::{CompileError, CompileResult};
 use crate::pass::{Pass, PassKind};
@@ -44,6 +44,9 @@ impl Pass for TrivialLayout {
         let layout = Layout::trivial(num_logical as u32);
         properties.layout = Some(layout);
 
+        // Mark the circuit as physical level
+        dag.set_level(CircuitLevel::Physical);
+
         Ok(())
     }
 
@@ -61,9 +64,13 @@ mod tests {
 
     #[test]
     fn test_trivial_layout() {
+        use arvak_ir::CircuitLevel;
+
         let mut circuit = Circuit::with_size("test", 3, 0);
         circuit.h(QubitId(0)).unwrap();
         let mut dag = circuit.into_dag();
+
+        assert_eq!(dag.level(), CircuitLevel::Logical);
 
         let mut props = PropertySet::new().with_target(CouplingMap::linear(5), BasisGates::iqm());
 
@@ -73,6 +80,7 @@ mod tests {
         assert_eq!(layout.get_physical(QubitId(0)), Some(0));
         assert_eq!(layout.get_physical(QubitId(1)), Some(1));
         assert_eq!(layout.get_physical(QubitId(2)), Some(2));
+        assert_eq!(dag.level(), CircuitLevel::Physical);
     }
 
     #[test]
