@@ -23,6 +23,9 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
@@ -67,6 +70,9 @@ jobs:
         with:
           components: clippy
 
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
@@ -93,6 +99,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install protoc (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -121,6 +135,9 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
 
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
       - name: Check documentation
         run: cargo doc --workspace --exclude arvak-python --no-deps
 
@@ -133,6 +150,9 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Set up Python
         uses: actions/setup-python@v5
