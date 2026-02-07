@@ -79,7 +79,7 @@ impl PriorityQueue {
             heap: BinaryHeap::with_capacity(capacity),
             jobs: rustc_hash::FxHashMap::with_capacity_and_hasher(
                 capacity,
-                rustc_hash::FxBuildHasher::default(),
+                rustc_hash::FxBuildHasher,
             ),
             insertion_counter: 0,
         }
