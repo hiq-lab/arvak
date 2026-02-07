@@ -1,0 +1,544 @@
+name: Nightly Build & Audit
+
+on:
+  schedule:
+    # Run at 03:00 UTC every night
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    # Allow manual triggering without any inputs needed
+    inputs:
+      skip_msrv:
+        description: 'Skip MSRV check'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Job 1: Security audit of all dependencies
+  # ─────────────────────────────────────────────
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Run cargo-audit
+        id: audit
+        run: |
+          echo "## Security Audit" >> $GITHUB_STEP_SUMMARY
+          if cargo audit 2>&1 | tee audit-output.txt; then
+            echo "✅ No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Vulnerabilities detected:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat audit-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit
+          path: audit-output.txt
+
+  # ─────────────────────────────────────────────
+  # Job 2: License & dependency policy (cargo-deny)
+  # ─────────────────────────────────────────────
+  dependency-policy:
+    name: Dependency Policy (cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Check licenses
+        id: licenses
+        run: |
+          echo "## License Check" >> $GITHUB_STEP_SUMMARY
+          if cargo deny check licenses 2>&1 | tee deny-licenses.txt; then
+            echo "✅ All licenses compliant" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ License issues found:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 deny-licenses.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Check advisories
+        run: cargo deny check advisories 2>&1 | tee deny-advisories.txt || true
+
+      - name: Check bans
+        run: cargo deny check bans 2>&1 | tee deny-bans.txt || true
+
+      - name: Upload deny reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-policy
+          path: deny-*.txt
+
+  # ─────────────────────────────────────────────
+  # Job 3: Check for outdated dependencies
+  # ─────────────────────────────────────────────
+  dependency-freshness:
+    name: Dependency Freshness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated --locked
+
+      - name: Check outdated dependencies
+        run: |
+          echo "## Outdated Dependencies" >> $GITHUB_STEP_SUMMARY
+          cargo outdated --workspace --root-deps-only 2>&1 | tee outdated.txt
+          if grep -q "All dependencies are up to date" outdated.txt; then
+            echo "✅ All root dependencies are up to date" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "📦 Outdated dependencies found:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat outdated.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          # Informational only — don't fail the build
+
+      - name: Upload outdated report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-freshness
+          path: outdated.txt
+
+  # ─────────────────────────────────────────────
+  # Job 4: Full workspace test matrix
+  # ─────────────────────────────────────────────
+  full-test-suite:
+    name: Tests (${{ matrix.os }}, ${{ matrix.profile }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        profile: [debug, release]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+
+      - name: Install protoc (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-${{ matrix.profile }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-${{ matrix.profile }}-
+            nightly-${{ runner.os }}-
+
+      - name: Run tests (debug)
+        if: matrix.profile == 'debug'
+        run: cargo test --workspace --exclude arvak-python
+
+      - name: Run tests (release)
+        if: matrix.profile == 'release'
+        run: cargo test --workspace --exclude arvak-python --release
+
+  # ─────────────────────────────────────────────
+  # Job 5: Strict Clippy (deny warnings, all targets)
+  # ─────────────────────────────────────────────
+  clippy-strict:
+    name: Clippy (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-clippy-
+
+      - name: Clippy (all targets, deny warnings)
+        run: >
+          cargo clippy
+          --workspace
+          --exclude arvak-python
+          --all-targets
+          -- -D warnings -D clippy::all -W clippy::pedantic
+
+  # ─────────────────────────────────────────────
+  # Job 6: Adapter compatibility builds
+  # ─────────────────────────────────────────────
+  adapter-compat:
+    name: Adapter Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-adapters-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-adapters-
+
+      - name: Build adapter — simulator
+        run: cargo build -p arvak-adapter-sim
+
+      - name: Test adapter — simulator
+        run: cargo test -p arvak-adapter-sim
+
+      - name: Build adapter — IBM Quantum
+        run: cargo build -p arvak-adapter-ibm
+
+      - name: Test adapter — IBM Quantum
+        run: cargo test -p arvak-adapter-ibm
+
+      - name: Build adapter — IQM Resonance
+        run: cargo build -p arvak-adapter-iqm
+
+      - name: Test adapter — IQM Resonance
+        run: cargo test -p arvak-adapter-iqm
+
+      - name: Build adapter — QDMI (mock FFI)
+        run: cargo build -p arvak-adapter-qdmi
+
+      - name: Test adapter — QDMI
+        run: cargo test -p arvak-adapter-qdmi
+
+      - name: Build adapter — NVIDIA CUDA-Q
+        run: cargo build -p arvak-adapter-cudaq
+
+      - name: Test adapter — NVIDIA CUDA-Q
+        run: cargo test -p arvak-adapter-cudaq
+
+      - name: Build CLI with all backends
+        run: cargo build -p arvak-cli --features all-backends
+
+      - name: Build gRPC with all features
+        run: cargo build -p arvak-grpc --features simulator,sqlite
+
+      - name: Build dashboard with simulator
+        run: cargo build -p arvak-dashboard --features with-simulator
+
+      - name: Summary
+        run: |
+          echo "## Adapter Compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "| Adapter | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| arvak-adapter-sim | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| arvak-adapter-ibm | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| arvak-adapter-iqm | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| arvak-adapter-qdmi | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| arvak-adapter-cudaq | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| CLI (all-backends) | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| gRPC (sim+sqlite) | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dashboard (simulator) | ✅ |" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────
+  # Job 7: MSRV (Minimum Supported Rust Version)
+  # ─────────────────────────────────────────────
+  msrv-check:
+    name: MSRV (Rust 1.85)
+    if: ${{ !inputs.skip_msrv }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust 1.85
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-msrv-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-msrv-
+
+      - name: Check workspace compiles on MSRV
+        run: cargo check --workspace --exclude arvak-python
+
+  # ─────────────────────────────────────────────
+  # Job 8: Python bindings build + smoke test
+  # ─────────────────────────────────────────────
+  python-bindings:
+    name: Python Bindings
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install maturin
+        run: pip install maturin
+
+      - name: Build Python bindings
+        run: cd crates/arvak-python && maturin build
+
+      - name: Install and smoke test
+        run: |
+          pip install target/wheels/arvak-*.whl
+          python -c "import arvak; print(f'arvak version loaded successfully')"
+
+  # ─────────────────────────────────────────────
+  # Job 9: Benchmarks (detect regressions)
+  # ─────────────────────────────────────────────
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-bench-
+
+      - name: Run benchmarks
+        run: |
+          cargo bench --workspace --exclude arvak-python 2>&1 | tee bench-output.txt
+          echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E "(time:|thrpt:)" bench-output.txt >> $GITHUB_STEP_SUMMARY || echo "No criterion benchmarks found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks
+          path: bench-output.txt
+
+  # ─────────────────────────────────────────────
+  # Job 10: Documentation build check
+  # ─────────────────────────────────────────────
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Build documentation (warn on broken links)
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --workspace --exclude arvak-python --no-deps
+
+  # ─────────────────────────────────────────────
+  # Job 11: Nightly report — opens/updates issue
+  # ─────────────────────────────────────────────
+  nightly-report:
+    name: Nightly Report
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - security-audit
+      - dependency-policy
+      - dependency-freshness
+      - full-test-suite
+      - clippy-strict
+      - adapter-compat
+      - msrv-check
+      - python-bindings
+      - benchmarks
+      - docs
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "nightly-report" --description "Automated nightly build reports" --color "1d76db" 2>/dev/null || true
+          gh label create "automated" --description "Created by CI automation" --color "e4e669" 2>/dev/null || true
+
+      - name: Generate report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUDIT: ${{ needs.security-audit.result }}
+          POLICY: ${{ needs.dependency-policy.result }}
+          FRESHNESS: ${{ needs.dependency-freshness.result }}
+          TESTS: ${{ needs.full-test-suite.result }}
+          CLIPPY: ${{ needs.clippy-strict.result }}
+          ADAPTERS: ${{ needs.adapter-compat.result }}
+          MSRV: ${{ needs.msrv-check.result }}
+          PYTHON: ${{ needs.python-bindings.result }}
+          BENCH: ${{ needs.benchmarks.result }}
+          DOCS: ${{ needs.docs.result }}
+        run: |
+          # Map results to status icons
+          status_icon() {
+            case "$1" in
+              success)  echo "✅" ;;
+              failure)  echo "❌" ;;
+              skipped)  echo "⏭️" ;;
+              *)        echo "⚠️" ;;
+            esac
+          }
+
+          DATE=$(date -u +"%Y-%m-%d")
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Determine overall status
+          OVERALL="✅ All checks passed"
+          if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" ]]; then
+            OVERALL="❌ Critical failures detected"
+          elif [[ "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" ]]; then
+            OVERALL="⚠️ Non-critical issues found"
+          fi
+
+          BODY=$(cat <<EOF
+          ## Nightly Build Report — ${DATE}
+
+          **Overall:** ${OVERALL}
+          **Run:** [View details](${RUN_URL})
+
+          | Check | Status | Result |
+          |-------|--------|--------|
+          | Security Audit | $(status_icon "$AUDIT") | ${AUDIT} |
+          | Dependency Policy | $(status_icon "$POLICY") | ${POLICY} |
+          | Dependency Freshness | $(status_icon "$FRESHNESS") | ${FRESHNESS} |
+          | Full Test Suite | $(status_icon "$TESTS") | ${TESTS} |
+          | Clippy (strict) | $(status_icon "$CLIPPY") | ${CLIPPY} |
+          | Adapter Compatibility | $(status_icon "$ADAPTERS") | ${ADAPTERS} |
+          | MSRV (Rust 1.85) | $(status_icon "$MSRV") | ${MSRV} |
+          | Python Bindings | $(status_icon "$PYTHON") | ${PYTHON} |
+          | Benchmarks | $(status_icon "$BENCH") | ${BENCH} |
+          | Documentation | $(status_icon "$DOCS") | ${DOCS} |
+
+          ---
+          *Automatically generated by the nightly CI pipeline.*
+          EOF
+          )
+
+          # Check if a nightly report issue already exists
+          EXISTING=$(gh issue list --label "nightly-report" --state open --limit 1 --json number --jq '.[0].number // empty')
+
+          if [[ -n "$EXISTING" ]]; then
+            # Update existing issue with a comment
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "Updated existing nightly report issue #${EXISTING}"
+          else
+            # Only create an issue if something failed
+            if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" || \
+                  "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" ]]; then
+              gh issue create \
+                --title "Nightly Build Report — ${DATE}" \
+                --body "$BODY" \
+                --label "nightly-report,automated"
+              echo "Created new nightly report issue"
+            else
+              echo "All checks passed — no issue created"
+              echo "## ✅ Nightly Build Passed" >> $GITHUB_STEP_SUMMARY
+              echo "$BODY" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
