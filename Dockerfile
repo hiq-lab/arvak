@@ -80,7 +80,9 @@ RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
         && echo "fn main() {}" > demos/bin/demo_all.rs \
     && mkdir -p demos/lumi-hybrid/src \
         && echo "fn main() {}" > demos/lumi-hybrid/src/main.rs \
-        && echo "fn main() {}" > demos/lumi-hybrid/src/quantum_worker.rs
+        && echo "fn main() {}" > demos/lumi-hybrid/src/quantum_worker.rs \
+    && mkdir -p results \
+        && echo "{}" > results/vqe_result.json
 
 # Feature flags for the dashboard build
 ARG DASHBOARD_FEATURES="with-simulator"
@@ -91,12 +93,13 @@ RUN cargo build --release --workspace --exclude arvak-python 2>/dev/null || true
 # ----------------------------------------------------------
 # Layer 2: Build actual project source
 # ----------------------------------------------------------
-RUN rm -rf crates/ adapters/ demos/ examples/
+RUN rm -rf crates/ adapters/ demos/ examples/ results/
 
 COPY crates/ crates/
 COPY adapters/ adapters/
 COPY demos/ demos/
 COPY examples/ examples/
+COPY results/ results/
 
 # Ensure cargo detects real sources as newer than cached stubs
 RUN find crates/ adapters/ demos/ -name "*.rs" -exec touch {} +
@@ -123,7 +126,7 @@ RUN groupadd --gid 1000 arvak && \
 
 # Copy binaries from builder
 COPY --from=builder /build/target/release/arvak-dashboard /usr/local/bin/arvak-dashboard
-COPY --from=builder /build/target/release/hiq /usr/local/bin/hiq
+COPY --from=builder /build/target/release/arvak /usr/local/bin/arvak
 COPY --from=builder /build/target/release/arvak-grpc-server /usr/local/bin/arvak-grpc-server
 COPY --from=builder /build/target/release/demo-grover /usr/local/bin/demo-grover
 COPY --from=builder /build/target/release/demo-vqe /usr/local/bin/demo-vqe

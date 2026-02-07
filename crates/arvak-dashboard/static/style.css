@@ -774,6 +774,64 @@ button.secondary:hover {
     padding-top: 0;
 }
 
+/* VQE Chart */
+.vqe-chart {
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+    padding: 1rem;
+    min-height: 350px;
+    overflow-x: auto;
+}
+
+.vqe-line {
+    stroke: var(--accent);
+    stroke-width: 2;
+}
+
+.vqe-dot {
+    fill: var(--accent);
+}
+
+.vqe-exact {
+    stroke: var(--success);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+}
+
+.vqe-legend {
+    display: flex;
+    gap: 1.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.vqe-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.vqe-legend-swatch {
+    display: inline-block;
+    width: 20px;
+    height: 3px;
+    border-radius: 1px;
+}
+
+.vqe-legend-swatch.vqe-legend-dashed {
+    background: transparent !important;
+    border-top: 2px dashed var(--success);
+    height: 0;
+}
+
+.vqe-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
     .view.active {

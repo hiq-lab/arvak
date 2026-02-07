@@ -120,6 +120,15 @@ const api = {
         }
         return res.json();
     },
+
+    async getVqeDemo() {
+        const res = await fetch('/api/vqe/demo');
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.message || 'Failed to load VQE demo');
+        }
+        return res.json();
+    },
 };
 
 // ============================================================================
@@ -359,6 +368,9 @@ const circuitRenderer = {
 function showView(viewName) {
     state.currentView = viewName;
 
+    // Update hash without triggering hashchange
+    history.replaceState(null, '', '#' + viewName);
+
     // Update nav
     document.querySelectorAll('nav a').forEach(a => {
         a.classList.toggle('active', a.dataset.view === viewName);
@@ -374,6 +386,8 @@ function showView(viewName) {
         loadBackends();
     } else if (viewName === 'jobs') {
         loadJobs();
+    } else if (viewName === 'vqe') {
+        loadVqe();
     }
 }
 
@@ -816,6 +830,172 @@ function renderHistogram(container, bars) {
         .text('Probability');
 }
 
+// ============================================================================
+// VQE View Controller
+// ============================================================================
+
+async function loadVqe() {
+    const container = document.getElementById('vqe-chart-container');
+    const legend = document.getElementById('vqe-legend');
+    const info = document.getElementById('vqe-info');
+
+    try {
+        container.innerHTML = '<p class="placeholder">Loading VQE results...</p>';
+        legend.innerHTML = '';
+        info.innerHTML = '';
+
+        const data = await api.getVqeDemo();
+
+        // Render the convergence chart
+        renderVQEChart(container, data);
+
+        // Render legend
+        legend.innerHTML = `
+            <span class="vqe-legend-item">
+                <span class="vqe-legend-swatch" style="background: var(--accent);"></span>
+                VQE Energy
+            </span>
+            <span class="vqe-legend-item">
+                <span class="vqe-legend-swatch vqe-legend-dashed" style="background: var(--success);"></span>
+                Exact: ${data.exact_energy.toFixed(4)} Ha
+            </span>
+        `;
+
+        // Render info panel
+        const finalEnergy = data.final_energy;
+        const error = data.error;
+        const converged = error < 1e-4;
+
+        info.innerHTML = `
+            <div class="detail-item">
+                <span class="label">Bond Distance</span>
+                <span class="value">${data.bond_distance} &#x212B;</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Final Energy</span>
+                <span class="value">${finalEnergy.toFixed(7)} Ha</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Exact Energy</span>
+                <span class="value">${data.exact_energy.toFixed(7)} Ha</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Error</span>
+                <span class="value">${error.toExponential(2)} Ha</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Iterations</span>
+                <span class="value">${data.iterations.length}</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Total Shots</span>
+                <span class="value">${data.total_shots.toLocaleString()}</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Backend</span>
+                <span class="value">${data.backend}</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Converged</span>
+                <span class="value" style="color: ${converged ? 'var(--success)' : 'var(--warning)'};">${converged ? 'Yes' : 'No'}</span>
+            </div>
+        `;
+    } catch (error) {
+        showError(container, error.message);
+    }
+}
+
+function renderVQEChart(container, data) {
+    if (!container || !data.iterations || data.iterations.length === 0) return;
+
+    container.innerHTML = '';
+
+    const iterations = data.iterations;
+    const exactEnergy = data.exact_energy;
+
+    const margin = { top: 20, right: 30, bottom: 50, left: 70 };
+    const width = Math.min(container.clientWidth || 700, 900) - margin.left - margin.right;
+    const height = 350 - margin.top - margin.bottom;
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // X scale — iteration number
+    const x = d3.scaleLinear()
+        .domain([0, d3.max(iterations, d => d.iteration)])
+        .range([0, width]);
+
+    // Y scale — energy
+    const energies = iterations.map(d => d.energy);
+    const yMin = Math.min(d3.min(energies), exactEnergy) - 0.02;
+    const yMax = d3.max(energies) + 0.02;
+    const y = d3.scaleLinear()
+        .domain([yMin, yMax])
+        .range([height, 0]);
+
+    // Exact energy reference line (drawn first so it's behind)
+    svg.append('line')
+        .attr('class', 'vqe-exact')
+        .attr('x1', 0)
+        .attr('y1', y(exactEnergy))
+        .attr('x2', width)
+        .attr('y2', y(exactEnergy));
+
+    // Line generator
+    const line = d3.line()
+        .x(d => x(d.iteration))
+        .y(d => y(d.energy));
+
+    // VQE energy path
+    svg.append('path')
+        .datum(iterations)
+        .attr('class', 'vqe-line')
+        .attr('fill', 'none')
+        .attr('d', line);
+
+    // Dots
+    svg.selectAll('.vqe-dot')
+        .data(iterations)
+        .enter()
+        .append('circle')
+        .attr('class', 'vqe-dot')
+        .attr('cx', d => x(d.iteration))
+        .attr('cy', d => y(d.energy))
+        .attr('r', 3.5);
+
+    // X axis
+    svg.append('g')
+        .attr('class', 'axis')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x).ticks(Math.min(iterations.length, 12)).tickFormat(d3.format('d')));
+
+    // X axis label
+    svg.append('text')
+        .attr('class', 'axis-label')
+        .attr('x', width / 2)
+        .attr('y', height + margin.bottom - 8)
+        .style('text-anchor', 'middle')
+        .text('Iteration');
+
+    // Y axis
+    svg.append('g')
+        .attr('class', 'axis')
+        .call(d3.axisLeft(y).ticks(8).tickFormat(d => d.toFixed(2)));
+
+    // Y axis label
+    svg.append('text')
+        .attr('class', 'axis-label')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -margin.left + 15)
+        .attr('x', -(height / 2))
+        .style('text-anchor', 'middle')
+        .text('Energy (Ha)');
+}
+
 async function cancelJob(jobId) {
     if (!confirm('Are you sure you want to cancel this job?')) {
         return;
@@ -888,6 +1068,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Show initial view
-    showView('circuits');
+    // Handle hash-based routing
+    const validViews = ['circuits', 'backends', 'jobs', 'vqe'];
+    const hashView = location.hash.replace('#', '');
+    showView(validViews.includes(hashView) ? hashView : 'circuits');
+
+    window.addEventListener('hashchange', () => {
+        const view = location.hash.replace('#', '');
+        if (validViews.includes(view) && view !== state.currentView) {
+            showView(view);
+        }
+    });
 });
