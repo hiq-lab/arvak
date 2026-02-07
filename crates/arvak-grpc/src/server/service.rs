@@ -11,7 +11,7 @@ use crate::config::ResourceLimits;
 use crate::error::{Error, Result};
 use crate::metrics::Metrics;
 use crate::proto::*;
-use crate::resource_manager::{ResourceError, ResourceManager};
+use crate::resource_manager::ResourceManager;
 use crate::server::{BackendRegistry, JobStore};
 
 /// Arvak gRPC service implementation.
@@ -309,7 +309,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         let req = request.into_inner();
 
-        tracing::Span::current().record("backend_id", &req.backend_id.as_str());
+        tracing::Span::current().record("backend_id", req.backend_id.as_str());
 
         // Check resource limits if manager is configured
         if let Some(ref resources) = self.resources {
@@ -321,20 +321,20 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         // Parse circuit
         let circuit = self.parse_circuit(req.circuit)
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         // Validate backend exists
         let backend = self.backends.get(&req.backend_id)
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         // Create job in store (status = QUEUED)
         let job_id = self
             .job_store
             .create_job(circuit, req.backend_id.clone(), req.shots)
             .await
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
-        tracing::Span::current().record("job_id", &job_id.0.as_str());
+        tracing::Span::current().record("job_id", job_id.0.as_str());
         info!(shots = req.shots, "Job submitted");
 
         // Record job submission metric
@@ -373,20 +373,20 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         // Validate backend exists
         let backend = self.backends.get(&req.backend_id)
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         let mut job_ids = Vec::new();
 
         // Submit each job
         for batch_job in req.jobs {
             let circuit = self.parse_circuit(batch_job.circuit)
-                .map_err(|e| Status::from(e))?;
+                .map_err(Status::from)?;
 
             let job_id = self
                 .job_store
                 .create_job(circuit, req.backend_id.clone(), batch_job.shots)
                 .await
-                .map_err(|e| Status::from(e))?;
+                .map_err(Status::from)?;
 
             // Record job submission metric
             self.metrics.record_job_submitted(&req.backend_id);
@@ -418,10 +418,10 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let req = request.into_inner();
         let job_id = JobId::new(req.job_id);
 
-        tracing::Span::current().record("job_id", &job_id.0.as_str());
+        tracing::Span::current().record("job_id", job_id.0.as_str());
 
         let job = self.job_store.get_job(&job_id).await
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         let error_message = match &job.status {
             JobStatus::Failed(msg) => msg.clone(),
@@ -456,7 +456,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let req = request.into_inner();
         let job_id = JobId::new(req.job_id.clone());
 
-        tracing::Span::current().record("job_id", &job_id.0.as_str());
+        tracing::Span::current().record("job_id", job_id.0.as_str());
         info!("Starting job watch stream");
 
         let job_store = self.job_store.clone();
@@ -524,12 +524,12 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             1000 // Default chunk size
         };
 
-        tracing::Span::current().record("job_id", &job_id.0.as_str());
+        tracing::Span::current().record("job_id", job_id.0.as_str());
         info!(chunk_size = chunk_size, "Starting result stream");
 
         // Get the complete result first
         let result = self.job_store.get_result(&job_id).await
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         let (tx, rx) = tokio::sync::mpsc::channel(16);
 
@@ -540,7 +540,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                 .collect();
 
             let total_entries = all_counts.len();
-            let total_chunks = (total_entries + chunk_size - 1) / chunk_size;
+            let total_chunks = total_entries.div_ceil(chunk_size);
 
             for (chunk_index, chunk_entries) in all_counts.chunks(chunk_size).enumerate() {
                 let mut chunk_counts = std::collections::HashMap::new();
@@ -706,7 +706,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let job_id = JobId::new(req.job_id.clone());
 
         let result = self.job_store.get_result(&job_id).await
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         // Convert counts to protobuf map
         let mut counts = std::collections::HashMap::new();
@@ -739,7 +739,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         // Check current status
         let job = self.job_store.get_job(&job_id).await
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         if job.status.is_terminal() {
             return Ok(Response::new(CancelJobResponse {
@@ -752,7 +752,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         self.job_store
             .update_status(&job_id, JobStatus::Cancelled)
             .await
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         Ok(Response::new(CancelJobResponse {
             success: true,
@@ -769,7 +769,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         for id in backend_ids {
             let backend = self.backends.get(&id)
-                .map_err(|e| Status::from(e))?;
+                .map_err(Status::from)?;
 
             let caps = backend.capabilities().await
                 .map_err(|e| Status::internal(format!("Failed to get capabilities: {}", e)))?;
@@ -805,7 +805,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let req = request.into_inner();
 
         let backend = self.backends.get(&req.backend_id)
-            .map_err(|e| Status::from(e))?;
+            .map_err(Status::from)?;
 
         let caps = backend.capabilities().await
             .map_err(|e| Status::internal(format!("Failed to get capabilities: {}", e)))?;

@@ -13,6 +13,7 @@ use arvak_hal::result::Counts;
 ///
 /// Where the coefficients gᵢ depend on the bond distance.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct H2Hamiltonian {
     /// Bond distance in Angstroms
     pub bond_distance: f64,
@@ -175,9 +176,9 @@ impl H2Hamiltonian {
         // |01⟩: z0=+1, z1=-1
         // |10⟩: z0=-1, z1=+1
         // |11⟩: z0=-1, z1=-1
-        let z0_exp = p_00 * 1.0 + p_01 * 1.0 + p_10 * (-1.0) + p_11 * (-1.0);
-        let z1_exp = p_00 * 1.0 + p_01 * (-1.0) + p_10 * 1.0 + p_11 * (-1.0);
-        let zz_exp = p_00 * 1.0 + p_01 * (-1.0) + p_10 * (-1.0) + p_11 * 1.0;
+        let z0_exp = p_00 * 1.0 + p_01 * 1.0 + -p_10 + -p_11;
+        let z1_exp = p_00 * 1.0 + -p_01 + p_10 * 1.0 + -p_11;
+        let zz_exp = p_00 * 1.0 + -p_01 + -p_10 + p_11 * 1.0;
 
         // XX and YY expectation values for the state cos(θ/2)|01⟩ - sin(θ/2)|10⟩
         // ⟨XX⟩ = -2 cos(θ/2) sin(θ/2) = -sin(θ)

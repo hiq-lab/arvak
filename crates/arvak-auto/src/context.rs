@@ -8,20 +8,15 @@ use crate::error::{UncomputeError, UncomputeResult};
 use crate::inverse::inverse_instruction;
 
 /// Scope of uncomputation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UncomputeScope {
     /// Uncompute all ancilla qubits.
+    #[default]
     All,
     /// Uncompute only specified qubits.
     Selected,
     /// Uncompute qubits not in the output set.
     ExcludeOutput,
-}
-
-impl Default for UncomputeScope {
-    fn default() -> Self {
-        Self::All
-    }
 }
 
 /// Context for automatic uncomputation.

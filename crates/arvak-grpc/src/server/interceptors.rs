@@ -22,6 +22,12 @@ pub const REQUEST_ID_HEADER: &str = "x-request-id";
 #[derive(Clone)]
 pub struct RequestIdInterceptor;
 
+impl Default for RequestIdInterceptor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RequestIdInterceptor {
     pub fn new() -> Self {
         Self
@@ -42,7 +48,7 @@ impl tonic::service::Interceptor for RequestIdInterceptor {
             });
 
         // Add request ID to tracing span
-        tracing::Span::current().record("request_id", &request_id.as_str());
+        tracing::Span::current().record("request_id", request_id.as_str());
 
         // Store request ID in request extensions for later access
         request.extensions_mut().insert(RequestId(request_id.clone()));
@@ -62,6 +68,12 @@ pub struct RequestId(pub String);
 /// Logs all incoming requests with method name, client address, and timing.
 #[derive(Clone)]
 pub struct LoggingInterceptor;
+
+impl Default for LoggingInterceptor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl LoggingInterceptor {
     pub fn new() -> Self {
@@ -94,6 +106,12 @@ pub struct RateLimiter {
     // Future: implement proper rate limiting with token bucket or sliding window
 }
 
+impl Default for RateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RateLimiter {
     pub fn new() -> Self {
         Self {}
@@ -113,6 +131,12 @@ impl RateLimiter {
 #[derive(Clone)]
 pub struct AuthInterceptor {
     // Future: add authentication state
+}
+
+impl Default for AuthInterceptor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AuthInterceptor {

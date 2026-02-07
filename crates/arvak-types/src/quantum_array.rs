@@ -116,8 +116,12 @@ impl<const N: usize, const W: usize> QuantumArray<N, W> {
         let reg_j = &self.registers[j];
 
         for k in 0..W {
-            let qi = reg_i.qubit(k).unwrap();
-            let qj = reg_j.qubit(k).unwrap();
+            let qi = reg_i
+                .qubit(k)
+                .ok_or(TypeError::IndexOutOfBounds { index: k, size: W })?;
+            let qj = reg_j
+                .qubit(k)
+                .ok_or(TypeError::IndexOutOfBounds { index: k, size: W })?;
             circuit
                 .swap(qi, qj)
                 .map_err(|e| TypeError::CircuitError(e.to_string()))?;

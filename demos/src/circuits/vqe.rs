@@ -124,8 +124,8 @@ pub fn ry_ansatz(n_qubits: usize, params: &[f64]) -> Circuit {
 
     let mut circuit = Circuit::with_size("ry_ansatz", n_qubits as u32, 0);
 
-    for q in 0..n_qubits {
-        circuit.ry(params[q], QubitId(q as u32)).unwrap();
+    for (q, &param) in params.iter().enumerate().take(n_qubits) {
+        circuit.ry(param, QubitId(q as u32)).unwrap();
     }
 
     circuit

@@ -102,11 +102,11 @@ cx q[0], q[1];
     let batch_stream = async_stream::stream! {
         // Submit 3 jobs via the stream
         for i in 1..=3 {
-            let qasm = format!(r#"
+            let qasm = r#"
 OPENQASM 3.0;
 qubit[1] q;
 h q[0];
-"#);
+"#.to_string();
 
             yield BatchJobSubmission {
                 circuit: Some(CircuitPayload {

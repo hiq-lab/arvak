@@ -64,6 +64,7 @@ pub fn create_uccsd_ansatz(parameters: &[f64]) -> Result<Circuit> {
 ///               │
 /// |0⟩ ─[Ry(θ₁)]─X─[Ry(θ₃)]─
 /// ```
+#[allow(dead_code)]
 pub fn create_hardware_efficient_ansatz(parameters: &[f64]) -> Result<Circuit> {
     let theta0 = parameters.first().copied().unwrap_or(0.0);
     let theta1 = parameters.get(1).copied().unwrap_or(0.0);
@@ -91,11 +92,13 @@ pub fn create_hardware_efficient_ansatz(parameters: &[f64]) -> Result<Circuit> {
 }
 
 /// Get the number of parameters for the UCCSD ansatz
+#[allow(dead_code)]
 pub fn uccsd_num_params() -> usize {
     1
 }
 
 /// Get the number of parameters for the hardware-efficient ansatz
+#[allow(dead_code)]
 pub fn hw_efficient_num_params() -> usize {
     4
 }

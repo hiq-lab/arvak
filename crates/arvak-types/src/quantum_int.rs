@@ -107,13 +107,25 @@ impl<const N: usize> QuantumInt<N> {
     }
 
     /// Get the LSB qubit.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the register is empty (N == 0), which violates the type invariant.
     pub fn lsb(&self) -> QubitId {
-        self.register.lsb().unwrap()
+        self.register
+            .lsb()
+            .expect("QuantumInt register must not be empty")
     }
 
     /// Get the MSB qubit (sign bit for signed integers).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the register is empty (N == 0), which violates the type invariant.
     pub fn msb(&self) -> QubitId {
-        self.register.msb().unwrap()
+        self.register
+            .msb()
+            .expect("QuantumInt register must not be empty")
     }
 
     /// Initialize the quantum integer to a classical value.
@@ -126,7 +138,10 @@ impl<const N: usize> QuantumInt<N> {
 
         for i in 0..N {
             if (value >> i) & 1 == 1 {
-                let qubit = self.register.qubit(i).unwrap();
+                let qubit = self
+                    .register
+                    .qubit(i)
+                    .ok_or(TypeError::IndexOutOfBounds { index: i, size: N })?;
                 circuit
                     .x(qubit)
                     .map_err(|e| TypeError::CircuitError(e.to_string()))?;
@@ -188,7 +203,10 @@ impl<const N: usize> QuantumInt<N> {
         for i in 0..N {
             if (value >> i) & 1 == 1 {
                 // Add 1 at position i: flip bit i and propagate carry
-                let qubit = self.register.qubit(i).unwrap();
+                let qubit = self
+                    .register
+                    .qubit(i)
+                    .ok_or(TypeError::IndexOutOfBounds { index: i, size: N })?;
                 circuit
                     .x(qubit)
                     .map_err(|e| TypeError::CircuitError(e.to_string()))?;
@@ -205,8 +223,14 @@ impl<const N: usize> QuantumInt<N> {
     /// Swap the contents with another quantum integer.
     pub fn swap(&self, other: &QuantumInt<N>, circuit: &mut Circuit) -> TypeResult<()> {
         for i in 0..N {
-            let q1 = self.register.qubit(i).unwrap();
-            let q2 = other.register.qubit(i).unwrap();
+            let q1 = self
+                .register
+                .qubit(i)
+                .ok_or(TypeError::IndexOutOfBounds { index: i, size: N })?;
+            let q2 = other
+                .register
+                .qubit(i)
+                .ok_or(TypeError::IndexOutOfBounds { index: i, size: N })?;
             circuit
                 .swap(q1, q2)
                 .map_err(|e| TypeError::CircuitError(e.to_string()))?;

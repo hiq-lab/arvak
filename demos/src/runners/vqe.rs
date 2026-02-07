@@ -161,11 +161,8 @@ fn simulate_statevector(
         if let arvak_ir::instruction::InstructionKind::Gate(gate) = &instr.kind {
             let qubits: Vec<usize> = instr.qubits.iter().map(|q| q.0 as usize).collect();
 
-            match &gate.kind {
-                arvak_ir::gate::GateKind::Standard(std_gate) => {
-                    apply_gate(&mut state, std_gate, &qubits);
-                }
-                _ => {}
+            if let arvak_ir::gate::GateKind::Standard(std_gate) = &gate.kind {
+                apply_gate(&mut state, std_gate, &qubits);
             }
         }
     }
@@ -222,9 +219,9 @@ fn apply_gate(
         }
         StandardGate::Z => {
             let q = qubits[0];
-            for i in 0..state.len() {
+            for (i, amp) in state.iter_mut().enumerate() {
                 if (i >> q) & 1 == 1 {
-                    state[i] = -state[i];
+                    *amp = -*amp;
                 }
             }
         }
@@ -249,11 +246,11 @@ fn apply_gate(
                 let q = qubits[0];
                 let phase0 = Complex64::new((-theta / 2.0).cos(), (-theta / 2.0).sin());
                 let phase1 = Complex64::new((theta / 2.0).cos(), (theta / 2.0).sin());
-                for i in 0..state.len() {
+                for (i, amp) in state.iter_mut().enumerate() {
                     if (i >> q) & 1 == 0 {
-                        state[i] = phase0 * state[i];
+                        *amp = phase0 * *amp;
                     } else {
-                        state[i] = phase1 * state[i];
+                        *amp = phase1 * *amp;
                     }
                 }
             }
@@ -287,9 +284,9 @@ fn apply_gate(
         StandardGate::CZ => {
             let q0 = qubits[0];
             let q1 = qubits[1];
-            for i in 0..state.len() {
+            for (i, amp) in state.iter_mut().enumerate() {
                 if (i >> q0) & 1 == 1 && (i >> q1) & 1 == 1 {
-                    state[i] = -state[i];
+                    *amp = -*amp;
                 }
             }
         }
@@ -648,11 +645,11 @@ mod tests {
         // H[00,00]: Z0=+1, Z1=+1, Z0Z1=+1
         let e_00 = g0 + g1 * 1.0 + g2 * 1.0 + g3 * 1.0;
         // H[01,01]: Z0=-1 (q0=1), Z1=+1 (q1=0), Z0Z1=-1
-        let e_01 = g0 + g1 * (-1.0) + g2 * 1.0 + g3 * (-1.0);
+        let e_01 = g0 + -g1 + g2 * 1.0 + -g3;
         // H[10,10]: Z0=+1 (q0=0), Z1=-1 (q1=1), Z0Z1=-1
-        let e_10 = g0 + g1 * 1.0 + g2 * (-1.0) + g3 * (-1.0);
+        let e_10 = g0 + g1 * 1.0 + -g2 + -g3;
         // H[11,11]: Z0=-1, Z1=-1, Z0Z1=+1
-        let e_11 = g0 + g1 * (-1.0) + g2 * (-1.0) + g3 * 1.0;
+        let e_11 = g0 + -g1 + -g2 + g3 * 1.0;
 
         println!("Diagonal elements:");
         println!("  H[00,00] = {:.4}", e_00);

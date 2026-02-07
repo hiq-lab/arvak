@@ -17,6 +17,12 @@ use tracing::{info, instrument};
 #[derive(Clone)]
 pub struct TimingLayer;
 
+impl Default for TimingLayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TimingLayer {
     pub fn new() -> Self {
         Self
@@ -77,6 +83,12 @@ where
 /// Tracks connection information like client IP, connection time, etc.
 #[derive(Clone)]
 pub struct ConnectionInfoLayer;
+
+impl Default for ConnectionInfoLayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ConnectionInfoLayer {
     pub fn new() -> Self {

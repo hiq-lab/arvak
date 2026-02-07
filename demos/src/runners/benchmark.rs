@@ -211,13 +211,11 @@ impl BackendComparison {
                 result.throughput()
             ));
 
-            if let Some(baseline) = &self.baseline {
-                if result.name != *baseline {
-                    if let Some(speedup) = self.speedup(&result.name) {
+            if let Some(baseline) = &self.baseline
+                && result.name != *baseline
+                    && let Some(speedup) = self.speedup(&result.name) {
                         lines.push(format!("  Speedup vs {}: {:.2}x", baseline, speedup));
                     }
-                }
-            }
         }
 
         lines.join("\n")

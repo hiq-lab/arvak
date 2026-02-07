@@ -183,9 +183,9 @@ impl NelderMeadOptimizer {
         let n = self.simplex.len() - 1; // Exclude worst point
         let mut center = vec![0.0; self.num_params];
 
-        for i in 0..n {
-            for j in 0..self.num_params {
-                center[j] += self.simplex[i][j];
+        for vertex in &self.simplex[..n] {
+            for (c, &v) in center.iter_mut().zip(vertex.iter()) {
+                *c += v;
             }
         }
 
@@ -288,7 +288,7 @@ impl Optimizer for NelderMeadOptimizer {
                 self.trial_point = self.project(&self.trial_point);
 
                 self.phase = NelderMeadPhase::Reflection;
-                return self.trial_point.clone();
+                self.trial_point.clone()
             }
 
             NelderMeadPhase::Reflection => {
@@ -310,7 +310,7 @@ impl Optimizer for NelderMeadOptimizer {
 
                     self.trial_point = self.project(&expansion);
                     self.phase = NelderMeadPhase::Expansion;
-                    return self.trial_point.clone();
+                    self.trial_point.clone()
                 } else if self.trial_cost < f_second_worst {
                     // Accept reflection
                     self.simplex[self.num_params] = self.trial_point.clone();
@@ -332,7 +332,7 @@ impl Optimizer for NelderMeadOptimizer {
                         .collect();
                     self.trial_point = self.project(&self.trial_point);
                     self.phase = NelderMeadPhase::Reflection;
-                    return self.trial_point.clone();
+                    self.trial_point.clone()
                 } else {
                     // Try contraction
                     let centroid = self.centroid();
@@ -353,7 +353,7 @@ impl Optimizer for NelderMeadOptimizer {
                         .collect();
                     self.trial_point = self.project(&self.trial_point);
                     self.phase = NelderMeadPhase::Contraction;
-                    return self.trial_point.clone();
+                    self.trial_point.clone()
                 }
             }
 
@@ -395,7 +395,7 @@ impl Optimizer for NelderMeadOptimizer {
                     .collect();
                 self.trial_point = self.project(&self.trial_point);
                 self.phase = NelderMeadPhase::Reflection;
-                return self.trial_point.clone();
+                self.trial_point.clone()
             }
 
             NelderMeadPhase::Contraction => {
@@ -422,7 +422,7 @@ impl Optimizer for NelderMeadOptimizer {
                         .collect();
                     self.trial_point = self.project(&self.trial_point);
                     self.phase = NelderMeadPhase::Reflection;
-                    return self.trial_point.clone();
+                    self.trial_point.clone()
                 } else {
                     // Shrink simplex toward best point
                     self.phase = NelderMeadPhase::Shrink;
@@ -440,7 +440,7 @@ impl Optimizer for NelderMeadOptimizer {
                         self.simplex[i] = self.project(&self.simplex[i]);
                     }
 
-                    return self.simplex[1].clone();
+                    self.simplex[1].clone()
                 }
             }
 
@@ -470,7 +470,7 @@ impl Optimizer for NelderMeadOptimizer {
                     .collect();
                 self.trial_point = self.project(&self.trial_point);
                 self.phase = NelderMeadPhase::Reflection;
-                return self.trial_point.clone();
+                self.trial_point.clone()
             }
         }
     }
@@ -493,6 +493,7 @@ impl Optimizer for NelderMeadOptimizer {
 /// A gradient-free stochastic optimizer that estimates gradients using
 /// only two function evaluations per iteration, regardless of dimension.
 /// Very efficient for noisy quantum cost functions.
+#[allow(dead_code)]
 pub struct SpsaOptimizer {
     /// Number of parameters
     num_params: usize,
@@ -544,6 +545,7 @@ pub struct SpsaOptimizer {
     converged: bool,
 }
 
+#[allow(dead_code)]
 impl SpsaOptimizer {
     /// Create a new SPSA optimizer
     pub fn new(num_params: usize) -> Self {
@@ -607,7 +609,7 @@ impl SpsaOptimizer {
             let mut hasher = DefaultHasher::new();
             (self.iteration, i).hash(&mut hasher);
             let hash = hasher.finish();
-            let sign = if hash % 2 == 0 { 1.0 } else { -1.0 };
+            let sign = if hash.is_multiple_of(2) { 1.0 } else { -1.0 };
             self.delta.push(sign);
         }
     }

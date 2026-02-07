@@ -197,7 +197,7 @@ impl PyBasisGates {
 
     /// Get the basis gates as a list.
     fn gates(&self) -> Vec<String> {
-        self.inner.gates().iter().cloned().collect()
+        self.inner.gates().to_vec()
     }
 
     /// Create IQM basis gates (PRX + CZ).

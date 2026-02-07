@@ -1,3 +1,6 @@
+// Demo code: allow unused items since these are reference implementations
+#![allow(dead_code)]
+
 //! Arvak Demo Suite
 //!
 //! This crate provides demonstrations of Arvak's HPC-quantum orchestration
