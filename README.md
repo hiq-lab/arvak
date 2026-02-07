@@ -9,11 +9,6 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-<p align="center">
-  <strong>Developed by <a href="https://www.hal-contract.org">The HAL Contract</a></strong><br>
-  <em>Advancing quantum computing infrastructure for European HPC centers</em>
-</p>
-
 > **v1.1.1 Released!** Multi-framework integration system with Qiskit, Qrisp, Cirq, and PennyLane support + 5 interactive Jupyter notebooks. gRPC Python client v1.6.0 with async/await, caching, and advanced analysis. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Quick Install
