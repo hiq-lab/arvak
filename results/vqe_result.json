@@ -1,0 +1,189 @@
+{
+  "bond_distance": 0.735,
+  "final_energy": -1.3113999714880373,
+  "exact_energy": -1.3114000000000001,
+  "error": 2.851196279074486e-8,
+  "iterations": [
+    {
+      "iteration": 0,
+      "parameters": [
+        0.0
+      ],
+      "energy": -1.0678,
+      "shots": 1000
+    },
+    {
+      "iteration": 1,
+      "parameters": [
+        0.5
+      ],
+      "energy": -1.1845880612039836,
+      "shots": 1000
+    },
+    {
+      "iteration": 2,
+      "parameters": [
+        1.0
+      ],
+      "energy": -1.2727823318992035,
+      "shots": 1000
+    },
+    {
+      "iteration": 3,
+      "parameters": [
+        1.5
+      ],
+      "energy": -1.3107897787367477,
+      "shots": 1000
+    },
+    {
+      "iteration": 4,
+      "parameters": [
+        2.5
+      ],
+      "energy": -1.213587814303724,
+      "shots": 1000
+    },
+    {
+      "iteration": 5,
+      "parameters": [
+        2.0
+      ],
+      "energy": -1.2893048531747362,
+      "shots": 1000
+    },
+    {
+      "iteration": 6,
+      "parameters": [
+        1.0
+      ],
+      "energy": -1.2727823318992035,
+      "shots": 1000
+    },
+    {
+      "iteration": 7,
+      "parameters": [
+        1.75
+      ],
+      "energy": -1.3074989766584912,
+      "shots": 1000
+    },
+    {
+      "iteration": 8,
+      "parameters": [
+        1.25
+      ],
+      "energy": -1.2989726532750208,
+      "shots": 1000
+    },
+    {
+      "iteration": 9,
+      "parameters": [
+        1.625
+      ],
+      "energy": -1.311042234555503,
+      "shots": 1000
+    },
+    {
+      "iteration": 10,
+      "parameters": [
+        1.75
+      ],
+      "energy": -1.3074989766584912,
+      "shots": 1000
+    },
+    {
+      "iteration": 11,
+      "parameters": [
+        1.5625
+      ],
+      "energy": -1.3113916166712216,
+      "shots": 1000
+    },
+    {
+      "iteration": 12,
+      "parameters": [
+        1.5
+      ],
+      "energy": -1.3107897787367477,
+      "shots": 1000
+    },
+    {
+      "iteration": 13,
+      "parameters": [
+        1.59375
+      ],
+      "energy": -1.3113358299158842,
+      "shots": 1000
+    },
+    {
+      "iteration": 14,
+      "parameters": [
+        1.53125
+      ],
+      "energy": -1.3112095403466957,
+      "shots": 1000
+    },
+    {
+      "iteration": 15,
+      "parameters": [
+        1.578125
+      ],
+      "energy": -1.3113934582181543,
+      "shots": 1000
+    },
+    {
+      "iteration": 16,
+      "parameters": [
+        1.59375
+      ],
+      "energy": -1.3113358299158842,
+      "shots": 1000
+    },
+    {
+      "iteration": 17,
+      "parameters": [
+        1.5703125
+      ],
+      "energy": -1.3113999714880373,
+      "shots": 1000
+    },
+    {
+      "iteration": 18,
+      "parameters": [
+        1.5625
+      ],
+      "energy": -1.3113916166712216,
+      "shots": 1000
+    },
+    {
+      "iteration": 19,
+      "parameters": [
+        1.57421875
+      ],
+      "energy": -1.3113985733603561,
+      "shots": 1000
+    },
+    {
+      "iteration": 20,
+      "parameters": [
+        1.56640625
+      ],
+      "energy": -1.3113976525798647,
+      "shots": 1000
+    },
+    {
+      "iteration": 21,
+      "parameters": [
+        1.572265625
+      ],
+      "energy": -1.3113997370536747,
+      "shots": 1000
+    }
+  ],
+  "optimal_parameters": [
+    1.5703125
+  ],
+  "backend": "sim",
+  "total_shots": 22000
+}
