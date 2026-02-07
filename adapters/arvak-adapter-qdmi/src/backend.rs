@@ -7,6 +7,8 @@ use async_trait::async_trait;
 use rustc_hash::FxHashMap;
 use std::sync::{Arc, RwLock};
 use tracing::{debug, info};
+#[cfg(feature = "system-qdmi")]
+use tracing::warn;
 
 use arvak_hal::backend::{Backend, BackendConfig, BackendFactory};
 use arvak_hal::capability::{Capabilities, GateSet, Topology};
@@ -20,6 +22,15 @@ use crate::ffi::{QdmiDeviceStatus, QdmiJobStatus};
 
 #[cfg(not(feature = "system-qdmi"))]
 use crate::ffi::mock::{MockDevice, MockJob, MockSession};
+
+#[cfg(feature = "system-qdmi")]
+use crate::ffi::{
+    self, QdmiDevice, QdmiJob, QdmiJobParameter, QdmiJobResult, QdmiProgramFormat, QdmiSession,
+    QdmiSessionParameter,
+};
+
+#[cfg(feature = "system-qdmi")]
+use std::ffi::{c_int, c_void, CString};
 
 /// QDMI Backend for Arvak.
 ///
@@ -49,9 +60,13 @@ pub struct QdmiBackend {
     /// Configuration
     config: BackendConfig,
 
-    /// Internal state
+    /// Internal state (mock mode)
     #[cfg(not(feature = "system-qdmi"))]
     state: Arc<RwLock<MockState>>,
+
+    /// Internal state (system QDMI mode)
+    #[cfg(feature = "system-qdmi")]
+    state: Arc<RwLock<SystemState>>,
 
     /// Cached capabilities
     capabilities_cache: Arc<RwLock<Option<Capabilities>>>,
@@ -66,13 +81,44 @@ struct MockState {
     jobs: FxHashMap<String, MockJob>,
 }
 
+/// System QDMI state holding FFI handles
+#[cfg(feature = "system-qdmi")]
+struct SystemState {
+    session: *mut QdmiSession,
+    device: *mut QdmiDevice,
+    jobs: FxHashMap<String, *mut QdmiJob>,
+    initialized: bool,
+}
+
+#[cfg(feature = "system-qdmi")]
+impl Default for SystemState {
+    fn default() -> Self {
+        Self {
+            session: std::ptr::null_mut(),
+            device: std::ptr::null_mut(),
+            jobs: FxHashMap::default(),
+            initialized: false,
+        }
+    }
+}
+
+// SAFETY: The FFI pointers are only accessed through RwLock synchronization.
+// QDMI sessions are thread-safe per the QDMI specification.
+#[cfg(feature = "system-qdmi")]
+unsafe impl Send for SystemState {}
+#[cfg(feature = "system-qdmi")]
+unsafe impl Sync for SystemState {}
+
+// ============================================================================
+// Mock Mode Implementation
+// ============================================================================
+
 #[cfg(not(feature = "system-qdmi"))]
 impl QdmiBackend {
     /// Create a new QDMI backend.
     pub fn new() -> Self {
         Self {
             config: BackendConfig::new("qdmi"),
-            #[cfg(not(feature = "system-qdmi"))]
             state: Arc::new(RwLock::new(MockState::default())),
             capabilities_cache: Arc::new(RwLock::new(None)),
         }
@@ -90,8 +136,7 @@ impl QdmiBackend {
         self
     }
 
-    /// Initialize the QDMI session.
-    #[cfg(not(feature = "system-qdmi"))]
+    /// Initialize the QDMI session (mock mode).
     pub fn initialize(&self) -> QdmiResult<()> {
         let mut state = self
             .state
@@ -118,19 +163,7 @@ impl QdmiBackend {
         Ok(())
     }
 
-    /// Initialize the QDMI session (system QDMI).
-    #[cfg(feature = "system-qdmi")]
-    pub fn initialize(&self) -> QdmiResult<()> {
-        // TODO: Implement real QDMI session initialization
-        // This would use the FFI functions to:
-        // 1. QDMI_session_alloc
-        // 2. QDMI_session_set_parameter (token, base_url, etc.)
-        // 3. QDMI_session_init
-        // 4. QDMI_session_get_devices
-        unimplemented!("System QDMI integration requires linking against libqdmi")
-    }
-
-    /// Convert a Arvak circuit to QASM3 for QDMI submission.
+    /// Convert an Arvak circuit to QASM3 for QDMI submission.
     fn circuit_to_qasm3(&self, circuit: &Circuit) -> QdmiResult<String> {
         arvak_qasm3::emit(circuit).map_err(|e| QdmiError::CircuitConversion(e.to_string()))
     }
@@ -158,8 +191,7 @@ impl QdmiBackend {
         }
     }
 
-    /// Build capabilities from QDMI device properties.
-    #[cfg(not(feature = "system-qdmi"))]
+    /// Build capabilities from QDMI device properties (mock mode).
     fn build_capabilities(&self) -> QdmiResult<Capabilities> {
         let state = self
             .state
@@ -171,12 +203,237 @@ impl QdmiBackend {
         Ok(Capabilities {
             name: device.name.clone(),
             num_qubits: device.num_qubits as u32,
-            gate_set: GateSet::universal(), // QDMI devices typically accept standard gates
-            topology: Topology::full(device.num_qubits as u32), // Simplified
+            gate_set: GateSet::universal(),
+            topology: Topology::full(device.num_qubits as u32),
             max_shots: 100_000,
             is_simulator: false,
             features: vec!["qdmi".into(), "mqss".into()],
         })
+    }
+}
+
+// ============================================================================
+// System QDMI Implementation
+// ============================================================================
+
+#[cfg(feature = "system-qdmi")]
+impl QdmiBackend {
+    /// Create a new QDMI backend.
+    pub fn new() -> Self {
+        Self {
+            config: BackendConfig::new("qdmi"),
+            state: Arc::new(RwLock::new(SystemState::default())),
+            capabilities_cache: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// Set the authentication token.
+    pub fn with_token(mut self, token: impl Into<String>) -> Self {
+        self.config.token = Some(token.into());
+        self
+    }
+
+    /// Set the base URL for the QDMI endpoint.
+    pub fn with_base_url(mut self, url: impl Into<String>) -> Self {
+        self.config.endpoint = Some(url.into());
+        self
+    }
+
+    /// Initialize the QDMI session via FFI.
+    ///
+    /// Performs the following steps:
+    /// 1. Allocate a new QDMI session
+    /// 2. Set session parameters (token, base URL)
+    /// 3. Initialize the session (connects to the backend)
+    /// 4. Discover available devices
+    pub fn initialize(&self) -> QdmiResult<()> {
+        let mut state = self
+            .state
+            .write()
+            .map_err(|_| QdmiError::Ffi("Failed to acquire lock".into()))?;
+
+        if state.initialized {
+            return Ok(());
+        }
+
+        unsafe {
+            // 1. Allocate session
+            let mut session: *mut QdmiSession = std::ptr::null_mut();
+            let status = ffi::QDMI_session_alloc(&mut session);
+            ffi::check_status(status)
+                .map_err(|s| QdmiError::Ffi(format!("session_alloc failed: {s:?}")))?;
+
+            if session.is_null() {
+                return Err(QdmiError::Ffi("session_alloc returned null".into()));
+            }
+
+            // 2. Set session parameters
+            if let Some(ref base_url) = self.config.endpoint {
+                let c_url = CString::new(base_url.as_str())
+                    .map_err(|e| QdmiError::InvalidParameter(e.to_string()))?;
+                let status = ffi::QDMI_session_set_parameter(
+                    session,
+                    QdmiSessionParameter::BaseUrl as c_int,
+                    c_url.as_ptr() as *const c_void,
+                );
+                ffi::check_status(status)
+                    .map_err(|s| QdmiError::Ffi(format!("set BaseUrl failed: {s:?}")))?;
+            }
+
+            if let Some(ref token) = self.config.token {
+                let c_token = CString::new(token.as_str())
+                    .map_err(|e| QdmiError::InvalidParameter(e.to_string()))?;
+                let status = ffi::QDMI_session_set_parameter(
+                    session,
+                    QdmiSessionParameter::Token as c_int,
+                    c_token.as_ptr() as *const c_void,
+                );
+                ffi::check_status(status)
+                    .map_err(|s| QdmiError::Ffi(format!("set Token failed: {s:?}")))?;
+            }
+
+            // 3. Initialize session
+            let status = ffi::QDMI_session_init(session);
+            ffi::check_status(status)
+                .map_err(|s| QdmiError::Ffi(format!("session_init failed: {s:?}")))?;
+
+            // 4. Get devices
+            let mut devices: *mut QdmiDevice = std::ptr::null_mut();
+            let mut device_count: usize = 0;
+            let status =
+                ffi::QDMI_session_get_devices(session, &mut devices, &mut device_count);
+            ffi::check_status(status)
+                .map_err(|s| QdmiError::Ffi(format!("get_devices failed: {s:?}")))?;
+
+            if device_count == 0 || devices.is_null() {
+                // Clean up session on failure
+                ffi::QDMI_session_free(session);
+                return Err(QdmiError::NoDevice);
+            }
+
+            // Use the first available device
+            state.session = session;
+            state.device = devices;
+            state.initialized = true;
+
+            info!(
+                "QDMI session initialized with {} device(s)",
+                device_count
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Convert an Arvak circuit to QASM3 for QDMI submission.
+    fn circuit_to_qasm3(&self, circuit: &Circuit) -> QdmiResult<String> {
+        arvak_qasm3::emit(circuit).map_err(|e| QdmiError::CircuitConversion(e.to_string()))
+    }
+
+    /// Parse QDMI results into Arvak Counts.
+    fn parse_results(&self, hist_keys: &[String], hist_values: &[u64]) -> Counts {
+        let mut counts = Counts::new();
+        for (key, &value) in hist_keys.iter().zip(hist_values.iter()) {
+            counts.insert(key.clone(), value);
+        }
+        counts
+    }
+
+    /// Convert QDMI job status to Arvak job status.
+    fn convert_job_status(&self, qdmi_status: QdmiJobStatus) -> JobStatus {
+        match qdmi_status {
+            QdmiJobStatus::Created | QdmiJobStatus::Submitted | QdmiJobStatus::Queued => {
+                JobStatus::Queued
+            }
+            QdmiJobStatus::Running => JobStatus::Running,
+            QdmiJobStatus::Done => JobStatus::Completed,
+            QdmiJobStatus::Canceled => JobStatus::Cancelled,
+            QdmiJobStatus::Failed => JobStatus::Failed("Job failed".into()),
+        }
+    }
+
+    /// Build capabilities by querying QDMI device properties via FFI.
+    fn build_capabilities(&self) -> QdmiResult<Capabilities> {
+        let state = self
+            .state
+            .read()
+            .map_err(|_| QdmiError::Ffi("Failed to acquire lock".into()))?;
+
+        if !state.initialized || state.device.is_null() {
+            return Err(QdmiError::NoDevice);
+        }
+
+        unsafe {
+            use crate::ffi::QdmiDeviceProperty;
+
+            // Query device name
+            let mut name_buf = [0u8; 256];
+            let mut name_size = name_buf.len();
+            let status = ffi::QDMI_device_query_device_property(
+                state.device,
+                QdmiDeviceProperty::Name as c_int,
+                name_buf.as_mut_ptr() as *mut c_void,
+                &mut name_size,
+            );
+            let device_name = if ffi::check_status(status).is_ok() && name_size > 0 {
+                String::from_utf8_lossy(&name_buf[..name_size.saturating_sub(1)]).to_string()
+            } else {
+                "QDMI Device".to_string()
+            };
+
+            // Query number of qubits
+            let mut num_qubits: c_int = 0;
+            let mut qubits_size = std::mem::size_of::<c_int>();
+            let status = ffi::QDMI_device_query_device_property(
+                state.device,
+                QdmiDeviceProperty::QubitsNum as c_int,
+                &mut num_qubits as *mut c_int as *mut c_void,
+                &mut qubits_size,
+            );
+            let num_qubits = if ffi::check_status(status).is_ok() {
+                num_qubits as u32
+            } else {
+                warn!("Failed to query qubit count, defaulting to 0");
+                0
+            };
+
+            Ok(Capabilities {
+                name: device_name,
+                num_qubits,
+                gate_set: GateSet::universal(),
+                topology: if num_qubits > 0 {
+                    Topology::full(num_qubits)
+                } else {
+                    Topology::full(1)
+                },
+                max_shots: 100_000,
+                is_simulator: false,
+                features: vec!["qdmi".into(), "mqss".into(), "system".into()],
+            })
+        }
+    }
+}
+
+#[cfg(feature = "system-qdmi")]
+impl Drop for QdmiBackend {
+    fn drop(&mut self) {
+        if let Ok(mut state) = self.state.write() {
+            unsafe {
+                // Free all outstanding jobs
+                for (_id, job_ptr) in state.jobs.drain() {
+                    if !job_ptr.is_null() {
+                        ffi::QDMI_job_free(job_ptr);
+                    }
+                }
+
+                // Free session (which implicitly frees associated devices)
+                if !state.session.is_null() {
+                    ffi::QDMI_session_free(state.session);
+                    state.session = std::ptr::null_mut();
+                    state.device = std::ptr::null_mut();
+                }
+            }
+        }
     }
 }
 
@@ -218,6 +475,19 @@ impl Backend for QdmiBackend {
             }
         }
 
+        #[cfg(feature = "system-qdmi")]
+        {
+            let state = self
+                .state
+                .read()
+                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
+            if !state.initialized {
+                drop(state);
+                self.initialize()
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+            }
+        }
+
         // Build capabilities
         let caps = self
             .build_capabilities()
@@ -248,6 +518,41 @@ impl Backend for QdmiBackend {
                     device.status,
                     QdmiDeviceStatus::Idle | QdmiDeviceStatus::Busy
                 ));
+            }
+
+            // Try to initialize
+            drop(state);
+            if self.initialize().is_ok() {
+                return Ok(true);
+            }
+        }
+
+        #[cfg(feature = "system-qdmi")]
+        {
+            let state = self
+                .state
+                .read()
+                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
+
+            if state.initialized && !state.device.is_null() {
+                unsafe {
+                    use crate::ffi::QdmiDeviceProperty;
+                    let mut status_val: c_int = 0;
+                    let mut size = std::mem::size_of::<c_int>();
+                    let result = ffi::QDMI_device_query_device_property(
+                        state.device,
+                        QdmiDeviceProperty::Status as c_int,
+                        &mut status_val as *mut c_int as *mut c_void,
+                        &mut size,
+                    );
+                    if ffi::check_status(result).is_ok() {
+                        let device_status = QdmiDeviceStatus::from(status_val);
+                        return Ok(matches!(
+                            device_status,
+                            QdmiDeviceStatus::Idle | QdmiDeviceStatus::Busy
+                        ));
+                    }
+                }
             }
 
             // Try to initialize
@@ -306,8 +611,69 @@ impl Backend for QdmiBackend {
 
         #[cfg(feature = "system-qdmi")]
         {
-            // TODO: Real QDMI job submission
-            unimplemented!("System QDMI integration requires linking against libqdmi")
+            let mut state = self
+                .state
+                .write()
+                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
+
+            if !state.initialized || state.device.is_null() {
+                return Err(HalError::Backend("QDMI not initialized".into()));
+            }
+
+            unsafe {
+                // 1. Create job
+                let mut job: *mut QdmiJob = std::ptr::null_mut();
+                let status = ffi::QDMI_device_create_job(state.device, &mut job);
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("create_job failed: {s:?}")))?;
+
+                if job.is_null() {
+                    return Err(HalError::Backend("create_job returned null".into()));
+                }
+
+                // 2. Set program format (QASM3)
+                let format = QdmiProgramFormat::Qasm3 as c_int;
+                let status = ffi::QDMI_job_set_parameter(
+                    job,
+                    QdmiJobParameter::ProgramFormat as c_int,
+                    &format as *const c_int as *const c_void,
+                );
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("set ProgramFormat failed: {s:?}")))?;
+
+                // 3. Set program
+                let c_qasm = CString::new(qasm.as_str())
+                    .map_err(|e| HalError::Backend(format!("Invalid QASM string: {e}")))?;
+                let status = ffi::QDMI_job_set_parameter(
+                    job,
+                    QdmiJobParameter::Program as c_int,
+                    c_qasm.as_ptr() as *const c_void,
+                );
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("set Program failed: {s:?}")))?;
+
+                // 4. Set shots
+                let shots_val = shots as c_int;
+                let status = ffi::QDMI_job_set_parameter(
+                    job,
+                    QdmiJobParameter::ShotsNum as c_int,
+                    &shots_val as *const c_int as *const c_void,
+                );
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("set ShotsNum failed: {s:?}")))?;
+
+                // 5. Submit
+                let status = ffi::QDMI_job_submit(job);
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("job_submit failed: {s:?}")))?;
+
+                // Generate a unique ID and store the job handle
+                let job_id = uuid::Uuid::new_v4().to_string();
+                state.jobs.insert(job_id.clone(), job);
+
+                info!("Submitted job {} via QDMI (system)", job_id);
+                return Ok(JobId::new(job_id));
+            }
         }
     }
 
@@ -355,7 +721,25 @@ impl Backend for QdmiBackend {
 
         #[cfg(feature = "system-qdmi")]
         {
-            unimplemented!("System QDMI integration requires linking against libqdmi")
+            let state = self
+                .state
+                .read()
+                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
+
+            let &job_ptr = state
+                .jobs
+                .get(&job_id.0)
+                .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))?;
+
+            unsafe {
+                let mut status_val: c_int = 0;
+                let status = ffi::QDMI_job_check(job_ptr, &mut status_val);
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("job_check failed: {s:?}")))?;
+
+                let qdmi_status = QdmiJobStatus::from(status_val);
+                return Ok(self.convert_job_status(qdmi_status));
+            }
         }
     }
 
@@ -389,7 +773,67 @@ impl Backend for QdmiBackend {
 
         #[cfg(feature = "system-qdmi")]
         {
-            unimplemented!("System QDMI integration requires linking against libqdmi")
+            let state = self
+                .state
+                .read()
+                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
+
+            let &job_ptr = state
+                .jobs
+                .get(&job_id.0)
+                .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))?;
+
+            unsafe {
+                // First get the size of histogram keys
+                let mut keys_size: usize = 0;
+                let status = ffi::QDMI_job_get_results(
+                    job_ptr,
+                    QdmiJobResult::HistKeys as c_int,
+                    std::ptr::null_mut(),
+                    &mut keys_size,
+                );
+                // NotFound or zero size means no results yet
+                if !ffi::check_status(status).is_ok() || keys_size == 0 {
+                    return Err(HalError::JobFailed("No results available".into()));
+                }
+
+                // Allocate and get histogram keys
+                let mut keys_buf = vec![0u8; keys_size];
+                let status = ffi::QDMI_job_get_results(
+                    job_ptr,
+                    QdmiJobResult::HistKeys as c_int,
+                    keys_buf.as_mut_ptr() as *mut c_void,
+                    &mut keys_size,
+                );
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("get HistKeys failed: {s:?}")))?;
+
+                // Parse keys (null-separated C strings)
+                let keys_str = String::from_utf8_lossy(&keys_buf[..keys_size]);
+                let hist_keys: Vec<String> = keys_str
+                    .split('\0')
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
+
+                // Get histogram values
+                let num_keys = hist_keys.len();
+                let mut hist_values = vec![0u64; num_keys];
+                let mut values_size = num_keys * std::mem::size_of::<u64>();
+                let status = ffi::QDMI_job_get_results(
+                    job_ptr,
+                    QdmiJobResult::HistValues as c_int,
+                    hist_values.as_mut_ptr() as *mut c_void,
+                    &mut values_size,
+                );
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("get HistValues failed: {s:?}")))?;
+
+                let counts = self.parse_results(&hist_keys, &hist_values);
+                let total_shots: u64 = hist_values.iter().sum();
+
+                return Ok(ExecutionResult::new(counts, total_shots as u32));
+            }
         }
     }
 
@@ -413,7 +857,24 @@ impl Backend for QdmiBackend {
 
         #[cfg(feature = "system-qdmi")]
         {
-            unimplemented!("System QDMI integration requires linking against libqdmi")
+            let state = self
+                .state
+                .read()
+                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
+
+            let &job_ptr = state
+                .jobs
+                .get(&job_id.0)
+                .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))?;
+
+            unsafe {
+                let status = ffi::QDMI_job_cancel(job_ptr);
+                ffi::check_status(status)
+                    .map_err(|s| HalError::Backend(format!("job_cancel failed: {s:?}")))?;
+            }
+
+            info!("Cancelled job {} via QDMI (system)", job_id);
+            return Ok(());
         }
     }
 }
