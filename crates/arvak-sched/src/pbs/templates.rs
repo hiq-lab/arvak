@@ -95,7 +95,7 @@ pub fn generate_pbs_script(
     script.push_str("echo \"Queue: $PBS_QUEUE\"\n");
     script.push_str("echo \"Start Time: $(date)\"\n\n");
 
-    // Execute HIQ command
+    // Execute Arvak command
     script.push_str("# Execute quantum job\n");
 
     let backend_flag = if let Some(ref backend) = job.matched_backend {
@@ -396,7 +396,7 @@ mod tests {
             nodes: 1,
             ppn: 1,
             work_dir: PathBuf::from("/scratch/jobs"),
-            arvak_binary: PathBuf::from("/opt/arvak/bin/hiq"),
+            arvak_binary: PathBuf::from("/opt/arvak/bin/arvak"),
             modules: vec!["python/3.11".to_string()],
             python_venv: Some(PathBuf::from("/opt/arvak/venv")),
             server: None,
@@ -427,7 +427,7 @@ mod tests {
         assert!(script.contains("#PBS -l mem=4gb"));
         assert!(script.contains("module load python/3.11"));
         assert!(script.contains("source /opt/arvak/venv/bin/activate"));
-        assert!(script.contains("/opt/arvak/bin/hiq run"));
+        assert!(script.contains("/opt/arvak/bin/arvak run"));
         assert!(script.contains("cd $PBS_O_WORKDIR"));
     }
 

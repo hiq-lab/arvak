@@ -1,8 +1,8 @@
-# HIQ Framework Integration Status
+# Arvak Framework Integration Status
 
 ## Overview
 
-HIQ now supports **extensible multi-framework integration** with a plugin architecture that makes adding new quantum frameworks trivial.
+Arvak now supports **extensible multi-framework integration** with a plugin architecture that makes adding new quantum frameworks trivial.
 
 ## Implemented Integrations
 
@@ -11,8 +11,8 @@ HIQ now supports **extensible multi-framework integration** with a plugin archit
 - **Files**: 3 integration files, 1 notebook, 1 test file
 - **Tests**: 14 registry tests + Qiskit integration tests
 - **Features**:
-  - Bi-directional circuit conversion (Qiskit ↔ HIQ)
-  - Backend provider (use HIQ as Qiskit backend)
+  - Bi-directional circuit conversion (Qiskit ↔ Arvak)
+  - Backend provider (use Arvak as Qiskit backend)
   - OpenQASM 3.0 interchange format
   - Standard Qiskit API compatibility
 - **Installation**: `pip install arvak[qiskit]`
@@ -22,10 +22,10 @@ HIQ now supports **extensible multi-framework integration** with a plugin archit
 - **Files**: 3 integration files, 1 notebook, 1 test file
 - **Tests**: 22 comprehensive tests (skip gracefully without Qrisp)
 - **Features**:
-  - Bi-directional circuit conversion (Qrisp ↔ HIQ)
+  - Bi-directional circuit conversion (Qrisp ↔ Arvak)
   - QuantumVariable and QuantumSession support
   - Automatic uncomputation compatibility
-  - High-level quantum programming with HIQ compilation
+  - High-level quantum programming with Arvak compilation
   - Backend client for execution
 - **Installation**: `pip install arvak[qrisp]`
 
@@ -33,7 +33,7 @@ HIQ now supports **extensible multi-framework integration** with a plugin archit
 - **Status**: Template ready, ~30 minutes to implement
 - **Next Steps**:
   1. `python notebooks/generate_notebook.py cirq 04`
-  2. Create `python/hiq/integrations/cirq/`
+  2. Create `python/arvak/integrations/cirq/`
   3. Implement converter and backend
   4. Add tests
 - **Installation**: `pip install arvak[cirq]` (when ready)
@@ -41,7 +41,7 @@ HIQ now supports **extensible multi-framework integration** with a plugin archit
 ## Architecture
 
 ```
-python/hiq/
+python/arvak/
 ├── __init__.py                    # Public API with integration functions
 └── integrations/
     ├── __init__.py                # IntegrationRegistry + auto-discovery
@@ -64,11 +64,11 @@ python/hiq/
 import arvak
 
 # List available integrations
-integrations = hiq.list_integrations()
+integrations = arvak.list_integrations()
 # {'qiskit': True, 'qrisp': False, 'cirq': False}
 
 # Get detailed status
-status = hiq.integration_status()
+status = arvak.integration_status()
 # {
 #     'qiskit': {
 #         'name': 'qiskit',
@@ -83,14 +83,14 @@ status = hiq.integration_status()
 # }
 
 # Get specific integration
-qiskit = hiq.get_integration('qiskit')
+qiskit = arvak.get_integration('qiskit')
 hiq_circuit = qiskit.to_hiq(qiskit_circuit)
 ```
 
 ## Installation Options
 
 ```bash
-# Core HIQ only (no framework dependencies)
+# Core Arvak only (no framework dependencies)
 pip install arvak
 
 # With Qiskit
@@ -114,7 +114,7 @@ pip install arvak[all]
 ### User Documentation
 - **QUICKSTART_INTEGRATIONS.md** - 5-minute quick start
 - **notebooks/README.md** - Notebook guide with installation instructions
-- **notebooks/01_core_hiq.ipynb** - Core HIQ (no dependencies)
+- **notebooks/01_core_hiq.ipynb** - Core Arvak (no dependencies)
 - **notebooks/02_qiskit_integration.ipynb** - Qiskit integration demo
 - **notebooks/03_qrisp_integration.ipynb** - Qrisp integration demo
 
@@ -173,14 +173,14 @@ qc.h(0)
 qc.cx(0, 1)
 
 # Get integration
-integration = hiq.get_integration('qiskit')
+integration = arvak.get_integration('qiskit')
 
-# Convert to HIQ
+# Convert to Arvak
 hiq_circuit = integration.to_hiq(qc)
 
-# Use HIQ as Qiskit backend
-from hiq.integrations.qiskit import HIQProvider
-provider = HIQProvider()
+# Use Arvak as Qiskit backend
+from arvak.integrations.qiskit import ArvakProvider
+provider = ArvakProvider()
 backend = provider.get_backend('sim')
 job = backend.run(qc, shots=1000)
 result = job.result()
@@ -197,7 +197,7 @@ qc = QuantumCircuit(2)
 qc.h(0)
 qc.cx(0, 1)
 
-integration = hiq.get_integration('qrisp')
+integration = arvak.get_integration('qrisp')
 hiq_circuit = integration.to_hiq(qc)
 
 # Method 2: QuantumVariable (high-level)
@@ -210,9 +210,9 @@ qv.cx(0, 1)
 compiled = qv.qs.compile()
 hiq_from_qv = integration.to_hiq(compiled)
 
-# Use HIQ backend
-from hiq.integrations.qrisp import HIQBackendClient
-backend = HIQBackendClient('sim')
+# Use Arvak backend
+from arvak.integrations.qrisp import ArvakBackendClient
+backend = ArvakBackendClient('sim')
 results = backend.run(qc, shots=1000)
 ```
 
@@ -225,7 +225,7 @@ results = backend.run(qc, shots=1000)
 - [x] **Notebooks functional** - 3 notebooks (core + 2 integrations)
 - [x] **Template system working** - Generator script + template
 - [x] **Verification passing** - All file checks pass
-- [x] **Zero breaking changes** - No modifications to core HIQ
+- [x] **Zero breaking changes** - No modifications to core Arvak
 - [x] **Community-ready** - Clear contribution pathway
 
 ## Performance
@@ -297,7 +297,7 @@ results = backend.run(qc, shots=1000)
 
 ## Conclusion
 
-The HIQ framework integration system is **production-ready** with:
+The Arvak framework integration system is **production-ready** with:
 
 - ✅ **2/3 major frameworks** implemented (Qiskit, Qrisp)
 - ✅ **Extensible architecture** proven with multiple integrations

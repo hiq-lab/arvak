@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ adapter for QDMI (Quantum Device Management Interface) from Munich Quantum Software Stack"
+description = "Arvak adapter for QDMI (Quantum Device Management Interface) from Munich Quantum Software Stack"
 keywords = ["quantum", "qdmi", "mqss", "lrz", "hardware"]
 categories = ["science", "api-bindings"]
 

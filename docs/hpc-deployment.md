@@ -14,7 +14,7 @@ Arvak is designed for deployment in High-Performance Computing (HPC) environment
 │  │                         Login Node                                   │   │
 │  │  ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐   │   │
 │  │  │  User CLI   │────▶│  Arvak Core   │────▶│  Scheduler Adapter  │   │   │
-│  │  │  (hiq)      │     │             │     │  (Slurm/PBS)        │   │   │
+│  │  │  (arvak)      │     │             │     │  (Slurm/PBS)        │   │   │
 │  │  └─────────────┘     └─────────────┘     └──────────┬──────────┘   │   │
 │  └──────────────────────────────────────────────────────┼──────────────┘   │
 │                                                         │                   │
@@ -85,11 +85,11 @@ impl Scheduler for SlurmAdapter {
 module load iqm-client
 
 # Set environment
-export HIQ_JOB_ID="${HIQ_JOB_ID}"
-export HIQ_BACKEND="${HIQ_BACKEND}"
+export ARVAK_JOB_ID="${ARVAK_JOB_ID}"
+export ARVAK_BACKEND="${ARVAK_BACKEND}"
 
 # Run the quantum job
-arvak-runner --job-id="${HIQ_JOB_ID}"
+arvak-runner --job-id="${ARVAK_JOB_ID}"
 ```
 
 ### PBS Adapter
@@ -137,7 +137,7 @@ defaults:
 **Module Setup:**
 ```bash
 # Load Arvak module (if installed system-wide)
-module load hiq
+module load arvak
 
 # Or use local installation
 export PATH="$HOME/.local/bin:$PATH"
@@ -146,7 +146,7 @@ export PATH="$HOME/.local/bin:$PATH"
 **Authentication:**
 ```bash
 # OIDC authentication via CSC
-hiq auth login --provider csc
+arvak auth login --provider csc
 
 # Or set token directly
 export IQM_TOKEN="your-token-here"
@@ -196,14 +196,14 @@ backend:
 
 ```bash
 # Download release binary
-curl -LO https://github.com/arvak-project/hiq/releases/latest/download/arvak-linux-x86_64.tar.gz
+curl -LO https://github.com/arvak-project/arvak/releases/latest/download/arvak-linux-x86_64.tar.gz
 
 # Extract
 tar xzf arvak-linux-x86_64.tar.gz
 
 # Install to user directory
 mkdir -p ~/.local/bin
-mv hiq arvak-runner ~/.local/bin/
+mv arvak arvak-runner ~/.local/bin/
 
 # Add to PATH
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
@@ -216,12 +216,12 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 module load rust/1.83
 
 # Clone and build
-git clone https://github.com/arvak-project/hiq
-cd hiq
+git clone https://github.com/arvak-project/arvak
+cd arvak
 cargo build --release
 
 # Install
-cp target/release/hiq target/release/arvak-runner ~/.local/bin/
+cp target/release/arvak target/release/arvak-runner ~/.local/bin/
 ```
 
 ### Method 3: Environment Module
@@ -229,8 +229,8 @@ cp target/release/hiq target/release/arvak-runner ~/.local/bin/
 For system-wide installation, create a module file:
 
 ```lua
--- /opt/modulefiles/hiq/0.1.0.lua
-whatis("HIQ: Rust-native quantum compilation stack")
+-- /opt/modulefiles/arvak/0.1.0.lua
+whatis("Arvak: Rust-native quantum compilation stack")
 
 local base = "/opt/arvak/0.1.0"
 
@@ -247,7 +247,7 @@ depends_on("iqm-client")
 
 ```bash
 # Submit a quantum job
-hiq submit -i circuit.qasm \
+arvak submit -i circuit.qasm \
     --backend iqm \
     --shots 1024 \
     --scheduler slurm \
@@ -262,7 +262,7 @@ hiq submit -i circuit.qasm \
 
 ```bash
 # Arvak job status
-hiq status arvak-12345
+arvak status arvak-12345
 
 # Or directly via Slurm
 squeue -j 98765
@@ -272,10 +272,10 @@ squeue -j 98765
 
 ```bash
 # Get results
-hiq result arvak-12345 --format json > results.json
+arvak result arvak-12345 --format json > results.json
 
 # Or as table
-hiq result arvak-12345 --format table
+arvak result arvak-12345 --format table
 ```
 
 ### Batch Submission
@@ -283,7 +283,7 @@ hiq result arvak-12345 --format table
 ```bash
 # Submit multiple circuits
 for circuit in circuits/*.qasm; do
-    hiq submit -i "$circuit" --backend iqm --shots 1024
+    arvak submit -i "$circuit" --backend iqm --shots 1024
 done
 ```
 
@@ -296,7 +296,7 @@ For debugging only:
 salloc --partition=q_fiqci --account=project_xxx --time=00:15:00
 
 # Run directly
-hiq run -i circuit.qasm --backend iqm --shots 100
+arvak run -i circuit.qasm --backend iqm --shots 100
 ```
 
 ## Job Workflow
@@ -307,16 +307,16 @@ Compile circuit before submission to catch errors early.
 
 ```bash
 # Compile for target
-hiq compile -i circuit.qasm -o compiled.qasm --target iqm
+arvak compile -i circuit.qasm -o compiled.qasm --target iqm
 
 # Verify
-hiq validate compiled.qasm --backend iqm
+arvak validate compiled.qasm --backend iqm
 ```
 
 ### 2. Submit to Scheduler
 
 ```bash
-hiq submit -i compiled.qasm \
+arvak submit -i compiled.qasm \
     --backend iqm \
     --shots 1024 \
     --scheduler slurm
@@ -340,10 +340,10 @@ arvak-runner workflow:
 
 ```bash
 # Wait for completion
-hiq wait arvak-12345
+arvak wait arvak-12345
 
 # Get results
-hiq result arvak-12345
+arvak result arvak-12345
 ```
 
 ## Advanced Configuration
@@ -391,7 +391,7 @@ Error: OIDC authentication failed
 ```
 Solution: Refresh your authentication token:
 ```bash
-hiq auth login --provider csc
+arvak auth login --provider csc
 ```
 
 **2. Partition Not Found**
@@ -409,7 +409,7 @@ Error: Backend not available: iqm-lumi
 ```
 Solution: Check backend status:
 ```bash
-hiq backends --status
+arvak backends --status
 ```
 
 **4. Job Timeout**
@@ -418,14 +418,14 @@ Error: Job exceeded walltime
 ```
 Solution: Increase walltime or reduce circuit complexity:
 ```bash
-hiq submit -i circuit.qasm --time 01:00:00
+arvak submit -i circuit.qasm --time 01:00:00
 ```
 
 ### Debug Mode
 
 ```bash
 # Enable verbose logging
-hiq -vvv submit -i circuit.qasm --backend iqm
+arvak -vvv submit -i circuit.qasm --backend iqm
 
 # Check job logs
 cat hiq_98765.out

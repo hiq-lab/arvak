@@ -1,6 +1,6 @@
 //! Data Transfer Objects for the dashboard API.
 //!
-//! These types bridge internal HIQ structures to JSON-serializable API responses.
+//! These types bridge internal Arvak structures to JSON-serializable API responses.
 
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};

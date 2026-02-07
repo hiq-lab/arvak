@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ compilation and transpilation framework"
+description = "Arvak compilation and transpilation framework"
 keywords = ["quantum", "compiler", "transpiler", "optimization"]
 categories = ["science", "compilers"]
 

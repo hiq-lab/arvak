@@ -259,7 +259,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Framework Integrations (4 Complete)
 - **Qiskit Integration** (IBM Quantum ecosystem)
   - `QiskitIntegration` class with BackendV2 provider implementation
-  - `HIQProvider` and `HIQBackend` for using Arvak as Qiskit backend
+  - `ArvakProvider` and `ArvakBackend` for using Arvak as Qiskit backend
   - Circuit conversion via OpenQASM 3.0 interchange format
   - ~15 comprehensive tests with graceful dependency skipping
   - Full documentation and interactive notebook
@@ -267,20 +267,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Qrisp Integration** (High-level quantum programming)
   - `QrispIntegration` supporting QuantumVariable and QuantumSession
   - Support for Qrisp's automatic uncomputation features
-  - `HIQBackendClient` implementing Qrisp's backend interface
+  - `ArvakBackendClient` implementing Qrisp's backend interface
   - 22 comprehensive tests covering all conversion scenarios
   - Examples demonstrating high-level quantum types
 
 - **Cirq Integration** (Google Quantum AI)
   - `CirqIntegration` with LineQubit and GridQubit support
-  - `HIQSampler` and `HIQEngine` implementing Cirq's execution interfaces
+  - `ArvakSampler` and `ArvakEngine` implementing Cirq's execution interfaces
   - Support for Cirq's Moments and parametrized circuits
   - 25+ comprehensive tests for all gate types and topologies
   - NISQ algorithm examples and hardware-native circuits
 
 - **PennyLane Integration** (Quantum machine learning)
   - `PennyLaneIntegration` for QNode and quantum tape conversion
-  - `HIQDevice` implementing PennyLane's Device interface
+  - `ArvakDevice` implementing PennyLane's Device interface
   - Support for automatic differentiation workflows
   - Ready for quantum machine learning applications
   - QML examples with gradient computation

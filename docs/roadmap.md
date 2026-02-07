@@ -239,7 +239,7 @@ Week 47-48: Release, documentation
 ### Adoption
 
 - HPC center deployments
-- Research papers using HIQ
+- Research papers using Arvak
 - Industry partnerships
 
 ## Review Schedule

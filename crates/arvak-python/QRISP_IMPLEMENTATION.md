@@ -2,24 +2,24 @@
 
 ## Summary
 
-The **Qrisp integration** for HIQ has been successfully implemented, following the same extensible architecture as the Qiskit integration. Qrisp is now fully supported with bi-directional conversion, backend execution, and comprehensive documentation.
+The **Qrisp integration** for Arvak has been successfully implemented, following the same extensible architecture as the Qiskit integration. Qrisp is now fully supported with bi-directional conversion, backend execution, and comprehensive documentation.
 
 ## What Was Implemented
 
 ### 1. Qrisp Integration Module ✅
 
-**Location**: `python/hiq/integrations/qrisp/`
+**Location**: `python/arvak/integrations/qrisp/`
 
 #### Files Created:
 - **`__init__.py`** - QrispIntegration class with auto-registration
-- **`converter.py`** - Bi-directional circuit conversion (Qrisp ↔ HIQ)
-- **`backend.py`** - HIQBackendClient and HIQProvider for Qrisp
+- **`converter.py`** - Bi-directional circuit conversion (Qrisp ↔ Arvak)
+- **`backend.py`** - ArvakBackendClient and ArvakProvider for Qrisp
 
 #### Key Features:
-- **QuantumCircuit support**: Convert Qrisp's QuantumCircuit to/from HIQ
+- **QuantumCircuit support**: Convert Qrisp's QuantumCircuit to/from Arvak
 - **QuantumSession support**: Handle Qrisp's high-level QuantumSession
 - **QuantumVariable support**: Work with Qrisp's quantum data structures
-- **Backend client**: Execute Qrisp circuits through HIQ's backend
+- **Backend client**: Execute Qrisp circuits through Arvak's backend
 - **OpenQASM interchange**: Use QASM for universal compatibility
 
 ### 2. Comprehensive Notebook ✅
@@ -29,20 +29,20 @@ The **Qrisp integration** for HIQ has been successfully implemented, following t
 #### Content (12 steps):
 1. **Integration Status Check** - Verify Qrisp is available
 2. **QuantumCircuit Creation** - Use Qrisp's circuit API
-3. **Convert to HIQ** - Demonstrate conversion
+3. **Convert to Arvak** - Demonstrate conversion
 4. **QuantumVariable** - High-level quantum programming
-5. **QuantumSession to HIQ** - Convert compiled sessions
-6. **HIQ to Qrisp** - Round-trip conversion
-7. **Hardware Configuration** - Configure HIQ compilation
+5. **QuantumSession to Arvak** - Convert compiled sessions
+6. **Arvak to Qrisp** - Round-trip conversion
+7. **Hardware Configuration** - Configure Arvak compilation
 8. **Backend Comparison** - Compare different backends
-9. **Backend Execution** - Run circuits through HIQ
+9. **Backend Execution** - Run circuits through Arvak
 10. **Automatic Uncomputation** - Qrisp's unique feature
 11. **QuantumFloat Example** - High-level quantum types
 12. **Export for CLI** - Save circuits for production execution
 
 #### Highlights:
 - Shows Qrisp's **unique features** (QuantumVariable, automatic uncomputation)
-- Demonstrates **high-level quantum programming** with HIQ compilation
+- Demonstrates **high-level quantum programming** with Arvak compilation
 - Includes **QuantumBool** and **QuantumFloat** examples
 - Complete with **usage examples** and best practices
 
@@ -52,9 +52,9 @@ The **Qrisp integration** for HIQ has been successfully implemented, following t
 
 #### Test Coverage (22 tests):
 - **Integration registration** - Verify Qrisp is registered
-- **Qrisp → HIQ conversion** - QuantumCircuit, QuantumSession, QuantumVariable
-- **HIQ → Qrisp conversion** - Circuit conversion back to Qrisp
-- **Backend provider** - HIQBackendClient and HIQProvider
+- **Qrisp → Arvak conversion** - QuantumCircuit, QuantumSession, QuantumVariable
+- **Arvak → Qrisp conversion** - Circuit conversion back to Qrisp
+- **Backend provider** - ArvakBackendClient and ArvakProvider
 - **Round-trip conversion** - Verify data preservation
 - **Converter functions** - Direct function testing
 - **Graceful skipping** - Tests skip when Qrisp not installed
@@ -84,10 +84,10 @@ tests/integrations/test_qrisp.py::...::test_required_packages SKIPPED
 
 ### Converter Implementation
 
-#### Qrisp to HIQ:
+#### Qrisp to Arvak:
 ```python
-def qrisp_to_hiq(circuit: Union[QuantumCircuit, QuantumSession]) -> hiq.Circuit:
-    """Convert Qrisp circuit/session to HIQ via OpenQASM."""
+def qrisp_to_arvak(circuit: Union[QuantumCircuit, QuantumSession]) -> arvak.Circuit:
+    """Convert Qrisp circuit/session to Arvak via OpenQASM."""
     # Handle QuantumSession by compiling it first
     if isinstance(circuit, QuantumSession):
         circuit = circuit.compile()
@@ -95,16 +95,16 @@ def qrisp_to_hiq(circuit: Union[QuantumCircuit, QuantumSession]) -> hiq.Circuit:
     # Export to QASM (Qrisp uses QASM 2.0)
     qasm_str = circuit.qasm()
 
-    # Import into HIQ
-    return hiq.from_qasm(qasm_str)
+    # Import into Arvak
+    return arvak.from_qasm(qasm_str)
 ```
 
-#### HIQ to Qrisp:
+#### Arvak to Qrisp:
 ```python
-def hiq_to_qrisp(circuit: hiq.Circuit) -> QuantumCircuit:
-    """Convert HIQ circuit to Qrisp via OpenQASM."""
-    # Export HIQ to QASM
-    qasm_str = hiq.to_qasm(circuit)
+def arvak_to_qrisp(circuit: arvak.Circuit) -> QuantumCircuit:
+    """Convert Arvak circuit to Qrisp via OpenQASM."""
+    # Export Arvak to QASM
+    qasm_str = arvak.to_qasm(circuit)
 
     # Import into Qrisp
     return QuantumCircuit.from_qasm_str(qasm_str)
@@ -113,13 +113,13 @@ def hiq_to_qrisp(circuit: hiq.Circuit) -> QuantumCircuit:
 ### Backend Implementation
 
 ```python
-class HIQBackendClient:
-    """HIQ backend client for Qrisp."""
+class ArvakBackendClient:
+    """Arvak backend client for Qrisp."""
 
     def run(self, circuit, shots=1024, **options):
-        """Run Qrisp circuit on HIQ backend."""
-        # Convert to HIQ
-        hiq_circuit = qrisp_to_hiq(circuit)
+        """Run Qrisp circuit on Arvak backend."""
+        # Convert to Arvak
+        hiq_circuit = qrisp_to_arvak(circuit)
 
         # Execute (currently mock - returns example results)
         return self._mock_results(hiq_circuit, shots)
@@ -135,8 +135,8 @@ if _integration.is_available():
     IntegrationRegistry.register(_integration)
 
     # Expose public API
-    from .backend import HIQBackendClient, HIQProvider
-    from .converter import qrisp_to_hiq, hiq_to_qrisp
+    from .backend import ArvakBackendClient, ArvakProvider
+    from .converter import qrisp_to_arvak, arvak_to_qrisp
 ```
 
 ## Usage Examples
@@ -153,11 +153,11 @@ qc.h(0)
 qc.cx(0, 1)
 
 # Get integration
-integration = hiq.get_integration('qrisp')
+integration = arvak.get_integration('qrisp')
 
-# Convert to HIQ
-hiq_circuit = integration.to_hiq(qc)
-print(f"HIQ circuit: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
+# Convert to Arvak
+hiq_circuit = integration.to_arvak(qc)
+print(f"Arvak circuit: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
 ```
 
 ### High-Level Programming
@@ -173,18 +173,18 @@ h(qv[0])
 qv.cx(0, 1)
 qv.cx(1, 2)
 
-# Convert to HIQ
+# Convert to Arvak
 compiled = qv.qs.compile()
-hiq_circuit = integration.to_hiq(compiled)
+hiq_circuit = integration.to_arvak(compiled)
 ```
 
 ### Backend Execution
 
 ```python
-from hiq.integrations.qrisp import HIQBackendClient
+from arvak.integrations.qrisp import ArvakBackendClient
 
 # Get backend
-backend = HIQBackendClient('sim')
+backend = ArvakBackendClient('sim')
 
 # Run circuit
 results = backend.run(qc, shots=1000)
@@ -206,18 +206,18 @@ b[:] = False
 # XOR with automatic uncomputation
 result = a ^ b
 
-# Convert to HIQ for execution
+# Convert to Arvak for execution
 compiled = result.qs.compile()
-hiq_circuit = integration.to_hiq(compiled)
+hiq_circuit = integration.to_arvak(compiled)
 ```
 
 ## File Structure
 
 ```
-python/hiq/integrations/qrisp/
+python/arvak/integrations/qrisp/
 ├── __init__.py         ✅ QrispIntegration class (auto-registers)
-├── converter.py        ✅ qrisp_to_hiq, hiq_to_qrisp
-└── backend.py          ✅ HIQBackendClient, HIQProvider
+├── converter.py        ✅ qrisp_to_arvak, arvak_to_qrisp
+└── backend.py          ✅ ArvakBackendClient, ArvakProvider
 
 notebooks/
 └── 03_qrisp_integration.ipynb  ✅ Complete demo (12 steps)
@@ -230,7 +230,7 @@ tests/integrations/
 
 ```python
 >>> import arvak
->>> status = hiq.integration_status()
+>>> status = arvak.integration_status()
 >>> print(status)
 {
     'qiskit': {'name': 'qiskit', 'available': False, 'packages': ['qiskit>=1.0.0']},
@@ -241,7 +241,7 @@ tests/integrations/
 **When Qrisp is installed**:
 ```bash
 $ pip install qrisp
-$ python -c "import arvak; print(hiq.list_integrations())"
+$ python -c "import arvak; print(arvak.list_integrations())"
 {'qiskit': False, 'qrisp': True}
 ```
 
@@ -250,9 +250,9 @@ $ python -c "import arvak; print(hiq.list_integrations())"
 ```bash
 $ python3 verify_integration_system.py
 
-✓ python/hiq/integrations/qrisp/__init__.py
-✓ python/hiq/integrations/qrisp/converter.py
-✓ python/hiq/integrations/qrisp/backend.py
+✓ python/arvak/integrations/qrisp/__init__.py
+✓ python/arvak/integrations/qrisp/converter.py
+✓ python/arvak/integrations/qrisp/backend.py
 ✓ notebooks/03_qrisp_integration.ipynb
 ✓ tests/integrations/test_qrisp.py
 
@@ -275,8 +275,8 @@ High-level quantum registers with automatic resource management:
 ```python
 from qrisp import QuantumVariable
 qv = QuantumVariable(5)  # Create 5-qubit variable
-# Convert to HIQ for compilation
-hiq_circuit = integration.to_hiq(qv.qs)
+# Convert to Arvak for compilation
+hiq_circuit = integration.to_arvak(qv.qs)
 ```
 
 ### 2. QuantumSession
@@ -284,14 +284,14 @@ Compile and manage quantum programs:
 ```python
 session = qv.qs
 compiled = session.compile()
-hiq_circuit = integration.to_hiq(compiled)
+hiq_circuit = integration.to_arvak(compiled)
 ```
 
 ### 3. Automatic Uncomputation
 Efficient ancilla management automatically handled by Qrisp:
 ```python
 result = a ^ b  # XOR with automatic uncomputation
-hiq_circuit = integration.to_hiq(result.qs)
+hiq_circuit = integration.to_arvak(result.qs)
 ```
 
 ### 4. High-Level Types
@@ -299,21 +299,21 @@ QuantumBool, QuantumFloat, QuantumChar, etc.:
 ```python
 from qrisp import QuantumFloat
 qf = QuantumFloat(3, -3)  # 3 integer bits, precision 2^-3
-# Can convert to HIQ for execution
+# Can convert to Arvak for execution
 ```
 
-## Benefits of Qrisp + HIQ
+## Benefits of Qrisp + Arvak
 
-1. **High-Level + Optimized**: Write in Qrisp's high-level language, compile with HIQ
-2. **Automatic Uncomputation**: Qrisp manages resources, HIQ optimizes for hardware
-3. **Hardware Agnostic**: Write once in Qrisp, run on any HIQ-supported backend
-4. **Algorithm Library**: Use Qrisp's built-in algorithms with HIQ's backends
-5. **Best of Both Worlds**: Qrisp's productivity + HIQ's performance
+1. **High-Level + Optimized**: Write in Qrisp's high-level language, compile with Arvak
+2. **Automatic Uncomputation**: Qrisp manages resources, Arvak optimizes for hardware
+3. **Hardware Agnostic**: Write once in Qrisp, run on any Arvak-supported backend
+4. **Algorithm Library**: Use Qrisp's built-in algorithms with Arvak's backends
+5. **Best of Both Worlds**: Qrisp's productivity + Arvak's performance
 
 ## Installation
 
 ```bash
-# Install HIQ with Qrisp support
+# Install Arvak with Qrisp support
 pip install arvak[qrisp]
 
 # Or install manually
@@ -327,7 +327,7 @@ maturin develop
 The Qrisp integration is **production-ready**. Optional next steps:
 
 ### Phase 6: Cirq Integration (~30 minutes)
-- Create `python/hiq/integrations/cirq/`
+- Create `python/arvak/integrations/cirq/`
 - Generate notebook: `python notebooks/generate_notebook.py cirq 04`
 - Implement converter and backend
 - Add tests
@@ -359,7 +359,7 @@ With the established pattern, adding these is trivial:
 | Data types | Basic | Rich (Bool, Float, Char, etc.) |
 | Sessions | Primitives | QuantumSession |
 | Focus | Full-stack | High-level algorithms |
-| HIQ Integration | ✅ Complete | ✅ Complete |
+| Arvak Integration | ✅ Complete | ✅ Complete |
 
 ## Conclusion
 
@@ -367,7 +367,7 @@ The **Qrisp integration is complete and production-ready**. It follows the same 
 
 - ✅ **30 minutes to implement** (excluding notebook and tests)
 - ✅ **Auto-discovered and registered**
-- ✅ **Zero modifications to core HIQ**
+- ✅ **Zero modifications to core Arvak**
 - ✅ **Comprehensive notebook and tests**
 - ✅ **Supports unique Qrisp features**
 

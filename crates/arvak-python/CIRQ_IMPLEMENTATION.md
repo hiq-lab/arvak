@@ -2,18 +2,18 @@
 
 ## Summary
 
-The **Cirq integration** for HIQ has been successfully implemented, completing the 3/3 target frameworks from the original plan. Cirq is Google's quantum computing framework that emphasizes hardware-native approaches and NISQ algorithms.
+The **Cirq integration** for Arvak has been successfully implemented, completing the 3/3 target frameworks from the original plan. Cirq is Google's quantum computing framework that emphasizes hardware-native approaches and NISQ algorithms.
 
 ## What Was Implemented (~30 minutes)
 
 ### 1. Cirq Integration Module ✅
 
-**Location**: `python/hiq/integrations/cirq/`
+**Location**: `python/arvak/integrations/cirq/`
 
 #### Files Created:
 - **`__init__.py`** - CirqIntegration class with auto-registration
-- **`converter.py`** - Bi-directional conversion (Cirq ↔ HIQ)
-- **`backend.py`** - HIQSampler and HIQEngine for Cirq
+- **`converter.py`** - Bi-directional conversion (Cirq ↔ Arvak)
+- **`backend.py`** - ArvakSampler and ArvakEngine for Cirq
 
 #### Key Features:
 - **LineQubit support**: 1D qubit arrangements
@@ -31,12 +31,12 @@ The **Cirq integration** for HIQ has been successfully implemented, completing t
 #### Content (12 steps):
 1. **Integration Status Check** - Verify Cirq is available
 2. **LineQubit Creation** - 1D qubit arrangements
-3. **Convert to HIQ** - Demonstrate conversion
+3. **Convert to Arvak** - Demonstrate conversion
 4. **GridQubit** - 2D layouts for superconducting processors
-5. **GridQubit to HIQ** - Convert 2D layouts
-6. **HIQ to Cirq** - Round-trip conversion
-7. **Sampler Interface** - Execute through HIQ
-8. **Hardware Configuration** - Configure HIQ compilation
+5. **GridQubit to Arvak** - Convert 2D layouts
+6. **Arvak to Cirq** - Round-trip conversion
+7. **Sampler Interface** - Execute through Arvak
+8. **Hardware Configuration** - Configure Arvak compilation
 9. **Moment Structure** - Explicit parallel operations
 10. **Parametrized Circuits** - Variational algorithms
 11. **Native Gate Sets** - Hardware-specific gates
@@ -44,7 +44,7 @@ The **Cirq integration** for HIQ has been successfully implemented, completing t
 
 #### Highlights:
 - Shows Cirq's **unique features** (LineQubit, GridQubit, Moments)
-- Demonstrates **hardware-native programming** with HIQ compilation
+- Demonstrates **hardware-native programming** with Arvak compilation
 - Includes **parametrized circuits** for VQAs
 - Complete with **usage examples** and best practices
 
@@ -54,9 +54,9 @@ The **Cirq integration** for HIQ has been successfully implemented, completing t
 
 #### Test Coverage (25+ tests):
 - **Integration registration** - Verify Cirq is registered
-- **Cirq → HIQ conversion** - LineQubit and GridQubit support
-- **HIQ → Cirq conversion** - Circuit conversion back to Cirq
-- **Sampler interface** - HIQSampler and HIQEngine
+- **Cirq → Arvak conversion** - LineQubit and GridQubit support
+- **Arvak → Cirq conversion** - Circuit conversion back to Cirq
+- **Sampler interface** - ArvakSampler and ArvakEngine
 - **Round-trip conversion** - Verify data preservation
 - **Converter functions** - Direct function testing
 - **Moment handling** - Cirq's parallel structure
@@ -66,23 +66,23 @@ The **Cirq integration** for HIQ has been successfully implemented, completing t
 
 ### Converter Implementation
 
-#### Cirq to HIQ:
+#### Cirq to Arvak:
 ```python
-def cirq_to_hiq(circuit: cirq.Circuit) -> hiq.Circuit:
-    """Convert Cirq circuit to HIQ via OpenQASM."""
+def cirq_to_hiq(circuit: cirq.Circuit) -> arvak.Circuit:
+    """Convert Cirq circuit to Arvak via OpenQASM."""
     # Export to QASM (Cirq uses QASM 2.0)
     qasm_str = cirq.qasm(circuit)
     
-    # Import into HIQ
-    return hiq.from_qasm(qasm_str)
+    # Import into Arvak
+    return arvak.from_qasm(qasm_str)
 ```
 
-#### HIQ to Cirq:
+#### Arvak to Cirq:
 ```python
-def hiq_to_cirq(circuit: hiq.Circuit) -> cirq.Circuit:
-    """Convert HIQ circuit to Cirq via OpenQASM."""
-    # Export HIQ to QASM
-    qasm_str = hiq.to_qasm(circuit)
+def hiq_to_cirq(circuit: arvak.Circuit) -> cirq.Circuit:
+    """Convert Arvak circuit to Cirq via OpenQASM."""
+    # Export Arvak to QASM
+    qasm_str = arvak.to_qasm(circuit)
     
     # Import into Cirq
     return cirq.circuits.qasm_input.circuit_from_qasm(qasm_str)
@@ -91,13 +91,13 @@ def hiq_to_cirq(circuit: hiq.Circuit) -> cirq.Circuit:
 ### Sampler Implementation
 
 ```python
-class HIQSampler:
-    """HIQ sampler implementing Cirq's Sampler interface."""
+class ArvakSampler:
+    """Arvak sampler implementing Cirq's Sampler interface."""
     
     def run(self, program: cirq.Circuit, 
             repetitions: int = 1) -> cirq.Result:
         """Run circuit using Cirq's standard API."""
-        # Convert to HIQ
+        # Convert to Arvak
         hiq_circuit = cirq_to_hiq(program)
         
         # Execute (currently mock - returns example results)
@@ -114,7 +114,7 @@ if _integration.is_available():
     IntegrationRegistry.register(_integration)
     
     # Expose public API
-    from .backend import HIQSampler, HIQEngine
+    from .backend import ArvakSampler, ArvakEngine
     from .converter import cirq_to_hiq, hiq_to_cirq
 ```
 
@@ -135,11 +135,11 @@ circuit = cirq.Circuit(
 )
 
 # Get integration
-integration = hiq.get_integration('cirq')
+integration = arvak.get_integration('cirq')
 
-# Convert to HIQ
+# Convert to Arvak
 hiq_circuit = integration.to_hiq(circuit)
-print(f"HIQ circuit: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
+print(f"Arvak circuit: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
 ```
 
 ### GridQubit Support
@@ -159,17 +159,17 @@ grid_circuit = cirq.Circuit(
     cirq.measure(q00, q01, q10, q11, key='result')
 )
 
-# Convert to HIQ
+# Convert to Arvak
 hiq_grid = integration.to_hiq(grid_circuit)
 ```
 
 ### Sampler Execution
 
 ```python
-from hiq.integrations.cirq import HIQSampler
+from arvak.integrations.cirq import ArvakSampler
 
 # Get sampler
-sampler = HIQSampler('sim')
+sampler = ArvakSampler('sim')
 
 # Run circuit using Cirq's standard API
 result = sampler.run(circuit, repetitions=1000)
@@ -204,7 +204,7 @@ resolved = cirq.resolve_parameters(param_circuit, {
     'phi': np.pi / 2
 })
 
-# Convert to HIQ
+# Convert to Arvak
 hiq_resolved = integration.to_hiq(resolved)
 ```
 
@@ -239,21 +239,21 @@ theta = sympy.Symbol('theta')
 circuit = cirq.Circuit(cirq.rx(theta)(q0))
 ```
 
-## Benefits of Cirq + HIQ
+## Benefits of Cirq + Arvak
 
-1. **Hardware-Native + Optimized**: Cirq's gate sets with HIQ's compilation
+1. **Hardware-Native + Optimized**: Cirq's gate sets with Arvak's compilation
 2. **2D Layouts**: GridQubit support for superconducting processors
-3. **NISQ Focus**: Variational algorithms with HIQ backends
+3. **NISQ Focus**: Variational algorithms with Arvak backends
 4. **Moments**: Fine-grained control over parallel execution
 5. **Google Ecosystem**: Access to Google Quantum AI tools
 
 ## File Structure
 
 ```
-python/hiq/integrations/cirq/
+python/arvak/integrations/cirq/
 ├── __init__.py         ✅ CirqIntegration class (auto-registers)
 ├── converter.py        ✅ cirq_to_hiq, hiq_to_cirq
-└── backend.py          ✅ HIQSampler, HIQEngine
+└── backend.py          ✅ ArvakSampler, ArvakEngine
 
 notebooks/
 └── 04_cirq_integration.ipynb  ✅ Complete demo (12 steps)
@@ -267,9 +267,9 @@ tests/integrations/
 ```bash
 $ python3 verify_integration_system.py
 
-✓ python/hiq/integrations/cirq/__init__.py
-✓ python/hiq/integrations/cirq/converter.py
-✓ python/hiq/integrations/cirq/backend.py
+✓ python/arvak/integrations/cirq/__init__.py
+✓ python/arvak/integrations/cirq/converter.py
+✓ python/arvak/integrations/cirq/backend.py
 ✓ notebooks/04_cirq_integration.ipynb
 ✓ tests/integrations/test_cirq.py
 
@@ -295,7 +295,7 @@ Summary
 | Moments | No | No | Yes |
 | Parametrized | Yes | Limited | Yes |
 | 2D Layouts | No | No | Yes (GridQubit) |
-| HIQ Integration | ✅ Complete | ✅ Complete | ✅ Complete |
+| Arvak Integration | ✅ Complete | ✅ Complete | ✅ Complete |
 
 ## Success Metrics ✅
 
@@ -310,7 +310,7 @@ Summary
 ## Installation
 
 ```bash
-# Install HIQ with Cirq support
+# Install Arvak with Cirq support
 pip install arvak[cirq]
 
 # Or install manually
@@ -330,7 +330,7 @@ The **Cirq integration is complete and production-ready**, finishing the 3/3 tar
 The integration system has now been **proven with three major frameworks**, validating:
 - ✅ **30-minute implementation time** (actual: ~30 minutes for Cirq)
 - ✅ **Auto-discovered and registered** (zero configuration)
-- ✅ **Zero modifications to core HIQ** (extensible architecture)
+- ✅ **Zero modifications to core Arvak** (extensible architecture)
 - ✅ **Template reusability** (same pattern for all three)
 - ✅ **Comprehensive testing** (51+ total tests across all integrations)
 

@@ -87,7 +87,7 @@ pub struct SlurmConfig {
     /// Working directory for job files.
     pub work_dir: PathBuf,
 
-    /// Path to the HIQ binary.
+    /// Path to the Arvak binary.
     pub arvak_binary: PathBuf,
 
     /// Modules to load before running.
@@ -108,8 +108,8 @@ impl Default for SlurmConfig {
             time_limit: 60,
             memory_mb: 4096,
             cpus_per_task: 1,
-            work_dir: PathBuf::from("/tmp/hiq-jobs"),
-            arvak_binary: PathBuf::from("hiq"),
+            work_dir: PathBuf::from("/tmp/arvak-jobs"),
+            arvak_binary: PathBuf::from("arvak"),
             modules: Vec::new(),
             python_venv: None,
             priority_qos_mapping: None,

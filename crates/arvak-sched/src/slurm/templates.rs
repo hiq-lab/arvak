@@ -80,7 +80,7 @@ pub fn generate_batch_script(
     script.push_str("echo \"Node: $SLURM_NODELIST\"\n");
     script.push_str("echo \"Start Time: $(date)\"\n\n");
 
-    // Execute HIQ command
+    // Execute Arvak command
     script.push_str("# Execute quantum job\n");
 
     let backend_flag = if let Some(ref backend) = job.matched_backend {
@@ -258,7 +258,7 @@ mod tests {
             memory_mb: 4096,
             cpus_per_task: 1,
             work_dir: PathBuf::from("/scratch/jobs"),
-            arvak_binary: PathBuf::from("/opt/arvak/bin/hiq"),
+            arvak_binary: PathBuf::from("/opt/arvak/bin/arvak"),
             modules: vec!["python/3.11".to_string()],
             python_venv: Some(PathBuf::from("/opt/arvak/venv")),
             priority_qos_mapping: None,
@@ -285,7 +285,7 @@ mod tests {
         assert!(script.contains("#SBATCH --time=01:00:00"));
         assert!(script.contains("module load python/3.11"));
         assert!(script.contains("source /opt/arvak/venv/bin/activate"));
-        assert!(script.contains("/opt/arvak/bin/hiq run"));
+        assert!(script.contains("/opt/arvak/bin/arvak run"));
     }
 
     #[test]

@@ -6,16 +6,16 @@
 
 ```bash
 # Download latest release
-curl -LO https://github.com/arvak-project/hiq/releases/latest/download/arvak-linux-x86_64.tar.gz
+curl -LO https://github.com/arvak-project/arvak/releases/latest/download/arvak-linux-x86_64.tar.gz
 
 # Extract
 tar xzf arvak-linux-x86_64.tar.gz
 
 # Move to PATH
-sudo mv hiq arvak-runner /usr/local/bin/
+sudo mv arvak arvak-runner /usr/local/bin/
 
 # Verify installation
-hiq --version
+arvak --version
 ```
 
 ### From Source
@@ -25,8 +25,8 @@ hiq --version
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone and build
-git clone https://github.com/arvak-project/hiq
-cd hiq
+git clone https://github.com/arvak-project/arvak
+cd arvak
 cargo build --release
 
 # Install
@@ -60,10 +60,10 @@ Compile and run:
 
 ```bash
 # Compile for IQM
-hiq compile -i bell.qasm -o bell_compiled.qasm --target iqm
+arvak compile -i bell.qasm -o bell_compiled.qasm --target iqm
 
 # Run on simulator
-hiq run -i bell_compiled.qasm --backend simulator --shots 1000
+arvak run -i bell_compiled.qasm --backend simulator --shots 1000
 
 # Output:
 # Results (1000 shots):
@@ -187,23 +187,23 @@ let ibm_props = PropertySet::new()
 export IQM_TOKEN="your-token-here"
 
 # Submit to IQM Resonance
-hiq submit -i circuit.qasm \
+arvak submit -i circuit.qasm \
     --backend iqm \
     --shots 1024 \
     --wait
 
 # Check status
-hiq status <job-id> --backend iqm
+arvak status <job-id> --backend iqm
 
 # Get results
-hiq result <job-id> --backend iqm --format json
+arvak result <job-id> --backend iqm --format json
 ```
 
 ### HPC Scheduler Integration
 
 ```bash
 # Submit via Slurm
-hiq submit -i circuit.qasm \
+arvak submit -i circuit.qasm \
     --backend iqm \
     --shots 1024 \
     --scheduler slurm \
@@ -254,8 +254,8 @@ compilation:
 |----------|-------------|
 | `IQM_TOKEN` | IQM Resonance API token |
 | `IBM_QUANTUM_TOKEN` | IBM Quantum API token |
-| `HIQ_CONFIG` | Custom config file path |
-| `HIQ_LOG` | Log level (error, warn, info, debug, trace) |
+| `ARVAK_CONFIG` | Custom config file path |
+| `ARVAK_LOG` | Log level (error, warn, info, debug, trace) |
 
 ## Next Steps
 
@@ -269,14 +269,14 @@ compilation:
 
 ```bash
 # CLI help
-hiq --help
-hiq compile --help
-hiq submit --help
+arvak --help
+arvak compile --help
+arvak submit --help
 
 # Verbose output for debugging
-hiq -vvv submit -i circuit.qasm --backend iqm
+arvak -vvv submit -i circuit.qasm --backend iqm
 ```
 
 For issues and questions:
-- GitHub Issues: https://github.com/arvak-project/hiq/issues
-- Documentation: https://arvak-project.github.io/hiq/
+- GitHub Issues: https://github.com/arvak-project/arvak/issues
+- Documentation: https://arvak-project.github.io/arvak/

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use hiq_dashboard::{AppState, DashboardConfig, create_router};
+use arvak_dashboard::{AppState, DashboardConfig, create_router};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "hiq_dashboard=info,tower_http=info".into()),
+                .unwrap_or_else(|_| "arvak_dashboard=info,tower_http=info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -45,14 +45,14 @@ async fn main() -> anyhow::Result<()> {
     // Start background job processor
     let processor_state = state.clone();
     tokio::spawn(async move {
-        hiq_dashboard::processor::run_job_processor(processor_state).await;
+        arvak_dashboard::processor::run_job_processor(processor_state).await;
     });
 
     // Create the router
     let app = create_router(state);
 
     // Start the server
-    tracing::info!("Starting HIQ Dashboard at http://{}", bind_addr);
+    tracing::info!("Starting Arvak Dashboard at http://{}", bind_addr);
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
     axum::serve(listener, app).await?;
 

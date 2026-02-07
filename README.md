@@ -415,7 +415,7 @@ print(status['qiskit'])
 **Use Arvak as Qiskit Backend:**
 ```python
 from qiskit import QuantumCircuit
-from arvak.integrations.qiskit import HIQProvider
+from arvak.integrations.qiskit import ArvakProvider
 
 # Create circuit in Qiskit
 qc = QuantumCircuit(2, 2)
@@ -424,7 +424,7 @@ qc.cx(0, 1)
 qc.measure_all()
 
 # Run on Arvak backends (sim, iqm, ibm)
-provider = HIQProvider()
+provider = ArvakProvider()
 backend = provider.get_backend('sim')
 job = backend.run(qc, shots=1000)
 result = job.result()
@@ -446,9 +446,9 @@ cirq_circuit = cirq_int.from_arvak(arvak_circuit)
 **Use Arvak as PennyLane Device:**
 ```python
 import pennylane as qml
-from arvak.integrations.pennylane import HIQDevice
+from arvak.integrations.pennylane import ArvakDevice
 
-dev = HIQDevice(wires=2, backend='sim', shots=1000)
+dev = ArvakDevice(wires=2, backend='sim', shots=1000)
 
 @qml.qnode(dev)
 def circuit(x):

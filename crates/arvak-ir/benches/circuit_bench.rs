@@ -1,6 +1,6 @@
-//! Benchmarks for HIQ circuit operations
+//! Benchmarks for Arvak circuit operations
 //!
-//! Run with: cargo bench -p hiq-ir
+//! Run with: cargo bench -p arvak-ir
 
 use arvak_ir::{Circuit, ClbitId, QubitId};
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};

@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ adapter for IQM quantum computers via Resonance API"
+description = "Arvak adapter for IQM quantum computers via Resonance API"
 keywords = ["quantum", "iqm", "cloud", "hardware"]
 categories = ["science", "api-bindings"]
 

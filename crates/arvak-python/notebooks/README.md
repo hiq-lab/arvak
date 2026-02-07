@@ -1,11 +1,11 @@
 # Arvak Jupyter Notebooks
 
-This directory contains example notebooks demonstrating HIQ's capabilities and framework integrations.
+This directory contains example notebooks demonstrating Arvak's capabilities and framework integrations.
 
 ## Available Notebooks
 
-### Core HIQ
-- **01_core_hiq.ipynb** - Introduction to HIQ's Python API without external dependencies
+### Core Arvak
+- **01_core_hiq.ipynb** - Introduction to Arvak's Python API without external dependencies
   - Circuit construction with fluent API
   - OpenQASM 3.0 import/export
   - Compilation configuration (coupling maps, basis gates)
@@ -13,14 +13,14 @@ This directory contains example notebooks demonstrating HIQ's capabilities and f
 
 ### Framework Integrations
 - **02_qiskit_integration.ipynb** - Qiskit ↔ Arvak integration (requires: `pip install arvak[qiskit]`)
-  - Circuit conversion between Qiskit and HIQ
+  - Circuit conversion between Qiskit and Arvak
   - Using Arvak as a Qiskit backend
   - Comparing compilation strategies
 
 - **03_qrisp_integration.ipynb** - Qrisp ↔ Arvak integration (requires: `pip install arvak[qrisp]`)
   - High-level quantum programming with Qrisp
-  - Converting Qrisp circuits to HIQ
-  - Leveraging HIQ's compilation for Qrisp programs
+  - Converting Qrisp circuits to Arvak
+  - Leveraging Arvak's compilation for Qrisp programs
 
 - **04_cirq_integration.ipynb** - Cirq ↔ Arvak integration (requires: `pip install arvak[cirq]`)
   - Google Cirq circuit conversion
@@ -64,10 +64,10 @@ Want to add support for a new quantum framework? Follow these steps:
 ### 1. Create Integration Module
 
 ```bash
-mkdir -p python/hiq/integrations/yourframework
-touch python/hiq/integrations/yourframework/__init__.py
-touch python/hiq/integrations/yourframework/converter.py
-touch python/hiq/integrations/yourframework/backend.py
+mkdir -p python/arvak/integrations/yourframework
+touch python/arvak/integrations/yourframework/__init__.py
+touch python/arvak/integrations/yourframework/converter.py
+touch python/arvak/integrations/yourframework/backend.py
 ```
 
 ### 2. Implement FrameworkIntegration
@@ -122,15 +122,15 @@ def yourframework_to_hiq(circuit):
     import arvak
     # Export to QASM3
     qasm_str = circuit.to_qasm3()  # Framework-specific method
-    # Import to HIQ
-    return hiq.from_qasm(qasm_str)
+    # Import to Arvak
+    return arvak.from_qasm(qasm_str)
 
 def hiq_to_yourframework(circuit):
     """Convert Arvak circuit to framework via QASM3."""
     import arvak
     import yourframework
-    # Export from HIQ
-    qasm_str = hiq.to_qasm(circuit)
+    # Export from Arvak
+    qasm_str = arvak.to_qasm(circuit)
     # Import to framework
     return yourframework.from_qasm3(qasm_str)  # Framework-specific method
 ```
@@ -157,12 +157,12 @@ Then fill in the generated notebook with framework-specific examples.
 import arvak
 
 # Check it's registered
-status = hiq.integration_status()
+status = arvak.integration_status()
 assert 'yourframework' in status
 assert status['yourframework']['available'] == True
 
 # Test conversion
-integration = hiq.get_integration('yourframework')
+integration = arvak.get_integration('yourframework')
 hiq_circuit = integration.to_hiq(your_circuit)
 ```
 

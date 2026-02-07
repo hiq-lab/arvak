@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ HPC Scheduler with SLURM integration"
+description = "Arvak HPC Scheduler with SLURM integration"
 keywords = ["quantum", "hpc", "scheduler", "slurm", "workflow"]
 categories = ["science", "asynchronous"]
 

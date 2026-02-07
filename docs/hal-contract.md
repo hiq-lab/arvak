@@ -2,7 +2,7 @@
 
 ## Overview
 
-The HAL (Hardware Abstraction Layer) Contract defines the formal interface between Arvak and quantum backends. It provides a stable, versioned API that third parties can implement to make their quantum hardware or simulators accessible through HIQ.
+The HAL (Hardware Abstraction Layer) Contract defines the formal interface between Arvak and quantum backends. It provides a stable, versioned API that third parties can implement to make their quantum hardware or simulators accessible through Arvak.
 
 ## Design Goals
 
@@ -1355,13 +1355,13 @@ impl ComplianceReport {
 
 ```bash
 # Test a REST backend
-hiq compliance test --endpoint https://api.backend.com/hal/v1
+arvak compliance test --endpoint https://api.backend.com/hal/v1
 
 # Test with authentication
-hiq compliance test --endpoint https://api.backend.com/hal/v1 --token $TOKEN
+arvak compliance test --endpoint https://api.backend.com/hal/v1 --token $TOKEN
 
 # Generate report
-hiq compliance test --endpoint https://api.backend.com/hal/v1 --output report.json
+arvak compliance test --endpoint https://api.backend.com/hal/v1 --output report.json
 ```
 
 ---
@@ -1527,7 +1527,7 @@ impl HalCapabilities for MyBackend {
 
 The HAL Contract enables:
 
-1. **Interoperability** — Any backend implementing the contract works with HIQ
+1. **Interoperability** — Any backend implementing the contract works with Arvak
 2. **Stability** — Versioned contracts with clear deprecation policy
 3. **Flexibility** — Optional extensions for advanced features
 4. **Testability** — Compliance test suite validates implementations

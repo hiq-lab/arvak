@@ -47,7 +47,7 @@ impl JsonStore {
 
     /// Create a new JSON store in a temporary directory.
     pub async fn temp() -> SchedResult<Self> {
-        let temp_dir = std::env::temp_dir().join(format!("hiq-sched-{}", uuid::Uuid::new_v4()));
+        let temp_dir = std::env::temp_dir().join(format!("arvak-sched-{}", uuid::Uuid::new_v4()));
         Self::new(temp_dir).await
     }
 

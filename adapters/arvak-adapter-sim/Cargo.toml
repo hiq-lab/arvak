@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ local simulator backend"
+description = "Arvak local simulator backend"
 keywords = ["quantum", "simulator", "backend"]
 categories = ["science", "simulation"]
 

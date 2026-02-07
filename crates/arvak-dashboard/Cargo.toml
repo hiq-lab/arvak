@@ -5,12 +5,12 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Local web dashboard for HIQ quantum circuit visualization and job monitoring"
+description = "Local web dashboard for Arvak quantum circuit visualization and job monitoring"
 keywords = ["quantum", "dashboard", "visualization", "web"]
 categories = ["visualization", "web-programming"]
 
 [lib]
-name = "hiq_dashboard"
+name = "arvak_dashboard"
 path = "src/lib.rs"
 
 [[bin]]

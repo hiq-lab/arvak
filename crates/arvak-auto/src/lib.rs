@@ -1,4 +1,4 @@
-//! Automatic uncomputation for HIQ quantum circuits.
+//! Automatic uncomputation for Arvak quantum circuits.
 //!
 //! This crate provides Qrisp-inspired automatic uncomputation capabilities.
 //! It can analyze quantum circuits to determine which ancilla qubits can be

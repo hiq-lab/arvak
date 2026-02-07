@@ -56,7 +56,7 @@ Arvak is a Rust-native quantum compilation and orchestration stack designed for 
 ## Crate Structure
 
 ```
-hiq/
+arvak/
 ├── Cargo.toml                          # Workspace definition
 ├── crates/
 │   ├── arvak-ir/                         # Circuit intermediate representation
@@ -156,11 +156,11 @@ HPC scheduler support:
 
 User-facing CLI:
 
-- `hiq compile` — Compile circuits
-- `hiq submit` — Submit to backends
-- `hiq status` — Check job status
-- `hiq result` — Retrieve results
-- `hiq backends` — List backends
+- `arvak compile` — Compile circuits
+- `arvak submit` — Submit to backends
+- `arvak status` — Check job status
+- `arvak result` — Retrieve results
+- `arvak backends` — List backends
 
 ### arvak-python (Python Bindings)
 
@@ -214,7 +214,7 @@ PyO3-based Python interface:
 │  │  sbatch script:                                 │    │
 │  │  #!/bin/bash                                    │    │
 │  │  #SBATCH --partition=quantum                    │    │
-│  │  arvak-runner --job-id=$HIQ_JOB_ID               │    │
+│  │  arvak-runner --job-id=$ARVAK_JOB_ID               │    │
 │  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────┬───────────────────────────┘
                               │

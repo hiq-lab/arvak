@@ -47,7 +47,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: arvak-cli
-    entrypoint: ["hiq"]
+    entrypoint: ["arvak"]
     environment:
       - RUST_LOG=info
     volumes:

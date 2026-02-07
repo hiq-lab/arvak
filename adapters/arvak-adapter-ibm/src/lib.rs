@@ -66,7 +66,7 @@
 //! - System availability
 //! - Circuit size and complexity
 //!
-//! Use the simulator (`hiq-adapter-sim`) for development and testing.
+//! Use the simulator (`arvak-adapter-sim`) for development and testing.
 
 mod api;
 mod backend;

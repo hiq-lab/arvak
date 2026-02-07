@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ circuit intermediate representation"
+description = "Arvak circuit intermediate representation"
 keywords = ["quantum", "circuit", "ir", "dag"]
 categories = ["science", "data-structures"]
 

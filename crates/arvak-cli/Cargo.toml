@@ -5,12 +5,12 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ command-line interface"
+description = "Arvak command-line interface"
 keywords = ["quantum", "cli", "compiler"]
 categories = ["command-line-utilities"]
 
 [[bin]]
-name = "hiq"
+name = "arvak"
 path = "src/main.rs"
 
 [dependencies]

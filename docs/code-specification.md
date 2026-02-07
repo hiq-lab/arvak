@@ -17,7 +17,7 @@ version = "1.0.0"
 edition = "2024"
 rust-version = "1.85"
 license = "Apache-2.0"
-repository = "https://github.com/arvak-project/hiq"
+repository = "https://github.com/arvak-project/arvak"
 keywords = ["quantum", "hpc", "compiler", "qasm", "orchestration"]
 categories = ["science", "compilers", "simulation"]
 
@@ -915,7 +915,7 @@ pub type HalResult<T> = Result<T, HalError>;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "hiq")]
+#[command(name = "arvak")]
 #[command(about = "Rust-native quantum compilation and orchestration")]
 struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count)]

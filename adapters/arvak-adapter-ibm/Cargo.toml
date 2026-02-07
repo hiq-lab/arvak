@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "IBM Quantum backend adapter for HIQ"
+description = "IBM Quantum backend adapter for Arvak"
 keywords = ["quantum", "ibm", "qiskit", "backend"]
 categories = ["science", "api-bindings"]
 

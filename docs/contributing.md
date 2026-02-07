@@ -1,6 +1,6 @@
-# Contributing to HIQ
+# Contributing to Arvak
 
-Thank you for your interest in contributing to HIQ! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to Arvak! This document provides guidelines and information for contributors.
 
 ## Code of Conduct
 
@@ -18,8 +18,8 @@ We are committed to providing a welcoming and inclusive environment. Please be r
 
 ```bash
 # Clone the repository
-git clone https://github.com/arvak-project/hiq
-cd hiq
+git clone https://github.com/arvak-project/arvak
+cd arvak
 
 # Build all crates
 cargo build
@@ -52,7 +52,7 @@ cargo fmt
 ## Project Structure
 
 ```
-hiq/
+arvak/
 ├── crates/
 │   ├── arvak-ir/          # Circuit IR
 │   ├── arvak-qasm3/       # QASM3 parser
@@ -311,4 +311,4 @@ Contributors are recognized in:
 - Release notes
 - Project documentation
 
-Thank you for contributing to HIQ!
+Thank you for contributing to Arvak!

@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "High-level quantum types for HIQ (QuantumFloat, QuantumInt)"
+description = "High-level quantum types for Arvak (QuantumFloat, QuantumInt)"
 keywords = ["quantum", "types", "float", "integer", "high-level"]
 categories = ["science", "data-structures"]
 

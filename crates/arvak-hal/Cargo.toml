@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "HIQ Hardware Abstraction Layer"
+description = "Arvak Hardware Abstraction Layer"
 keywords = ["quantum", "backend", "hardware", "abstraction"]
 categories = ["science", "hardware-support"]
 

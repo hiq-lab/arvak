@@ -1,6 +1,6 @@
 //! Arvak Dashboard - Local web interface for quantum circuit visualization and monitoring.
 //!
-//! This crate provides a web-based dashboard for the HIQ quantum compilation platform.
+//! This crate provides a web-based dashboard for the Arvak quantum compilation platform.
 //! It enables researchers to:
 //!
 //! - Visualize quantum circuits (before and after compilation)
@@ -12,7 +12,7 @@
 //!
 //! ```rust,no_run
 //! use std::sync::Arc;
-//! use hiq_dashboard::{AppState, DashboardConfig, create_router};
+//! use arvak_dashboard::{AppState, DashboardConfig, create_router};
 //!
 //! #[tokio::main]
 //! async fn main() {

@@ -2,7 +2,7 @@
 name = "arvak-demos"
 version.workspace = true
 edition.workspace = true
-description = "Demo suite for HIQ HPC-quantum orchestration"
+description = "Demo suite for Arvak HPC-quantum orchestration"
 
 [dependencies]
 arvak-ir = { workspace = true }

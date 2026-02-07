@@ -1,40 +1,40 @@
-# HIQ Framework Integration Implementation Summary
+# Arvak Framework Integration Implementation Summary
 
 ## Overview
 
-This implementation establishes an extensible, plugin-based architecture for integrating multiple quantum frameworks (Qiskit, Qrisp, Cirq, etc.) with HIQ. The system is designed to make adding new frameworks trivial while maintaining zero core dependencies.
+This implementation establishes an extensible, plugin-based architecture for integrating multiple quantum frameworks (Qiskit, Qrisp, Cirq, etc.) with Arvak. The system is designed to make adding new frameworks trivial while maintaining zero core dependencies.
 
 ## What Was Implemented
 
 ### 1. Core Infrastructure ✓
 
 #### Integration Registry System
-- **Location**: `python/hiq/integrations/`
+- **Location**: `python/arvak/integrations/`
 - **Files Created**:
   - `_base.py` - Abstract `FrameworkIntegration` base class
   - `__init__.py` - `IntegrationRegistry` with auto-discovery
   - Integration modules are auto-discovered and registered on import
 
 #### Main API Updates
-- **Location**: `python/hiq/__init__.py`
+- **Location**: `python/arvak/__init__.py`
 - **New Functions**:
-  - `hiq.list_integrations()` - List all available integrations
-  - `hiq.integration_status()` - Get detailed status of integrations
-  - `hiq.get_integration(name)` - Retrieve specific integration
+  - `arvak.list_integrations()` - List all available integrations
+  - `arvak.integration_status()` - Get detailed status of integrations
+  - `arvak.get_integration(name)` - Retrieve specific integration
 
 ### 2. Qiskit Integration ✓
 
 #### Complete Qiskit Support
-- **Location**: `python/hiq/integrations/qiskit/`
+- **Location**: `python/arvak/integrations/qiskit/`
 - **Files Created**:
   - `__init__.py` - `QiskitIntegration` class with auto-registration
   - `converter.py` - Bi-directional circuit conversion via OpenQASM 3.0
-  - `backend.py` - `HIQProvider` and `HIQBackend` for Qiskit-compatible execution
+  - `backend.py` - `ArvakProvider` and `ArvakBackend` for Qiskit-compatible execution
 
 #### Key Features
-- Convert Qiskit circuits to HIQ: `qiskit_to_hiq(qc)`
-- Convert HIQ circuits to Qiskit: `hiq_to_qiskit(circuit)`
-- Use HIQ as Qiskit backend: `HIQProvider().get_backend('sim')`
+- Convert Qiskit circuits to Arvak: `qiskit_to_hiq(qc)`
+- Convert Arvak circuits to Qiskit: `hiq_to_qiskit(circuit)`
+- Use Arvak as Qiskit backend: `ArvakProvider().get_backend('sim')`
 - Standard Qiskit API: `backend.run(circuit, shots=1000)`
 
 ### 3. Optional Dependencies ✓
@@ -53,7 +53,7 @@ This implementation establishes an extensible, plugin-based architecture for int
 
 #### Installation Examples
 ```bash
-# Core HIQ only
+# Core Arvak only
 pip install arvak
 
 # With Qiskit
@@ -68,7 +68,7 @@ pip install arvak[all]
 #### Core Notebook (No Dependencies)
 - **Location**: `notebooks/01_core_hiq.ipynb`
 - **Content**:
-  - HIQ's fluent API for circuit construction
+  - Arvak's fluent API for circuit construction
   - OpenQASM 3.0 import/export
   - Pre-built circuits (Bell, GHZ, QFT)
   - Compilation configuration
@@ -77,8 +77,8 @@ pip install arvak[all]
 #### Qiskit Integration Notebook
 - **Location**: `notebooks/02_qiskit_integration.ipynb`
 - **Content**:
-  - Circuit conversion (Qiskit ↔ HIQ)
-  - HIQ as Qiskit backend
+  - Circuit conversion (Qiskit ↔ Arvak)
+  - Arvak as Qiskit backend
   - Comparison of compilation strategies
   - Hardware configuration examples
 
@@ -97,15 +97,15 @@ pip install arvak[all]
   - Integration registration
   - Auto-discovery mechanism
   - Registry API (get, list, status)
-  - Public HIQ API (list_integrations, integration_status, get_integration)
+  - Public Arvak API (list_integrations, integration_status, get_integration)
   - **Result**: ✅ 14/14 tests passing
 
 #### Qiskit Integration Tests
 - **Location**: `tests/integrations/test_qiskit.py`
 - **Coverage**:
   - Integration availability detection
-  - Qiskit → HIQ conversion
-  - HIQ → Qiskit conversion
+  - Qiskit → Arvak conversion
+  - Arvak → Qiskit conversion
   - Backend provider functionality
   - Round-trip conversion
   - **Note**: Tests skip gracefully when Qiskit not installed
@@ -135,8 +135,8 @@ pip install arvak[all]
 ### For Users
 1. **Lightweight**: No forced dependencies - install only what you need
 2. **Consistent**: Same patterns across all framework integrations
-3. **Discoverable**: `hiq.integration_status()` shows what's available
-4. **Familiar**: Use framework APIs you already know, powered by HIQ
+3. **Discoverable**: `arvak.integration_status()` shows what's available
+4. **Familiar**: Use framework APIs you already know, powered by Arvak
 
 ### For Contributors
 1. **Clear Structure**: New integrations follow established pattern
@@ -156,7 +156,7 @@ pip install arvak[all]
 
 ```
 crates/arvak-python/
-├── python/hiq/
+├── python/arvak/
 │   ├── __init__.py                        # ✓ Updated with integration API
 │   └── integrations/
 │       ├── __init__.py                    # ✓ Registry + auto-discovery
@@ -167,7 +167,7 @@ crates/arvak-python/
 │           └── backend.py                 # ✓ Backend provider
 ├── notebooks/
 │   ├── README.md                          # ✓ Comprehensive guide
-│   ├── 01_core_hiq.ipynb                 # ✓ Core HIQ demo
+│   ├── 01_core_hiq.ipynb                 # ✓ Core Arvak demo
 │   ├── 02_qiskit_integration.ipynb       # ✓ Qiskit integration
 │   ├── generate_notebook.py              # ✓ Notebook generator
 │   └── templates/
@@ -190,12 +190,12 @@ crates/arvak-python/
 import arvak
 
 # Simple list
-integrations = hiq.list_integrations()
+integrations = arvak.list_integrations()
 print(integrations)
 # Output: {'qiskit': True, 'qrisp': False, 'cirq': False}
 
 # Detailed status
-status = hiq.integration_status()
+status = arvak.integration_status()
 for name, info in status.items():
     print(f"{name}: {info}")
 # Output:
@@ -213,15 +213,15 @@ qc.h(0)
 qc.cx(0, 1)
 
 # Get integration
-integration = hiq.get_integration('qiskit')
+integration = arvak.get_integration('qiskit')
 
-# Convert to HIQ
+# Convert to Arvak
 hiq_circuit = integration.to_hiq(qc)
-print(f"HIQ circuit: {hiq_circuit.num_qubits} qubits")
+print(f"Arvak circuit: {hiq_circuit.num_qubits} qubits")
 
-# Use HIQ as Qiskit backend
-from hiq.integrations.qiskit import HIQProvider
-provider = HIQProvider()
+# Use Arvak as Qiskit backend
+from arvak.integrations.qiskit import ArvakProvider
+provider = ArvakProvider()
 backend = provider.get_backend('sim')
 job = backend.run(qc, shots=1000)
 result = job.result()
@@ -235,8 +235,8 @@ counts = result.get_counts()
 python notebooks/generate_notebook.py qrisp 03
 
 # 2. Create integration module
-mkdir -p python/hiq/integrations/qrisp
-cp python/hiq/integrations/qiskit/* python/hiq/integrations/qrisp/
+mkdir -p python/arvak/integrations/qrisp
+cp python/arvak/integrations/qiskit/* python/arvak/integrations/qrisp/
 
 # 3. Adapt for Qrisp (update class names, imports, etc.)
 
@@ -250,13 +250,13 @@ pytest tests/integrations/test_qrisp.py
 ## What's Next (Not Yet Implemented)
 
 ### Phase 5: Qrisp Integration
-- Create `python/hiq/integrations/qrisp/`
+- Create `python/arvak/integrations/qrisp/`
 - Implement conversion for Qrisp circuits
 - Add Qrisp backend client
 - Create `03_qrisp_integration.ipynb`
 
 ### Phase 6: Cirq Integration
-- Create `python/hiq/integrations/cirq/`
+- Create `python/arvak/integrations/cirq/`
 - Implement conversion for Cirq circuits
 - Handle GridQubit and LineQubit
 - Create `04_cirq_integration.ipynb`
@@ -273,9 +273,9 @@ With this architecture, adding these becomes trivial:
 ## Success Metrics ✓
 
 - [x] User can run core notebook with zero dependencies
-- [x] Each framework requires only `pip install hiq[framework]`
+- [x] Each framework requires only `pip install arvak[framework]`
 - [x] New integration takes < 1 hour for experienced contributor
-- [x] No modifications to core HIQ code when adding frameworks
+- [x] No modifications to core Arvak code when adding frameworks
 - [x] Integration status is discoverable programmatically
 - [x] Template and generator enable community contributions
 - [x] All registry tests passing (14/14)
@@ -294,11 +294,11 @@ tests/integrations/test_registry.py::TestIntegrationRegistry::test_get_nonexiste
 tests/integrations/test_registry.py::TestIntegrationRegistry::test_list_available PASSED
 tests/integrations/test_registry.py::TestIntegrationRegistry::test_status PASSED
 tests/integrations/test_registry.py::TestIntegrationRegistry::test_clear PASSED
-tests/integrations/test_registry.py::TestHIQIntegrationAPI::test_list_integrations PASSED
-tests/integrations/test_registry.py::TestHIQIntegrationAPI::test_integration_status PASSED
-tests/integrations/test_registry.py::TestHIQIntegrationAPI::test_get_integration_success PASSED
-tests/integrations/test_registry.py::TestHIQIntegrationAPI::test_get_integration_unknown PASSED
-tests/integrations/test_registry.py::TestHIQIntegrationAPI::test_get_integration_unavailable PASSED
+tests/integrations/test_registry.py::TestArvakIntegrationAPI::test_list_integrations PASSED
+tests/integrations/test_registry.py::TestArvakIntegrationAPI::test_integration_status PASSED
+tests/integrations/test_registry.py::TestArvakIntegrationAPI::test_get_integration_success PASSED
+tests/integrations/test_registry.py::TestArvakIntegrationAPI::test_get_integration_unknown PASSED
+tests/integrations/test_registry.py::TestArvakIntegrationAPI::test_get_integration_unavailable PASSED
 tests/integrations/test_registry.py::TestFrameworkIntegration::test_metadata PASSED
 tests/integrations/test_registry.py::TestFrameworkIntegration::test_repr PASSED
 tests/integrations/test_registry.py::TestFrameworkIntegration::test_repr_unavailable PASSED
@@ -310,7 +310,7 @@ tests/integrations/test_registry.py::TestFrameworkIntegration::test_repr_unavail
 
 Tests are implemented and will run when Qiskit is installed:
 - Integration registration
-- Circuit conversion (Qiskit ↔ HIQ)
+- Circuit conversion (Qiskit ↔ Arvak)
 - Backend provider
 - Round-trip conversion
 
@@ -319,8 +319,8 @@ Tests are implemented and will run when Qiskit is installed:
 ### Current Limitations
 
 1. **Backend Execution**: The backend implementations return mock results. Actual execution requires:
-   - HIQ CLI: `hiq run circuit.qasm --backend sim --shots 1000`
-   - Or future Python API exposure of HIQ backends
+   - Arvak CLI: `arvak run circuit.qasm --backend sim --shots 1000`
+   - Or future Python API exposure of Arvak backends
 
 2. **Qrisp and Cirq**: Integration stubs are ready but not yet implemented. The architecture makes adding them straightforward using the same pattern as Qiskit.
 
@@ -330,16 +330,16 @@ Tests are implemented and will run when Qiskit is installed:
 2. **Optional Dependencies**: Users only install frameworks they need
 3. **Auto-Discovery**: Integrations register themselves automatically
 4. **Template-Driven**: Notebooks follow consistent structure
-5. **Mock Backends**: Placeholder until HIQ execution is exposed to Python
+5. **Mock Backends**: Placeholder until Arvak execution is exposed to Python
 
 ## Conclusion
 
-The implementation successfully establishes an extensible, plugin-based architecture for HIQ framework integrations. The system is:
+The implementation successfully establishes an extensible, plugin-based architecture for Arvak framework integrations. The system is:
 
 - ✅ **Complete**: Core infrastructure, Qiskit integration, notebooks, tests, and documentation
 - ✅ **Tested**: All registry tests passing (14/14)
 - ✅ **Documented**: Comprehensive guides for users and contributors
 - ✅ **Extensible**: Adding new frameworks is trivial (~30 minutes)
-- ✅ **Zero-Dependency**: Core HIQ works without any integrations
+- ✅ **Zero-Dependency**: Core Arvak works without any integrations
 
 The architecture is production-ready and enables the community to easily contribute new framework integrations.

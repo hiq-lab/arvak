@@ -1,6 +1,6 @@
-# HIQ Release Process
+# Arvak Release Process
 
-This document describes how to release a new version of the HIQ Python package to PyPI.
+This document describes how to release a new version of the Arvak Python package to PyPI.
 
 ## Prerequisites
 
@@ -11,9 +11,9 @@ This document describes how to release a new version of the HIQ Python package t
 3. Create an API token:
    - Go to https://pypi.org/manage/account/token/
    - Click "Add API token"
-   - Token name: "hiq-github-actions"
+   - Token name: "arvak-github-actions"
    - Scope: "Entire account" (initially)
-   - **After first release**, narrow scope to just the "hiq" project
+   - **After first release**, narrow scope to just the "arvak" project
 
 4. Save the token securely - you'll only see it once!
 
@@ -47,7 +47,7 @@ Before releasing, ensure version numbers are consistent:
    version = "1.0.1"  # Increment as needed
    ```
 
-2. **Update Python package version** in `/crates/hiq-python/pyproject.toml`:
+2. **Update Python package version** in `/crates/arvak-python/pyproject.toml`:
    ```toml
    [project]
    version = "1.0.1"  # Must match Cargo.toml
@@ -58,7 +58,7 @@ Before releasing, ensure version numbers are consistent:
 ### Step 2: Commit and Push Changes
 
 ```bash
-git add Cargo.toml crates/hiq-python/pyproject.toml CHANGELOG.md
+git add Cargo.toml crates/arvak-python/pyproject.toml CHANGELOG.md
 git commit -m "Release v1.0.1"
 git push origin main
 ```
@@ -78,7 +78,7 @@ git push origin v1.0.1
 1. Go to **Actions** tab on GitHub: https://github.com/hiq-lab/arvak/actions
 2. Watch the "Release" workflow run
 3. It takes ~15-30 minutes to build all platforms
-4. Once complete, check PyPI: https://pypi.org/project/hiq/
+4. Once complete, check PyPI: https://pypi.org/project/arvak/
 
 ### Step 5: Verify the Release
 
@@ -88,11 +88,11 @@ python3 -m venv test-env
 source test-env/bin/activate
 
 # Install from PyPI
-pip install hiq
+pip install arvak
 
 # Test it works
-python -c "import hiq; print(f'HIQ version: {hiq.__version__}')"
-python -c "import hiq; qc = hiq.Circuit('test', 2); qc.h(0).cx(0,1); print('Success!')"
+python -c "import arvak; print(f'Arvak version: {arvak.__version__}')"
+python -c "import arvak; qc = arvak.Circuit('test', 2); qc.h(0).cx(0,1); print('Success!')"
 
 # Clean up
 deactivate
@@ -120,7 +120,7 @@ rm -rf test-env
 If you need to publish manually:
 
 ```bash
-cd crates/hiq-python
+cd crates/arvak-python
 
 # Install maturin
 pip install maturin
@@ -146,13 +146,13 @@ Before creating a release tag:
 After creating release tag:
 
 - [ ] GitHub Actions workflow completed successfully
-- [ ] Package visible on https://pypi.org/project/hiq/
+- [ ] Package visible on https://pypi.org/project/arvak/
 - [ ] Test installation from PyPI works
 - [ ] Create GitHub Release with release notes
 
 ## Version Numbering
 
-HIQ follows [Semantic Versioning](https://semver.org/):
+Arvak follows [Semantic Versioning](https://semver.org/):
 
 - **Major** (1.0.0): Breaking changes
 - **Minor** (1.1.0): New features, backward compatible

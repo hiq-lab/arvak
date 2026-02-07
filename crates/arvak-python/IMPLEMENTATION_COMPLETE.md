@@ -1,8 +1,8 @@
-# ✅ HIQ Framework Integration System - Implementation Complete
+# ✅ Arvak Framework Integration System - Implementation Complete
 
 ## Executive Summary
 
-The extensible multi-framework integration system for HIQ has been **successfully implemented** and is **production-ready**. All core infrastructure, Qiskit integration, notebooks, tests, and documentation are complete and verified.
+The extensible multi-framework integration system for Arvak has been **successfully implemented** and is **production-ready**. All core infrastructure, Qiskit integration, notebooks, tests, and documentation are complete and verified.
 
 ## Verification Results
 
@@ -34,34 +34,34 @@ The extensible multi-framework integration system for HIQ has been **successfull
 import arvak
 
 # Check available integrations
-status = hiq.integration_status()
-integrations = hiq.list_integrations()
+status = arvak.integration_status()
+integrations = arvak.list_integrations()
 
 # Get specific integration
-qiskit = hiq.get_integration('qiskit')
-hiq_circuit = qiskit.to_hiq(qiskit_circuit)
+qiskit = arvak.get_integration('qiskit')
+hiq_circuit = qiskit.to_arvak(qiskit_circuit)
 ```
 
 ### 2. Qiskit Integration ✅
 
 #### Complete Qiskit Support
-- **Bi-directional conversion**: Qiskit ↔ HIQ via OpenQASM 3.0
-- **Backend provider**: Use HIQ as Qiskit backend
+- **Bi-directional conversion**: Qiskit ↔ Arvak via OpenQASM 3.0
+- **Backend provider**: Use Arvak as Qiskit backend
 - **Standard API**: Compatible with Qiskit's backend.run() interface
 
 #### Example Usage
 ```python
 from qiskit import QuantumCircuit
-from hiq.integrations.qiskit import HIQProvider, qiskit_to_hiq
+from arvak.integrations.qiskit import ArvakProvider, qiskit_to_arvak
 
 # Convert circuit
 qc = QuantumCircuit(2)
 qc.h(0)
 qc.cx(0, 1)
-hiq_circuit = qiskit_to_hiq(qc)
+hiq_circuit = qiskit_to_arvak(qc)
 
 # Use as backend
-provider = HIQProvider()
+provider = ArvakProvider()
 backend = provider.get_backend('sim')
 job = backend.run(qc, shots=1000)
 ```
@@ -69,8 +69,8 @@ job = backend.run(qc, shots=1000)
 ### 3. Jupyter Notebooks ✅
 
 #### Two Complete Notebooks
-1. **01_core_hiq.ipynb** - No dependencies required
-   - HIQ's fluent API
+1. **01_core_arvak.ipynb** - No dependencies required
+   - Arvak's fluent API
    - Pre-built circuits (Bell, GHZ, QFT)
    - Compilation configuration
    - Backend configuration examples
@@ -157,22 +157,22 @@ pip install arvak[all]
 
 ### Core Integration System
 ```
-✅ python/hiq/__init__.py                    (Updated with integration API)
-✅ python/hiq/integrations/__init__.py       (Registry + auto-discovery)
-✅ python/hiq/integrations/_base.py          (Abstract base class)
+✅ python/arvak/__init__.py                    (Updated with integration API)
+✅ python/arvak/integrations/__init__.py       (Registry + auto-discovery)
+✅ python/arvak/integrations/_base.py          (Abstract base class)
 ```
 
 ### Qiskit Integration
 ```
-✅ python/hiq/integrations/qiskit/__init__.py     (Integration class)
-✅ python/hiq/integrations/qiskit/converter.py    (Circuit conversion)
-✅ python/hiq/integrations/qiskit/backend.py      (Backend provider)
+✅ python/arvak/integrations/qiskit/__init__.py     (Integration class)
+✅ python/arvak/integrations/qiskit/converter.py    (Circuit conversion)
+✅ python/arvak/integrations/qiskit/backend.py      (Backend provider)
 ```
 
 ### Notebooks
 ```
 ✅ notebooks/README.md                            (Comprehensive guide)
-✅ notebooks/01_core_hiq.ipynb                   (Core HIQ demo)
+✅ notebooks/01_core_arvak.ipynb                   (Core Arvak demo)
 ✅ notebooks/02_qiskit_integration.ipynb         (Qiskit integration)
 ✅ notebooks/generate_notebook.py                 (Notebook generator)
 ✅ notebooks/templates/framework_template.ipynb  (Template)
@@ -201,19 +201,19 @@ pip install arvak[all]
 ## Success Metrics - All Met ✅
 
 - [x] **User can run core notebook with zero dependencies**
-  - ✅ 01_core_hiq.ipynb requires no external frameworks
+  - ✅ 01_core_arvak.ipynb requires no external frameworks
 
-- [x] **Each framework requires only `pip install hiq[framework]`**
+- [x] **Each framework requires only `pip install arvak[framework]`**
   - ✅ Optional dependencies configured in pyproject.toml
 
 - [x] **New integration takes < 1 hour for experienced contributor**
   - ✅ Template + generator + comprehensive guide
 
-- [x] **No modifications to core HIQ code when adding frameworks**
+- [x] **No modifications to core Arvak code when adding frameworks**
   - ✅ Auto-discovery and registration system
 
 - [x] **Integration status is discoverable programmatically**
-  - ✅ `hiq.integration_status()` and `hiq.list_integrations()`
+  - ✅ `arvak.integration_status()` and `arvak.list_integrations()`
 
 - [x] **Template and generator enable community contributions**
   - ✅ `generate_notebook.py` + `framework_template.ipynb`
@@ -255,14 +255,14 @@ The foundation is complete for adding:
 ### Phase 5: Qrisp Integration (30 minutes)
 ```bash
 python notebooks/generate_notebook.py qrisp 03
-cp -r python/hiq/integrations/qiskit python/hiq/integrations/qrisp
+cp -r python/arvak/integrations/qiskit python/arvak/integrations/qrisp
 # Edit files for Qrisp-specific code
 ```
 
 ### Phase 6: Cirq Integration (30 minutes)
 ```bash
 python notebooks/generate_notebook.py cirq 04
-cp -r python/hiq/integrations/qiskit python/hiq/integrations/cirq
+cp -r python/arvak/integrations/qiskit python/arvak/integrations/cirq
 # Edit files for Cirq-specific code
 ```
 
@@ -286,9 +286,9 @@ cd crates/arvak-python
 python3 verify_integration_system.py
 ```
 
-### 2. Try Core HIQ
+### 2. Try Core Arvak
 ```bash
-jupyter notebook notebooks/01_core_hiq.ipynb
+jupyter notebook notebooks/01_core_arvak.ipynb
 ```
 
 ### 3. Add Qiskit (Optional)
@@ -311,7 +311,7 @@ Integrations are automatically discovered and registered:
 # On import, this happens automatically:
 for module in pkgutil.iter_modules(integrations.__path__):
     try:
-        importlib.import_module(f'.{module.name}', 'hiq.integrations')
+        importlib.import_module(f'.{module.name}', 'arvak.integrations')
     except ImportError:
         pass  # Missing dependencies - no problem!
 ```
@@ -321,18 +321,18 @@ Universal compatibility through standardized format:
 ```python
 # Any framework with QASM support can integrate
 qasm_str = framework_circuit.to_qasm3()
-hiq_circuit = hiq.from_qasm(qasm_str)
+hiq_circuit = arvak.from_qasm(qasm_str)
 ```
 
 ### Graceful Degradation
 Works perfectly whether dependencies are installed or not:
 ```python
 # No frameworks installed
->>> hiq.list_integrations()
+>>> arvak.list_integrations()
 {}
 
 # Qiskit installed
->>> hiq.list_integrations()
+>>> arvak.list_integrations()
 {'qiskit': True}
 ```
 
@@ -349,12 +349,12 @@ Works perfectly whether dependencies are installed or not:
 - [x] Generator script functional
 - [x] Optional dependencies configured
 - [x] Verification script passing
-- [x] No breaking changes to core HIQ
+- [x] No breaking changes to core Arvak
 - [x] Community contribution pathway clear
 
 ## Conclusion
 
-The HIQ framework integration system is **complete, tested, and production-ready**. The architecture successfully delivers on all design goals:
+The Arvak framework integration system is **complete, tested, and production-ready**. The architecture successfully delivers on all design goals:
 
 - ✅ **Extensible**: Add frameworks in < 30 minutes
 - ✅ **Modular**: Self-contained integrations
@@ -373,4 +373,4 @@ Next steps are optional enhancements (Qrisp, Cirq) that can be added incremental
 **Full Guide**: See `docs/INTEGRATION_GUIDE.md`
 **Implementation Details**: See `notebooks/IMPLEMENTATION_SUMMARY.md`
 
-🚀 **Happy quantum computing with HIQ!**
+🚀 **Happy quantum computing with Arvak!**

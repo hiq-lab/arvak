@@ -16,7 +16,7 @@ pub enum PassKind {
 
 /// A compilation pass that operates on a circuit DAG.
 ///
-/// Passes are the fundamental unit of compilation in HIQ. Each pass
+/// Passes are the fundamental unit of compilation in Arvak. Each pass
 /// performs a specific transformation or analysis on the circuit.
 pub trait Pass: Send + Sync {
     /// Get the name of this pass.

@@ -2,7 +2,7 @@
 
 ## Background Research
 
-This document captures the research conducted on existing quantum computing frameworks that informed HIQ's design decisions.
+This document captures the research conducted on existing quantum computing frameworks that informed Arvak's design decisions.
 
 ## Qiskit Architecture Analysis
 
@@ -64,7 +64,7 @@ This document captures the research conducted on existing quantum computing fram
 - Primitive system (BaseSamplerV2/BaseEstimatorV2)
 - Provider system via BaseProvider interface
 
-### Key Takeaways for HIQ
+### Key Takeaways for Arvak
 
 1. DAG-based IR is proven and effective
 2. Staged pass manager provides clean separation
@@ -137,7 +137,7 @@ This document captures the research conducted on existing quantum computing fram
 | Uncomputation | Automatic | Manual |
 | Circuit Efficiency | Leverages code structure | Gate-level only |
 
-### Key Takeaways for HIQ
+### Key Takeaways for Arvak
 
 1. High-level types valuable but large scope
 2. Permeability DAG enables advanced optimizations
@@ -219,7 +219,7 @@ This document captures the research conducted on existing quantum computing fram
 4. **Resource Management** — Quantum resources not standardized in HPC
 5. **Hybrid Workflow Semantics** — Incomplete quantum-classical integration spec
 
-## Strategic Implications for HIQ
+## Strategic Implications for Arvak
 
 ### Why Not Just Use Qiskit?
 

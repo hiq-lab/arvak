@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Automatic uncomputation for HIQ quantum circuits"
+description = "Automatic uncomputation for Arvak quantum circuits"
 keywords = ["quantum", "uncomputation", "reversible", "cleanup", "ancilla"]
 categories = ["science", "algorithms"]
 

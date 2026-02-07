@@ -136,7 +136,7 @@ class YourFrameworkIntegration(FrameworkIntegration):
         except ImportError:
             return False
 
-    def to_hiq(self, circuit):
+    def to_arvak(self, circuit):
         """Convert YourFramework circuit to Arvak.
 
         Args:
@@ -145,10 +145,10 @@ class YourFrameworkIntegration(FrameworkIntegration):
         Returns:
             Arvak Circuit
         """
-        from .converter import yourframework_to_hiq
-        return yourframework_to_hiq(circuit)
+        from .converter import yourframework_to_arvak
+        return yourframework_to_arvak(circuit)
 
-    def from_hiq(self, circuit):
+    def from_arvak(self, circuit):
         """Convert Arvak circuit to YourFramework.
 
         Args:
@@ -178,11 +178,11 @@ if _integration.is_available():
 
     # Expose public API
     from .backend import YourFrameworkProvider
-    from .converter import yourframework_to_hiq, hiq_to_yourframework
+    from .converter import yourframework_to_arvak, hiq_to_yourframework
 
     __all__ = [
         'YourFrameworkProvider',
-        'yourframework_to_hiq',
+        'yourframework_to_arvak',
         'hiq_to_yourframework',
         'YourFrameworkIntegration'
     ]
@@ -204,7 +204,7 @@ if TYPE_CHECKING:
     import arvak
 
 
-def yourframework_to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
+def yourframework_to_arvak(circuit: 'Circuit') -> 'arvak.Circuit':
     """Convert YourFramework circuit to Arvak via OpenQASM 3.0.
 
     Args:
@@ -232,12 +232,12 @@ def yourframework_to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
     qasm_str = circuit.to_qasm3()  # or circuit.qasm() or dumps(circuit)
 
     # Import into Arvak
-    hiq_circuit = hiq.from_qasm(qasm_str)
+    hiq_circuit = arvak.from_qasm(qasm_str)
 
     return hiq_circuit
 
 
-def hiq_to_yourframework(circuit: 'hiq.Circuit') -> 'Circuit':
+def hiq_to_yourframework(circuit: 'arvak.Circuit') -> 'Circuit':
     """Convert Arvak circuit to YourFramework via OpenQASM 3.0.
 
     Args:
@@ -261,7 +261,7 @@ def hiq_to_yourframework(circuit: 'hiq.Circuit') -> 'Circuit':
     import arvak
 
     # Export Arvak to QASM3
-    qasm_str = hiq.to_qasm(circuit)
+    qasm_str = arvak.to_qasm(circuit)
 
     # Import into YourFramework
     # Adapt this to your framework's QASM import method
@@ -303,11 +303,11 @@ class YourFrameworkProvider:
             **filters: Additional filters
 
         Returns:
-            List of HIQBackend instances
+            List of ArvakBackend instances
         """
         if not self._backends:
             self._backends = {
-                'sim': HIQSimulatorBackend(provider=self),
+                'sim': ArvakSimulatorBackend(provider=self),
             }
 
         if name:
@@ -323,7 +323,7 @@ class YourFrameworkProvider:
             name: Backend name (default: 'sim')
 
         Returns:
-            HIQBackend instance
+            ArvakBackend instance
 
         Raises:
             ValueError: If backend name is unknown
@@ -338,7 +338,7 @@ class YourFrameworkProvider:
         return backends[0]
 
 
-class HIQSimulatorBackend:
+class ArvakSimulatorBackend:
     """Arvak simulator backend with YourFramework-compatible interface."""
 
     def __init__(self, provider: YourFrameworkProvider):
@@ -375,15 +375,15 @@ class HIQSimulatorBackend:
         )
 
         # Convert circuits to Arvak format
-        from .converter import yourframework_to_hiq
+        from .converter import yourframework_to_arvak
 
         if not isinstance(circuits, list):
             circuits = [circuits]
 
-        hiq_circuits = [yourframework_to_hiq(qc) for qc in circuits]
+        hiq_circuits = [yourframework_to_arvak(qc) for qc in circuits]
 
         # Create mock job (replace with actual execution)
-        job = HIQJob(
+        job = ArvakJob(
             backend=self,
             circuits=hiq_circuits,
             shots=shots,
@@ -393,7 +393,7 @@ class HIQSimulatorBackend:
         return job
 
 
-class HIQJob:
+class ArvakJob:
     """Mock job for Arvak backend execution."""
 
     def __init__(self, backend, circuits, shots, options):
@@ -406,7 +406,7 @@ class HIQJob:
     def result(self):
         """Get job result."""
         if self._result is None:
-            self._result = HIQResult(
+            self._result = ArvakResult(
                 backend_name=self._backend.name,
                 circuits=self._circuits,
                 shots=self._shots
@@ -418,7 +418,7 @@ class HIQJob:
         return "DONE"
 
 
-class HIQResult:
+class ArvakResult:
     """Mock result for Arvak backend execution."""
 
     def __init__(self, backend_name, circuits, shots):
@@ -482,12 +482,12 @@ pytestmark = pytest.mark.skipif(
 
 def test_integration_registered():
     """Test that YourFramework integration is registered."""
-    status = hiq.integration_status()
+    status = arvak.integration_status()
     assert 'yourframework' in status
     assert status['yourframework']['available'] is True
 
 
-def test_yourframework_to_hiq():
+def test_yourframework_to_arvak():
     """Test converting YourFramework circuit to Arvak."""
     # Create YourFramework circuit
     circuit = yourframework.Circuit(2)
@@ -495,25 +495,25 @@ def test_yourframework_to_hiq():
     circuit.cx(0, 1)
 
     # Convert to Arvak
-    integration = hiq.get_integration('yourframework')
-    hiq_circuit = integration.to_hiq(circuit)
+    integration = arvak.get_integration('yourframework')
+    hiq_circuit = integration.to_arvak(circuit)
 
     assert hiq_circuit.num_qubits == 2
 
 
 def test_hiq_to_yourframework():
     """Test converting Arvak circuit to YourFramework."""
-    hiq_circuit = hiq.Circuit.bell()
+    hiq_circuit = arvak.Circuit.bell()
 
-    integration = hiq.get_integration('yourframework')
-    framework_circuit = integration.from_hiq(hiq_circuit)
+    integration = arvak.get_integration('yourframework')
+    framework_circuit = integration.from_arvak(hiq_circuit)
 
     assert framework_circuit is not None
 
 
 def test_backend_provider():
     """Test getting backend provider."""
-    integration = hiq.get_integration('yourframework')
+    integration = arvak.get_integration('yourframework')
     provider = integration.get_backend_provider()
 
     assert provider is not None
@@ -543,11 +543,11 @@ pytest tests/integrations/test_yourframework.py -v
 import arvak
 
 # Check integration status
-status = hiq.integration_status()
+status = arvak.integration_status()
 print(status)
 
 # Get integration
-integration = hiq.get_integration('yourframework')
+integration = arvak.get_integration('yourframework')
 print(integration)
 
 # Test conversion
@@ -556,7 +556,7 @@ circuit = yourframework.Circuit(2)
 circuit.h(0)
 circuit.cx(0, 1)
 
-hiq_circuit = integration.to_hiq(circuit)
+hiq_circuit = integration.to_arvak(circuit)
 print(f"Converted: {hiq_circuit.num_qubits} qubits")
 
 # Test backend
@@ -620,7 +620,7 @@ if TYPE_CHECKING:
     from yourframework import Circuit
     import arvak
 
-def to_hiq(circuit: 'Circuit') -> 'hiq.Circuit':
+def to_arvak(circuit: 'Circuit') -> 'arvak.Circuit':
     ...
 ```
 
@@ -643,7 +643,7 @@ A: You can implement custom gate-by-gate conversion, but QASM is recommended for
 
 ### Q: How do I handle framework-specific gates?
 
-A: Either decompose them into standard gates before conversion, or extend HIQ's gate set to include them.
+A: Either decompose them into standard gates before conversion, or extend Arvak's gate set to include them.
 
 ### Q: Can I add hardware backends?
 

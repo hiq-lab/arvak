@@ -1,8 +1,8 @@
-# 🎉 HIQ Framework Integration System - Final Status
+# 🎉 Arvak Framework Integration System - Final Status
 
 ## 🏆 MISSION ACCOMPLISHED: 4/3 Frameworks Complete!
 
-The HIQ framework integration system has been successfully implemented with **FOUR major quantum frameworks**, exceeding the original 3-framework target by 33%!
+The Arvak framework integration system has been successfully implemented with **FOUR major quantum frameworks**, exceeding the original 3-framework target by 33%!
 
 ## ✅ Implemented Frameworks (4/3 - 133% Complete!)
 
@@ -98,7 +98,7 @@ pip install arvak[all]
 import arvak
 
 # See what's installed
-status = hiq.integration_status()
+status = arvak.integration_status()
 print(status)
 # {
 #     'qiskit': {'name': 'qiskit', 'available': True, ...},
@@ -108,7 +108,7 @@ print(status)
 # }
 
 # Quick check
-print(hiq.list_integrations())
+print(arvak.list_integrations())
 # {'qiskit': True, 'qrisp': False, 'cirq': True, 'pennylane': True}
 ```
 
@@ -116,23 +116,23 @@ print(hiq.list_integrations())
 ```python
 # Qiskit
 from qiskit import QuantumCircuit
-qiskit_int = hiq.get_integration('qiskit')
-hiq_circuit = qiskit_int.to_hiq(qiskit_circuit)
+qiskit_int = arvak.get_integration('qiskit')
+hiq_circuit = qiskit_int.to_arvak(qiskit_circuit)
 
 # Qrisp
 from qrisp import QuantumVariable
-qrisp_int = hiq.get_integration('qrisp')
-hiq_circuit = qrisp_int.to_hiq(qrisp_circuit)
+qrisp_int = arvak.get_integration('qrisp')
+hiq_circuit = qrisp_int.to_arvak(qrisp_circuit)
 
 # Cirq
 import cirq
-cirq_int = hiq.get_integration('cirq')
-hiq_circuit = cirq_int.to_hiq(cirq_circuit)
+cirq_int = arvak.get_integration('cirq')
+hiq_circuit = cirq_int.to_arvak(cirq_circuit)
 
 # PennyLane
 import pennylane as qml
-pl_int = hiq.get_integration('pennylane')
-hiq_circuit = pl_int.to_hiq(qnode)
+pl_int = arvak.get_integration('pennylane')
+hiq_circuit = pl_int.to_arvak(qnode)
 ```
 
 ## 🏅 Framework Comparison
@@ -146,7 +146,7 @@ hiq_circuit = pl_int.to_hiq(qnode)
 | **Qubit Types** | Standard | QuantumVar | Line/Grid | Wires |
 | **ML Integration** | Limited | No | No | **PyTorch/TF** |
 | **Parametrized** | Yes | Limited | Yes | **Native** |
-| **HIQ Status** | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Complete |
+| **Arvak Status** | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Complete |
 
 ## 📚 Documentation
 
@@ -154,7 +154,7 @@ hiq_circuit = pl_int.to_hiq(qnode)
 - **QUICKSTART_INTEGRATIONS.md** - 5-minute quickstart
 - **INTEGRATION_STATUS.md** - Current status overview
 - **notebooks/README.md** - Notebook guide
-- **notebooks/01_core_hiq.ipynb** - Core HIQ (no dependencies)
+- **notebooks/01_core_arvak.ipynb** - Core Arvak (no dependencies)
 - **notebooks/02_qiskit_integration.ipynb** - Qiskit demo
 - **notebooks/03_qrisp_integration.ipynb** - Qrisp demo
 - **notebooks/04_cirq_integration.ipynb** - Cirq demo
@@ -177,7 +177,7 @@ hiq_circuit = pl_int.to_hiq(qnode)
 $ python3 verify_integration_system.py
 
 ======================================================================
-HIQ Integration System Verification
+Arvak Integration System Verification
 ======================================================================
 
 ✓ PASS: Imports
@@ -251,10 +251,10 @@ The foundation is solid and extensible. Easy additions:
 ## 📈 Impact
 
 ### For Users
-- Access **4 major quantum frameworks** through HIQ
+- Access **4 major quantum frameworks** through Arvak
 - Consistent API across all frameworks
 - Mix and match frameworks as needed
-- Leverage HIQ's compilation with any framework
+- Leverage Arvak's compilation with any framework
 
 ### For Contributors
 - Clear pattern to follow
@@ -286,7 +286,7 @@ The foundation is solid and extensible. Easy additions:
 
 ## 🎉 Conclusion
 
-The HIQ framework integration system is **complete, tested, and production-ready** with **FOUR major quantum frameworks** (Qiskit, Qrisp, Cirq, PennyLane), exceeding the original 3-framework goal by 33%!
+The Arvak framework integration system is **complete, tested, and production-ready** with **FOUR major quantum frameworks** (Qiskit, Qrisp, Cirq, PennyLane), exceeding the original 3-framework goal by 33%!
 
 The system successfully demonstrates:
 - ✅ Extensible plugin architecture

@@ -71,7 +71,7 @@ impl Default for SchedulerConfig {
             poll_interval_secs: 30,
             max_wait_time_secs: 86400, // 24 hours
             auto_match_resources: true,
-            state_dir: PathBuf::from("/tmp/hiq-scheduler"),
+            state_dir: PathBuf::from("/tmp/arvak-scheduler"),
         }
     }
 }

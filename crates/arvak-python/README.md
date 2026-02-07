@@ -14,7 +14,7 @@ pip install arvak
 import arvak
 
 # Create a Bell state circuit
-qc = hiq.Circuit("bell", num_qubits=2)
+qc = arvak.Circuit("bell", num_qubits=2)
 qc.h(0).cx(0, 1).measure_all()
 
 # Check circuit properties
@@ -22,11 +22,11 @@ print(f"Depth: {qc.depth()}")
 print(f"Qubits: {qc.num_qubits}")
 
 # Convert to QASM
-qasm = hiq.to_qasm(qc)
+qasm = arvak.to_qasm(qc)
 print(qasm)
 
 # Parse QASM
-qc2 = hiq.from_qasm("""
+qc2 = arvak.from_qasm("""
 OPENQASM 3.0;
 qubit[2] q;
 h q[0];
@@ -46,13 +46,13 @@ cx q[0], q[1];
 
 ```python
 # Bell state
-bell = hiq.Circuit.bell()
+bell = arvak.Circuit.bell()
 
 # GHZ state
-ghz = hiq.Circuit.ghz(5)
+ghz = arvak.Circuit.ghz(5)
 
 # Quantum Fourier Transform
-qft = hiq.Circuit.qft(4)
+qft = arvak.Circuit.qft(4)
 ```
 
 ## License

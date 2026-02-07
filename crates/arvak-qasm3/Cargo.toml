@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "OpenQASM 3 parser for HIQ"
+description = "OpenQASM 3 parser for Arvak"
 keywords = ["quantum", "qasm", "parser", "openqasm"]
 categories = ["parsing", "science"]
 

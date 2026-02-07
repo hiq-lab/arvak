@@ -1,6 +1,6 @@
 //! LUMI Integration Tests
 //!
-//! These tests verify the integration between HIQ and LUMI's HPC environment.
+//! These tests verify the integration between Arvak and LUMI's HPC environment.
 //! They test the SLURM adapter with LUMI-specific configurations and the
 //! OIDC authentication flow for IQM's Helmi quantum computer.
 //!
@@ -79,8 +79,8 @@ fn lumi_slurm_config() -> SlurmConfig {
         time_limit: 30,
         memory_mb: 4096,
         cpus_per_task: 1,
-        work_dir: PathBuf::from("/tmp/hiq-lumi-test"),
-        arvak_binary: PathBuf::from("hiq"),
+        work_dir: PathBuf::from("/tmp/arvak-lumi-test"),
+        arvak_binary: PathBuf::from("arvak"),
         modules: vec!["iqm-client".to_string()],
         python_venv: None,
         priority_qos_mapping: None,
@@ -96,7 +96,7 @@ fn lumi_scheduler_config() -> SchedulerConfig {
         poll_interval_secs: 5,
         max_wait_time_secs: 1800, // 30 minutes
         auto_match_resources: true,
-        state_dir: PathBuf::from("/tmp/hiq-lumi-test/state"),
+        state_dir: PathBuf::from("/tmp/arvak-lumi-test/state"),
     }
 }
 
@@ -264,8 +264,8 @@ async fn test_pbs_scheduler_creation() {
         memory: "4gb".to_string(),
         nodes: 1,
         ppn: 1,
-        work_dir: PathBuf::from("/tmp/hiq-pbs-test"),
-        arvak_binary: PathBuf::from("hiq"),
+        work_dir: PathBuf::from("/tmp/arvak-pbs-test"),
+        arvak_binary: PathBuf::from("arvak"),
         modules: vec!["quantum-toolkit".to_string()],
         python_venv: None,
         server: Some("pbs-server.local".to_string()),

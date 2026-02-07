@@ -1,10 +1,10 @@
-# Quick Start: HIQ Framework Integrations
+# Quick Start: Arvak Framework Integrations
 
-This guide gets you started with HIQ's framework integration system in 5 minutes.
+This guide gets you started with Arvak's framework integration system in 5 minutes.
 
 ## Installation
 
-### Core HIQ (No Integrations)
+### Core Arvak (No Integrations)
 
 ```bash
 cd crates/arvak-python
@@ -34,11 +34,11 @@ maturin develop
 import arvak
 
 # Check available integrations
-status = hiq.integration_status()
+status = arvak.integration_status()
 print("Available integrations:", status)
 
 # List integrations (dict of name: available)
-integrations = hiq.list_integrations()
+integrations = arvak.list_integrations()
 print("Integration list:", integrations)
 ```
 
@@ -72,19 +72,19 @@ qc.h(0)
 qc.cx(0, 1)
 
 # Get integration
-integration = hiq.get_integration('qiskit')
+integration = arvak.get_integration('qiskit')
 
-# Convert to HIQ
-hiq_circuit = integration.to_hiq(qc)
+# Convert to Arvak
+hiq_circuit = integration.to_arvak(qc)
 print(f"✓ Converted: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
 
 # Convert back to Qiskit
-qc_back = integration.from_hiq(hiq_circuit)
+qc_back = integration.from_arvak(hiq_circuit)
 print(f"✓ Round-trip: {qc_back.num_qubits} qubits")
 
-# Use HIQ as Qiskit backend
-from hiq.integrations.qiskit import HIQProvider
-provider = HIQProvider()
+# Use Arvak as Qiskit backend
+from arvak.integrations.qiskit import ArvakProvider
+provider = ArvakProvider()
 backend = provider.get_backend('sim')
 print(f"✓ Backend: {backend.name} with {backend.num_qubits} qubits")
 ```
@@ -96,7 +96,7 @@ print(f"✓ Backend: {backend.name} with {backend.num_qubits} qubits")
 jupyter notebook notebooks/
 
 # Open and run:
-# - 01_core_hiq.ipynb (no dependencies)
+# - 01_core_arvak.ipynb (no dependencies)
 # - 02_qiskit_integration.ipynb (requires Qiskit)
 ```
 
@@ -119,14 +119,14 @@ PYTHONPATH=python python3 -m pytest tests/integrations/test_qiskit.py -v
 python notebooks/generate_notebook.py yourframework 03
 
 # 2. Copy Qiskit integration as starting point
-cp -r python/hiq/integrations/qiskit python/hiq/integrations/yourframework
+cp -r python/arvak/integrations/qiskit python/arvak/integrations/yourframework
 
 # 3. Edit these files:
-#    - python/hiq/integrations/yourframework/__init__.py
+#    - python/arvak/integrations/yourframework/__init__.py
 #      → Change class name, framework_name, required_packages
-#    - python/hiq/integrations/yourframework/converter.py
-#      → Implement yourframework_to_hiq() and hiq_to_yourframework()
-#    - python/hiq/integrations/yourframework/backend.py
+#    - python/arvak/integrations/yourframework/converter.py
+#      → Implement yourframework_to_arvak() and hiq_to_yourframework()
+#    - python/arvak/integrations/yourframework/backend.py
 #      → Update provider and backend classes
 
 # 4. Update pyproject.toml
@@ -135,8 +135,8 @@ cp -r python/hiq/integrations/qiskit python/hiq/integrations/yourframework
 # 5. Test it
 python3 -c "
 import arvak
-print(hiq.integration_status())
-integration = hiq.get_integration('yourframework')
+print(arvak.integration_status())
+integration = arvak.get_integration('yourframework')
 print(f'✓ {integration.framework_name} integration works!')
 "
 ```
@@ -152,7 +152,7 @@ print(f'✓ {integration.framework_name} integration works!')
 
 ```
 crates/arvak-python/
-├── python/hiq/
+├── python/arvak/
 │   ├── __init__.py                    # Integration API
 │   └── integrations/
 │       ├── _base.py                   # Abstract base class
@@ -166,7 +166,7 @@ crates/arvak-python/
 │           ├── converter.py
 │           └── backend.py
 ├── notebooks/
-│   ├── 01_core_hiq.ipynb             # Core demo
+│   ├── 01_core_arvak.ipynb             # Core demo
 │   ├── 02_qiskit_integration.ipynb   # Qiskit demo
 │   ├── templates/                     # Template for new integrations
 │   └── generate_notebook.py          # Notebook generator
@@ -178,7 +178,7 @@ crates/arvak-python/
 
 ## Common Issues
 
-### "Module not found: hiq"
+### "Module not found: arvak"
 
 **Solution**: Build the package first:
 ```bash
@@ -219,7 +219,7 @@ pytestmark = pytest.mark.skipif(
 - **Integration Guide**: `docs/INTEGRATION_GUIDE.md`
 - **Notebook Guide**: `notebooks/README.md`
 - **Implementation Summary**: `notebooks/IMPLEMENTATION_SUMMARY.md`
-- **HIQ GitHub**: https://github.com/hiq-lab/arvak
+- **Arvak GitHub**: https://github.com/hiq-lab/arvak
 - **Issues**: https://github.com/hiq-lab/arvak/issues
 
 ## Getting Help
@@ -227,7 +227,7 @@ pytestmark = pytest.mark.skipif(
 For questions or issues:
 - Check the guides in `docs/` and `notebooks/`
 - Search or create an issue on GitHub
-- Review the example integrations in `python/hiq/integrations/qiskit/`
+- Review the example integrations in `python/arvak/integrations/qiskit/`
 
 ## Success!
 
@@ -235,9 +235,9 @@ If you can run this without errors, you're all set:
 
 ```python
 import arvak
-print("HIQ version:", hiq.__version__ if hasattr(hiq, '__version__') else "dev")
-print("Available integrations:", list(hiq.list_integrations().keys()))
-print("✓ HIQ integration system ready!")
+print("Arvak version:", arvak.__version__ if hasattr(arvak, '__version__') else "dev")
+print("Available integrations:", list(arvak.list_integrations().keys()))
+print("✓ Arvak integration system ready!")
 ```
 
 Happy quantum computing! 🚀

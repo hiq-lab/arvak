@@ -140,7 +140,7 @@ pub struct PbsConfig {
     /// Working directory for job files.
     pub work_dir: PathBuf,
 
-    /// Path to the HIQ binary.
+    /// Path to the Arvak binary.
     pub arvak_binary: PathBuf,
 
     /// Modules to load before running.
@@ -168,8 +168,8 @@ impl Default for PbsConfig {
             memory: "4gb".to_string(),
             nodes: 1,
             ppn: 1,
-            work_dir: PathBuf::from("/tmp/hiq-jobs"),
-            arvak_binary: PathBuf::from("hiq"),
+            work_dir: PathBuf::from("/tmp/arvak-jobs"),
+            arvak_binary: PathBuf::from("arvak"),
             modules: Vec::new(),
             python_venv: None,
             server: None,
