@@ -5,18 +5,13 @@ use arvak_ir::qubit::QubitId;
 use serde::{Deserialize, Serialize};
 
 /// Allocation strategy for qubit registers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum RegisterAllocation {
     /// Allocate new qubits from the circuit.
+    #[default]
     New,
     /// Use existing qubits (for ancilla reuse).
     Existing,
-}
-
-impl Default for RegisterAllocation {
-    fn default() -> Self {
-        Self::New
-    }
 }
 
 /// A register of qubits representing a quantum value.

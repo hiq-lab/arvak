@@ -29,20 +29,15 @@ pub struct Optimize1qGates {
 }
 
 /// Target basis for 1-qubit gate decomposition.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum OneQubitBasis {
     /// Use RZ, RY, RZ decomposition.
+    #[default]
     ZYZ,
     /// Use U3 gate (theta, phi, lambda).
     U3,
     /// Use RZ, SX decomposition (IBM native).
     ZSX,
-}
-
-impl Default for OneQubitBasis {
-    fn default() -> Self {
-        Self::ZYZ
-    }
 }
 
 impl Default for Optimize1qGates {

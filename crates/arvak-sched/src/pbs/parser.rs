@@ -105,12 +105,16 @@ pub fn parse_qstat_full_output(output: &str) -> SchedResult<Option<PbsJobInfo>> 
 
 /// Parse qstat brief output (default format).
 ///
+/// Currently unused but retained for future PBS integration where brief output
+/// parsing is needed (e.g., batch status monitoring).
+///
 /// Default qstat output:
 /// ```text
 /// Job id            Name             User              Time Use S Queue
 /// ----------------  ---------------- ----------------  -------- - -----
 /// 12345.pbs-server  my_job           user              00:05:23 R batch
 /// ```
+#[allow(dead_code)]
 pub fn parse_qstat_brief_output(output: &str) -> SchedResult<Option<PbsJobInfo>> {
     let lines: Vec<&str> = output.lines().collect();
 
