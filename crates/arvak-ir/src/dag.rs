@@ -412,6 +412,155 @@ impl CircuitDag {
     pub fn graph(&self) -> &DiGraph<DagNode, DagEdge, u32> {
         &self.graph
     }
+
+    /// Verify the structural integrity of the DAG.
+    ///
+    /// Checks that:
+    /// - Every qubit has exactly one In node and one Out node
+    /// - Every classical bit has exactly one In node and one Out node
+    /// - The graph is acyclic
+    /// - All operation nodes are reachable from some In node
+    /// - Wire edges form valid paths from In to Out for each wire
+    pub fn verify_integrity(&self) -> IrResult<()> {
+        // 1. Check that the graph is acyclic
+        if petgraph::algo::is_cyclic_directed(&self.graph) {
+            return Err(IrError::InvalidDag("Graph contains a cycle".into()));
+        }
+
+        // 2. Check that every qubit has In and Out nodes
+        for &qubit in self.qubit_inputs.keys() {
+            if !self.qubit_outputs.contains_key(&qubit) {
+                return Err(IrError::InvalidDag(format!(
+                    "Qubit {:?} has an In node but no Out node",
+                    qubit
+                )));
+            }
+        }
+        for &qubit in self.qubit_outputs.keys() {
+            if !self.qubit_inputs.contains_key(&qubit) {
+                return Err(IrError::InvalidDag(format!(
+                    "Qubit {:?} has an Out node but no In node",
+                    qubit
+                )));
+            }
+        }
+
+        // 3. Check that every clbit has In and Out nodes
+        for &clbit in self.clbit_inputs.keys() {
+            if !self.clbit_outputs.contains_key(&clbit) {
+                return Err(IrError::InvalidDag(format!(
+                    "Clbit {:?} has an In node but no Out node",
+                    clbit
+                )));
+            }
+        }
+        for &clbit in self.clbit_outputs.keys() {
+            if !self.clbit_inputs.contains_key(&clbit) {
+                return Err(IrError::InvalidDag(format!(
+                    "Clbit {:?} has an Out node but no In node",
+                    clbit
+                )));
+            }
+        }
+
+        // 4. Verify wire continuity for each qubit: walk from In to Out
+        for (&qubit, &in_node) in &self.qubit_inputs {
+            let out_node = self.qubit_outputs[&qubit];
+            let wire = WireId::Qubit(qubit);
+
+            let mut current = in_node;
+            let mut steps = 0;
+            let max_steps = self.graph.node_count();
+
+            loop {
+                if current == out_node {
+                    break;
+                }
+
+                // Find the outgoing edge for this wire
+                let next = self
+                    .graph
+                    .edges_directed(current, Direction::Outgoing)
+                    .find(|e| e.weight().wire == wire)
+                    .map(|e| e.target());
+
+                match next {
+                    Some(n) => current = n,
+                    None => {
+                        return Err(IrError::InvalidDag(format!(
+                            "Wire for qubit {:?} is broken: no outgoing edge from node {:?}",
+                            qubit, current
+                        )));
+                    }
+                }
+
+                steps += 1;
+                if steps > max_steps {
+                    return Err(IrError::InvalidDag(format!(
+                        "Wire for qubit {:?} has too many steps (possible infinite loop)",
+                        qubit
+                    )));
+                }
+            }
+        }
+
+        // 5. Verify wire continuity for each clbit
+        for (&clbit, &in_node) in &self.clbit_inputs {
+            let out_node = self.clbit_outputs[&clbit];
+            let wire = WireId::Clbit(clbit);
+
+            let mut current = in_node;
+            let mut steps = 0;
+            let max_steps = self.graph.node_count();
+
+            loop {
+                if current == out_node {
+                    break;
+                }
+
+                let next = self
+                    .graph
+                    .edges_directed(current, Direction::Outgoing)
+                    .find(|e| e.weight().wire == wire)
+                    .map(|e| e.target());
+
+                match next {
+                    Some(n) => current = n,
+                    None => {
+                        return Err(IrError::InvalidDag(format!(
+                            "Wire for clbit {:?} is broken: no outgoing edge from node {:?}",
+                            clbit, current
+                        )));
+                    }
+                }
+
+                steps += 1;
+                if steps > max_steps {
+                    return Err(IrError::InvalidDag(format!(
+                        "Wire for clbit {:?} has too many steps (possible infinite loop)",
+                        clbit
+                    )));
+                }
+            }
+        }
+
+        // 6. Check all operation nodes are reachable from some In node
+        let reachable: FxHashMap<_, _> = petgraph::algo::toposort(&self.graph, None)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|idx| (idx, true))
+            .collect();
+
+        for idx in self.graph.node_indices() {
+            if matches!(self.graph[idx], DagNode::Op(_)) && !reachable.contains_key(&idx) {
+                return Err(IrError::InvalidDag(
+                    "Unreachable operation node found in DAG".into(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for CircuitDag {
@@ -545,5 +694,80 @@ mod tests {
             }
             _ => panic!("Expected QubitNotFound error"),
         }
+    }
+
+    #[test]
+    fn test_verify_integrity_empty() {
+        let dag = CircuitDag::new();
+        dag.verify_integrity().unwrap();
+    }
+
+    #[test]
+    fn test_verify_integrity_simple_circuit() {
+        let mut dag = CircuitDag::new();
+        dag.add_qubit(QubitId(0));
+        dag.add_qubit(QubitId(1));
+        dag.apply(Instruction::single_qubit_gate(StandardGate::H, QubitId(0)))
+            .unwrap();
+        dag.apply(Instruction::two_qubit_gate(
+            StandardGate::CX,
+            QubitId(0),
+            QubitId(1),
+        ))
+        .unwrap();
+
+        dag.verify_integrity().unwrap();
+    }
+
+    #[test]
+    fn test_verify_integrity_with_measurement() {
+        use crate::qubit::ClbitId;
+
+        let mut dag = CircuitDag::new();
+        dag.add_qubit(QubitId(0));
+        dag.add_clbit(ClbitId(0));
+        dag.apply(Instruction::single_qubit_gate(StandardGate::H, QubitId(0)))
+            .unwrap();
+        dag.apply(Instruction::measure(QubitId(0), ClbitId(0)))
+            .unwrap();
+
+        dag.verify_integrity().unwrap();
+    }
+
+    #[test]
+    fn test_verify_integrity_multi_qubit_circuit() {
+        use crate::qubit::ClbitId;
+
+        let mut dag = CircuitDag::new();
+        dag.add_qubit(QubitId(0));
+        dag.add_qubit(QubitId(1));
+        dag.add_qubit(QubitId(2));
+        dag.add_clbit(ClbitId(0));
+        dag.add_clbit(ClbitId(1));
+        dag.add_clbit(ClbitId(2));
+
+        // Build a GHZ-like circuit
+        dag.apply(Instruction::single_qubit_gate(StandardGate::H, QubitId(0)))
+            .unwrap();
+        dag.apply(Instruction::two_qubit_gate(
+            StandardGate::CX,
+            QubitId(0),
+            QubitId(1),
+        ))
+        .unwrap();
+        dag.apply(Instruction::two_qubit_gate(
+            StandardGate::CX,
+            QubitId(1),
+            QubitId(2),
+        ))
+        .unwrap();
+        dag.apply(Instruction::measure(QubitId(0), ClbitId(0)))
+            .unwrap();
+        dag.apply(Instruction::measure(QubitId(1), ClbitId(1)))
+            .unwrap();
+        dag.apply(Instruction::measure(QubitId(2), ClbitId(2)))
+            .unwrap();
+
+        dag.verify_integrity().unwrap();
     }
 }

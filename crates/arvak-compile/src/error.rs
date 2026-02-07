@@ -41,6 +41,14 @@ pub enum CompileError {
     /// Circuit too large for target.
     #[error("Circuit requires {required} qubits but target only has {available}")]
     CircuitTooLarge { required: usize, available: u32 },
+
+    /// Measurement barrier verification failed.
+    #[error("Measurement verification failed: gate '{gate_name}' on qubit {qubit}: {detail}")]
+    MeasurementViolation {
+        gate_name: String,
+        qubit: u32,
+        detail: String,
+    },
 }
 
 /// Result type for compilation operations.

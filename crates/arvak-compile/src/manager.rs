@@ -6,7 +6,9 @@ use arvak_ir::CircuitDag;
 
 use crate::error::CompileResult;
 use crate::pass::Pass;
-use crate::passes::{BasicRouting, BasisTranslation, Optimize1qGates, TrivialLayout};
+use crate::passes::{
+    BasicRouting, BasisTranslation, MeasurementBarrierVerification, Optimize1qGates, TrivialLayout,
+};
 use crate::property::{BasisGates, CouplingMap, PropertySet};
 
 /// Manages and executes a sequence of compilation passes.
@@ -141,6 +143,12 @@ impl PassManagerBuilder {
         // Add optimization passes based on level
         if self.optimization_level >= 1 {
             pm.add_pass(Optimize1qGates::new());
+        }
+
+        // Always add measurement barrier verification as the final pass
+        // to catch any correctness violations from optimization passes.
+        if self.optimization_level >= 1 {
+            pm.add_pass(MeasurementBarrierVerification);
         }
 
         (pm, self.properties)
