@@ -26,6 +26,7 @@ arvak-sched = { path = "crates/arvak-sched" }
 arvak-types = { path = "crates/arvak-types" }
 arvak-auto = { path = "crates/arvak-auto" }
 arvak-dashboard = { path = "crates/arvak-dashboard" }
+arvak-bench = { path = "crates/arvak-bench" }
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }

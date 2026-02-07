@@ -82,7 +82,7 @@ pub mod parameter;
 pub mod qubit;
 
 pub use circuit::Circuit;
-pub use dag::{CircuitDag, DagEdge, DagNode, NodeIndex, WireId};
+pub use dag::{CircuitDag, CircuitLevel, DagEdge, DagNode, NodeIndex, WireId};
 pub use error::{IrError, IrResult};
 pub use gate::{ClassicalCondition, CustomGate, Gate, GateKind, StandardGate};
 pub use instruction::{Instruction, InstructionKind};
