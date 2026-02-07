@@ -101,6 +101,15 @@ impl Emitter {
                 let qubits = self.emit_qubits(&instruction.qubits);
                 self.writeln(&format!("delay[{}] {};", duration, qubits));
             }
+
+            InstructionKind::Shuttle { from_zone, to_zone } => {
+                // Shuttle is a neutral-atom specific instruction; emit as pragma
+                let qubits = self.emit_qubits(&instruction.qubits);
+                self.writeln(&format!(
+                    "// @pragma shuttle({}, {}) {};",
+                    from_zone, to_zone, qubits
+                ));
+            }
         }
 
         Ok(())

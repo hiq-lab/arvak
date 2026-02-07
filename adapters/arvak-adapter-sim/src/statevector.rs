@@ -43,7 +43,10 @@ impl Statevector {
                 let qubit = instruction.qubits[0].0 as usize;
                 self.reset(qubit);
             }
-            InstructionKind::Measure | InstructionKind::Barrier | InstructionKind::Delay { .. } => {
+            InstructionKind::Measure
+            | InstructionKind::Barrier
+            | InstructionKind::Delay { .. }
+            | InstructionKind::Shuttle { .. } => {
                 // These don't modify the statevector in simulation
             }
         }

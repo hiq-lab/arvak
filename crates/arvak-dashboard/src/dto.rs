@@ -376,6 +376,9 @@ fn instruction_to_view(instruction: &Instruction) -> OperationView {
         InstructionKind::Reset => ("reset".to_string(), "|0⟩".to_string()),
         InstructionKind::Barrier => ("barrier".to_string(), "║".to_string()),
         InstructionKind::Delay { duration } => ("delay".to_string(), format!("D({})", duration)),
+        InstructionKind::Shuttle { from_zone, to_zone } => {
+            ("shuttle".to_string(), format!("S({}-{})", from_zone, to_zone))
+        }
     };
 
     OperationView {

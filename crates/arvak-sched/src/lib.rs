@@ -104,17 +104,20 @@
 //! let store = SqliteStore::new("./jobs.db").await?;
 //! ```
 
+pub mod broker;
 pub mod error;
 pub mod job;
 pub mod matcher;
 pub mod pbs;
 pub mod persistence;
 pub mod queue;
+pub mod router;
 pub mod scheduler;
 pub mod slurm;
 pub mod workflow;
 
 // Re-exports
+pub use broker::{InMemoryBroker, JobMessage, MessageBroker, MessageSubscription};
 pub use error::{SchedError, SchedResult};
 pub use job::{
     CircuitSpec, JobFilter, Priority, ResourceRequirements, ScheduledJob, ScheduledJobId,
@@ -124,6 +127,7 @@ pub use matcher::{MatchResult, ResourceMatcher};
 pub use pbs::{PbsAdapter, PbsConfig};
 pub use persistence::{JsonStore, SqliteStore, StateStore};
 pub use queue::PriorityQueue;
+pub use router::{JobRouter, RouteTarget, RoutingRules};
 pub use scheduler::{BatchSchedulerType, HpcScheduler, Scheduler, SchedulerConfig};
 pub use slurm::{SlurmAdapter, SlurmConfig};
 pub use workflow::{Workflow, WorkflowBuilder, WorkflowId, WorkflowStatus};

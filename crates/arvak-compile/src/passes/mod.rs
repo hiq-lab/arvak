@@ -12,4 +12,4 @@ pub use agnostic::{
     CancelCX, CommutativeCancellation, MeasurementBarrierVerification, OneQubitBasis,
     Optimize1qGates, VerificationResult,
 };
-pub use target::{BasicRouting, BasisTranslation, TrivialLayout};
+pub use target::{BasicRouting, BasisTranslation, NeutralAtomRouting, TrivialLayout, ZoneAssignment};

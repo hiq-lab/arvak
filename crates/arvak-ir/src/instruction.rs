@@ -21,6 +21,13 @@ pub enum InstructionKind {
         /// Duration in device-specific units.
         duration: u64,
     },
+    /// Shuttle qubit between zones (neutral-atom architectures).
+    Shuttle {
+        /// Source zone index.
+        from_zone: u32,
+        /// Destination zone index.
+        to_zone: u32,
+    },
 }
 
 /// A complete instruction with operands.
@@ -102,6 +109,20 @@ impl Instruction {
         }
     }
 
+    /// Create a shuttle instruction (neutral-atom: move qubit between zones).
+    pub fn shuttle(qubit: QubitId, from_zone: u32, to_zone: u32) -> Self {
+        Self {
+            kind: InstructionKind::Shuttle { from_zone, to_zone },
+            qubits: vec![qubit],
+            clbits: vec![],
+        }
+    }
+
+    /// Check if this is a shuttle instruction.
+    pub fn is_shuttle(&self) -> bool {
+        matches!(self.kind, InstructionKind::Shuttle { .. })
+    }
+
     /// Check if this is a gate instruction.
     pub fn is_gate(&self) -> bool {
         matches!(self.kind, InstructionKind::Gate(_))
@@ -146,6 +167,7 @@ impl Instruction {
             InstructionKind::Reset => "reset",
             InstructionKind::Barrier => "barrier",
             InstructionKind::Delay { .. } => "delay",
+            InstructionKind::Shuttle { .. } => "shuttle",
         }
     }
 }
@@ -175,5 +197,20 @@ mod tests {
         let inst = Instruction::barrier([QubitId(0), QubitId(1), QubitId(2)]);
         assert!(inst.is_barrier());
         assert_eq!(inst.qubits.len(), 3);
+    }
+
+    #[test]
+    fn test_shuttle_instruction() {
+        let inst = Instruction::shuttle(QubitId(0), 0, 1);
+        assert!(inst.is_shuttle());
+        assert_eq!(inst.name(), "shuttle");
+        assert_eq!(inst.qubits.len(), 1);
+        match inst.kind {
+            InstructionKind::Shuttle { from_zone, to_zone } => {
+                assert_eq!(from_zone, 0);
+                assert_eq!(to_zone, 1);
+            }
+            _ => panic!("Expected Shuttle"),
+        }
     }
 }

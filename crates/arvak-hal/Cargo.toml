@@ -9,6 +9,9 @@ description = "Arvak Hardware Abstraction Layer"
 keywords = ["quantum", "backend", "hardware", "abstraction"]
 categories = ["science", "hardware-support"]
 
+[features]
+dynamic-backends = ["dep:libloading"]
+
 [dependencies]
 arvak-ir = { workspace = true }
 serde = { workspace = true }
@@ -21,6 +24,7 @@ rustc-hash = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 dirs = { workspace = true }
+libloading = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "macros"] }
