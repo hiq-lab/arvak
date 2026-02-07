@@ -73,9 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting Arvak gRPC server");
     info!(
         "Configuration loaded from {}",
-        config_file
-            .as_ref()
-            .map(|s| s.as_str())
+        config_file.as_deref()
             .unwrap_or("defaults")
     );
 
@@ -241,11 +239,10 @@ async fn shutdown_signal_handler() {
 /// Parse --config argument from command line.
 fn parse_config_arg(args: &[String]) -> Option<String> {
     for i in 0..args.len() {
-        if args[i] == "--config" || args[i] == "-c" {
-            if i + 1 < args.len() {
+        if (args[i] == "--config" || args[i] == "-c")
+            && i + 1 < args.len() {
                 return Some(args[i + 1].clone());
             }
-        }
     }
     None
 }

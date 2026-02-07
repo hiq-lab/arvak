@@ -48,7 +48,10 @@ impl SqliteStorage {
 
     /// Initialize the database schema.
     fn init_schema(&self) -> Result<()> {
-        let conn = self.connection.lock().unwrap();
+        let conn = self
+            .connection
+            .lock()
+            .expect("database lock poisoned");
 
         // Jobs table
         conn.execute(
@@ -151,7 +154,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
+            let conn = conn.lock().expect("database lock poisoned");
 
             let circuit_json = Self::serialize_circuit(&job.circuit)?;
             let status_str = Self::status_to_string(&job.status);
@@ -182,7 +185,7 @@ impl JobStorage for SqliteStorage {
             Ok(())
         })
         .await
-        .unwrap()
+        .map_err(|e| Error::StorageError(format!("task join error: {}", e)))?
     }
 
     async fn get_job(&self, job_id: &JobId) -> Result<Option<StoredJob>> {
@@ -190,7 +193,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
+            let conn = conn.lock().expect("database lock poisoned");
 
             let result = conn
                 .query_row(
@@ -230,7 +233,7 @@ impl JobStorage for SqliteStorage {
             Ok(result)
         })
         .await
-        .unwrap()
+        .map_err(|e| Error::StorageError(format!("task join error: {}", e)))?
     }
 
     async fn update_status(&self, job_id: &JobId, status: JobStatus) -> Result<()> {
@@ -238,7 +241,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
+            let conn = conn.lock().expect("database lock poisoned");
 
             let status_str = Self::status_to_string(&status);
             let error_msg = if let JobStatus::Failed(msg) = &status {
@@ -276,7 +279,7 @@ impl JobStorage for SqliteStorage {
             Ok(())
         })
         .await
-        .unwrap()
+        .map_err(|e| Error::StorageError(format!("task join error: {}", e)))?
     }
 
     async fn store_result(&self, job_id: &JobId, result: ExecutionResult) -> Result<()> {
@@ -284,7 +287,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
+            let conn = conn.lock().expect("database lock poisoned");
 
             // Serialize counts to JSON
             let counts_json = serde_json::to_string(&result.counts)
@@ -320,7 +323,7 @@ impl JobStorage for SqliteStorage {
             Ok(())
         })
         .await
-        .unwrap()
+        .map_err(|e| Error::StorageError(format!("task join error: {}", e)))?
     }
 
     async fn get_result(&self, job_id: &JobId) -> Result<ExecutionResult> {
@@ -328,7 +331,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
+            let conn = conn.lock().expect("database lock poisoned");
 
             conn.query_row(
                 "SELECT counts_json, shots, execution_time_ms, metadata_json
@@ -363,14 +366,14 @@ impl JobStorage for SqliteStorage {
             })
         })
         .await
-        .unwrap()
+        .map_err(|e| Error::StorageError(format!("task join error: {}", e)))?
     }
 
     async fn list_jobs(&self, filter: JobFilter) -> Result<Vec<StoredJob>> {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
+            let conn = conn.lock().expect("database lock poisoned");
 
             // Build query based on filter
             let mut query = String::from("SELECT job_id, circuit_json, backend_id, shots, status,
@@ -437,7 +440,7 @@ impl JobStorage for SqliteStorage {
             Ok(jobs)
         })
         .await
-        .unwrap()
+        .map_err(|e| Error::StorageError(format!("task join error: {}", e)))?
     }
 
     async fn delete_job(&self, job_id: &JobId) -> Result<()> {
@@ -445,7 +448,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
+            let conn = conn.lock().expect("database lock poisoned");
 
             // Foreign key constraint will cascade delete to job_results
             conn.execute("DELETE FROM jobs WHERE job_id = ?1", params![job_id.0])?;
@@ -453,7 +456,7 @@ impl JobStorage for SqliteStorage {
             Ok(())
         })
         .await
-        .unwrap()
+        .map_err(|e| Error::StorageError(format!("task join error: {}", e)))?
     }
 }
 

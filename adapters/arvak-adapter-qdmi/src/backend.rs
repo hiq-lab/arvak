@@ -59,6 +59,7 @@ pub struct QdmiBackend {
 
 /// Mock state for testing without system QDMI
 #[cfg(not(feature = "system-qdmi"))]
+#[derive(Default)]
 struct MockState {
     session: Option<MockSession>,
     device: Option<MockDevice>,
@@ -66,16 +67,6 @@ struct MockState {
 }
 
 #[cfg(not(feature = "system-qdmi"))]
-impl Default for MockState {
-    fn default() -> Self {
-        Self {
-            session: None,
-            device: None,
-            jobs: FxHashMap::default(),
-        }
-    }
-}
-
 impl QdmiBackend {
     /// Create a new QDMI backend.
     pub fn new() -> Self {

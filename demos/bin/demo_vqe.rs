@@ -75,7 +75,7 @@ fn main() {
 
     print_section("Problem Setup");
     print_result("Molecule", molecule_name);
-    print_result("Qubits", hamiltonian.num_qubits() as usize);
+    print_result("Qubits", hamiltonian.num_qubits());
     print_result("Hamiltonian terms", hamiltonian.num_terms());
     print_result("Ansatz repetitions", args.reps);
     print_result("Max iterations", args.iterations);

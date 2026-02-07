@@ -38,7 +38,7 @@ struct RateLimitState {
     requests: Vec<Instant>,
 
     /// Window start time
-    window_start: Instant,
+    _window_start: Instant,
 }
 
 impl ResourceManager {
@@ -106,7 +106,7 @@ impl ResourceManager {
                 .entry(ip.to_string())
                 .or_insert_with(|| RateLimitState {
                     requests: Vec::new(),
-                    window_start: now,
+                    _window_start: now,
                 });
 
             // Clean up old requests (older than 1 second)

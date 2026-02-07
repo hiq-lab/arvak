@@ -1,11 +1,11 @@
-///! Pluggable storage backends for job persistence.
-///!
-///! This module defines the `JobStorage` trait which allows different storage
-///! backends to be used interchangeably:
-///!
-///! - `MemoryStorage`: In-memory storage (no persistence)
-///! - `SqliteStorage`: SQLite database for single-node deployments
-///! - `PostgresStorage`: PostgreSQL for production clusters
+//! Pluggable storage backends for job persistence.
+//!
+//! This module defines the `JobStorage` trait which allows different storage
+//! backends to be used interchangeably:
+//!
+//! - `MemoryStorage`: In-memory storage (no persistence)
+//! - `SqliteStorage`: SQLite database for single-node deployments
+//! - `PostgresStorage`: PostgreSQL for production clusters
 
 use arvak_hal::job::{JobId, JobStatus};
 use arvak_hal::result::ExecutionResult;

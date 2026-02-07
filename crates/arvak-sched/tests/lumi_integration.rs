@@ -255,9 +255,9 @@ fn test_env_token_provider_for_lumi() {
 
 #[tokio::test]
 async fn test_pbs_scheduler_creation() {
-    let mut config = SchedulerConfig::default();
-    config.scheduler_type = BatchSchedulerType::Pbs;
-    config.pbs = PbsConfig {
+    let config = SchedulerConfig {
+        scheduler_type: BatchSchedulerType::Pbs,
+        pbs: PbsConfig {
         queue: "quantum".to_string(),
         account: Some("project_test".to_string()),
         walltime: "00:30:00".to_string(),
@@ -271,6 +271,8 @@ async fn test_pbs_scheduler_creation() {
         server: Some("pbs-server.local".to_string()),
         extra_directives: Vec::new(),
         priority_queue_mapping: None,
+    },
+        ..Default::default()
     };
 
     let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockHelmiBackend::new())];

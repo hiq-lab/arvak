@@ -205,13 +205,13 @@ impl MeasurementMitigator {
         let mut calibration_matrix = vec![vec![0.0; dim]; dim];
 
         // Build calibration matrix assuming independent errors
-        for i in 0..dim {
-            for j in 0..dim {
+        for (i, row) in calibration_matrix.iter_mut().enumerate() {
+            for (j, cell) in row.iter_mut().enumerate() {
                 let diff = i ^ j; // XOR gives which bits differ
                 let num_errors = diff.count_ones() as usize;
                 let prob = error_rate.powi(num_errors as i32)
                     * (1.0 - error_rate).powi((n_qubits - num_errors) as i32);
-                calibration_matrix[i][j] = prob;
+                *cell = prob;
             }
         }
 
@@ -232,15 +232,15 @@ impl MeasurementMitigator {
 
         // Neumann series approximation: (A)^-1 ≈ I + (I-A) + (I-A)^2 + ...
         // For near-identity A, this converges quickly
-        for i in 0..dim {
-            inverse[i][i] = 1.0;
+        for (i, row) in inverse.iter_mut().enumerate() {
+            row[i] = 1.0;
         }
 
         // One iteration of correction
-        for i in 0..dim {
-            for j in 0..dim {
-                let correction = if i == j { 1.0 } else { 0.0 } - matrix[i][j];
-                inverse[i][j] += correction;
+        for (i, (inv_row, mat_row)) in inverse.iter_mut().zip(matrix.iter()).enumerate() {
+            for (j, (inv_cell, mat_cell)) in inv_row.iter_mut().zip(mat_row.iter()).enumerate() {
+                let correction = if i == j { 1.0 } else { 0.0 } - mat_cell;
+                *inv_cell += correction;
             }
         }
 
@@ -265,9 +265,9 @@ impl MeasurementMitigator {
         let mut mitigated = vec![0.0; dim];
 
         // Apply inverse calibration matrix
-        for i in 0..dim {
-            for j in 0..dim {
-                mitigated[i] += self.inverse_matrix[i][j] * probabilities[j];
+        for (i, row) in self.inverse_matrix.iter().enumerate() {
+            for (inv_val, &prob) in row.iter().zip(probabilities.iter()) {
+                mitigated[i] += inv_val * prob;
             }
         }
 

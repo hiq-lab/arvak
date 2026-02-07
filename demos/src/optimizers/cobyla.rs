@@ -146,8 +146,8 @@ impl Optimizer for Cobyla {
                     centroid[i] += simplex[idx][i];
                 }
             }
-            for i in 0..n {
-                centroid[i] /= n as f64;
+            for val in &mut centroid {
+                *val /= n as f64;
             }
 
             // Reflection
