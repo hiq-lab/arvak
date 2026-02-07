@@ -56,7 +56,7 @@ pub mod tracing_config;
 // Re-export commonly used types
 pub use config::{Config, ConfigError, ResourceLimits};
 pub use error::{Error, Result};
-pub use health::{start_health_server, HealthState};
+pub use health::{HealthState, start_health_server};
 pub use metrics::Metrics;
 pub use resource_manager::{ResourceError, ResourceManager, ResourceStats};
 pub use server::{ArvakServiceImpl, BackendRegistry, JobStore};
@@ -67,7 +67,7 @@ pub use storage::SqliteStorage;
 
 #[cfg(feature = "postgres")]
 pub use storage::PostgresStorage;
-pub use tracing_config::{init_default_tracing, init_tracing, TracingConfig, TracingFormat};
+pub use tracing_config::{TracingConfig, TracingFormat, init_default_tracing, init_tracing};
 
 /// Encoded file descriptor set for gRPC reflection.
 pub const FILE_DESCRIPTOR_SET: &[u8] =

@@ -46,7 +46,7 @@ pub mod api;
 pub mod backend;
 pub mod error;
 
-pub use backend::{targets, CudaqBackend, DEFAULT_ENDPOINT, DEFAULT_TARGET};
+pub use backend::{CudaqBackend, DEFAULT_ENDPOINT, DEFAULT_TARGET, targets};
 pub use error::{CudaqError, CudaqResult};
 
 // Re-export key HAL types for convenience.

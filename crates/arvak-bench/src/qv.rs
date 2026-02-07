@@ -40,7 +40,7 @@ impl Default for QvConfig {
 /// random SU(4) two-qubit gates on random qubit pairs.
 pub fn generate_qv_circuit(width: u32, seed: u64) -> Circuit {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
-    let mut circuit = Circuit::with_size(&format!("qv_{width}"), width, width);
+    let mut circuit = Circuit::with_size(format!("qv_{width}"), width, width);
 
     // For each layer (depth = width)
     for _layer in 0..width {
@@ -91,7 +91,10 @@ pub fn generate_qv_circuit(width: u32, seed: u64) -> Circuit {
 /// Heavy outputs are bitstrings whose ideal probability is above the median.
 /// For a random circuit, approximately half the outputs are heavy.
 /// A successful QV measurement has heavy output probability > 2/3.
-pub fn heavy_output_probability(counts: &std::collections::HashMap<String, u64>, width: u32) -> f64 {
+pub fn heavy_output_probability(
+    counts: &std::collections::HashMap<String, u64>,
+    width: u32,
+) -> f64 {
     let total_shots: u64 = counts.values().sum();
     if total_shots == 0 {
         return 0.0;

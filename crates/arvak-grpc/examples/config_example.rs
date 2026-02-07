@@ -14,10 +14,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("1. Default Configuration:");
     let default_config = Config::default();
     println!("   gRPC Address: {}", default_config.server.address);
-    println!("   HTTP Address: {}", default_config.observability.http_server.address);
+    println!(
+        "   HTTP Address: {}",
+        default_config.observability.http_server.address
+    );
     println!("   Storage Backend: {}", default_config.storage.backend);
-    println!("   Log Level: {}", default_config.observability.logging.level);
-    println!("   Max Concurrent Jobs: {}\n", default_config.limits.max_concurrent_jobs);
+    println!(
+        "   Log Level: {}",
+        default_config.observability.logging.level
+    );
+    println!(
+        "   Max Concurrent Jobs: {}\n",
+        default_config.limits.max_concurrent_jobs
+    );
 
     // Example 2: Load from configuration file
     println!("2. Load from Configuration File:");
@@ -49,7 +58,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let env_config = Config::from_env();
     println!("   gRPC Address: {}", env_config.server.address);
     println!("   Log Level: {}", env_config.observability.logging.level);
-    println!("   Max Concurrent Jobs: {}\n", env_config.limits.max_concurrent_jobs);
+    println!(
+        "   Max Concurrent Jobs: {}\n",
+        env_config.limits.max_concurrent_jobs
+    );
 
     // Example 4: Combined loading (file + env overrides)
     println!("4. Combined Configuration:");

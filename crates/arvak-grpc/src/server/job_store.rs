@@ -140,9 +140,6 @@ mod tests {
         let job_id = JobId::new("nonexistent".to_string());
 
         let result = store.get_job(&job_id).await;
-        assert!(matches!(
-            result,
-            Err(crate::error::Error::JobNotFound(_))
-        ));
+        assert!(matches!(result, Err(crate::error::Error::JobNotFound(_))));
     }
 }

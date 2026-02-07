@@ -6,11 +6,11 @@
 //! - OpenTelemetry export via OTLP (distributed tracing)
 
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler};
 use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, fmt};
 
 /// Tracing output format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,8 +79,8 @@ impl TracingConfig {
             })
             .unwrap_or(TracingFormat::Console);
 
-        let service_name = std::env::var("ARVAK_SERVICE_NAME")
-            .unwrap_or_else(|_| "arvak-grpc".to_string());
+        let service_name =
+            std::env::var("ARVAK_SERVICE_NAME").unwrap_or_else(|_| "arvak-grpc".to_string());
 
         let otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
 

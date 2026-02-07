@@ -10,9 +10,9 @@
 //! - curl http://localhost:9090/health/ready
 //! - curl http://localhost:9090/metrics
 
-use arvak_grpc::{health, ArvakServiceImpl, HealthState, Metrics};
 use arvak_grpc::proto::arvak_service_server::ArvakServiceServer;
 use arvak_grpc::server::backend_registry::create_default_registry;
+use arvak_grpc::{ArvakServiceImpl, HealthState, Metrics, health};
 use std::sync::Arc;
 use tonic::transport::Server;
 

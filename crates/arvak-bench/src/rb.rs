@@ -47,10 +47,7 @@ struct Mat2 {
 impl Mat2 {
     fn identity() -> Self {
         Self {
-            m: [
-                [(1.0, 0.0), (0.0, 0.0)],
-                [(0.0, 0.0), (1.0, 0.0)],
-            ],
+            m: [[(1.0, 0.0), (0.0, 0.0)], [(0.0, 0.0), (1.0, 0.0)]],
         }
     }
 
@@ -58,30 +55,21 @@ impl Mat2 {
     fn h() -> Self {
         let v = FRAC_1_SQRT_2;
         Self {
-            m: [
-                [(v, 0.0), (v, 0.0)],
-                [(v, 0.0), (-v, 0.0)],
-            ],
+            m: [[(v, 0.0), (v, 0.0)], [(v, 0.0), (-v, 0.0)]],
         }
     }
 
     /// S gate matrix
     fn s() -> Self {
         Self {
-            m: [
-                [(1.0, 0.0), (0.0, 0.0)],
-                [(0.0, 0.0), (0.0, 1.0)],
-            ],
+            m: [[(1.0, 0.0), (0.0, 0.0)], [(0.0, 0.0), (0.0, 1.0)]],
         }
     }
 
     /// X gate matrix
     fn x() -> Self {
         Self {
-            m: [
-                [(0.0, 0.0), (1.0, 0.0)],
-                [(1.0, 0.0), (0.0, 0.0)],
-            ],
+            m: [[(0.0, 0.0), (1.0, 0.0)], [(1.0, 0.0), (0.0, 0.0)]],
         }
     }
 
@@ -96,6 +84,7 @@ impl Mat2 {
     }
 
     /// Matrix multiplication: self * other
+    #[allow(clippy::needless_range_loop)]
     fn mul(&self, other: &Mat2) -> Mat2 {
         let mut result = [[(0.0, 0.0); 2]; 2];
         for i in 0..2 {
@@ -113,8 +102,14 @@ impl Mat2 {
     fn dagger(&self) -> Mat2 {
         Mat2 {
             m: [
-                [(self.m[0][0].0, -self.m[0][0].1), (self.m[1][0].0, -self.m[1][0].1)],
-                [(self.m[0][1].0, -self.m[0][1].1), (self.m[1][1].0, -self.m[1][1].1)],
+                [
+                    (self.m[0][0].0, -self.m[0][0].1),
+                    (self.m[1][0].0, -self.m[1][0].1),
+                ],
+                [
+                    (self.m[0][1].0, -self.m[0][1].1),
+                    (self.m[1][1].0, -self.m[1][1].1),
+                ],
             ],
         }
     }
@@ -182,7 +177,7 @@ impl CliffordGate {
     }
 
     /// Compute the 2x2 unitary matrix for this Clifford.
-    fn to_matrix(&self) -> Mat2 {
+    fn as_matrix(&self) -> Mat2 {
         let mut m = Mat2::identity();
         for &gate in self.gate_sequence() {
             let g = match gate {
@@ -199,9 +194,15 @@ impl CliffordGate {
     fn apply(&self, circuit: &mut Circuit, qubit: QubitId) {
         for &gate in self.gate_sequence() {
             match gate {
-                PrimitiveGate::H => { let _ = circuit.h(qubit); }
-                PrimitiveGate::S => { let _ = circuit.s(qubit); }
-                PrimitiveGate::X => { let _ = circuit.x(qubit); }
+                PrimitiveGate::H => {
+                    let _ = circuit.h(qubit);
+                }
+                PrimitiveGate::S => {
+                    let _ = circuit.s(qubit);
+                }
+                PrimitiveGate::X => {
+                    let _ = circuit.x(qubit);
+                }
             }
         }
     }
@@ -218,7 +219,7 @@ enum PrimitiveGate {
 fn find_clifford_index(target: &Mat2) -> CliffordGate {
     for i in 0..24u8 {
         let cliff = CliffordGate::new(i);
-        let m = cliff.to_matrix();
+        let m = cliff.as_matrix();
         // Check if target * m.dagger() ≈ I (up to global phase)
         let product = target.mul(&m.dagger());
         if product.is_identity_up_to_phase(1e-6) {
@@ -235,7 +236,7 @@ fn find_clifford_index(target: &Mat2) -> CliffordGate {
 /// so the ideal outcome is always |0⟩.
 pub fn generate_1q_rb_circuit(length: u32, seed: u64) -> Circuit {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
-    let mut circuit = Circuit::with_size(&format!("rb_1q_{length}"), 1, 1);
+    let mut circuit = Circuit::with_size(format!("rb_1q_{length}"), 1, 1);
     let qubit = QubitId(0);
 
     // Track accumulated unitary via matrix multiplication
@@ -245,7 +246,7 @@ pub fn generate_1q_rb_circuit(length: u32, seed: u64) -> Circuit {
     for _ in 0..length {
         let cliff = CliffordGate::new(rng.gen_range(0u8..24));
         cliff.apply(&mut circuit, qubit);
-        accumulated = cliff.to_matrix().mul(&accumulated);
+        accumulated = cliff.as_matrix().mul(&accumulated);
     }
 
     // Find and apply inverse Clifford so ideal output is |0⟩
@@ -269,7 +270,7 @@ pub fn generate_1q_rb_circuit(length: u32, seed: u64) -> Circuit {
 /// 11520-element two-qubit Clifford group).
 pub fn generate_2q_rb_circuit(length: u32, seed: u64) -> Circuit {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
-    let mut circuit = Circuit::with_size(&format!("rb_2q_{length}"), 2, 2);
+    let mut circuit = Circuit::with_size(format!("rb_2q_{length}"), 2, 2);
 
     for _ in 0..length {
         // Random single-qubit Cliffords on both qubits
@@ -359,15 +360,14 @@ pub fn rb_result(
     sequence_lengths: &[u32],
 ) -> BenchmarkResult {
     let fidelity = 1.0 - epc;
-    BenchmarkResult::new(
-        &format!("rb_{num_qubits}q"),
-        fidelity,
-        "gate_fidelity",
-    )
-    .with_metric("error_per_clifford", serde_json::Value::from(epc))
-    .with_metric("decay_parameter", serde_json::Value::from(decay_param))
-    .with_metric("num_qubits", num_qubits as u64)
-    .with_metric("max_sequence_length", *sequence_lengths.last().unwrap_or(&0) as u64)
+    BenchmarkResult::new(format!("rb_{num_qubits}q"), fidelity, "gate_fidelity")
+        .with_metric("error_per_clifford", serde_json::Value::from(epc))
+        .with_metric("decay_parameter", serde_json::Value::from(decay_param))
+        .with_metric("num_qubits", num_qubits as u64)
+        .with_metric(
+            "max_sequence_length",
+            *sequence_lengths.last().unwrap_or(&0) as u64,
+        )
 }
 
 #[cfg(test)]
@@ -379,7 +379,7 @@ mod tests {
         // For each Clifford, C * C_inv should be identity (up to phase)
         for i in 0..24u8 {
             let cliff = CliffordGate::new(i);
-            let m = cliff.to_matrix();
+            let m = cliff.as_matrix();
             let inv = m.dagger();
             let product = inv.mul(&m);
             assert!(
@@ -394,9 +394,9 @@ mod tests {
         // For each Clifford, we should be able to find its inverse
         for i in 0..24u8 {
             let cliff = CliffordGate::new(i);
-            let m = cliff.to_matrix();
+            let m = cliff.as_matrix();
             let inv_cliff = find_clifford_index(&m.dagger());
-            let inv_m = inv_cliff.to_matrix();
+            let inv_m = inv_cliff.as_matrix();
             let product = inv_m.mul(&m);
             assert!(
                 product.is_identity_up_to_phase(1e-6),
@@ -442,7 +442,10 @@ mod tests {
         ];
 
         let (a, p, _b) = fit_rb_decay(&data);
-        assert!(p > 0.9, "Decay parameter should be close to 1 for good qubits, got {p}");
+        assert!(
+            p > 0.9,
+            "Decay parameter should be close to 1 for good qubits, got {p}"
+        );
         assert!(a > 0.0, "Amplitude should be positive");
     }
 

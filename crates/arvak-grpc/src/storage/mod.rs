@@ -131,9 +131,9 @@ pub trait JobStorage: Send + Sync {
             .ok_or_else(|| crate::error::Error::JobNotFound(job_id.0.clone()))?;
 
         match &job.status {
-            JobStatus::Completed => job
-                .result
-                .ok_or_else(|| crate::error::Error::Internal("Completed job has no result".to_string())),
+            JobStatus::Completed => job.result.ok_or_else(|| {
+                crate::error::Error::Internal("Completed job has no result".to_string())
+            }),
             JobStatus::Failed(msg) => Err(crate::error::Error::JobFailed(msg.clone())),
             _ => Err(crate::error::Error::JobNotCompleted(job_id.0.clone())),
         }

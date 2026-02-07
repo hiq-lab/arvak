@@ -150,9 +150,7 @@ fn test_full_pipeline_mid_circuit_measurement() {
     let mut dag = circuit.into_dag();
 
     // Build a full pipeline at opt level 2
-    let (pm, mut props) = PassManagerBuilder::new()
-        .with_optimization_level(2)
-        .build();
+    let (pm, mut props) = PassManagerBuilder::new().with_optimization_level(2).build();
 
     pm.run(&mut dag, &mut props).unwrap();
 
@@ -240,9 +238,7 @@ fn test_multi_qubit_measurement_gates_survive() {
     };
 
     let mut dag = circuit.into_dag();
-    let (pm, mut props) = PassManagerBuilder::new()
-        .with_optimization_level(2)
-        .build();
+    let (pm, mut props) = PassManagerBuilder::new().with_optimization_level(2).build();
 
     pm.run(&mut dag, &mut props).unwrap();
 

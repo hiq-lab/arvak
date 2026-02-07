@@ -301,8 +301,8 @@ impl Config {
         let contents = std::fs::read_to_string(path.as_ref())
             .map_err(|e| ConfigError::IoError(e.to_string()))?;
 
-        let config: Config = serde_yaml::from_str(&contents)
-            .map_err(|e| ConfigError::ParseError(e.to_string()))?;
+        let config: Config =
+            serde_yaml::from_str(&contents).map_err(|e| ConfigError::ParseError(e.to_string()))?;
 
         config.validate()?;
         Ok(config)
@@ -420,45 +420,59 @@ impl Config {
     /// Validate configuration values.
     pub fn validate(&self) -> Result<(), ConfigError> {
         // Validate server address
-        self.server.address.parse::<SocketAddr>()
-            .map_err(|_| ConfigError::ValidationError(
-                format!("Invalid server address: {}", self.server.address)
-            ))?;
+        self.server.address.parse::<SocketAddr>().map_err(|_| {
+            ConfigError::ValidationError(format!("Invalid server address: {}", self.server.address))
+        })?;
 
         // Validate HTTP address
-        self.observability.http_server.address.parse::<SocketAddr>()
-            .map_err(|_| ConfigError::ValidationError(
-                format!("Invalid HTTP address: {}", self.observability.http_server.address)
-            ))?;
+        self.observability
+            .http_server
+            .address
+            .parse::<SocketAddr>()
+            .map_err(|_| {
+                ConfigError::ValidationError(format!(
+                    "Invalid HTTP address: {}",
+                    self.observability.http_server.address
+                ))
+            })?;
 
         // Validate storage backend
         match self.storage.backend.as_str() {
-            "memory" | "sqlite" | "postgres" => {},
-            other => return Err(ConfigError::ValidationError(
-                format!("Unknown storage backend: {}", other)
-            )),
+            "memory" | "sqlite" | "postgres" => {}
+            other => {
+                return Err(ConfigError::ValidationError(format!(
+                    "Unknown storage backend: {}",
+                    other
+                )));
+            }
         }
 
         // Validate log level
         match self.observability.logging.level.as_str() {
-            "trace" | "debug" | "info" | "warn" | "error" => {},
-            other => return Err(ConfigError::ValidationError(
-                format!("Invalid log level: {}", other)
-            )),
+            "trace" | "debug" | "info" | "warn" | "error" => {}
+            other => {
+                return Err(ConfigError::ValidationError(format!(
+                    "Invalid log level: {}",
+                    other
+                )));
+            }
         }
 
         // Validate log format
         match self.observability.logging.format.as_str() {
-            "console" | "json" => {},
-            other => return Err(ConfigError::ValidationError(
-                format!("Invalid log format: {}", other)
-            )),
+            "console" | "json" => {}
+            other => {
+                return Err(ConfigError::ValidationError(format!(
+                    "Invalid log format: {}",
+                    other
+                )));
+            }
         }
 
         // Validate resource limits
         if self.limits.max_concurrent_jobs == 0 {
             return Err(ConfigError::ValidationError(
-                "max_concurrent_jobs must be greater than 0".to_string()
+                "max_concurrent_jobs must be greater than 0".to_string(),
             ));
         }
 
@@ -467,18 +481,19 @@ impl Config {
 
     /// Get the parsed gRPC server address.
     pub fn grpc_address(&self) -> Result<SocketAddr, ConfigError> {
-        self.server.address.parse()
-            .map_err(|_| ConfigError::ValidationError(
-                format!("Invalid server address: {}", self.server.address)
-            ))
+        self.server.address.parse().map_err(|_| {
+            ConfigError::ValidationError(format!("Invalid server address: {}", self.server.address))
+        })
     }
 
     /// Get the parsed HTTP server address.
     pub fn http_address(&self) -> Result<SocketAddr, ConfigError> {
-        self.observability.http_server.address.parse()
-            .map_err(|_| ConfigError::ValidationError(
-                format!("Invalid HTTP address: {}", self.observability.http_server.address)
+        self.observability.http_server.address.parse().map_err(|_| {
+            ConfigError::ValidationError(format!(
+                "Invalid HTTP address: {}",
+                self.observability.http_server.address
             ))
+        })
     }
 }
 

@@ -12,7 +12,7 @@ use arvak_hal::job::{JobId, JobStatus};
 use arvak_hal::result::ExecutionResult;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tokio::task;
@@ -48,10 +48,7 @@ impl SqliteStorage {
 
     /// Initialize the database schema.
     fn init_schema(&self) -> Result<()> {
-        let conn = self
-            .connection
-            .lock()
-            .expect("database lock poisoned");
+        let conn = self.connection.lock().expect("database lock poisoned");
 
         // Jobs table
         conn.execute(
@@ -223,7 +220,8 @@ impl JobStorage for SqliteStorage {
                             submitted_at: DateTime::from_timestamp(submitted_ts, 0)
                                 .unwrap_or_else(|| Utc::now()),
                             started_at: started_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
-                            completed_at: completed_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
+                            completed_at: completed_ts
+                                .and_then(|ts| DateTime::from_timestamp(ts, 0)),
                             result: None, // Results are stored separately
                         })
                     },
@@ -297,8 +295,9 @@ impl JobStorage for SqliteStorage {
             let metadata_json = if result.metadata.is_null() {
                 None
             } else {
-                Some(serde_json::to_string(&result.metadata)
-                    .map_err(|e| Error::StorageError(format!("Failed to serialize metadata: {}", e)))?)
+                Some(serde_json::to_string(&result.metadata).map_err(|e| {
+                    Error::StorageError(format!("Failed to serialize metadata: {}", e))
+                })?)
             };
 
             conn.execute(
@@ -359,9 +358,7 @@ impl JobStorage for SqliteStorage {
                 },
             )
             .map_err(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => {
-                    Error::JobNotFound(job_id.0.clone())
-                }
+                rusqlite::Error::QueryReturnedNoRows => Error::JobNotFound(job_id.0.clone()),
                 _ => Error::from(e),
             })
         })
@@ -376,9 +373,11 @@ impl JobStorage for SqliteStorage {
             let conn = conn.lock().expect("database lock poisoned");
 
             // Build query based on filter
-            let mut query = String::from("SELECT job_id, circuit_json, backend_id, shots, status,
+            let mut query = String::from(
+                "SELECT job_id, circuit_json, backend_id, shots, status,
                                                  submitted_at, started_at, completed_at
-                                          FROM jobs WHERE 1=1");
+                                          FROM jobs WHERE 1=1",
+            );
             let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
             if let Some(status) = filter.state {
@@ -496,16 +495,16 @@ mod tests {
         assert_eq!(retrieved.backend_id, "simulator");
 
         // Update status
-        storage.update_status(&job_id, JobStatus::Running).await.unwrap();
+        storage
+            .update_status(&job_id, JobStatus::Running)
+            .await
+            .unwrap();
         let updated = storage.get_job(&job_id).await.unwrap().unwrap();
         assert!(matches!(updated.status, JobStatus::Running));
 
         // Store result
         use arvak_hal::result::Counts;
-        let counts = Counts::from_pairs([
-            ("00", 500),
-            ("11", 500),
-        ]);
+        let counts = Counts::from_pairs([("00", 500), ("11", 500)]);
 
         let result = ExecutionResult {
             counts,
@@ -539,7 +538,11 @@ mod tests {
                 circuit,
                 backend_id: if i % 2 == 0 { "sim1" } else { "sim2" }.to_string(),
                 shots: 1000,
-                status: if i < 3 { JobStatus::Completed } else { JobStatus::Queued },
+                status: if i < 3 {
+                    JobStatus::Completed
+                } else {
+                    JobStatus::Queued
+                },
                 submitted_at: Utc::now(),
                 started_at: None,
                 completed_at: None,

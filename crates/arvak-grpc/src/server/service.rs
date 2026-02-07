@@ -1,9 +1,9 @@
 //! gRPC service implementation.
 
-use std::sync::Arc;
 use arvak_hal::backend::Backend;
 use arvak_hal::job::{JobId, JobStatus};
 use arvak_ir::circuit::Circuit;
+use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::{error, info, instrument, warn};
 
@@ -64,17 +64,20 @@ impl ArvakServiceImpl {
 
     /// Parse circuit from protobuf payload (static version for use in async contexts).
     fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Circuit> {
-        let payload = payload.ok_or_else(|| Error::InvalidCircuit("Missing circuit payload".to_string()))?;
+        let payload =
+            payload.ok_or_else(|| Error::InvalidCircuit("Missing circuit payload".to_string()))?;
 
         match payload.format {
             Some(circuit_payload::Format::Qasm3(qasm)) => {
                 let circuit = arvak_qasm3::parse(&qasm)?;
                 Ok(circuit)
             }
-            Some(circuit_payload::Format::ArvakIrJson(_json)) => {
-                Err(Error::InvalidCircuit("Arvak IR JSON format not yet supported".to_string()))
-            }
-            None => Err(Error::InvalidCircuit("No circuit format specified".to_string())),
+            Some(circuit_payload::Format::ArvakIrJson(_json)) => Err(Error::InvalidCircuit(
+                "Arvak IR JSON format not yet supported".to_string(),
+            )),
+            None => Err(Error::InvalidCircuit(
+                "No circuit format specified".to_string(),
+            )),
         }
     }
 
@@ -125,37 +128,39 @@ impl ArvakServiceImpl {
         // Execute on backend
         let execution_start = chrono::Utc::now();
         match backend.submit(&job.circuit, job.shots).await {
-            Ok(backend_job_id) => {
-                match backend.wait(&backend_job_id).await {
-                    Ok(result) => {
-                        let duration = chrono::Utc::now()
-                            .signed_duration_since(execution_start)
-                            .num_milliseconds() as u64;
+            Ok(backend_job_id) => match backend.wait(&backend_job_id).await {
+                Ok(result) => {
+                    let duration = chrono::Utc::now()
+                        .signed_duration_since(execution_start)
+                        .num_milliseconds() as u64;
 
-                        if let Err(e) = job_store.store_result(&job_id, result).await {
-                            error!("Failed to store job result: {}", e);
-                            metrics.record_job_failed(&backend_id, "storage_error");
-                        } else {
-                            metrics.record_job_completed(&backend_id, duration);
-                        }
-                        if let Some(ref resources) = resources {
-                            resources.job_completed().await;
-                        }
+                    if let Err(e) = job_store.store_result(&job_id, result).await {
+                        error!("Failed to store job result: {}", e);
+                        metrics.record_job_failed(&backend_id, "storage_error");
+                    } else {
+                        metrics.record_job_completed(&backend_id, duration);
                     }
-                    Err(e) => {
-                        let error_msg = format!("Backend wait failed: {}", e);
-                        metrics.record_job_failed(&backend_id, "backend_wait_error");
-                        let _ = job_store.update_status(&job_id, JobStatus::Failed(error_msg)).await;
-                        if let Some(ref resources) = resources {
-                            resources.job_completed().await;
-                        }
+                    if let Some(ref resources) = resources {
+                        resources.job_completed().await;
                     }
                 }
-            }
+                Err(e) => {
+                    let error_msg = format!("Backend wait failed: {}", e);
+                    metrics.record_job_failed(&backend_id, "backend_wait_error");
+                    let _ = job_store
+                        .update_status(&job_id, JobStatus::Failed(error_msg))
+                        .await;
+                    if let Some(ref resources) = resources {
+                        resources.job_completed().await;
+                    }
+                }
+            },
             Err(e) => {
                 let error_msg = format!("Backend submit failed: {}", e);
                 metrics.record_job_failed(&backend_id, "backend_submit_error");
-                let _ = job_store.update_status(&job_id, JobStatus::Failed(error_msg)).await;
+                let _ = job_store
+                    .update_status(&job_id, JobStatus::Failed(error_msg))
+                    .await;
                 if let Some(ref resources) = resources {
                     resources.job_completed().await;
                 }
@@ -227,7 +232,8 @@ impl ArvakServiceImpl {
                         Ok(result) => {
                             let duration = chrono::Utc::now()
                                 .signed_duration_since(execution_start)
-                                .num_milliseconds() as u64;
+                                .num_milliseconds()
+                                as u64;
 
                             if let Err(e) = job_store.store_result(&job_id, result).await {
                                 error!("Failed to store job result: {}", e);
@@ -303,9 +309,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let start = std::time::Instant::now();
 
         // Extract client IP from request metadata (if available)
-        let client_ip = request
-            .remote_addr()
-            .map(|addr| addr.ip().to_string());
+        let client_ip = request.remote_addr().map(|addr| addr.ip().to_string());
 
         let req = request.into_inner();
 
@@ -320,12 +324,10 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         }
 
         // Parse circuit
-        let circuit = self.parse_circuit(req.circuit)
-            .map_err(Status::from)?;
+        let circuit = self.parse_circuit(req.circuit).map_err(Status::from)?;
 
         // Validate backend exists
-        let backend = self.backends.get(&req.backend_id)
-            .map_err(Status::from)?;
+        let backend = self.backends.get(&req.backend_id).map_err(Status::from)?;
 
         // Create job in store (status = QUEUED)
         let job_id = self
@@ -359,9 +361,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         self.metrics.record_rpc_duration("SubmitJob", duration);
 
         // Return immediately
-        Ok(Response::new(SubmitJobResponse {
-            job_id: job_id.0,
-        }))
+        Ok(Response::new(SubmitJobResponse { job_id: job_id.0 }))
     }
 
     async fn submit_batch(
@@ -372,14 +372,14 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let req = request.into_inner();
 
         // Validate backend exists
-        let backend = self.backends.get(&req.backend_id)
-            .map_err(Status::from)?;
+        let backend = self.backends.get(&req.backend_id).map_err(Status::from)?;
 
         let mut job_ids = Vec::new();
 
         // Submit each job
         for batch_job in req.jobs {
-            let circuit = self.parse_circuit(batch_job.circuit)
+            let circuit = self
+                .parse_circuit(batch_job.circuit)
                 .map_err(Status::from)?;
 
             let job_id = self
@@ -420,7 +420,10 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         tracing::Span::current().record("job_id", job_id.0.as_str());
 
-        let job = self.job_store.get_job(&job_id).await
+        let job = self
+            .job_store
+            .get_job(&job_id)
+            .await
             .map_err(Status::from)?;
 
         let error_message = match &job.status {
@@ -528,16 +531,18 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         info!(chunk_size = chunk_size, "Starting result stream");
 
         // Get the complete result first
-        let result = self.job_store.get_result(&job_id).await
+        let result = self
+            .job_store
+            .get_result(&job_id)
+            .await
             .map_err(Status::from)?;
 
         let (tx, rx) = tokio::sync::mpsc::channel(16);
 
         // Spawn task to stream result chunks
         tokio::spawn(async move {
-            let all_counts: Vec<(String, u64)> = result.counts.iter()
-                .map(|(k, v)| (k.clone(), *v))
-                .collect();
+            let all_counts: Vec<(String, u64)> =
+                result.counts.iter().map(|(k, v)| (k.clone(), *v)).collect();
 
             let total_entries = all_counts.len();
             let total_chunks = total_entries.div_ceil(chunk_size);
@@ -594,13 +599,16 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                         let circuit = match Self::parse_circuit_static(submission.circuit) {
                             Ok(c) => c,
                             Err(e) => {
-                                let _ = tx.send(Ok(BatchJobResult {
-                                    job_id: String::new(),
-                                    client_request_id,
-                                    result: Some(batch_job_result::Result::Error(
-                                        format!("Circuit parsing failed: {}", e)
-                                    )),
-                                })).await;
+                                let _ = tx
+                                    .send(Ok(BatchJobResult {
+                                        job_id: String::new(),
+                                        client_request_id,
+                                        result: Some(batch_job_result::Result::Error(format!(
+                                            "Circuit parsing failed: {}",
+                                            e
+                                        ))),
+                                    }))
+                                    .await;
                                 continue;
                             }
                         };
@@ -609,28 +617,36 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                         let backend = match backends.get(&submission.backend_id) {
                             Ok(b) => b,
                             Err(e) => {
-                                let _ = tx.send(Ok(BatchJobResult {
-                                    job_id: String::new(),
-                                    client_request_id,
-                                    result: Some(batch_job_result::Result::Error(
-                                        format!("Backend not found: {}", e)
-                                    )),
-                                })).await;
+                                let _ = tx
+                                    .send(Ok(BatchJobResult {
+                                        job_id: String::new(),
+                                        client_request_id,
+                                        result: Some(batch_job_result::Result::Error(format!(
+                                            "Backend not found: {}",
+                                            e
+                                        ))),
+                                    }))
+                                    .await;
                                 continue;
                             }
                         };
 
                         // Create job
-                        match job_store.create_job(circuit, submission.backend_id.clone(), submission.shots).await {
+                        match job_store
+                            .create_job(circuit, submission.backend_id.clone(), submission.shots)
+                            .await
+                        {
                             Ok(job_id) => {
                                 // Send submission confirmation
-                                let _ = tx.send(Ok(BatchJobResult {
-                                    job_id: job_id.0.clone(),
-                                    client_request_id: client_request_id.clone(),
-                                    result: Some(batch_job_result::Result::Submitted(
-                                        "Job submitted successfully".to_string()
-                                    )),
-                                })).await;
+                                let _ = tx
+                                    .send(Ok(BatchJobResult {
+                                        job_id: job_id.0.clone(),
+                                        client_request_id: client_request_id.clone(),
+                                        result: Some(batch_job_result::Result::Submitted(
+                                            "Job submitted successfully".to_string(),
+                                        )),
+                                    }))
+                                    .await;
 
                                 metrics.record_job_submitted(&submission.backend_id);
 
@@ -649,7 +665,8 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                         job_id.clone(),
                                         metrics_clone,
                                         resources_clone,
-                                    ).await;
+                                    )
+                                    .await;
 
                                     // Send completion notification
                                     if let Ok(result) = job_store_clone.get_result(&job_id).await {
@@ -661,33 +678,44 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                         let metadata_json = serde_json::to_string(&result.metadata)
                                             .unwrap_or_else(|_| "{}".to_string());
 
-                                        let _ = tx_clone.send(Ok(BatchJobResult {
-                                            job_id: job_id.0.clone(),
-                                            client_request_id,
-                                            result: Some(batch_job_result::Result::Completed(JobResult {
-                                                job_id: job_id.0,
-                                                counts,
-                                                shots: result.shots,
-                                                execution_time_ms: result.execution_time_ms.unwrap_or(0),
-                                                metadata_json,
-                                            })),
-                                        })).await;
+                                        let _ = tx_clone
+                                            .send(Ok(BatchJobResult {
+                                                job_id: job_id.0.clone(),
+                                                client_request_id,
+                                                result: Some(batch_job_result::Result::Completed(
+                                                    JobResult {
+                                                        job_id: job_id.0,
+                                                        counts,
+                                                        shots: result.shots,
+                                                        execution_time_ms: result
+                                                            .execution_time_ms
+                                                            .unwrap_or(0),
+                                                        metadata_json,
+                                                    },
+                                                )),
+                                            }))
+                                            .await;
                                     }
                                 });
                             }
                             Err(e) => {
-                                let _ = tx.send(Ok(BatchJobResult {
-                                    job_id: String::new(),
-                                    client_request_id,
-                                    result: Some(batch_job_result::Result::Error(
-                                        format!("Job creation failed: {}", e)
-                                    )),
-                                })).await;
+                                let _ = tx
+                                    .send(Ok(BatchJobResult {
+                                        job_id: String::new(),
+                                        client_request_id,
+                                        result: Some(batch_job_result::Result::Error(format!(
+                                            "Job creation failed: {}",
+                                            e
+                                        ))),
+                                    }))
+                                    .await;
                             }
                         }
                     }
                     Err(e) => {
-                        let _ = tx.send(Err(Status::internal(format!("Stream error: {}", e)))).await;
+                        let _ = tx
+                            .send(Err(Status::internal(format!("Stream error: {}", e))))
+                            .await;
                         break;
                     }
                 }
@@ -695,7 +723,9 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         });
 
         let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
-        Ok(Response::new(Box::pin(stream) as Self::SubmitBatchStreamStream))
+        Ok(Response::new(
+            Box::pin(stream) as Self::SubmitBatchStreamStream
+        ))
     }
 
     async fn get_job_result(
@@ -705,7 +735,10 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let req = request.into_inner();
         let job_id = JobId::new(req.job_id.clone());
 
-        let result = self.job_store.get_result(&job_id).await
+        let result = self
+            .job_store
+            .get_result(&job_id)
+            .await
             .map_err(Status::from)?;
 
         // Convert counts to protobuf map
@@ -714,8 +747,8 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             counts.insert(bitstring.clone(), *count);
         }
 
-        let metadata_json = serde_json::to_string(&result.metadata)
-            .unwrap_or_else(|_| "{}".to_string());
+        let metadata_json =
+            serde_json::to_string(&result.metadata).unwrap_or_else(|_| "{}".to_string());
 
         let proto_result = JobResult {
             job_id: req.job_id,
@@ -738,7 +771,10 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let job_id = JobId::new(req.job_id);
 
         // Check current status
-        let job = self.job_store.get_job(&job_id).await
+        let job = self
+            .job_store
+            .get_job(&job_id)
+            .await
             .map_err(Status::from)?;
 
         if job.status.is_terminal() {
@@ -768,17 +804,17 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let mut backends = Vec::new();
 
         for id in backend_ids {
-            let backend = self.backends.get(&id)
-                .map_err(Status::from)?;
+            let backend = self.backends.get(&id).map_err(Status::from)?;
 
-            let caps = backend.capabilities().await
+            let caps = backend
+                .capabilities()
+                .await
                 .map_err(|e| Status::internal(format!("Failed to get capabilities: {}", e)))?;
 
-            let is_available = backend.is_available().await
-                .unwrap_or(false);
+            let is_available = backend.is_available().await.unwrap_or(false);
 
-            let topology_json = serde_json::to_string(&caps.topology)
-                .unwrap_or_else(|_| "{}".to_string());
+            let topology_json =
+                serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());
 
             let mut supported_gates = caps.gate_set.single_qubit.clone();
             supported_gates.extend(caps.gate_set.two_qubit.clone());
@@ -804,17 +840,17 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
     ) -> std::result::Result<Response<GetBackendInfoResponse>, Status> {
         let req = request.into_inner();
 
-        let backend = self.backends.get(&req.backend_id)
-            .map_err(Status::from)?;
+        let backend = self.backends.get(&req.backend_id).map_err(Status::from)?;
 
-        let caps = backend.capabilities().await
+        let caps = backend
+            .capabilities()
+            .await
             .map_err(|e| Status::internal(format!("Failed to get capabilities: {}", e)))?;
 
-        let is_available = backend.is_available().await
-            .unwrap_or(false);
+        let is_available = backend.is_available().await.unwrap_or(false);
 
-        let topology_json = serde_json::to_string(&caps.topology)
-            .unwrap_or_else(|_| "{}".to_string());
+        let topology_json =
+            serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());
 
         let mut supported_gates = caps.gate_set.single_qubit.clone();
         supported_gates.extend(caps.gate_set.two_qubit.clone());

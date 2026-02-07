@@ -56,10 +56,7 @@ pub fn create_default_registry() -> BackendRegistry {
     #[cfg(feature = "simulator")]
     {
         use arvak_adapter_sim::SimulatorBackend;
-        registry.register(
-            "simulator".to_string(),
-            Arc::new(SimulatorBackend::new()),
-        );
+        registry.register("simulator".to_string(), Arc::new(SimulatorBackend::new()));
     }
 
     // Future backends will be added here with feature gates:

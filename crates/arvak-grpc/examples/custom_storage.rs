@@ -8,8 +8,8 @@
 //!
 //! Run with: cargo run --example custom_storage
 
-use arvak_grpc::storage::{JobStorage, MemoryStorage};
 use arvak_grpc::JobStore;
+use arvak_grpc::storage::{JobStorage, MemoryStorage};
 use arvak_hal::job::{JobId, JobStatus};
 use arvak_hal::result::{Counts, ExecutionResult};
 use arvak_ir::circuit::Circuit;

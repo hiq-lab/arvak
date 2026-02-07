@@ -213,9 +213,10 @@ impl BackendComparison {
 
             if let Some(baseline) = &self.baseline
                 && result.name != *baseline
-                    && let Some(speedup) = self.speedup(&result.name) {
-                        lines.push(format!("  Speedup vs {}: {:.2}x", baseline, speedup));
-                    }
+                && let Some(speedup) = self.speedup(&result.name)
+            {
+                lines.push(format!("  Speedup vs {}: {:.2}x", baseline, speedup));
+            }
         }
 
         lines.join("\n")

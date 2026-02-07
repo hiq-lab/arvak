@@ -69,7 +69,7 @@ impl Pass for MeasurementBarrierVerification {
 
         // For each qubit, verify that no gate appears after a measurement
         // unless there's a reset in between (which re-initializes the qubit).
-        for (_qubit, ops) in &qubit_ops {
+        for ops in qubit_ops.values() {
             let mut last_measurement_pos: Option<usize> = None;
             let mut last_reset_after_measurement: Option<usize> = None;
 
@@ -137,9 +137,8 @@ impl Pass for MeasurementBarrierVerification {
                         Some(next_node) => {
                             if let DagNode::Op(inst) = &graph[next_node] {
                                 // Find this node's topological position
-                                let topo_pos = dag
-                                    .topological_ops()
-                                    .position(|(idx, _)| idx == next_node);
+                                let topo_pos =
+                                    dag.topological_ops().position(|(idx, _)| idx == next_node);
 
                                 if let (Some(prev), Some(curr)) = (prev_position, topo_pos) {
                                     if curr < prev {

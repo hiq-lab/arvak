@@ -2,8 +2,8 @@
 
 use arvak_grpc::proto::{arvak_service_client::ArvakServiceClient, *};
 use arvak_grpc::server::ArvakServiceImpl;
-use tonic::transport::Server;
 use tonic::Request;
+use tonic::transport::Server;
 
 const TEST_QASM: &str = r#"
 OPENQASM 3.0;
@@ -316,8 +316,5 @@ async fn test_cancel_job() {
 
     let cancel_result = response.into_inner();
     // Either successfully canceled or already in terminal state
-    assert!(
-        cancel_result.success
-            || cancel_result.message.contains("terminal state")
-    );
+    assert!(cancel_result.success || cancel_result.message.contains("terminal state"));
 }

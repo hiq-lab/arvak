@@ -6,9 +6,9 @@
 use async_trait::async_trait;
 use rustc_hash::FxHashMap;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, info};
 #[cfg(feature = "system-qdmi")]
 use tracing::warn;
+use tracing::{debug, info};
 
 use arvak_hal::backend::{Backend, BackendConfig, BackendFactory};
 use arvak_hal::capability::{Capabilities, GateSet, Topology};
@@ -30,7 +30,7 @@ use crate::ffi::{
 };
 
 #[cfg(feature = "system-qdmi")]
-use std::ffi::{c_int, c_void, CString};
+use std::ffi::{CString, c_int, c_void};
 
 /// QDMI Backend for Arvak.
 ///
@@ -300,8 +300,7 @@ impl QdmiBackend {
             // 4. Get devices
             let mut devices: *mut QdmiDevice = std::ptr::null_mut();
             let mut device_count: usize = 0;
-            let status =
-                ffi::QDMI_session_get_devices(session, &mut devices, &mut device_count);
+            let status = ffi::QDMI_session_get_devices(session, &mut devices, &mut device_count);
             ffi::check_status(status)
                 .map_err(|s| QdmiError::Ffi(format!("get_devices failed: {s:?}")))?;
 
@@ -316,10 +315,7 @@ impl QdmiBackend {
             state.device = devices;
             state.initialized = true;
 
-            info!(
-                "QDMI session initialized with {} device(s)",
-                device_count
-            );
+            info!("QDMI session initialized with {} device(s)", device_count);
         }
 
         Ok(())

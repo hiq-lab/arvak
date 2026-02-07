@@ -19,9 +19,9 @@
 //! This module requires `--features dynamic-backends`.
 
 use crate::backend::{Backend, BackendConfig};
-use crate::error::HalResult;
 #[cfg(feature = "dynamic-backends")]
 use crate::error::HalError;
+use crate::error::HalResult;
 
 /// Trait that dynamic backend plugins must implement.
 ///

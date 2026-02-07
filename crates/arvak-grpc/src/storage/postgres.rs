@@ -85,7 +85,9 @@ impl PostgresStorage {
                 &[],
             )
             .await
-            .map_err(|e| Error::StorageError(format!("Failed to create job_results table: {}", e)))?;
+            .map_err(|e| {
+                Error::StorageError(format!("Failed to create job_results table: {}", e))
+            })?;
 
         // Indexes
         client
@@ -230,7 +232,8 @@ impl JobStorage for PostgresStorage {
                 backend_id: row.get(2),
                 shots: row.get::<_, i32>(3) as u32,
                 status,
-                submitted_at: DateTime::from_timestamp(submitted_ts, 0).unwrap_or_else(|| Utc::now()),
+                submitted_at: DateTime::from_timestamp(submitted_ts, 0)
+                    .unwrap_or_else(|| Utc::now()),
                 started_at: started_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
                 completed_at: completed_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
                 result: None,
@@ -294,12 +297,14 @@ impl JobStorage for PostgresStorage {
         let counts_json = serde_json::to_string(&result.counts)
             .map_err(|e| Error::StorageError(format!("Failed to serialize counts: {}", e)))?;
 
-        let metadata_json = if result.metadata.is_null() {
-            None
-        } else {
-            Some(serde_json::to_string(&result.metadata)
-                .map_err(|e| Error::StorageError(format!("Failed to serialize metadata: {}", e)))?)
-        };
+        let metadata_json =
+            if result.metadata.is_null() {
+                None
+            } else {
+                Some(serde_json::to_string(&result.metadata).map_err(|e| {
+                    Error::StorageError(format!("Failed to serialize metadata: {}", e))
+                })?)
+            };
 
         client
             .execute(
@@ -353,8 +358,9 @@ impl JobStorage for PostgresStorage {
 
         let metadata_json: Option<String> = row.get(3);
         let metadata = if let Some(json) = metadata_json {
-            serde_json::from_str(&json)
-                .map_err(|e| Error::StorageError(format!("Failed to deserialize metadata: {}", e)))?
+            serde_json::from_str(&json).map_err(|e| {
+                Error::StorageError(format!("Failed to deserialize metadata: {}", e))
+            })?
         } else {
             serde_json::Value::Null
         };
@@ -378,7 +384,10 @@ impl JobStorage for PostgresStorage {
         );
 
         // Keep concrete values in scope
-        let status_pattern = filter.state.as_ref().map(|s| format!("{}%", Self::status_to_string(s)));
+        let status_pattern = filter
+            .state
+            .as_ref()
+            .map(|s| format!("{}%", Self::status_to_string(s)));
         let after_ts = filter.after.map(|dt| dt.timestamp());
         let before_ts = filter.before.map(|dt| dt.timestamp());
         let limit = filter.limit as i64;
@@ -437,7 +446,8 @@ impl JobStorage for PostgresStorage {
                 backend_id: row.get(2),
                 shots: row.get::<_, i32>(3) as u32,
                 status,
-                submitted_at: DateTime::from_timestamp(submitted_ts, 0).unwrap_or_else(|| Utc::now()),
+                submitted_at: DateTime::from_timestamp(submitted_ts, 0)
+                    .unwrap_or_else(|| Utc::now()),
                 started_at: started_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
                 completed_at: completed_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
                 result: None,

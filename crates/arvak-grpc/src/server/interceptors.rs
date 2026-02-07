@@ -51,7 +51,9 @@ impl tonic::service::Interceptor for RequestIdInterceptor {
         tracing::Span::current().record("request_id", request_id.as_str());
 
         // Store request ID in request extensions for later access
-        request.extensions_mut().insert(RequestId(request_id.clone()));
+        request
+            .extensions_mut()
+            .insert(RequestId(request_id.clone()));
 
         info!(request_id = %request_id, "Processing request");
 

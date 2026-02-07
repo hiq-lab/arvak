@@ -43,7 +43,7 @@ impl Default for ClopsConfig {
 /// Creates alternating layers of single-qubit rotations and CX gates.
 pub fn generate_clops_circuit(num_qubits: u32, depth: u32, seed: u64) -> Circuit {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
-    let mut circuit = Circuit::with_size(&format!("clops_{num_qubits}x{depth}"), num_qubits, 0);
+    let mut circuit = Circuit::with_size(format!("clops_{num_qubits}x{depth}"), num_qubits, 0);
 
     for layer in 0..depth {
         // Layer of random single-qubit rotations
@@ -54,7 +54,7 @@ pub fn generate_clops_circuit(num_qubits: u32, depth: u32, seed: u64) -> Circuit
         }
 
         // Layer of CX gates (linear connectivity)
-        let offset = (layer % 2) as u32;
+        let offset = layer % 2;
         let mut q = offset;
         while q + 1 < num_qubits {
             let _ = circuit.cx(QubitId(q), QubitId(q + 1));

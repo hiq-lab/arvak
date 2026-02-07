@@ -46,7 +46,11 @@ impl BenchmarkResult {
     }
 
     /// Add a metric.
-    pub fn with_metric(mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
+    pub fn with_metric(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<serde_json::Value>,
+    ) -> Self {
         self.metrics.insert(key.into(), value.into());
         self
     }

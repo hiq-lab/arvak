@@ -32,12 +32,12 @@
 //! - Waits for in-flight requests to complete (with timeout)
 //! - Shuts down gRPC and HTTP servers cleanly
 
-use arvak_grpc::{
-    init_tracing, start_health_server, ArvakServiceImpl, Config, HealthState, Metrics,
-    TracingConfig, TracingFormat,
-};
 use arvak_grpc::proto::arvak_service_server::ArvakServiceServer;
 use arvak_grpc::server::{RequestIdInterceptor, TimingLayer};
+use arvak_grpc::{
+    ArvakServiceImpl, Config, HealthState, Metrics, TracingConfig, TracingFormat, init_tracing,
+    start_health_server,
+};
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tonic::transport::Server;
@@ -73,8 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting Arvak gRPC server");
     info!(
         "Configuration loaded from {}",
-        config_file.as_deref()
-            .unwrap_or("defaults")
+        config_file.as_deref().unwrap_or("defaults")
     );
 
     // Create service with resource limits
@@ -143,10 +142,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Graceful shutdown timeout: {}s", shutdown_timeout);
 
     // Build gRPC server with middleware and interceptors
-    let service_with_interceptor = ArvakServiceServer::with_interceptor(
-        service,
-        RequestIdInterceptor::new(),
-    );
+    let service_with_interceptor =
+        ArvakServiceServer::with_interceptor(service, RequestIdInterceptor::new());
 
     // Enable gRPC reflection for tools like grpcurl
     let reflection_service = tonic_reflection::server::Builder::configure()
@@ -154,15 +151,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_v1()?;
 
     let server = Server::builder()
-        .timeout(std::time::Duration::from_secs(config.server.timeout_seconds))
+        .timeout(std::time::Duration::from_secs(
+            config.server.timeout_seconds,
+        ))
         .tcp_keepalive(Some(std::time::Duration::from_secs(
             config.server.keepalive_seconds,
         )))
-        .layer(
-            ServiceBuilder::new()
-                .layer(TimingLayer::new())
-                .into_inner(),
-        )
+        .layer(ServiceBuilder::new().layer(TimingLayer::new()).into_inner())
         .add_service(reflection_service)
         .add_service(service_with_interceptor)
         .serve_with_shutdown(grpc_addr, async move {
@@ -194,11 +189,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Wait for HTTP server to shut down (with timeout)
     if let Some(handle) = http_handle {
         info!("Waiting for HTTP server to shut down");
-        let _ = tokio::time::timeout(
-            std::time::Duration::from_secs(shutdown_timeout),
-            handle,
-        )
-        .await;
+        let _ =
+            tokio::time::timeout(std::time::Duration::from_secs(shutdown_timeout), handle).await;
     }
 
     info!("Server shutdown complete");
@@ -239,10 +231,9 @@ async fn shutdown_signal_handler() {
 /// Parse --config argument from command line.
 fn parse_config_arg(args: &[String]) -> Option<String> {
     for i in 0..args.len() {
-        if (args[i] == "--config" || args[i] == "-c")
-            && i + 1 < args.len() {
-                return Some(args[i + 1].clone());
-            }
+        if (args[i] == "--config" || args[i] == "-c") && i + 1 < args.len() {
+            return Some(args[i + 1].clone());
+        }
     }
     None
 }

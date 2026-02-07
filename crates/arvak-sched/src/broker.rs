@@ -12,7 +12,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use crate::error::SchedResult;
 use crate::job::ScheduledJobId;
@@ -76,12 +76,14 @@ pub trait MessageSubscription: Send + Sync {
     async fn unsubscribe(self: Box<Self>) -> SchedResult<()>;
 }
 
+type SubscriptionList = Arc<Mutex<Vec<(String, mpsc::Sender<JobMessage>)>>>;
+
 /// In-memory message broker using tokio channels.
 ///
 /// Suitable for testing and single-node deployments where all
 /// components run in the same process.
 pub struct InMemoryBroker {
-    subscriptions: Arc<Mutex<Vec<(String, mpsc::Sender<JobMessage>)>>>,
+    subscriptions: SubscriptionList,
 }
 
 impl InMemoryBroker {
@@ -228,11 +230,7 @@ mod tests {
 
         let mut sub = broker.subscribe("jobs.cloud").await.unwrap();
 
-        let msg = JobMessage::new(
-            ScheduledJobId::new(),
-            "jobs.cloud",
-            b"hello".to_vec(),
-        );
+        let msg = JobMessage::new(ScheduledJobId::new(), "jobs.cloud", b"hello".to_vec());
         broker.publish(msg.clone()).await.unwrap();
 
         let received = sub.next().await.unwrap().unwrap();
@@ -288,11 +286,7 @@ mod tests {
             .unwrap();
 
         // Use a timeout to verify no message received
-        let result = tokio::time::timeout(
-            std::time::Duration::from_millis(50),
-            sub.next(),
-        )
-        .await;
+        let result = tokio::time::timeout(std::time::Duration::from_millis(50), sub.next()).await;
 
         assert!(result.is_err()); // Timeout = no message
     }

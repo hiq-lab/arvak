@@ -114,7 +114,10 @@ impl BackendRegistry {
             match unsafe { crate::plugin::LoadedPlugin::load(&path) } {
                 Ok(loaded) => {
                     let info = loaded.info();
-                    info!("Loaded plugin: {} v{} from {}", info.name, info.version, info.library_path);
+                    info!(
+                        "Loaded plugin: {} v{} from {}",
+                        info.name, info.version, info.library_path
+                    );
                     self.plugin_infos.push(info);
                     self.plugins.push(loaded);
                     count += 1;
@@ -167,8 +170,7 @@ impl BackendRegistry {
 
     /// Check if a backend is available by name.
     pub fn has_backend(&self, name: &str) -> bool {
-        self.builtins.contains_key(name)
-            || self.plugin_infos.iter().any(|info| info.name == name)
+        self.builtins.contains_key(name) || self.plugin_infos.iter().any(|info| info.name == name)
     }
 }
 

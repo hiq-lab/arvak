@@ -101,17 +101,20 @@ impl ResourceManager {
         // Update rate limit tracking
         if let Some(ip) = client_ip {
             let now = Instant::now();
-            let rate_state = state
-                .rate_limits
-                .entry(ip.to_string())
-                .or_insert_with(|| RateLimitState {
-                    requests: Vec::new(),
-                    _window_start: now,
-                });
+            let rate_state =
+                state
+                    .rate_limits
+                    .entry(ip.to_string())
+                    .or_insert_with(|| RateLimitState {
+                        requests: Vec::new(),
+                        _window_start: now,
+                    });
 
             // Clean up old requests (older than 1 second)
             let window = Duration::from_secs(1);
-            rate_state.requests.retain(|&t| now.duration_since(t) < window);
+            rate_state
+                .requests
+                .retain(|&t| now.duration_since(t) < window);
 
             // Add this request
             rate_state.requests.push(now);
