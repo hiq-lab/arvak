@@ -983,7 +983,7 @@ Arvak is developed and maintained by **[The HAL Contract](https://www.hal-contra
 
 - **GitHub Repository**: [github.com/hiq-lab/arvak](https://github.com/hiq-lab/arvak)
 - **GitHub Issues**: [github.com/hiq-lab/arvak/issues](https://github.com/hiq-lab/arvak/issues)
-- **Documentation**: [arvak.io](https://arvak.io)
+- **Documentation**: [docs/](docs/)
 - **PyPI Package**: [pypi.org/project/arvak](https://pypi.org/project/arvak/)
 
 ### Collaboration & Partnership
