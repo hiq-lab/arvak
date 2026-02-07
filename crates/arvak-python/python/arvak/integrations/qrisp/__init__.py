@@ -1,7 +1,7 @@
-"""Qrisp integration for HIQ.
+"""Qrisp integration for Arvak.
 
-This module provides seamless integration between Qrisp and HIQ, enabling:
-- Circuit conversion (Qrisp ↔ HIQ)
+This module provides seamless integration between Qrisp and Arvak, enabling:
+- Circuit conversion (Qrisp ↔ Arvak)
 - Execution of Arvak circuits through Qrisp's backend API
 - Support for Qrisp's high-level quantum programming model
 
@@ -18,9 +18,9 @@ Example:
     >>> qc = QuantumCircuit(2)
     >>> qc.h(0)
     >>> qc.cx(0, 1)
-    >>> hiq_circuit = qrisp_to_arvak(qc)
+    >>> arvak_circuit = qrisp_to_arvak(qc)
     >>>
-    >>> # Use HIQ as Qrisp backend
+    >>> # Use Arvak as Qrisp backend
     >>> backend = ArvakBackendClient('sim')
     >>> results = backend.run(qc, shots=1000)
 """
@@ -30,9 +30,9 @@ from .._base import FrameworkIntegration
 
 
 class QrispIntegration(FrameworkIntegration):
-    """Qrisp framework integration for HIQ.
+    """Qrisp framework integration for Arvak.
 
-    This integration enables bi-directional conversion between Qrisp and HIQ
+    This integration enables bi-directional conversion between Qrisp and Arvak
     circuits using OpenQASM as an interchange format, and provides a
     Qrisp-compatible backend client for executing circuits.
 
@@ -82,11 +82,11 @@ class QrispIntegration(FrameworkIntegration):
         Returns:
             Qrisp QuantumCircuit
         """
-        from .converter import hiq_to_qrisp
-        return hiq_to_qrisp(circuit)
+        from .converter import arvak_to_qrisp
+        return arvak_to_qrisp(circuit)
 
     def get_backend_provider(self):
-        """Get HIQ backend provider for Qrisp.
+        """Get Arvak backend provider for Qrisp.
 
         Returns:
             ArvakProvider instance
@@ -103,13 +103,13 @@ if _integration.is_available():
 
     # Expose public API at package level
     from .backend import ArvakBackendClient, ArvakProvider
-    from .converter import qrisp_to_arvak, hiq_to_qrisp
+    from .converter import qrisp_to_arvak, arvak_to_qrisp
 
     __all__ = [
         'ArvakBackendClient',
         'ArvakProvider',
         'qrisp_to_arvak',
-        'hiq_to_qrisp',
+        'arvak_to_qrisp',
         'QrispIntegration'
     ]
 else:

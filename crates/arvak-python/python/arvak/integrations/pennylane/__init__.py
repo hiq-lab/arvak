@@ -1,7 +1,7 @@
-"""PennyLane integration for HIQ.
+"""PennyLane integration for Arvak.
 
-This module provides seamless integration between PennyLane and HIQ, enabling:
-- QNode conversion (PennyLane ↔ HIQ)
+This module provides seamless integration between PennyLane and Arvak, enabling:
+- QNode conversion (PennyLane ↔ Arvak)
 - Execution of Arvak circuits through PennyLane's Device API
 - Support for quantum machine learning workflows
 
@@ -15,7 +15,7 @@ Example:
     >>> import pennylane as qml
     >>> from arvak.integrations.pennylane import ArvakDevice, pennylane_to_arvak
     >>>
-    >>> # Use HIQ as PennyLane device
+    >>> # Use Arvak as PennyLane device
     >>> dev = ArvakDevice(wires=2, backend='sim')
     >>>
     >>> @qml.qnode(dev)
@@ -32,9 +32,9 @@ from .._base import FrameworkIntegration
 
 
 class PennyLaneIntegration(FrameworkIntegration):
-    """PennyLane framework integration for HIQ.
+    """PennyLane framework integration for Arvak.
 
-    This integration enables conversion between PennyLane and HIQ
+    This integration enables conversion between PennyLane and Arvak
     circuits using OpenQASM as an interchange format, and provides a
     PennyLane-compatible device for executing circuits.
 
@@ -84,11 +84,11 @@ class PennyLaneIntegration(FrameworkIntegration):
         Returns:
             PennyLane QNode function
         """
-        from .converter import hiq_to_pennylane
-        return hiq_to_pennylane(circuit)
+        from .converter import arvak_to_pennylane
+        return arvak_to_pennylane(circuit)
 
     def get_backend_provider(self):
-        """Get HIQ device creator for PennyLane.
+        """Get Arvak device creator for PennyLane.
 
         Returns:
             Device creation function
@@ -105,13 +105,13 @@ if _integration.is_available():
 
     # Expose public API at package level
     from .backend import ArvakDevice, create_device
-    from .converter import pennylane_to_arvak, hiq_to_pennylane
+    from .converter import pennylane_to_arvak, arvak_to_pennylane
 
     __all__ = [
         'ArvakDevice',
         'create_device',
         'pennylane_to_arvak',
-        'hiq_to_pennylane',
+        'arvak_to_pennylane',
         'PennyLaneIntegration'
     ]
 else:

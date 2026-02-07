@@ -1,4 +1,4 @@
-"""Qiskit backend provider for HIQ.
+"""Qiskit backend provider for Arvak.
 
 This module implements Qiskit's provider and backend interfaces, allowing
 users to execute Arvak circuits through Qiskit's familiar backend.run() API.
@@ -13,9 +13,9 @@ if TYPE_CHECKING:
 
 
 class ArvakProvider:
-    """Qiskit provider for HIQ backends.
+    """Qiskit provider for Arvak backends.
 
-    This provider allows users to access HIQ execution capabilities through
+    This provider allows users to access Arvak execution capabilities through
     Qiskit's standard provider interface.
 
     Example:
@@ -27,7 +27,7 @@ class ArvakProvider:
     """
 
     def __init__(self):
-        """Initialize the HIQ provider."""
+        """Initialize the Arvak provider."""
         self._backends = {}
 
     def backends(self, name: Optional[str] = None, **filters) -> List['BackendV2']:
@@ -48,7 +48,7 @@ class ArvakProvider:
         # Lazy initialization of backends
         if not self._backends:
             self._backends = {
-                'sim': HIQSimulatorBackend(provider=self),
+                'sim': ArvakSimulatorBackend(provider=self),
                 # Future: Add more backends (iqm, ibm, etc.)
             }
 
@@ -88,10 +88,10 @@ class ArvakProvider:
         return f"<ArvakProvider(backends={list(self._backends.keys())})>"
 
 
-class HIQSimulatorBackend:
-    """HIQ simulator backend with Qiskit-compatible interface.
+class ArvakSimulatorBackend:
+    """Arvak simulator backend with Qiskit-compatible interface.
 
-    This backend wraps HIQ's simulation capabilities with Qiskit's BackendV2
+    This backend wraps Arvak's simulation capabilities with Qiskit's BackendV2
     interface, allowing seamless integration with Qiskit workflows.
 
     Note:
@@ -106,8 +106,8 @@ class HIQSimulatorBackend:
             provider: Parent ArvakProvider instance
         """
         self._provider = provider
-        self.name = 'hiq_simulator'
-        self.description = 'HIQ quantum circuit simulator'
+        self.name = 'arvak_simulator'
+        self.description = 'Arvak quantum circuit simulator'
         self.online_date = '2024-01-01'
         self.backend_version = '0.1.0'
 
@@ -150,9 +150,9 @@ class HIQSimulatorBackend:
             >>> counts = result.get_counts()
         """
         warnings.warn(
-            "HIQ backend execution through Qiskit is not yet fully implemented. "
-            "For now, please use HIQ CLI for execution: "
-            "'hiq run circuit.qasm --backend sim --shots 1000'. "
+            "Arvak backend execution through Qiskit is not yet fully implemented. "
+            "For now, please use Arvak CLI for execution: "
+            "'arvak run circuit.qasm --backend sim --shots 1000'. "
             "This backend interface will return mock results.",
             RuntimeWarning
         )
@@ -166,12 +166,12 @@ class HIQSimulatorBackend:
         import arvak
 
         # Convert circuits to Arvak format
-        hiq_circuits = [qiskit_to_arvak(qc) for qc in circuits]
+        arvak_circuits = [qiskit_to_arvak(qc) for qc in circuits]
 
         # Create a mock job (real execution would happen here)
-        job = HIQJob(
+        job = ArvakJob(
             backend=self,
-            circuits=hiq_circuits,
+            circuits=arvak_circuits,
             shots=shots,
             options=options
         )
@@ -180,14 +180,14 @@ class HIQSimulatorBackend:
 
     def __repr__(self) -> str:
         """String representation of the backend."""
-        return f"<HIQSimulatorBackend('{self.name}')>"
+        return f"<ArvakSimulatorBackend('{self.name}')>"
 
 
-class HIQJob:
-    """Mock job for HIQ backend execution.
+class ArvakJob:
+    """Mock job for Arvak backend execution.
 
     This is a placeholder that will be replaced with actual asynchronous
-    execution once HIQ backend execution is exposed to Python.
+    execution once Arvak backend execution is exposed to Python.
     """
 
     def __init__(self, backend, circuits, shots, options):
@@ -205,14 +205,14 @@ class HIQJob:
         self._options = options
         self._result = None
 
-    def result(self) -> 'HIQResult':
+    def result(self) -> 'ArvakResult':
         """Get job result.
 
         Returns:
-            HIQResult instance with mock data
+            ArvakResult instance with mock data
         """
         if self._result is None:
-            self._result = HIQResult(
+            self._result = ArvakResult(
                 backend_name=self._backend.name,
                 circuits=self._circuits,
                 shots=self._shots
@@ -225,14 +225,14 @@ class HIQJob:
 
     def __repr__(self) -> str:
         """String representation of the job."""
-        return f"<HIQJob(circuits={len(self._circuits)}, shots={self._shots})>"
+        return f"<ArvakJob(circuits={len(self._circuits)}, shots={self._shots})>"
 
 
-class HIQResult:
-    """Mock result for HIQ backend execution.
+class ArvakResult:
+    """Mock result for Arvak backend execution.
 
     This is a placeholder that returns mock data. Real implementation would
-    parse actual execution results from HIQ backend.
+    parse actual execution results from Arvak backend.
     """
 
     def __init__(self, backend_name, circuits, shots):
@@ -257,13 +257,13 @@ class HIQResult:
             Dictionary of measurement counts (mock data)
         """
         warnings.warn(
-            "Returning mock results. Use HIQ CLI for actual execution: "
-            "'hiq run circuit.qasm --backend sim --shots 1000'",
+            "Returning mock results. Use Arvak CLI for actual execution: "
+            "'arvak run circuit.qasm --backend sim --shots 1000'",
             RuntimeWarning
         )
 
         # Return mock data for demonstration
-        # In a real implementation, this would parse HIQ execution results
+        # In a real implementation, this would parse Arvak execution results
         circuit_idx = 0 if circuit is None else circuit
         if circuit_idx >= len(self._circuits):
             circuit_idx = 0
@@ -276,4 +276,4 @@ class HIQResult:
 
     def __repr__(self) -> str:
         """String representation of the result."""
-        return f"<HIQResult(backend='{self.backend_name}', circuits={len(self._circuits)})>"
+        return f"<ArvakResult(backend='{self.backend_name}', circuits={len(self._circuits)})>"

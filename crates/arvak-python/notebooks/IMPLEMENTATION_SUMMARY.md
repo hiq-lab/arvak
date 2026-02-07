@@ -32,8 +32,8 @@ This implementation establishes an extensible, plugin-based architecture for int
   - `backend.py` - `ArvakProvider` and `ArvakBackend` for Qiskit-compatible execution
 
 #### Key Features
-- Convert Qiskit circuits to Arvak: `qiskit_to_hiq(qc)`
-- Convert Arvak circuits to Qiskit: `hiq_to_qiskit(circuit)`
+- Convert Qiskit circuits to Arvak: `qiskit_to_arvak(qc)`
+- Convert Arvak circuits to Qiskit: `arvak_to_qiskit(circuit)`
 - Use Arvak as Qiskit backend: `ArvakProvider().get_backend('sim')`
 - Standard Qiskit API: `backend.run(circuit, shots=1000)`
 
@@ -66,7 +66,7 @@ pip install arvak[all]
 ### 4. Jupyter Notebooks ✓
 
 #### Core Notebook (No Dependencies)
-- **Location**: `notebooks/01_core_hiq.ipynb`
+- **Location**: `notebooks/01_core_arvak.ipynb`
 - **Content**:
   - Arvak's fluent API for circuit construction
   - OpenQASM 3.0 import/export
@@ -167,7 +167,7 @@ crates/arvak-python/
 │           └── backend.py                 # ✓ Backend provider
 ├── notebooks/
 │   ├── README.md                          # ✓ Comprehensive guide
-│   ├── 01_core_hiq.ipynb                 # ✓ Core Arvak demo
+│   ├── 01_core_arvak.ipynb                 # ✓ Core Arvak demo
 │   ├── 02_qiskit_integration.ipynb       # ✓ Qiskit integration
 │   ├── generate_notebook.py              # ✓ Notebook generator
 │   └── templates/
@@ -216,8 +216,8 @@ qc.cx(0, 1)
 integration = arvak.get_integration('qiskit')
 
 # Convert to Arvak
-hiq_circuit = integration.to_hiq(qc)
-print(f"Arvak circuit: {hiq_circuit.num_qubits} qubits")
+arvak_circuit = integration.to_arvak(qc)
+print(f"Arvak circuit: {arvak_circuit.num_qubits} qubits")
 
 # Use Arvak as Qiskit backend
 from arvak.integrations.qiskit import ArvakProvider

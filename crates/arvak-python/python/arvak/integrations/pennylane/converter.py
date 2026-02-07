@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import arvak
 
 
-def pennylane_to_arvak(qnode_or_tape) -> 'hiq.Circuit':
+def pennylane_to_arvak(qnode_or_tape) -> 'arvak.Circuit':
     """Convert a PennyLane QNode or QuantumTape to Arvak Circuit.
 
     This function uses OpenQASM as an interchange format:
@@ -37,7 +37,7 @@ def pennylane_to_arvak(qnode_or_tape) -> 'hiq.Circuit':
         ...     qml.Hadamard(wires=0)
         ...     qml.CNOT(wires=[0, 1])
         ...     return qml.expval(qml.PauliZ(0))
-        >>> hiq_circuit = pennylane_to_arvak(circuit)
+        >>> arvak_circuit = pennylane_to_arvak(circuit)
     """
     try:
         import pennylane as qml
@@ -63,12 +63,12 @@ def pennylane_to_arvak(qnode_or_tape) -> 'hiq.Circuit':
     qasm_str = _tape_to_qasm(tape)
 
     # Import into Arvak
-    hiq_circuit = hiq.from_qasm(qasm_str)
+    arvak_circuit = arvak.from_qasm(qasm_str)
 
-    return hiq_circuit
+    return arvak_circuit
 
 
-def hiq_to_pennylane(circuit: 'hiq.Circuit', device_name: str = 'default.qubit') -> Callable:
+def arvak_to_pennylane(circuit: 'arvak.Circuit', device_name: str = 'default.qubit') -> Callable:
     """Convert Arvak Circuit to PennyLane QNode.
 
     This function uses OpenQASM as an interchange format:
@@ -89,8 +89,8 @@ def hiq_to_pennylane(circuit: 'hiq.Circuit', device_name: str = 'default.qubit')
 
     Example:
         >>> import arvak
-        >>> hiq_circuit = hiq.Circuit.bell()
-        >>> qnode = hiq_to_pennylane(hiq_circuit)
+        >>> arvak_circuit = arvak.Circuit.bell()
+        >>> qnode = arvak_to_pennylane(arvak_circuit)
         >>> result = qnode()
     """
     try:
@@ -104,7 +104,7 @@ def hiq_to_pennylane(circuit: 'hiq.Circuit', device_name: str = 'default.qubit')
     import arvak
 
     # Export Arvak circuit to OpenQASM
-    qasm_str = hiq.to_qasm(circuit)
+    qasm_str = arvak.to_qasm(circuit)
 
     # Parse QASM and create PennyLane circuit
     num_wires = circuit.num_qubits

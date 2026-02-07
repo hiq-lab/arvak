@@ -1,7 +1,7 @@
-"""PennyLane device for HIQ.
+"""PennyLane device for Arvak.
 
 This module implements PennyLane's Device interface, allowing users to execute
-PennyLane QNodes on HIQ backends.
+PennyLane QNodes on Arvak backends.
 """
 
 from typing import List, Optional, Union, TYPE_CHECKING, Sequence
@@ -13,9 +13,9 @@ if TYPE_CHECKING:
 
 
 class ArvakDevice:
-    """HIQ device implementing PennyLane's Device interface.
+    """Arvak device implementing PennyLane's Device interface.
 
-    This device allows PennyLane programs to execute on HIQ backends using
+    This device allows PennyLane programs to execute on Arvak backends using
     PennyLane's standard device API.
 
     Example:
@@ -33,11 +33,11 @@ class ArvakDevice:
         >>> result = circuit(0.5)
     """
 
-    name = "HIQ Device"
-    short_name = "hiq.qpu"
+    name = "Arvak Device"
+    short_name = "arvak.qpu"
     pennylane_requires = ">=0.32.0"
     version = "0.1.0"
-    author = "HIQ Team"
+    author = "Arvak Team"
 
     operations = {
         "Hadamard", "PauliX", "PauliY", "PauliZ",
@@ -54,12 +54,12 @@ class ArvakDevice:
 
     def __init__(self, wires: int = 1, shots: Optional[int] = None,
                  backend: str = 'sim'):
-        """Initialize the HIQ device.
+        """Initialize the Arvak device.
 
         Args:
             wires: Number of wires (qubits)
             shots: Number of shots for sampling (None = exact expectation values)
-            backend: HIQ backend to use (default: 'sim')
+            backend: Arvak backend to use (default: 'sim')
         """
         self.num_wires = wires
         self.shots = shots
@@ -80,9 +80,9 @@ class ArvakDevice:
             **kwargs: Additional arguments
         """
         warnings.warn(
-            "HIQ device execution is not yet fully implemented. "
-            "For now, please use HIQ CLI for execution: "
-            "'hiq run circuit.qasm --backend sim --shots 1000'. "
+            "Arvak device execution is not yet fully implemented. "
+            "For now, please use Arvak CLI for execution: "
+            "'arvak run circuit.qasm --backend sim --shots 1000'. "
             "This device will return mock results.",
             RuntimeWarning
         )
@@ -104,10 +104,10 @@ class ArvakDevice:
         qasm_str = _tape_to_qasm(tape)
 
         # Import to Arvak
-        hiq_circuit = hiq.from_qasm(qasm_str)
+        arvak_circuit = arvak.from_qasm(qasm_str)
 
         # Store for later (mock implementation)
-        self._circuit = hiq_circuit
+        self._circuit = arvak_circuit
 
     def expval(self, observable, **kwargs):
         """Return the expectation value of an observable.
@@ -181,10 +181,10 @@ class ArvakDevice:
 
 
 def create_device(backend: str = 'sim', **kwargs) -> ArvakDevice:
-    """Create an HIQ device for PennyLane.
+    """Create an Arvak device for PennyLane.
 
     Args:
-        backend: HIQ backend name (default: 'sim')
+        backend: Arvak backend name (default: 'sim')
         **kwargs: Additional device arguments (wires, shots, etc.)
 
     Returns:

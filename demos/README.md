@@ -95,9 +95,9 @@ This demo submits multiple jobs (Grover, VQE, QAOA, batch circuits) and shows ho
 The demos crate can also be used as a library:
 
 ```rust
-use hiq_demos::circuits::grover::grover_circuit;
-use hiq_demos::problems::{h2_hamiltonian, Graph};
-use hiq_demos::runners::{VqeRunner, QaoaRunner, ScheduledRunner};
+use arvak_demos::circuits::grover::grover_circuit;
+use arvak_demos::problems::{h2_hamiltonian, Graph};
+use arvak_demos::runners::{VqeRunner, QaoaRunner, ScheduledRunner};
 
 // Create VQE runner
 let hamiltonian = h2_hamiltonian();
@@ -122,7 +122,7 @@ For HPC cluster deployment, use the `ScheduledRunner`:
 
 ```rust
 use std::sync::Arc;
-use hiq_demos::runners::ScheduledRunner;
+use arvak_demos::runners::ScheduledRunner;
 use arvak_sched::{HpcScheduler, SchedulerConfig, Priority};
 
 #[tokio::main]

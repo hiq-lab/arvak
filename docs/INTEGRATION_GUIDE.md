@@ -51,7 +51,7 @@ crates/arvak-python/
 │   │       ├── converter.py
 │   │       └── backend.py
 ├── notebooks/
-│   ├── 01_core_hiq.ipynb
+│   ├── 01_core_arvak.ipynb
 │   ├── 02_qiskit_integration.ipynb
 │   ├── 0X_yourframework_integration.ipynb
 │   └── templates/
@@ -158,7 +158,7 @@ class YourFrameworkIntegration(FrameworkIntegration):
             YourFramework Circuit
         """
         from .converter import arvak_to_yourframework
-        return hiq_to_yourframework(circuit)
+        return arvak_to_yourframework(circuit)
 
     def get_backend_provider(self):
         """Get Arvak backend provider for YourFramework.
@@ -178,12 +178,12 @@ if _integration.is_available():
 
     # Expose public API
     from .backend import YourFrameworkProvider
-    from .converter import yourframework_to_arvak, hiq_to_yourframework
+    from .converter import yourframework_to_arvak, arvak_to_yourframework
 
     __all__ = [
         'YourFrameworkProvider',
         'yourframework_to_arvak',
-        'hiq_to_yourframework',
+        'arvak_to_yourframework',
         'YourFrameworkIntegration'
     ]
 else:
@@ -232,12 +232,12 @@ def yourframework_to_arvak(circuit: 'Circuit') -> 'arvak.Circuit':
     qasm_str = circuit.to_qasm3()  # or circuit.qasm() or dumps(circuit)
 
     # Import into Arvak
-    hiq_circuit = arvak.from_qasm(qasm_str)
+    arvak_circuit = arvak.from_qasm(qasm_str)
 
-    return hiq_circuit
+    return arvak_circuit
 
 
-def hiq_to_yourframework(circuit: 'arvak.Circuit') -> 'Circuit':
+def arvak_to_yourframework(circuit: 'arvak.Circuit') -> 'Circuit':
     """Convert Arvak circuit to YourFramework via OpenQASM 3.0.
 
     Args:
@@ -348,7 +348,7 @@ class ArvakSimulatorBackend:
             provider: Parent YourFrameworkProvider instance
         """
         self._provider = provider
-        self.name = 'hiq_simulator'
+        self.name = 'arvak_simulator'
         self.description = 'Arvak quantum circuit simulator'
 
     @property
@@ -380,12 +380,12 @@ class ArvakSimulatorBackend:
         if not isinstance(circuits, list):
             circuits = [circuits]
 
-        hiq_circuits = [yourframework_to_arvak(qc) for qc in circuits]
+        arvak_circuits = [yourframework_to_arvak(qc) for qc in circuits]
 
         # Create mock job (replace with actual execution)
         job = ArvakJob(
             backend=self,
-            circuits=hiq_circuits,
+            circuits=arvak_circuits,
             shots=shots,
             options=options
         )
@@ -496,17 +496,17 @@ def test_yourframework_to_arvak():
 
     # Convert to Arvak
     integration = arvak.get_integration('yourframework')
-    hiq_circuit = integration.to_arvak(circuit)
+    arvak_circuit = integration.to_arvak(circuit)
 
-    assert hiq_circuit.num_qubits == 2
+    assert arvak_circuit.num_qubits == 2
 
 
-def test_hiq_to_yourframework():
+def test_arvak_to_yourframework():
     """Test converting Arvak circuit to YourFramework."""
-    hiq_circuit = arvak.Circuit.bell()
+    arvak_circuit = arvak.Circuit.bell()
 
     integration = arvak.get_integration('yourframework')
-    framework_circuit = integration.from_arvak(hiq_circuit)
+    framework_circuit = integration.from_arvak(arvak_circuit)
 
     assert framework_circuit is not None
 

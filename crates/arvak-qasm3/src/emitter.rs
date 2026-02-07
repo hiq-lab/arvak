@@ -286,4 +286,36 @@ cx q[0], q[1];
         assert_eq!(circuit.num_qubits(), circuit2.num_qubits());
         assert_eq!(circuit.depth(), circuit2.depth());
     }
+
+    #[test]
+    fn test_roundtrip_missing_gates() {
+        // Test all 7 gates that were previously missing from the parser
+        let source = r#"OPENQASM 3.0;
+qubit[2] q;
+sxdg q[0];
+ch q[0], q[1];
+crx(pi/4) q[0], q[1];
+cry(pi/4) q[0], q[1];
+rxx(pi/4) q[0], q[1];
+ryy(pi/4) q[0], q[1];
+rzz(pi/4) q[0], q[1];
+"#;
+
+        let circuit = crate::parse(source).unwrap();
+        let emitted = emit(&circuit).unwrap();
+
+        // Verify emitted output contains all gates
+        assert!(emitted.contains("sxdg q[0];"));
+        assert!(emitted.contains("ch q[0], q[1];"));
+        assert!(emitted.contains("crx("));
+        assert!(emitted.contains("cry("));
+        assert!(emitted.contains("rxx("));
+        assert!(emitted.contains("ryy("));
+        assert!(emitted.contains("rzz("));
+
+        // Parse again to verify full roundtrip
+        let circuit2 = crate::parse(&emitted).unwrap();
+        assert_eq!(circuit.num_qubits(), circuit2.num_qubits());
+        assert_eq!(circuit.depth(), circuit2.depth());
+    }
 }

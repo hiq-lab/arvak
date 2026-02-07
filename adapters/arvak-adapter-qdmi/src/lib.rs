@@ -136,6 +136,7 @@ pub use error::{QdmiError, QdmiResult};
 
 // Re-export FFI types for advanced usage
 pub use ffi::{
-    QdmiDeviceProperty, QdmiDeviceStatus, QdmiJobParameter, QdmiJobResult, QdmiJobStatus,
-    QdmiOperationProperty, QdmiProgramFormat, QdmiSessionParameter, QdmiSiteProperty, QdmiStatus,
+    QdmiDeviceProperty, QdmiDevicePulseSupportLevel, QdmiDeviceStatus, QdmiJobParameter,
+    QdmiJobProperty, QdmiJobResult, QdmiJobStatus, QdmiOperationProperty, QdmiProgramFormat,
+    QdmiSessionParameter, QdmiSessionProperty, QdmiSiteProperty, QdmiStatus,
 };

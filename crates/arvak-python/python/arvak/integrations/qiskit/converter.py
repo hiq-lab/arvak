@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import arvak
 
 
-def qiskit_to_arvak(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
+def qiskit_to_arvak(circuit: 'QuantumCircuit') -> 'arvak.Circuit':
     """Convert a Qiskit QuantumCircuit to Arvak Circuit.
 
     This function uses OpenQASM 3.0 as an interchange format:
@@ -33,7 +33,7 @@ def qiskit_to_arvak(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
         >>> qc = QuantumCircuit(2)
         >>> qc.h(0)
         >>> qc.cx(0, 1)
-        >>> hiq_circuit = qiskit_to_arvak(qc)
+        >>> arvak_circuit = qiskit_to_arvak(qc)
     """
     try:
         from qiskit.qasm3 import dumps
@@ -49,12 +49,12 @@ def qiskit_to_arvak(circuit: 'QuantumCircuit') -> 'hiq.Circuit':
     qasm_str = dumps(circuit)
 
     # Import into Arvak
-    hiq_circuit = hiq.from_qasm(qasm_str)
+    arvak_circuit = arvak.from_qasm(qasm_str)
 
-    return hiq_circuit
+    return arvak_circuit
 
 
-def hiq_to_qiskit(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
+def arvak_to_qiskit(circuit: 'arvak.Circuit') -> 'QuantumCircuit':
     """Convert Arvak Circuit to Qiskit QuantumCircuit.
 
     This function uses OpenQASM 3.0 as an interchange format:
@@ -73,8 +73,8 @@ def hiq_to_qiskit(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
 
     Example:
         >>> import arvak
-        >>> hiq_circuit = hiq.Circuit.bell()
-        >>> qiskit_circuit = hiq_to_qiskit(hiq_circuit)
+        >>> arvak_circuit = arvak.Circuit.bell()
+        >>> qiskit_circuit = arvak_to_qiskit(arvak_circuit)
     """
     try:
         from qiskit import qasm3
@@ -87,7 +87,7 @@ def hiq_to_qiskit(circuit: 'hiq.Circuit') -> 'QuantumCircuit':
     import arvak
 
     # Export Arvak circuit to OpenQASM 3.0
-    qasm_str = hiq.to_qasm(circuit)
+    qasm_str = arvak.to_qasm(circuit)
 
     # Import into Qiskit
     qiskit_circuit = qasm3.loads(qasm_str)

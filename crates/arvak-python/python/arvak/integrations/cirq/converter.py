@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import arvak
 
 
-def cirq_to_arvak(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
+def cirq_to_arvak(circuit: 'cirq.Circuit') -> 'arvak.Circuit':
     """Convert a Cirq Circuit to Arvak Circuit.
 
     This function uses OpenQASM as an interchange format:
@@ -35,7 +35,7 @@ def cirq_to_arvak(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
         ...     cirq.H(qubits[0]),
         ...     cirq.CNOT(qubits[0], qubits[1])
         ... )
-        >>> hiq_circuit = cirq_to_arvak(circuit)
+        >>> arvak_circuit = cirq_to_arvak(circuit)
     """
     try:
         import cirq
@@ -52,12 +52,12 @@ def cirq_to_arvak(circuit: 'cirq.Circuit') -> 'hiq.Circuit':
     qasm_str = cirq.qasm(circuit)
 
     # Import into Arvak
-    hiq_circuit = hiq.from_qasm(qasm_str)
+    arvak_circuit = arvak.from_qasm(qasm_str)
 
-    return hiq_circuit
+    return arvak_circuit
 
 
-def hiq_to_cirq(circuit: 'hiq.Circuit') -> 'cirq.Circuit':
+def arvak_to_cirq(circuit: 'arvak.Circuit') -> 'cirq.Circuit':
     """Convert Arvak Circuit to Cirq Circuit.
 
     This function uses OpenQASM as an interchange format:
@@ -76,8 +76,8 @@ def hiq_to_cirq(circuit: 'hiq.Circuit') -> 'cirq.Circuit':
 
     Example:
         >>> import arvak
-        >>> hiq_circuit = hiq.Circuit.bell()
-        >>> cirq_circuit = hiq_to_cirq(hiq_circuit)
+        >>> arvak_circuit = arvak.Circuit.bell()
+        >>> cirq_circuit = arvak_to_cirq(arvak_circuit)
     """
     try:
         import cirq
@@ -90,7 +90,7 @@ def hiq_to_cirq(circuit: 'hiq.Circuit') -> 'cirq.Circuit':
     import arvak
 
     # Export Arvak circuit to OpenQASM
-    qasm_str = hiq.to_qasm(circuit)
+    qasm_str = arvak.to_qasm(circuit)
 
     # Import into Cirq
     # Cirq can parse QASM strings

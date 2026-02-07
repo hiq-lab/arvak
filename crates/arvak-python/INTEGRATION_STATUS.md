@@ -84,7 +84,7 @@ status = arvak.integration_status()
 
 # Get specific integration
 qiskit = arvak.get_integration('qiskit')
-hiq_circuit = qiskit.to_hiq(qiskit_circuit)
+arvak_circuit = qiskit.to_arvak(qiskit_circuit)
 ```
 
 ## Installation Options
@@ -114,7 +114,7 @@ pip install arvak[all]
 ### User Documentation
 - **QUICKSTART_INTEGRATIONS.md** - 5-minute quick start
 - **notebooks/README.md** - Notebook guide with installation instructions
-- **notebooks/01_core_hiq.ipynb** - Core Arvak (no dependencies)
+- **notebooks/01_core_arvak.ipynb** - Core Arvak (no dependencies)
 - **notebooks/02_qiskit_integration.ipynb** - Qiskit integration demo
 - **notebooks/03_qrisp_integration.ipynb** - Qrisp integration demo
 
@@ -176,7 +176,7 @@ qc.cx(0, 1)
 integration = arvak.get_integration('qiskit')
 
 # Convert to Arvak
-hiq_circuit = integration.to_hiq(qc)
+arvak_circuit = integration.to_arvak(qc)
 
 # Use Arvak as Qiskit backend
 from arvak.integrations.qiskit import ArvakProvider
@@ -198,7 +198,7 @@ qc.h(0)
 qc.cx(0, 1)
 
 integration = arvak.get_integration('qrisp')
-hiq_circuit = integration.to_hiq(qc)
+arvak_circuit = integration.to_arvak(qc)
 
 # Method 2: QuantumVariable (high-level)
 from qrisp import h
@@ -208,7 +208,7 @@ qv.cx(0, 1)
 
 # Convert QuantumSession
 compiled = qv.qs.compile()
-hiq_from_qv = integration.to_hiq(compiled)
+arvak_from_qv = integration.to_arvak(compiled)
 
 # Use Arvak backend
 from arvak.integrations.qrisp import ArvakBackendClient

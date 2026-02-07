@@ -1,7 +1,7 @@
-"""Cirq integration for HIQ.
+"""Cirq integration for Arvak.
 
-This module provides seamless integration between Cirq and HIQ, enabling:
-- Circuit conversion (Cirq ↔ HIQ)
+This module provides seamless integration between Cirq and Arvak, enabling:
+- Circuit conversion (Cirq ↔ Arvak)
 - Execution of Arvak circuits through Cirq's Sampler API
 - Support for Cirq's qubit types (LineQubit, GridQubit)
 
@@ -22,9 +22,9 @@ Example:
     ...     cirq.CNOT(qubits[0], qubits[1]),
     ...     cirq.measure(*qubits, key='result')
     ... )
-    >>> hiq_circuit = cirq_to_arvak(circuit)
+    >>> arvak_circuit = cirq_to_arvak(circuit)
     >>>
-    >>> # Use HIQ as Cirq sampler
+    >>> # Use Arvak as Cirq sampler
     >>> sampler = ArvakSampler('sim')
     >>> result = sampler.run(circuit, repetitions=1000)
 """
@@ -34,9 +34,9 @@ from .._base import FrameworkIntegration
 
 
 class CirqIntegration(FrameworkIntegration):
-    """Cirq framework integration for HIQ.
+    """Cirq framework integration for Arvak.
 
-    This integration enables bi-directional conversion between Cirq and HIQ
+    This integration enables bi-directional conversion between Cirq and Arvak
     circuits using OpenQASM as an interchange format, and provides a
     Cirq-compatible sampler for executing circuits.
 
@@ -86,11 +86,11 @@ class CirqIntegration(FrameworkIntegration):
         Returns:
             Cirq Circuit
         """
-        from .converter import hiq_to_cirq
-        return hiq_to_cirq(circuit)
+        from .converter import arvak_to_cirq
+        return arvak_to_cirq(circuit)
 
     def get_backend_provider(self):
-        """Get HIQ sampler for Cirq.
+        """Get Arvak sampler for Cirq.
 
         Returns:
             ArvakEngine instance that provides samplers
@@ -107,13 +107,13 @@ if _integration.is_available():
 
     # Expose public API at package level
     from .backend import ArvakSampler, ArvakEngine
-    from .converter import cirq_to_arvak, hiq_to_cirq
+    from .converter import cirq_to_arvak, arvak_to_cirq
 
     __all__ = [
         'ArvakSampler',
         'ArvakEngine',
         'cirq_to_arvak',
-        'hiq_to_cirq',
+        'arvak_to_cirq',
         'CirqIntegration'
     ]
 else:

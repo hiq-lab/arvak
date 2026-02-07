@@ -399,15 +399,27 @@ let h = Matrix2x2::new(
 
 ## Serialization
 
-All IR types implement `Serialize` and `Deserialize` for persistence.
+Most IR types (gates, parameters, instructions, custom gates) implement `Serialize` and `Deserialize` via serde for persistence. However, the top-level `Circuit` struct does **not** currently derive `Serialize`/`Deserialize`. Circuit I/O is handled through OpenQASM 3 via the `arvak-qasm3` crate.
 
 ```rust
+// Serialize individual IR types (gates, parameters, etc.)
 use serde_json;
 
+let gate = StandardGate::PRX(
+    ParameterExpression::constant(std::f64::consts::PI),
+    ParameterExpression::constant(0.0),
+);
+let json = serde_json::to_string(&gate)?;
+
+// For full circuit serialization, use QASM3:
+use arvak_qasm3::{emit, parse};
+
 let circuit = Circuit::bell()?;
-let json = serde_json::to_string(&circuit)?;
-let loaded: Circuit = serde_json::from_str(&json)?;
+let qasm = emit(&circuit)?;        // Circuit -> QASM3 string
+let loaded = parse(&qasm)?;        // QASM3 string -> Circuit
 ```
+
+> **Note:** Full JSON serialization of `Circuit` is planned but not yet implemented. Use QASM3 for circuit interchange.
 
 ## Error Handling
 

@@ -1,4 +1,4 @@
-"""Cirq sampler for HIQ.
+"""Cirq sampler for Arvak.
 
 This module implements Cirq's Sampler interface, allowing users to execute
 Arvak circuits through Cirq's sampling API.
@@ -12,9 +12,9 @@ if TYPE_CHECKING:
 
 
 class ArvakSampler:
-    """HIQ sampler implementing Cirq's Sampler interface.
+    """Arvak sampler implementing Cirq's Sampler interface.
 
-    This sampler allows Cirq programs to execute on HIQ backends using
+    This sampler allows Cirq programs to execute on Arvak backends using
     Cirq's standard sampling API.
 
     Example:
@@ -34,13 +34,13 @@ class ArvakSampler:
     """
 
     def __init__(self, backend_name: str = 'sim'):
-        """Initialize the HIQ sampler.
+        """Initialize the Arvak sampler.
 
         Args:
             backend_name: Name of the backend to use (default: 'sim')
         """
         self.backend_name = backend_name
-        self.name = f'hiq_{backend_name}'
+        self.name = f'arvak_{backend_name}'
 
     def run(self, program: 'cirq.Circuit',
             repetitions: int = 1,
@@ -56,13 +56,13 @@ class ArvakSampler:
             Cirq Result object with measurement outcomes
 
         Note:
-            This is a mock implementation. For actual execution, use the HIQ CLI:
-            'hiq run circuit.qasm --backend sim --shots 1000'
+            This is a mock implementation. For actual execution, use the Arvak CLI:
+            'arvak run circuit.qasm --backend sim --shots 1000'
         """
         warnings.warn(
-            "HIQ backend execution through Cirq is not yet fully implemented. "
-            "For now, please use HIQ CLI for execution: "
-            "'hiq run circuit.qasm --backend sim --shots 1000'. "
+            "Arvak backend execution through Cirq is not yet fully implemented. "
+            "For now, please use Arvak CLI for execution: "
+            "'arvak run circuit.qasm --backend sim --shots 1000'. "
             "This sampler will return mock results.",
             RuntimeWarning
         )
@@ -71,10 +71,10 @@ class ArvakSampler:
         from .converter import cirq_to_arvak
         import arvak
 
-        hiq_circuit = cirq_to_arvak(program)
+        arvak_circuit = cirq_to_arvak(program)
 
         # Create mock results
-        return self._mock_result(program, hiq_circuit, repetitions)
+        return self._mock_result(program, arvak_circuit, repetitions)
 
     def run_sweep(self, program: 'cirq.Circuit',
                   params: 'cirq.Sweepable',
@@ -93,19 +93,19 @@ class ArvakSampler:
             This is a mock implementation.
         """
         warnings.warn(
-            "Parameter sweeps not yet implemented in HIQ backend.",
+            "Parameter sweeps not yet implemented in Arvak backend.",
             RuntimeWarning
         )
 
         # For now, just run once
         return [self.run(program, repetitions=repetitions)]
 
-    def _mock_result(self, cirq_circuit, hiq_circuit, repetitions: int) -> 'HIQResult':
+    def _mock_result(self, cirq_circuit, arvak_circuit, repetitions: int) -> 'ArvakResult':
         """Generate mock results for demonstration.
 
         Args:
             cirq_circuit: Original Cirq circuit
-            hiq_circuit: Converted Arvak circuit
+            arvak_circuit: Converted Arvak circuit
             repetitions: Number of repetitions
 
         Returns:
@@ -137,7 +137,7 @@ class ArvakSampler:
 
             mock_data[key] = bitstrings
 
-        return HIQResult(
+        return ArvakResult(
             params=cirq.ParamResolver({}),
             measurements=mock_data,
             repetitions=repetitions
@@ -148,11 +148,11 @@ class ArvakSampler:
         return f"<ArvakSampler('{self.name}')>"
 
 
-class HIQResult:
-    """Mock result for HIQ sampler execution.
+class ArvakResult:
+    """Mock result for Arvak sampler execution.
 
     This mimics Cirq's Result object but returns mock data.
-    In a real implementation, this would parse actual HIQ execution results.
+    In a real implementation, this would parse actual Arvak execution results.
     """
 
     def __init__(self, params, measurements: Dict[str, np.ndarray], repetitions: int):
@@ -210,17 +210,17 @@ class HIQResult:
 
     def __repr__(self) -> str:
         """String representation of the result."""
-        return f"<HIQResult(repetitions={self.repetitions}, keys={list(self.measurements.keys())})>"
+        return f"<ArvakResult(repetitions={self.repetitions}, keys={list(self.measurements.keys())})>"
 
 
 class ArvakEngine:
-    """HIQ engine for Cirq.
+    """Arvak engine for Cirq.
 
     Provides access to Arvak backends through Cirq's Engine interface.
     """
 
     def __init__(self, backend_name: str = 'sim'):
-        """Initialize the HIQ engine.
+        """Initialize the Arvak engine.
 
         Args:
             backend_name: Name of the backend to use

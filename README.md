@@ -125,9 +125,9 @@ client.close()
 ### Core Features
 
 **Server (Rust):**
-- **7 gRPC RPCs**: SubmitJob, SubmitBatch, GetJobStatus, GetJobResult, CancelJob, ListBackends, GetBackendInfo
+- **10 gRPC RPCs**: SubmitJob, SubmitBatch, GetJobStatus, GetJobResult, CancelJob, ListBackends, GetBackendInfo, WatchJob, StreamResults, SubmitBatchStream
 - **Non-blocking execution**: Jobs execute asynchronously, RPCs return immediately
-- **Multiple formats**: OpenQASM 3 and Arvak IR JSON
+- **Circuit format**: OpenQASM 3 (Arvak IR JSON planned)
 - **Thread-safe**: Handles concurrent requests with `Arc<RwLock<>>`
 - **Feature-gated backends**: Enable specific backends via Cargo features
 
@@ -384,7 +384,7 @@ pip install arvak-grpc[all]
 - `ConvergenceAnalyzer` - Analyze convergence, estimate required shots
 - `ResultTransformer` - Normalize, downsample, add noise
 
-See [`python/arvak_grpc/README.md`](python/arvak_grpc/README.md) and [`crates/arvak-grpc/README.md`](crates/arvak-grpc/README.md) for complete documentation.
+See [`crates/arvak-grpc/README.md`](crates/arvak-grpc/README.md) for complete documentation.
 
 ## Framework Integrations
 
@@ -473,11 +473,11 @@ jupyter notebook crates/arvak-python/notebooks/
 ```
 
 **Available Notebooks:**
-1. `qiskit_integration.ipynb` - Qiskit backend usage, circuit conversion
-2. `qrisp_integration.ipynb` - High-level quantum types with Arvak backend
-3. `cirq_integration.ipynb` - Cirq sampler, NISQ algorithms
-4. `pennylane_integration.ipynb` - QML workflows with automatic differentiation
-5. `framework_comparison.ipynb` - Cross-framework benchmarking
+1. `01_core_hiq.ipynb` - Core HIQ functionality and basics
+2. `02_qiskit_integration.ipynb` - Qiskit backend usage, circuit conversion
+3. `03_qrisp_integration.ipynb` - High-level quantum types with Arvak backend
+4. `04_cirq_integration.ipynb` - Cirq sampler, NISQ algorithms
+5. `05_pennylane_integration.ipynb` - QML workflows with automatic differentiation
 
 ### Adding Your Framework
 
@@ -488,7 +488,7 @@ Arvak's plugin architecture makes adding frameworks straightforward:
 3. Add to `pyproject.toml` optional dependencies
 4. Framework auto-registers when package installed
 
-See [crates/arvak-python/docs/INTEGRATION_GUIDE.md](crates/arvak-python/docs/INTEGRATION_GUIDE.md) for the complete guide. Most integrations take ~30 minutes.
+See [docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md) for the complete guide. Most integrations take ~30 minutes.
 
 ## Project Structure
 
@@ -610,18 +610,18 @@ cargo install --path crates/arvak-cli
 arvak backends
 
 # Run a circuit on the simulator
-arvak run examples/bell.qasm --backend sim --shots 1000
+arvak run --input examples/bell.qasm --backend sim --shots 1000
 
 # Compile a circuit for IQM hardware
-arvak compile examples/bell.qasm --target iqm --output bell_compiled.qasm
+arvak compile --input examples/bell.qasm --target iqm --output bell_compiled.qasm
 
 # Run on IQM hardware (requires IQM_TOKEN)
 export IQM_TOKEN="your-api-token"
-arvak run examples/bell.qasm --backend iqm --shots 1000
+arvak run --input examples/bell.qasm --backend iqm --shots 1000
 
 # Run on IBM Quantum (requires IBM_QUANTUM_TOKEN)
 export IBM_QUANTUM_TOKEN="your-api-token"
-arvak run examples/bell.qasm --backend ibm --shots 1000
+arvak run --input examples/bell.qasm --backend ibm --shots 1000
 ```
 
 ## Building from Source
@@ -653,11 +653,11 @@ cargo test
 | Simulator | ✅ | None | Local statevector, up to ~20 qubits |
 | IQM Resonance | ✅ | `IQM_TOKEN` | Cloud API |
 | IBM Quantum | ✅ | `IBM_QUANTUM_TOKEN` | Cloud API (Qiskit Runtime) |
-| NVIDIA CUDA-Q | ✅ | `CUDAQ_API_TOKEN` | GPU-accelerated simulation (mqpu, custatevec, tensornet) |
+| NVIDIA CUDA-Q | ⚠️ Library-only | `CUDAQ_API_TOKEN` | GPU-accelerated simulation (mqpu, custatevec, tensornet) |
 | IQM LUMI | ✅ | OIDC | On-premise (CSC Finland) |
 | IQM LRZ | ✅ | OIDC | On-premise (Germany) |
-| QDMI (MQSS) | ✅ | Token/OIDC | Any QDMI-compliant device |
-| Dynamic Plugins | ✅ | Varies | Load custom backends via `$ARVAK_PLUGIN_DIR` |
+| QDMI (MQSS) | ⚠️ Library-only | Token/OIDC | Any QDMI-compliant device |
+| Dynamic Plugins | ⚠️ Library-only | Varies | Load custom backends via `$ARVAK_PLUGIN_DIR` |
 
 ## Compilation Targets
 
@@ -667,7 +667,6 @@ cargo test
 | `iqm20` | PRX, CZ | Star (20 qubits) |
 | `ibm`, `ibm5` | RZ, SX, X, CX | Linear (5 qubits) |
 | `ibm27` | RZ, SX, X, CX | Linear (27 qubits) |
-| `neutral-atom` | RZ, RX, RY, CZ | Zoned (configurable zones, shuttle routing) |
 | `simulator` | Universal | Full connectivity |
 
 ## HPC Deployment
@@ -691,11 +690,8 @@ backend:
 ```
 
 ```bash
-# Authenticate via OIDC
-arvak auth login --provider csc
-
-# Submit job to LUMI
-arvak run circuit.qasm --backend iqm --shots 1000
+# Submit job to LUMI (authenticate via OIDC config)
+arvak run --input circuit.qasm --backend iqm --shots 1000
 ```
 
 ### Scheduler Support
@@ -861,7 +857,7 @@ fn main() -> anyhow::Result<()> {
 | HAL (`arvak-hal`) | ✅ Complete | Backend trait, plugin system, registry, neutral-atom topology |
 | CLI (`arvak-cli`) | ✅ Complete | compile, run, backends commands |
 | **Benchmarks** (`arvak-bench`) | ✅ Complete | **Quantum Volume, CLOPS, Randomized Benchmarking** |
-| **gRPC Service** (`arvak-grpc`) | ✅ Complete | **7 RPCs, async execution, thread-safe** |
+| **gRPC Service** (`arvak-grpc`) | ✅ Complete | **10 RPCs, async execution, thread-safe** |
 | **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **v1.6.0: Async, futures, caching, analysis** |
 | Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
 | Auto-Uncompute (`arvak-auto`) | ✅ Complete | Automatic ancilla uncomputation |
@@ -1026,7 +1022,7 @@ Arvak builds on ideas from and integrates with:
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Adding Framework Integrations:**
-See [crates/arvak-python/docs/INTEGRATION_GUIDE.md](crates/arvak-python/docs/INTEGRATION_GUIDE.md) for the complete guide on adding new framework integrations (~30 minutes with our template system).
+See [docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md) for the complete guide on adding new framework integrations (~30 minutes with our template system).
 
 ## License
 

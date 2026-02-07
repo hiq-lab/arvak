@@ -43,4 +43,4 @@ all = ["arvak[qiskit,qrisp,cirq,pennylane,notebook]"]
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "python"
-module-name = "arvak"
+module-name = "arvak._native"
