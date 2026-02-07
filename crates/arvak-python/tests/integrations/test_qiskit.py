@@ -35,7 +35,7 @@ def qiskit_bell_circuit():
 @pytest.fixture
 def arvak_bell_circuit():
     """Create a simple Bell state circuit in Arvak."""
-    return hiq.Circuit.bell()
+    return arvak.Circuit.bell()
 
 
 class TestQiskitIntegration:
@@ -43,19 +43,19 @@ class TestQiskitIntegration:
 
     def test_integration_registered(self):
         """Test that Qiskit integration is registered."""
-        status = hiq.integration_status()
+        status = arvak.integration_status()
         assert 'qiskit' in status
         assert status['qiskit']['available'] is True
 
     def test_get_qiskit_integration(self):
         """Test retrieving Qiskit integration."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         assert integration is not None
         assert integration.framework_name == 'qiskit'
 
     def test_required_packages(self):
         """Test that required packages are declared."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         packages = integration.required_packages
         assert len(packages) > 0
         assert any('qiskit' in pkg.lower() for pkg in packages)
@@ -66,7 +66,7 @@ class TestQiskitToArvak:
 
     def test_qiskit_to_arvak_via_integration(self, qiskit_bell_circuit):
         """Test converting Qiskit circuit to Arvak using integration API."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         arvak_circuit = integration.to_arvak(qiskit_bell_circuit)
 
         assert arvak_circuit is not None
@@ -80,13 +80,13 @@ class TestQiskitToArvak:
         assert qasm_str is not None
 
         # Import to Arvak
-        arvak_circuit = hiq.from_qasm(qasm_str)
+        arvak_circuit = arvak.from_qasm(qasm_str)
         assert arvak_circuit is not None
         assert arvak_circuit.num_qubits == 2
 
     def test_qiskit_to_arvak_preserves_qubits(self, qiskit_bell_circuit):
         """Test that qubit count is preserved."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         arvak_circuit = integration.to_arvak(qiskit_bell_circuit)
 
         assert arvak_circuit.num_qubits == qiskit_bell_circuit.num_qubits
@@ -100,7 +100,7 @@ class TestQiskitToArvak:
         qc.cx(1, 2)
         qc.measure(range(3), range(3))
 
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         arvak_circuit = integration.to_arvak(qc)
 
         assert arvak_circuit.num_qubits == 3
@@ -112,7 +112,7 @@ class TestArvakToQiskit:
 
     def test_arvak_to_qiskit_via_integration(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Qiskit using integration API."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         qiskit_circuit = integration.from_arvak(arvak_bell_circuit)
 
         assert qiskit_circuit is not None
@@ -121,7 +121,7 @@ class TestArvakToQiskit:
     def test_arvak_to_qiskit_via_qasm(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Qiskit via QASM."""
         # Export to QASM
-        qasm_str = hiq.to_qasm(arvak_bell_circuit)
+        qasm_str = arvak.to_qasm(arvak_bell_circuit)
         assert qasm_str is not None
 
         # Import to Qiskit
@@ -132,18 +132,18 @@ class TestArvakToQiskit:
     def test_arvak_to_qiskit_preserves_structure(self):
         """Test that circuit structure is preserved."""
         # Create Arvak GHZ-3
-        arvak_circuit = hiq.Circuit.ghz(3)
+        arvak_circuit = arvak.Circuit.ghz(3)
 
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         qiskit_circuit = integration.from_arvak(arvak_circuit)
 
         assert qiskit_circuit.num_qubits == 3
 
     def test_arvak_to_qiskit_qft(self):
         """Test converting QFT circuit."""
-        arvak_circuit = hiq.Circuit.qft(4)
+        arvak_circuit = arvak.Circuit.qft(4)
 
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         qiskit_circuit = integration.from_arvak(arvak_circuit)
 
         assert qiskit_circuit.num_qubits == 4
@@ -154,14 +154,14 @@ class TestQiskitBackendProvider:
 
     def test_get_backend_provider(self):
         """Test retrieving backend provider."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         provider = integration.get_backend_provider()
 
         assert provider is not None
 
     def test_provider_has_backends(self):
         """Test that provider has available backends."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         provider = integration.get_backend_provider()
 
         backends = provider.backends()
@@ -169,7 +169,7 @@ class TestQiskitBackendProvider:
 
     def test_get_simulator_backend(self):
         """Test getting simulator backend."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         provider = integration.get_backend_provider()
 
         backend = provider.get_backend('sim')
@@ -178,7 +178,7 @@ class TestQiskitBackendProvider:
 
     def test_backend_properties(self):
         """Test backend has required properties."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         provider = integration.get_backend_provider()
         backend = provider.get_backend('sim')
 
@@ -190,7 +190,7 @@ class TestQiskitBackendProvider:
 
     def test_backend_run_returns_job(self, qiskit_bell_circuit):
         """Test that backend.run() returns a job."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         provider = integration.get_backend_provider()
         backend = provider.get_backend('sim')
 
@@ -199,7 +199,7 @@ class TestQiskitBackendProvider:
 
     def test_job_has_result(self, qiskit_bell_circuit):
         """Test that job has a result method."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         provider = integration.get_backend_provider()
         backend = provider.get_backend('sim')
 
@@ -209,7 +209,7 @@ class TestQiskitBackendProvider:
 
     def test_result_has_counts(self, qiskit_bell_circuit):
         """Test that result has get_counts method."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         provider = integration.get_backend_provider()
         backend = provider.get_backend('sim')
 
@@ -227,7 +227,7 @@ class TestQiskitRoundTrip:
 
     def test_roundtrip_preserves_qubits(self, qiskit_bell_circuit):
         """Test that round-trip conversion preserves qubit count."""
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
 
         # Qiskit -> Arvak
         arvak_circuit = integration.to_arvak(qiskit_bell_circuit)
@@ -245,7 +245,7 @@ class TestQiskitRoundTrip:
         qc.cx(0, 1)
         qc.cx(1, 2)
 
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
 
         # Round-trip
         arvak_circuit = integration.to_arvak(qc)

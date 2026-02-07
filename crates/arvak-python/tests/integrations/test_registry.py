@@ -24,11 +24,11 @@ class MockIntegration(FrameworkIntegration):
     def is_available(self) -> bool:
         return self._available
 
-    def to_arvak(self, circuit: Any) -> 'hiq.Circuit':
+    def to_arvak(self, circuit: Any) -> 'arvak.Circuit':
         """Mock conversion."""
-        return hiq.Circuit.bell()
+        return arvak.Circuit.bell()
 
-    def from_arvak(self, circuit: 'hiq.Circuit') -> Any:
+    def from_arvak(self, circuit: 'arvak.Circuit') -> Any:
         """Mock conversion."""
         return "mock_circuit"
 
@@ -117,36 +117,36 @@ class TestArvakIntegrationAPI:
         IntegrationRegistry.clear()
 
     def test_list_integrations(self):
-        """Test hiq.list_integrations()."""
-        integrations = hiq.list_integrations()
+        """Test arvak.list_integrations()."""
+        integrations = arvak.list_integrations()
         assert isinstance(integrations, dict)
         assert "test_framework" in integrations
         assert integrations["test_framework"] is True
 
     def test_integration_status(self):
-        """Test hiq.integration_status()."""
-        status = hiq.integration_status()
+        """Test arvak.integration_status()."""
+        status = arvak.integration_status()
         assert isinstance(status, dict)
         assert "test_framework" in status
         assert status["test_framework"]["available"] is True
 
     def test_get_integration_success(self):
-        """Test hiq.get_integration() with available framework."""
-        integration = hiq.get_integration("test_framework")
+        """Test arvak.get_integration() with available framework."""
+        integration = arvak.get_integration("test_framework")
         assert integration is self.mock
 
     def test_get_integration_unknown(self):
-        """Test hiq.get_integration() with unknown framework."""
+        """Test arvak.get_integration() with unknown framework."""
         with pytest.raises(ValueError, match="Unknown framework"):
-            hiq.get_integration("nonexistent")
+            arvak.get_integration("nonexistent")
 
     def test_get_integration_unavailable(self):
-        """Test hiq.get_integration() with unavailable framework."""
+        """Test arvak.get_integration() with unavailable framework."""
         unavailable = MockIntegration("unavailable", available=False)
         IntegrationRegistry.register(unavailable)
 
         with pytest.raises(ImportError, match="not available"):
-            hiq.get_integration("unavailable")
+            arvak.get_integration("unavailable")
 
 
 class TestFrameworkIntegration:

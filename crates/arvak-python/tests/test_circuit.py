@@ -190,14 +190,14 @@ qubit[2] q;
 h q[0];
 cx q[0], q[1];
 """
-        qc = hiq.from_qasm(qasm)
+        qc = arvak.from_qasm(qasm)
         assert qc.num_qubits == 2
 
     def test_emit_qasm(self):
         """Test emitting QASM."""
         qc = Circuit("test", num_qubits=2)
         qc.h(0).cx(0, 1)
-        qasm = hiq.to_qasm(qc)
+        qasm = arvak.to_qasm(qc)
         assert "OPENQASM 3.0" in qasm
         assert "h q[0]" in qasm
         assert "cx" in qasm
@@ -210,9 +210,9 @@ qubit[2] q;
 h q[0];
 cx q[0], q[1];
 """
-        qc = hiq.from_qasm(original)
-        output = hiq.to_qasm(qc)
-        qc2 = hiq.from_qasm(output)
+        qc = arvak.from_qasm(original)
+        output = arvak.to_qasm(qc)
+        qc2 = arvak.from_qasm(output)
         assert qc2.num_qubits == 2
 
 
@@ -228,7 +228,7 @@ class TestErrors:
     def test_invalid_qasm(self):
         """Test error on invalid QASM."""
         with pytest.raises(RuntimeError):
-            hiq.from_qasm("not valid qasm")
+            arvak.from_qasm("not valid qasm")
 
 
 if __name__ == "__main__":

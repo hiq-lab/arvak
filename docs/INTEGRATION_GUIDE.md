@@ -556,8 +556,8 @@ circuit = yourframework.Circuit(2)
 circuit.h(0)
 circuit.cx(0, 1)
 
-hiq_circuit = integration.to_arvak(circuit)
-print(f"Converted: {hiq_circuit.num_qubits} qubits")
+arvak_circuit = integration.to_arvak(circuit)
+print(f"Converted: {arvak_circuit.num_qubits} qubits")
 
 # Test backend
 provider = integration.get_backend_provider()

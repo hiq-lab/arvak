@@ -49,7 +49,7 @@ def cirq_grid_circuit():
 @pytest.fixture
 def arvak_bell_circuit():
     """Create a simple Bell state circuit in Arvak."""
-    return hiq.Circuit.bell()
+    return arvak.Circuit.bell()
 
 
 class TestCirqIntegration:
@@ -57,19 +57,19 @@ class TestCirqIntegration:
 
     def test_integration_registered(self):
         """Test that Cirq integration is registered."""
-        status = hiq.integration_status()
+        status = arvak.integration_status()
         assert 'cirq' in status
         assert status['cirq']['available'] is True
 
     def test_get_cirq_integration(self):
         """Test retrieving Cirq integration."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         assert integration is not None
         assert integration.framework_name == 'cirq'
 
     def test_required_packages(self):
         """Test that required packages are declared."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         packages = integration.required_packages
         assert len(packages) > 0
         assert any('cirq' in pkg.lower() for pkg in packages)
@@ -80,7 +80,7 @@ class TestCirqToArvak:
 
     def test_cirq_to_arvak_via_integration(self, cirq_bell_circuit):
         """Test converting Cirq circuit to Arvak using integration API."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         arvak_circuit = integration.to_arvak(cirq_bell_circuit)
 
         assert arvak_circuit is not None
@@ -93,13 +93,13 @@ class TestCirqToArvak:
         assert qasm_str is not None
 
         # Import to Arvak
-        arvak_circuit = hiq.from_qasm(qasm_str)
+        arvak_circuit = arvak.from_qasm(qasm_str)
         assert arvak_circuit is not None
         assert arvak_circuit.num_qubits >= 2
 
     def test_cirq_to_arvak_preserves_qubits(self, cirq_bell_circuit):
         """Test that qubit count is preserved."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         arvak_circuit = integration.to_arvak(cirq_bell_circuit)
 
         num_cirq_qubits = len(cirq_bell_circuit.all_qubits())
@@ -116,14 +116,14 @@ class TestCirqToArvak:
             cirq.measure(*qubits, key='result')
         )
 
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         arvak_circuit = integration.to_arvak(circuit)
 
         assert arvak_circuit.num_qubits >= 3
 
     def test_cirq_gridqubit_to_arvak(self, cirq_grid_circuit):
         """Test converting GridQubit circuit to Arvak."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         arvak_circuit = integration.to_arvak(cirq_grid_circuit)
 
         assert arvak_circuit is not None
@@ -135,7 +135,7 @@ class TestArvakToCirq:
 
     def test_arvak_to_cirq_via_integration(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Cirq using integration API."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         cirq_circuit = integration.from_arvak(arvak_bell_circuit)
 
         assert cirq_circuit is not None
@@ -145,7 +145,7 @@ class TestArvakToCirq:
     def test_arvak_to_cirq_via_qasm(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Cirq via QASM."""
         # Export to QASM
-        qasm_str = hiq.to_qasm(arvak_bell_circuit)
+        qasm_str = arvak.to_qasm(arvak_bell_circuit)
         assert qasm_str is not None
 
         # Import to Cirq
@@ -156,18 +156,18 @@ class TestArvakToCirq:
     def test_arvak_to_cirq_preserves_structure(self):
         """Test that circuit structure is preserved."""
         # Create Arvak GHZ-3
-        arvak_circuit = hiq.Circuit.ghz(3)
+        arvak_circuit = arvak.Circuit.ghz(3)
 
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         cirq_circuit = integration.from_arvak(arvak_circuit)
 
         assert len(cirq_circuit.all_qubits()) >= 3
 
     def test_arvak_to_cirq_qft(self):
         """Test converting QFT circuit."""
-        arvak_circuit = hiq.Circuit.qft(4)
+        arvak_circuit = arvak.Circuit.qft(4)
 
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         cirq_circuit = integration.from_arvak(arvak_circuit)
 
         assert len(cirq_circuit.all_qubits()) >= 4
@@ -178,14 +178,14 @@ class TestCirqSampler:
 
     def test_get_backend_provider(self):
         """Test retrieving backend provider (engine)."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         engine = integration.get_backend_provider()
 
         assert engine is not None
 
     def test_get_sampler(self):
         """Test getting sampler from engine."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         engine = integration.get_backend_provider()
 
         sampler = engine.get_sampler()
@@ -193,7 +193,7 @@ class TestCirqSampler:
 
     def test_sampler_run(self, cirq_bell_circuit):
         """Test that sampler can run circuits."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         engine = integration.get_backend_provider()
         sampler = engine.get_sampler()
 
@@ -205,7 +205,7 @@ class TestCirqSampler:
 
     def test_sampler_histogram(self, cirq_bell_circuit):
         """Test getting histogram from results."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         engine = integration.get_backend_provider()
         sampler = engine.get_sampler()
 
@@ -224,7 +224,7 @@ class TestCirqRoundTrip:
 
     def test_roundtrip_preserves_qubits(self, cirq_bell_circuit):
         """Test that round-trip conversion preserves qubit count."""
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
 
         # Cirq -> Arvak
         arvak_circuit = integration.to_arvak(cirq_bell_circuit)
@@ -247,7 +247,7 @@ class TestCirqRoundTrip:
             cirq.CNOT(qubits[1], qubits[2])
         )
 
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
 
         # Round-trip
         arvak_circuit = integration.to_arvak(circuit)
@@ -289,7 +289,7 @@ class TestCirqMoments:
             cirq.Moment([cirq.measure(*qubits, key='result')])
         )
 
-        integration = hiq.get_integration('cirq')
+        integration = arvak.get_integration('cirq')
         arvak_circuit = integration.to_arvak(circuit)
 
         assert arvak_circuit is not None

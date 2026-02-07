@@ -18,7 +18,7 @@ def test_imports():
 
     try:
         import arvak
-        print("  ✓ hiq imported")
+        print("  ✓ arvak imported")
     except ImportError as e:
         print(f"  ✗ Failed to import arvak: {e}")
         return False
@@ -48,7 +48,7 @@ def test_api():
 
     # Test list_integrations
     try:
-        integrations = hiq.list_integrations()
+        integrations = arvak.list_integrations()
         print(f"  ✓ list_integrations() returned: {integrations}")
     except Exception as e:
         print(f"  ✗ list_integrations() failed: {e}")
@@ -56,7 +56,7 @@ def test_api():
 
     # Test integration_status
     try:
-        status = hiq.integration_status()
+        status = arvak.integration_status()
         print(f"  ✓ integration_status() returned: {status}")
     except Exception as e:
         print(f"  ✗ integration_status() failed: {e}")
@@ -64,7 +64,7 @@ def test_api():
 
     # Test get_integration with unknown framework
     try:
-        hiq.get_integration('nonexistent_framework')
+        arvak.get_integration('nonexistent_framework')
         print("  ✗ get_integration() should have raised ValueError")
         return False
     except ValueError as e:
@@ -96,10 +96,10 @@ def test_registry():
         def is_available(self) -> bool:
             return True
 
-        def to_hiq(self, circuit: Any):
+        def to_arvak(self, circuit: Any):
             return None
 
-        def from_hiq(self, circuit):
+        def from_arvak(self, circuit):
             return None
 
         def get_backend_provider(self):
@@ -174,7 +174,7 @@ def test_qiskit_integration():
     import arvak
 
     # Check if integration is registered
-    status = hiq.integration_status()
+    status = arvak.integration_status()
     if 'qiskit' not in status:
         print("  ✗ Qiskit integration not registered")
         return False
@@ -187,7 +187,7 @@ def test_qiskit_integration():
 
     # Get integration
     try:
-        integration = hiq.get_integration('qiskit')
+        integration = arvak.get_integration('qiskit')
         print(f"  ✓ Retrieved Qiskit integration: {integration}")
     except Exception as e:
         print(f"  ✗ Failed to get Qiskit integration: {e}")
@@ -212,32 +212,32 @@ def test_file_structure():
 
     expected_files = [
         # Core integration files
-        "python/hiq/integrations/__init__.py",
-        "python/hiq/integrations/_base.py",
+        "python/arvak/integrations/__init__.py",
+        "python/arvak/integrations/_base.py",
 
         # Qiskit integration
-        "python/hiq/integrations/qiskit/__init__.py",
-        "python/hiq/integrations/qiskit/converter.py",
-        "python/hiq/integrations/qiskit/backend.py",
+        "python/arvak/integrations/qiskit/__init__.py",
+        "python/arvak/integrations/qiskit/converter.py",
+        "python/arvak/integrations/qiskit/backend.py",
 
         # Qrisp integration
-        "python/hiq/integrations/qrisp/__init__.py",
-        "python/hiq/integrations/qrisp/converter.py",
-        "python/hiq/integrations/qrisp/backend.py",
+        "python/arvak/integrations/qrisp/__init__.py",
+        "python/arvak/integrations/qrisp/converter.py",
+        "python/arvak/integrations/qrisp/backend.py",
 
         # Cirq integration
-        "python/hiq/integrations/cirq/__init__.py",
-        "python/hiq/integrations/cirq/converter.py",
-        "python/hiq/integrations/cirq/backend.py",
+        "python/arvak/integrations/cirq/__init__.py",
+        "python/arvak/integrations/cirq/converter.py",
+        "python/arvak/integrations/cirq/backend.py",
 
         # PennyLane integration
-        "python/hiq/integrations/pennylane/__init__.py",
-        "python/hiq/integrations/pennylane/converter.py",
-        "python/hiq/integrations/pennylane/backend.py",
+        "python/arvak/integrations/pennylane/__init__.py",
+        "python/arvak/integrations/pennylane/converter.py",
+        "python/arvak/integrations/pennylane/backend.py",
 
         # Notebooks
         "notebooks/README.md",
-        "notebooks/01_core_hiq.ipynb",
+        "notebooks/01_core_arvak.ipynb",
         "notebooks/02_qiskit_integration.ipynb",
         "notebooks/03_qrisp_integration.ipynb",
         "notebooks/04_cirq_integration.ipynb",

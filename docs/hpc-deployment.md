@@ -78,8 +78,8 @@ impl Scheduler for SlurmAdapter {
 #SBATCH --time=00:30:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=hiq_%j.out
-#SBATCH --error=hiq_%j.err
+#SBATCH --output=arvak_%j.out
+#SBATCH --error=arvak_%j.err
 
 # Load required modules
 module load iqm-client
@@ -428,8 +428,8 @@ arvak submit -i circuit.qasm --time 01:00:00
 arvak -vvv submit -i circuit.qasm --backend iqm
 
 # Check job logs
-cat hiq_98765.out
-cat hiq_98765.err
+cat arvak_98765.out
+cat arvak_98765.err
 ```
 
 ### Support Channels

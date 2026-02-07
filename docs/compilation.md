@@ -203,7 +203,7 @@ Selects physical qubits to minimize circuit depth based on error rates and conne
 
 #### BasicRouting
 
-Simple routing that checks connectivity constraints. Errors if qubits aren't connected (placeholder for full implementation).
+Greedy routing pass that inserts SWAP gates to satisfy connectivity constraints. Uses BFS to find shortest paths between non-adjacent qubits and inserts SWAPs along the path.
 
 ```rust
 pub struct BasicRouting;
@@ -239,7 +239,7 @@ pub struct BasisTranslation;
 
 | Source Gate | Decomposition |
 |-------------|---------------|
-| H | PRX(π/2, -π/2) · PRX(π, 0) |
+| H | PRX(π/2, -π/2) · PRX(π, π/4) |
 | X | PRX(π, 0) |
 | Y | PRX(π, π/2) |
 | Rx(θ) | PRX(θ, 0) |
@@ -250,7 +250,7 @@ pub struct BasisTranslation;
 
 #### Optimize1qGates
 
-Merges consecutive single-qubit gates on the same qubit.
+Merges consecutive single-qubit gates on the same qubit by computing the combined unitary matrix and decomposing back to a minimal gate sequence. Supports ZYZ, U3, and ZSX (IBM native) decomposition bases.
 
 ```rust
 pub struct Optimize1qGates;
@@ -326,8 +326,8 @@ impl Pass for MyCustomPass {
 
 ```rust
 let mut pm = PassManager::new();
-pm.add_pass(RemoveBarriers);
 pm.add_pass(TrivialLayout);
+pm.add_pass(BasicRouting);
 pm.add_pass(MyCustomPass { threshold: 0.5 });
 pm.add_pass(BasisTranslation);
 ```

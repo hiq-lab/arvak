@@ -119,10 +119,10 @@ class ArvakBackendClient:
     def run(self, circuit, shots=1024, **options):
         """Run Qrisp circuit on Arvak backend."""
         # Convert to Arvak
-        hiq_circuit = qrisp_to_arvak(circuit)
+        arvak_circuit = qrisp_to_arvak(circuit)
 
         # Execute (currently mock - returns example results)
-        return self._mock_results(hiq_circuit, shots)
+        return self._mock_results(arvak_circuit, shots)
 ```
 
 ### Auto-Registration
@@ -156,8 +156,8 @@ qc.cx(0, 1)
 integration = arvak.get_integration('qrisp')
 
 # Convert to Arvak
-hiq_circuit = integration.to_arvak(qc)
-print(f"Arvak circuit: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
+arvak_circuit = integration.to_arvak(qc)
+print(f"Arvak circuit: {arvak_circuit.num_qubits} qubits, depth {arvak_circuit.depth()}")
 ```
 
 ### High-Level Programming
@@ -175,7 +175,7 @@ qv.cx(1, 2)
 
 # Convert to Arvak
 compiled = qv.qs.compile()
-hiq_circuit = integration.to_arvak(compiled)
+arvak_circuit = integration.to_arvak(compiled)
 ```
 
 ### Backend Execution
@@ -208,7 +208,7 @@ result = a ^ b
 
 # Convert to Arvak for execution
 compiled = result.qs.compile()
-hiq_circuit = integration.to_arvak(compiled)
+arvak_circuit = integration.to_arvak(compiled)
 ```
 
 ## File Structure
@@ -276,7 +276,7 @@ High-level quantum registers with automatic resource management:
 from qrisp import QuantumVariable
 qv = QuantumVariable(5)  # Create 5-qubit variable
 # Convert to Arvak for compilation
-hiq_circuit = integration.to_arvak(qv.qs)
+arvak_circuit = integration.to_arvak(qv.qs)
 ```
 
 ### 2. QuantumSession
@@ -284,14 +284,14 @@ Compile and manage quantum programs:
 ```python
 session = qv.qs
 compiled = session.compile()
-hiq_circuit = integration.to_arvak(compiled)
+arvak_circuit = integration.to_arvak(compiled)
 ```
 
 ### 3. Automatic Uncomputation
 Efficient ancilla management automatically handled by Qrisp:
 ```python
 result = a ^ b  # XOR with automatic uncomputation
-hiq_circuit = integration.to_arvak(result.qs)
+arvak_circuit = integration.to_arvak(result.qs)
 ```
 
 ### 4. High-Level Types

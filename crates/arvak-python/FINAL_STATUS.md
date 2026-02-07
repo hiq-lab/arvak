@@ -117,22 +117,22 @@ print(arvak.list_integrations())
 # Qiskit
 from qiskit import QuantumCircuit
 qiskit_int = arvak.get_integration('qiskit')
-hiq_circuit = qiskit_int.to_arvak(qiskit_circuit)
+arvak_circuit = qiskit_int.to_arvak(qiskit_circuit)
 
 # Qrisp
 from qrisp import QuantumVariable
 qrisp_int = arvak.get_integration('qrisp')
-hiq_circuit = qrisp_int.to_arvak(qrisp_circuit)
+arvak_circuit = qrisp_int.to_arvak(qrisp_circuit)
 
 # Cirq
 import cirq
 cirq_int = arvak.get_integration('cirq')
-hiq_circuit = cirq_int.to_arvak(cirq_circuit)
+arvak_circuit = cirq_int.to_arvak(cirq_circuit)
 
 # PennyLane
 import pennylane as qml
 pl_int = arvak.get_integration('pennylane')
-hiq_circuit = pl_int.to_arvak(qnode)
+arvak_circuit = pl_int.to_arvak(qnode)
 ```
 
 ## 🏅 Framework Comparison

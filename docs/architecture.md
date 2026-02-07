@@ -73,7 +73,9 @@ arvak/
 ├── adapters/                           # Backend adapter implementations
 │   ├── arvak-adapter-iqm/
 │   ├── arvak-adapter-ibm/
-│   └── arvak-adapter-sim/
+│   ├── arvak-adapter-sim/
+│   ├── arvak-adapter-qdmi/
+│   └── arvak-adapter-cudaq/
 │
 ├── examples/
 ├── benches/

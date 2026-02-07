@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.3.0)
+[![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.3.1)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -473,7 +473,7 @@ jupyter notebook crates/arvak-python/notebooks/
 ```
 
 **Available Notebooks:**
-1. `01_core_hiq.ipynb` - Core HIQ functionality and basics
+1. `01_core_arvak.ipynb` - Core Arvak functionality and basics
 2. `02_qiskit_integration.ipynb` - Qiskit backend usage, circuit conversion
 3. `03_qrisp_integration.ipynb` - High-level quantum types with Arvak backend
 4. `04_cirq_integration.ipynb` - Cirq sampler, NISQ algorithms

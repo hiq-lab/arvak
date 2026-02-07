@@ -75,11 +75,11 @@ qc.cx(0, 1)
 integration = arvak.get_integration('qiskit')
 
 # Convert to Arvak
-hiq_circuit = integration.to_arvak(qc)
-print(f"✓ Converted: {hiq_circuit.num_qubits} qubits, depth {hiq_circuit.depth()}")
+arvak_circuit = integration.to_arvak(qc)
+print(f"✓ Converted: {arvak_circuit.num_qubits} qubits, depth {arvak_circuit.depth()}")
 
 # Convert back to Qiskit
-qc_back = integration.from_arvak(hiq_circuit)
+qc_back = integration.from_arvak(arvak_circuit)
 print(f"✓ Round-trip: {qc_back.num_qubits} qubits")
 
 # Use Arvak as Qiskit backend
@@ -125,7 +125,7 @@ cp -r python/arvak/integrations/qiskit python/arvak/integrations/yourframework
 #    - python/arvak/integrations/yourframework/__init__.py
 #      → Change class name, framework_name, required_packages
 #    - python/arvak/integrations/yourframework/converter.py
-#      → Implement yourframework_to_arvak() and hiq_to_yourframework()
+#      → Implement yourframework_to_arvak() and arvak_to_yourframework()
 #    - python/arvak/integrations/yourframework/backend.py
 #      → Update provider and backend classes
 
