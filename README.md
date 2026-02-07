@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.2.0)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.3.0)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.2.0 Released!** Docker deployment with dashboard and gRPC services, SSL/HTTPS support, live demo at [arvak.io](https://arvak.io). See [CHANGELOG.md](CHANGELOG.md) for details.
+> **v1.3.0 Released!** CUDA-Q adapter, neutral-atom target support, dynamic backend plugins, benchmark suite (QV/CLOPS/RB), measurement safety verification, and job routing. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 
@@ -33,7 +33,8 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 2. **Provides** Rust-native compilation for performance-critical HPC workflows
 3. **Prioritizes** European HPC quantum installations (LUMI, LRZ) as first-class citizens
 4. **Enables** seamless interoperability: use Qiskit/Cirq/Qrisp circuits with Arvak backends
-5. **Offers** unified access to IQM, IBM Quantum, and any QDMI-compliant device
+5. **Offers** unified access to IQM, IBM Quantum, NVIDIA CUDA-Q, and any QDMI-compliant device
+6. **Supports** neutral-atom architectures with zone-aware routing and shuttling
 
 ## Architecture: Deep Modular Integration
 
@@ -73,8 +74,8 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 └─────────────────────────────┬───────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────▼───────────────────────────────────────────────────┐
-│                         Backend Adapters                                         │
-│    Simulator  │  IQM (LUMI/LRZ)  │  IBM Quantum  │  QDMI (MQSS)                 │
+│                         Backend Adapters + Plugin System                         │
+│  Simulator │ IQM (LUMI/LRZ) │ IBM Quantum │ CUDA-Q │ QDMI │ Dynamic Plugins    │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -505,8 +506,9 @@ arvak/
 │   │   ├── python/arvak/integrations/ # Framework integrations
 │   │   ├── notebooks/                 # 5 Jupyter notebooks
 │   │   └── docs/                      # Integration guides
-│   ├── arvak-sched/       # HPC job scheduler (SLURM, PBS, workflows)
+│   ├── arvak-sched/       # HPC job scheduler (SLURM, PBS, workflows, routing)
 │   ├── arvak-dashboard/   # Web dashboard for visualization & monitoring
+│   ├── arvak-bench/       # Benchmark suite (QV, CLOPS, Randomized Benchmarking)
 │   ├── arvak-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── arvak-auto/        # Automatic uncomputation
 ├── python/
@@ -526,6 +528,7 @@ arvak/
 │   ├── arvak-adapter-sim/  # Local statevector simulator
 │   ├── arvak-adapter-iqm/  # IQM Resonance API adapter
 │   ├── arvak-adapter-ibm/  # IBM Quantum API adapter
+│   ├── arvak-adapter-cudaq/ # NVIDIA CUDA-Q adapter (GPU-accelerated)
 │   └── arvak-adapter-qdmi/ # QDMI (Munich Quantum Software Stack) adapter
 ├── demos/               # Demo applications (Grover, VQE, QAOA)
 │   └── lumi-hybrid/     # LUMI quantum-HPC hybrid VQE demo
@@ -650,9 +653,11 @@ cargo test
 | Simulator | ✅ | None | Local statevector, up to ~20 qubits |
 | IQM Resonance | ✅ | `IQM_TOKEN` | Cloud API |
 | IBM Quantum | ✅ | `IBM_QUANTUM_TOKEN` | Cloud API (Qiskit Runtime) |
+| NVIDIA CUDA-Q | ✅ | `CUDAQ_API_TOKEN` | GPU-accelerated simulation (mqpu, custatevec, tensornet) |
 | IQM LUMI | ✅ | OIDC | On-premise (CSC Finland) |
 | IQM LRZ | ✅ | OIDC | On-premise (Germany) |
 | QDMI (MQSS) | ✅ | Token/OIDC | Any QDMI-compliant device |
+| Dynamic Plugins | ✅ | Varies | Load custom backends via `$ARVAK_PLUGIN_DIR` |
 
 ## Compilation Targets
 
@@ -662,6 +667,7 @@ cargo test
 | `iqm20` | PRX, CZ | Star (20 qubits) |
 | `ibm`, `ibm5` | RZ, SX, X, CX | Linear (5 qubits) |
 | `ibm27` | RZ, SX, X, CX | Linear (27 qubits) |
+| `neutral-atom` | RZ, RX, RY, CZ | Zoned (configurable zones, shuttle routing) |
 | `simulator` | Universal | Full connectivity |
 
 ## HPC Deployment
@@ -849,11 +855,12 @@ fn main() -> anyhow::Result<()> {
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Circuit IR (`arvak-ir`) | ✅ Complete | DAG-based representation |
-| QASM3 Parser (`arvak-qasm3`) | ✅ Complete | Parse & emit |
-| Compilation (`arvak-compile`) | ✅ Complete | Pass manager, layout, routing, optimization |
-| HAL (`arvak-hal`) | ✅ Complete | Backend trait, capabilities, job management |
+| Circuit IR (`arvak-ir`) | ✅ Complete | DAG-based representation, shuttle instructions, integrity checks |
+| QASM3 Parser (`arvak-qasm3`) | ✅ Complete | Parse & emit, neutral-atom pragmas |
+| Compilation (`arvak-compile`) | ✅ Complete | Pass manager, layout, routing, optimization, measurement verification |
+| HAL (`arvak-hal`) | ✅ Complete | Backend trait, plugin system, registry, neutral-atom topology |
 | CLI (`arvak-cli`) | ✅ Complete | compile, run, backends commands |
+| **Benchmarks** (`arvak-bench`) | ✅ Complete | **Quantum Volume, CLOPS, Randomized Benchmarking** |
 | **gRPC Service** (`arvak-grpc`) | ✅ Complete | **7 RPCs, async execution, thread-safe** |
 | **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **v1.6.0: Async, futures, caching, analysis** |
 | Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
@@ -861,8 +868,9 @@ fn main() -> anyhow::Result<()> {
 | Simulator (`arvak-adapter-sim`) | ✅ Complete | Statevector simulation |
 | IQM Adapter (`arvak-adapter-iqm`) | ✅ Complete | Resonance API integration |
 | IBM Adapter (`arvak-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
-| QDMI Adapter (`arvak-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack integration |
-| HPC Scheduler (`arvak-sched`) | ✅ Complete | SLURM & PBS integration, workflows, persistence |
+| **CUDA-Q Adapter** (`arvak-adapter-cudaq`) | ✅ Complete | **NVIDIA GPU-accelerated simulation** |
+| QDMI Adapter (`arvak-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack FFI integration |
+| HPC Scheduler (`arvak-sched`) | ✅ Complete | SLURM & PBS, workflows, message broker, job routing |
 | Dashboard (`arvak-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
 | Python Bindings (`arvak-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations |
 | **Framework Integrations** | ✅ Complete | **Qiskit, Qrisp, Cirq, PennyLane + 5 notebooks** |
@@ -908,20 +916,43 @@ python tests/verify_integration_system.py
 - [x] PyPI publication as `arvak`
 - [x] **v1.1.0 → v1.1.1 → v1.2.0 release**
 
-### Phase 6: Advanced Features 🔄 IN PROGRESS
+### Phase 6: MQSS Alignment & Advanced Features ✅ COMPLETE
+- [x] Measurement safety verification pass
+- [x] DAG integrity checker
+- [x] Benchmark suite (Quantum Volume, CLOPS, Randomized Benchmarking)
+- [x] Pass categorization (agnostic vs target-specific)
+- [x] Two-level IR markers (Logical/Physical circuits)
+- [x] QDMI system-integration via FFI
+- [x] NVIDIA CUDA-Q adapter (GPU-accelerated simulation)
+- [x] Neutral-atom target (zoned topology, shuttle routing)
+- [x] Dynamic backend plugin system (`libloading`)
+- [x] Message broker with NATS-style subject matching
+- [x] Job router with automatic cloud/HPC/local routing
+- [x] **v1.3.0 release**
+
+### Phase 7: Community & Ecosystem
 - [ ] Error mitigation (ZNE, readout correction, Pauli twirling)
 - [ ] Pulse-level control for IQM/IBM
 - [ ] Advanced routing algorithms (SABRE improvements)
-- [ ] GPU-accelerated simulation backend
 - [ ] Circuit equivalence checking
-- [ ] Benchmark suite (QV, CLOPS)
-
-### Phase 7: Community & Ecosystem
 - [ ] Plugin marketplace for community integrations
 - [ ] Performance benchmarks vs Qiskit transpiler
-- [ ] Integration with Pennylane Catalyst
-- [ ] Support for ProjectQ, Strawberry Fields
 - [ ] Cloud deployment guides (AWS Braket, Azure Quantum)
+
+## Benchmarks
+
+Arvak includes a standard quantum benchmark suite (`arvak-bench`) for evaluating hardware and compilation quality:
+
+| Benchmark | Metric | Description |
+|-----------|--------|-------------|
+| **Quantum Volume** | QV = 2^n | Random SU(4) circuits, heavy output probability |
+| **CLOPS** | circuits/sec | End-to-end compilation + execution throughput |
+| **Randomized Benchmarking** | Gate fidelity | Single- and two-qubit Clifford RB with exponential decay fit |
+
+```bash
+# Run benchmarks via CLI
+cargo run -p arvak-bench
+```
 
 ## QDMI Integration (Munich Quantum Software Stack)
 
@@ -942,6 +973,42 @@ let result = backend.wait(&job_id).await?;
 ```
 
 This integration allows Arvak to access quantum devices at European HPC centers through the standardized QDMI interface, complementing Arvak's existing IQM and IBM adapters.
+
+## NVIDIA CUDA-Q Integration
+
+Arvak integrates with [NVIDIA CUDA-Q](https://developer.nvidia.com/cuda-q) for GPU-accelerated quantum simulation:
+
+```rust
+use arvak_adapter_cudaq::CudaqBackend;
+use arvak_hal::Backend;
+
+let backend = CudaqBackend::new()
+    .with_target("nvidia-mqpu")
+    .with_credentials("your-api-token");
+
+let job_id = backend.submit(&circuit, 1000).await?;
+let result = backend.wait(&job_id).await?;
+```
+
+**Supported targets:** `nvidia-mqpu` (multi-GPU), `custatevec` (single-GPU statevector), `tensornet` (tensor network), `dm` (density matrix).
+
+## Neutral-Atom Support
+
+Arvak provides first-class support for neutral-atom quantum architectures with zoned topologies and qubit shuttling:
+
+```rust
+use arvak_hal::capability::{Topology, Capabilities};
+use arvak_compile::passes::NeutralAtomRouting;
+
+// Configure neutral-atom topology with 3 interaction zones
+let topology = Topology::neutral_atom(20, 3);
+let caps = Capabilities::neutral_atom("my-device", 20, 3);
+
+// Zone-aware routing automatically inserts shuttle instructions
+let routing_pass = NeutralAtomRouting::new(20, 3);
+```
+
+The compiler automatically inserts shuttle instructions for cross-zone two-qubit gates, enabling efficient compilation for platforms like planqc or Pasqal.
 
 ## Acknowledgments
 

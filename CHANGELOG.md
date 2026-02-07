@@ -5,6 +5,37 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-02-07
+
+### Added
+
+#### Phase A: Compiler Correctness
+- **MeasurementBarrierVerification pass**: Safety-net analysis pass that detects when optimization passes incorrectly move gates across measurement boundaries
+- **DAG integrity checker**: `dag.verify_integrity()` method validates in/out nodes, acyclicity, reachability, and wire consistency
+- **10 measurement safety integration tests**: Comprehensive test suite covering mid-circuit measurement, reset sequences, and multi-qubit measurement edge cases
+
+#### Phase B: Benchmarks & Pass Organization
+- **Quantum Volume (QV)**: Random SU(4) circuit generation with heavy output probability calculation
+- **CLOPS benchmark**: End-to-end compilation throughput measurement (circuits/second)
+- **Randomized Benchmarking**: Single- and two-qubit Clifford RB with exponential decay fitting for gate fidelity estimation
+- **Pass categorization**: Reorganized passes into `agnostic/` (hardware-independent) and `target/` (hardware-specific) directories
+- **Two-level IR markers**: `CircuitLevel::Logical` and `CircuitLevel::Physical` for tracking compilation stage
+
+#### Phase C: Ecosystem Extension
+- **NVIDIA CUDA-Q adapter** (`arvak-adapter-cudaq`): REST API client with QASM3 interchange, supporting `nvidia-mqpu`, `custatevec`, `tensornet`, and `dm` targets
+- **Neutral-atom target**: `TopologyKind::NeutralAtom` with zoned topology, `InstructionKind::Shuttle` for qubit shuttling, and `NeutralAtomRouting` zone-aware compilation pass
+- **Dynamic backend plugin system**: `BackendPlugin` trait with `libloading` for runtime `.so/.dylib` loading, `BackendRegistry` for unified backend discovery (feature-gated: `--features dynamic-backends`)
+- **Message broker**: `MessageBroker` trait with NATS-style wildcard subject matching, `InMemoryBroker` implementation for testing and single-node deployments
+- **Job router**: `JobRouter` with automatic routing by qubit count (local/cloud/HPC), configurable thresholds, and preferred backend support
+- **QDMI system-integration**: Implemented all FFI stubs for the `system-qdmi` feature (session alloc, device query, job lifecycle via C FFI)
+
+### Changed
+- **Workspace version**: 1.2.0 → 1.3.0
+- **Pass manager**: Verification pass automatically runs after all optimizations at opt level >= 1
+- **InstructionKind**: Added `Shuttle { from_zone, to_zone }` variant, propagated across all exhaustive matches (emitter, simulator, dashboard, auto-uncompute)
+- **BasisGates**: Added `neutral_atom()` preset (rz, rx, ry, cz, measure, barrier, shuttle)
+- **CouplingMap**: Added `zoned()` constructor for neutral-atom zone topology
+
 ## [1.2.0] - 2026-02-07
 
 ### Added
@@ -470,6 +501,7 @@ If upgrading from development versions:
 
 ---
 
+[1.3.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.3.0
 [1.2.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.2.0
 [1.1.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.1
 [1.1.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.0

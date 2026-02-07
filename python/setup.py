@@ -7,10 +7,10 @@ with open("../README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="arvak-grpc",
-    version="1.2.0",
+    version="1.3.0",
     author="HIQ Lab",
     author_email="info@hiq-lab.org",
-    description="Python client for Arvak gRPC quantum computing service",
+    description="Python client for Arvak gRPC quantum computing service with CUDA-Q and neutral-atom backend support",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/hiq-lab/arvak",
