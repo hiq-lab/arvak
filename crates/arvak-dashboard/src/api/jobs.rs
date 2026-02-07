@@ -22,10 +22,10 @@ pub async fn list_jobs(
     State(state): State<Arc<AppState>>,
     Query(params): Query<JobListParams>,
 ) -> Result<Json<Vec<JobSummary>>, ApiError> {
-    let store = state
-        .store
-        .as_ref()
-        .ok_or_else(|| ApiError::Internal("No job store configured".to_string()))?;
+    let store = match state.store.as_ref() {
+        Some(s) => s,
+        None => return Ok(Json(vec![])),
+    };
 
     // Build filter from query params
     let mut filter = JobFilter::default();

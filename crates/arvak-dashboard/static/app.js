@@ -72,6 +72,10 @@ const api = {
 
         const url = '/api/jobs' + (query.toString() ? '?' + query.toString() : '');
         const res = await fetch(url);
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.message || 'Failed to load jobs');
+        }
         return res.json();
     },
 
