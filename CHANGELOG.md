@@ -5,6 +5,24 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-07
+
+### Added
+- **Docker deployment**: Production-ready Dockerfile with multi-stage build for dashboard, CLI, gRPC server, and demo binaries
+- **Docker Compose**: Orchestration for dashboard and gRPC services with configurable environment variables
+- **gRPC reflection**: Added tonic-reflection support for tools like grpcurl
+- **Live demo**: Deployed at [arvak.io](https://arvak.io) with SSL/HTTPS via Let's Encrypt
+
+### Fixed
+- **Dashboard ARVAK_BIND**: Dashboard now respects the `ARVAK_BIND` environment variable for configurable bind address
+- **Dashboard asset paths**: Changed absolute paths to relative for correct loading behind reverse proxy
+- **Jobs endpoint**: Return empty list instead of 500 error when no job store is configured
+- **Jobs API client**: Added proper error handling for non-OK responses in the dashboard frontend
+
+### Changed
+- **Docker user**: Renamed container user from `hiq` to `arvak`
+- **Environment variables**: Unified to `ARVAK_*` namespace across all services
+
 ## [arvak_grpc 1.6.0] - 2025-02-06
 
 ### Added - Phase 3: Data Export and Advanced Analysis
@@ -452,6 +470,7 @@ If upgrading from development versions:
 
 ---
 
+[1.2.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.2.0
 [1.1.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.1
 [1.1.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.0
 [1.0.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.0.0
