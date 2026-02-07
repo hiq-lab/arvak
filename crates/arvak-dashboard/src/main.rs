@@ -42,6 +42,12 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("Registered simulator backend");
     }
 
+    // Start background job processor
+    let processor_state = state.clone();
+    tokio::spawn(async move {
+        hiq_dashboard::processor::run_job_processor(processor_state).await;
+    });
+
     // Create the router
     let app = create_router(state);
 

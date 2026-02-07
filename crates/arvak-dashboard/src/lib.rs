@@ -28,6 +28,7 @@
 pub mod api;
 pub mod dto;
 pub mod error;
+pub mod processor;
 pub mod server;
 pub mod state;
 pub mod ws;
