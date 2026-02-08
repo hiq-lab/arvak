@@ -1,6 +1,6 @@
 //! Evaluator command implementation.
 //!
-//! `arvak eval --input <circuit.qasm3> --profile default`
+//! `arvak eval --input <circuit.qasm3> --profile default [--orchestration]`
 
 use console::style;
 use std::path::Path;
@@ -15,6 +15,8 @@ pub async fn execute(
     optimization_level: u8,
     output: Option<&str>,
     target_qubits: u32,
+    orchestration: bool,
+    scheduler_site: Option<&str>,
 ) -> anyhow::Result<()> {
     // Build config from CLI args
     let config = EvalConfig {
@@ -22,6 +24,8 @@ pub async fn execute(
         optimization_level,
         target: target.into(),
         target_qubits,
+        orchestration,
+        scheduler_site: scheduler_site.map(|s| s.to_string()),
         ..Default::default()
     };
 
@@ -76,6 +80,46 @@ pub async fn execute(
         "  Target:      {} ({} qubits)",
         report.contract.target_name, report.contract.target_qubits
     );
+
+    // Orchestration summary (if enabled)
+    if let Some(ref orch) = report.orchestration {
+        eprintln!();
+        eprintln!("{}", style("Orchestration").bold().underlined());
+        eprintln!(
+            "  Hybrid DAG:  {} nodes ({} quantum, {} classical), {} edges",
+            orch.summary.total_nodes,
+            orch.summary.quantum_phases,
+            orch.summary.classical_phases,
+            orch.summary.total_edges,
+        );
+        eprintln!(
+            "  Critical:    path length {}, cost {:.1}",
+            orch.critical_path.node_indices.len(),
+            orch.critical_path.total_cost,
+        );
+        eprintln!(
+            "  Batch:       max {} parallel, ratio {:.2}{}",
+            orch.batchability.max_parallel_quantum,
+            orch.batchability.parallelism_ratio,
+            if orch.batchability.is_purely_quantum {
+                " (purely quantum)"
+            } else {
+                ""
+            },
+        );
+    }
+
+    if let Some(ref sched) = report.scheduler {
+        eprintln!(
+            "  Scheduler:   {} ({}) fitness={:.2}, batch_cap={}",
+            sched.constraints.site,
+            sched.constraints.partition,
+            sched.fitness_score,
+            sched.walltime.batch_capacity,
+        );
+        eprintln!("  Assessment:  {}", sched.assessment);
+    }
+
     eprintln!("  Profile:     {}", report.profile);
 
     Ok(())
