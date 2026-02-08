@@ -43,6 +43,9 @@ COPY adapters/arvak-adapter-ibm/Cargo.toml adapters/arvak-adapter-ibm/Cargo.toml
 COPY adapters/arvak-adapter-iqm/Cargo.toml adapters/arvak-adapter-iqm/Cargo.toml
 COPY adapters/arvak-adapter-qdmi/Cargo.toml adapters/arvak-adapter-qdmi/Cargo.toml
 COPY adapters/arvak-adapter-sim/Cargo.toml adapters/arvak-adapter-sim/Cargo.toml
+COPY adapters/arvak-adapter-cudaq/Cargo.toml adapters/arvak-adapter-cudaq/Cargo.toml
+COPY crates/arvak-eval/Cargo.toml crates/arvak-eval/Cargo.toml
+COPY crates/arvak-bench/Cargo.toml crates/arvak-bench/Cargo.toml
 COPY demos/Cargo.toml demos/Cargo.toml
 COPY demos/lumi-hybrid/Cargo.toml demos/lumi-hybrid/Cargo.toml
 
@@ -71,6 +74,9 @@ RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-iqm/src && echo "" > adapters/arvak-adapter-iqm/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-qdmi/src && echo "" > adapters/arvak-adapter-qdmi/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-sim/src && echo "" > adapters/arvak-adapter-sim/src/lib.rs \
+    && mkdir -p adapters/arvak-adapter-cudaq/src && echo "" > adapters/arvak-adapter-cudaq/src/lib.rs \
+    && mkdir -p crates/arvak-eval/src && echo "" > crates/arvak-eval/src/lib.rs \
+    && mkdir -p crates/arvak-bench/src && echo "" > crates/arvak-bench/src/lib.rs \
     && mkdir -p demos/src && echo "" > demos/src/lib.rs \
     && mkdir -p demos/bin \
         && echo "fn main() {}" > demos/bin/demo_grover.rs \
@@ -81,8 +87,8 @@ RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
     && mkdir -p demos/lumi-hybrid/src \
         && echo "fn main() {}" > demos/lumi-hybrid/src/main.rs \
         && echo "fn main() {}" > demos/lumi-hybrid/src/quantum_worker.rs \
-    && mkdir -p results \
-        && echo "{}" > results/vqe_result.json
+    && mkdir -p demos/data \
+        && echo "{}" > demos/data/vqe_result.json
 
 # Feature flags for the dashboard build
 ARG DASHBOARD_FEATURES="with-simulator"
@@ -93,13 +99,12 @@ RUN cargo build --release --workspace --exclude arvak-python 2>/dev/null || true
 # ----------------------------------------------------------
 # Layer 2: Build actual project source
 # ----------------------------------------------------------
-RUN rm -rf crates/ adapters/ demos/ examples/ results/
+RUN rm -rf crates/ adapters/ demos/ examples/
 
 COPY crates/ crates/
 COPY adapters/ adapters/
 COPY demos/ demos/
 COPY examples/ examples/
-COPY results/ results/
 
 # Ensure cargo detects real sources as newer than cached stubs
 RUN find crates/ adapters/ demos/ -name "*.rs" -exec touch {} +
