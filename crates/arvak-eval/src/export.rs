@@ -33,9 +33,8 @@ pub fn to_json(report: &EvalReport, config: &ExportConfig) -> EvalResult<String>
 /// Export an evaluation report to a JSON file.
 pub fn to_file(report: &EvalReport, path: &Path, config: &ExportConfig) -> EvalResult<()> {
     let json = to_json(report, config)?;
-    std::fs::write(path, json).map_err(|e| {
-        EvalError::Io(format!("Failed to write {}: {}", path.display(), e))
-    })
+    std::fs::write(path, json)
+        .map_err(|e| EvalError::Io(format!("Failed to write {}: {}", path.display(), e)))
 }
 
 #[cfg(test)]

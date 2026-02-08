@@ -125,9 +125,7 @@ impl SchedulerContext {
         let qubits_fit = num_qubits as u32 <= constraints.max_qubits;
 
         let batch_recommended = walltime.batch_capacity > 1;
-        let recommended_batch_size = walltime
-            .batch_capacity
-            .min(constraints.max_batch_jobs);
+        let recommended_batch_size = walltime.batch_capacity.min(constraints.max_batch_jobs);
 
         let fitness_score = Self::compute_fitness(
             qubits_fit,
@@ -136,12 +134,7 @@ impl SchedulerContext {
             constraints,
         );
 
-        let assessment = Self::generate_assessment(
-            num_qubits,
-            qubits_fit,
-            &walltime,
-            constraints,
-        );
+        let assessment = Self::generate_assessment(num_qubits, qubits_fit, &walltime, constraints);
 
         SchedulerFitness {
             constraints: constraints.clone(),

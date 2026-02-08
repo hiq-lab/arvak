@@ -43,12 +43,9 @@ impl EmitTarget {
             Self::Iqm => &["prx", "cz", "id"],
             Self::Ibm => &["sx", "rz", "cx", "id", "x"],
             Self::CudaQ => &[
-                "h", "x", "y", "z", "s", "sdg", "t", "tdg", "sx", "sxdg",
-                "rx", "ry", "rz", "p", "u",
-                "cx", "cy", "cz", "ch", "swap", "iswap",
-                "crx", "cry", "crz", "cp",
-                "rxx", "ryy", "rzz",
-                "ccx", "cswap", "prx", "id",
+                "h", "x", "y", "z", "s", "sdg", "t", "tdg", "sx", "sxdg", "rx", "ry", "rz", "p",
+                "u", "cx", "cy", "cz", "ch", "swap", "iswap", "crx", "cry", "crz", "cp", "rxx",
+                "ryy", "rzz", "ccx", "cswap", "prx", "id",
             ],
         }
     }
@@ -372,25 +369,25 @@ fn decomposition_cost(gate_name: &str) -> Option<usize> {
         "u" => Some(3),    // U3 -> 3 rotations
         "id" => Some(0),   // Identity -> no-op
         // Two-qubit gates
-        "cx" => Some(3),   // CZ + H on target
-        "cy" => Some(5),   // CZ + rotations
-        "cz" => Some(1),   // Often native (IQM)
-        "ch" => Some(7),   // Complex decomposition
-        "swap" => Some(3), // 3 CX or 3 CZ + singles
-        "iswap" => Some(2),// CZ + singles
-        "crx" => Some(5),  // CZ + rotations
-        "cry" => Some(5),  // CZ + rotations
-        "crz" => Some(3),  // CZ + Rz
-        "cp" => Some(3),   // CZ + phase
+        "cx" => Some(3),    // CZ + H on target
+        "cy" => Some(5),    // CZ + rotations
+        "cz" => Some(1),    // Often native (IQM)
+        "ch" => Some(7),    // Complex decomposition
+        "swap" => Some(3),  // 3 CX or 3 CZ + singles
+        "iswap" => Some(2), // CZ + singles
+        "crx" => Some(5),   // CZ + rotations
+        "cry" => Some(5),   // CZ + rotations
+        "crz" => Some(3),   // CZ + Rz
+        "cp" => Some(3),    // CZ + phase
         // Interaction gates
-        "rxx" => Some(6),  // 2 CX + rotations
-        "ryy" => Some(6),  // 2 CX + rotations
-        "rzz" => Some(4),  // 2 CX + Rz
+        "rxx" => Some(6), // 2 CX + rotations
+        "ryy" => Some(6), // 2 CX + rotations
+        "rzz" => Some(4), // 2 CX + Rz
         // Three-qubit gates
-        "ccx" => Some(15),  // Toffoli -> ~15 gates
-        "cswap" => Some(17),// Fredkin -> ~17 gates
+        "ccx" => Some(15),   // Toffoli -> ~15 gates
+        "cswap" => Some(17), // Fredkin -> ~17 gates
         // PRX (IQM native)
-        "prx" => Some(1),  // Often native
+        "prx" => Some(1), // Often native
         _ => None,
     }
 }
@@ -489,10 +486,12 @@ mod tests {
 
         // Both H and CX need decomposition on IQM
         assert!(!report.losses.is_empty());
-        assert!(report
-            .losses
-            .iter()
-            .all(|l| l.category == LossCategory::Decomposition));
+        assert!(
+            report
+                .losses
+                .iter()
+                .all(|l| l.category == LossCategory::Decomposition)
+        );
     }
 
     #[test]

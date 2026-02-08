@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use arvak_hal::Capabilities;
-use arvak_ir::instruction::InstructionKind;
 use arvak_ir::CircuitDag;
+use arvak_ir::instruction::InstructionKind;
 
 /// Safety classification for a gate against a QDMI contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,28 +85,41 @@ impl ContractChecker {
                 InstructionKind::Gate(gate) => {
                     let name = gate.name().to_string();
                     let tag = classify_gate(&name, inst.qubits.len(), capabilities);
-                    let reason = explain_classification(&name, inst.qubits.len(), &tag, capabilities);
+                    let reason =
+                        explain_classification(&name, inst.qubits.len(), &tag, capabilities);
                     (name, tag, reason)
                 }
-                InstructionKind::Measure => {
-                    ("measure".into(), SafetyTag::Safe, "Measurement is universally supported".into())
-                }
-                InstructionKind::Reset => {
-                    ("reset".into(), SafetyTag::Safe, "Reset is universally supported".into())
-                }
-                InstructionKind::Barrier => {
-                    ("barrier".into(), SafetyTag::Safe, "Barrier is a scheduling directive".into())
-                }
-                InstructionKind::Delay { .. } => {
-                    ("delay".into(), SafetyTag::Conditional, "Delay support depends on backend".into())
-                }
+                InstructionKind::Measure => (
+                    "measure".into(),
+                    SafetyTag::Safe,
+                    "Measurement is universally supported".into(),
+                ),
+                InstructionKind::Reset => (
+                    "reset".into(),
+                    SafetyTag::Safe,
+                    "Reset is universally supported".into(),
+                ),
+                InstructionKind::Barrier => (
+                    "barrier".into(),
+                    SafetyTag::Safe,
+                    "Barrier is a scheduling directive".into(),
+                ),
+                InstructionKind::Delay { .. } => (
+                    "delay".into(),
+                    SafetyTag::Conditional,
+                    "Delay support depends on backend".into(),
+                ),
                 InstructionKind::Shuttle { .. } => {
                     let tag = if capabilities.features.contains(&"shuttling".to_string()) {
                         SafetyTag::Safe
                     } else {
                         SafetyTag::Violating
                     };
-                    ("shuttle".into(), tag, format!("Shuttle requires shuttling capability"))
+                    (
+                        "shuttle".into(),
+                        tag,
+                        format!("Shuttle requires shuttling capability"),
+                    )
                 }
             };
 
@@ -205,12 +218,37 @@ fn explain_classification(
 fn is_decomposable(gate_name: &str) -> bool {
     matches!(
         gate_name,
-        "h" | "x" | "y" | "z" | "s" | "sdg" | "t" | "tdg"
-            | "sx" | "sxdg" | "rx" | "ry" | "rz" | "p" | "u"
-            | "cx" | "cy" | "cz" | "ch" | "swap" | "iswap"
-            | "crx" | "cry" | "crz" | "cp"
-            | "rxx" | "ryy" | "rzz"
-            | "ccx" | "cswap" | "prx" | "id"
+        "h" | "x"
+            | "y"
+            | "z"
+            | "s"
+            | "sdg"
+            | "t"
+            | "tdg"
+            | "sx"
+            | "sxdg"
+            | "rx"
+            | "ry"
+            | "rz"
+            | "p"
+            | "u"
+            | "cx"
+            | "cy"
+            | "cz"
+            | "ch"
+            | "swap"
+            | "iswap"
+            | "crx"
+            | "cry"
+            | "crz"
+            | "cp"
+            | "rxx"
+            | "ryy"
+            | "rzz"
+            | "ccx"
+            | "cswap"
+            | "prx"
+            | "id"
     )
 }
 
@@ -226,7 +264,7 @@ fn worst_tag(a: SafetyTag, b: SafetyTag) -> SafetyTag {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arvak_ir::{Circuit, QubitId, ClbitId};
+    use arvak_ir::{Circuit, ClbitId, QubitId};
 
     fn iqm_caps() -> Capabilities {
         Capabilities::iqm("IQM Garnet", 20)

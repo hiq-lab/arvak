@@ -130,7 +130,10 @@ impl EvalConfig {
     fn build_target_properties(&self) -> (CouplingMap, BasisGates) {
         match self.target.as_str() {
             "ibm" => (CouplingMap::linear(self.target_qubits), BasisGates::ibm()),
-            "simulator" => (CouplingMap::full(self.target_qubits), BasisGates::universal()),
+            "simulator" => (
+                CouplingMap::full(self.target_qubits),
+                BasisGates::universal(),
+            ),
             _ => (CouplingMap::star(self.target_qubits), BasisGates::iqm()),
         }
     }
@@ -221,9 +224,7 @@ impl Evaluator {
 
             info!(
                 "Scheduler: {} fitness={:.2}, batch_capacity={}",
-                fitness.constraints.site,
-                fitness.fitness_score,
-                fitness.walltime.batch_capacity,
+                fitness.constraints.site, fitness.fitness_score, fitness.walltime.batch_capacity,
             );
 
             (Some(orch), Some(fitness))
@@ -322,9 +323,8 @@ impl Evaluator {
         path: &std::path::Path,
         cli_args: &[String],
     ) -> EvalResult<EvalReport> {
-        let source = std::fs::read_to_string(path).map_err(|e| {
-            EvalError::Io(format!("Failed to read {}: {}", path.display(), e))
-        })?;
+        let source = std::fs::read_to_string(path)
+            .map_err(|e| EvalError::Io(format!("Failed to read {}: {}", path.display(), e)))?;
         self.evaluate(&source, cli_args)
     }
 }
