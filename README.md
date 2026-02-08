@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.3.1)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.4.0)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.3.0 Released!** CUDA-Q adapter, neutral-atom target support, dynamic backend plugins, benchmark suite (QV/CLOPS/RB), measurement safety verification, and job routing. See [CHANGELOG.md](CHANGELOG.md).
+> **v1.4.0 Released!** New `arvak-eval` crate: compiler & orchestration observability with QDMI contract checking, emitter compliance (IQM/IBM/CUDA-Q coverage + loss docs), benchmark workload loader (GHZ/QFT/Grover/Random), hybrid DAG analysis, and HPC scheduler fitness scoring. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 
@@ -506,6 +506,7 @@ arvak/
 │   │   ├── python/arvak/integrations/ # Framework integrations
 │   │   ├── notebooks/                 # 5 Jupyter notebooks
 │   │   └── docs/                      # Integration guides
+│   ├── arvak-eval/        # Evaluator: compilation observability, QDMI contracts, emitter compliance
 │   ├── arvak-sched/       # HPC job scheduler (SLURM, PBS, workflows, routing)
 │   ├── arvak-dashboard/   # Web dashboard for visualization & monitoring
 │   ├── arvak-bench/       # Benchmark suite (QV, CLOPS, Randomized Benchmarking)
@@ -622,6 +623,15 @@ arvak run --input examples/bell.qasm --backend iqm --shots 1000
 # Run on IBM Quantum (requires IBM_QUANTUM_TOKEN)
 export IBM_QUANTUM_TOKEN="your-api-token"
 arvak run --input examples/bell.qasm --backend ibm --shots 1000
+
+# Evaluate a circuit (compilation observability + QDMI contract check)
+arvak eval --input examples/bell.qasm --target iqm
+
+# Evaluate with orchestration analysis and emitter compliance
+arvak eval --input examples/bell.qasm --target iqm --orchestration --emit iqm --scheduler-site lrz
+
+# Evaluate with a benchmark workload
+arvak eval --input examples/bell.qasm --target simulator --benchmark ghz --benchmark-qubits 8
 ```
 
 ## Building from Source
@@ -855,7 +865,8 @@ fn main() -> anyhow::Result<()> {
 | QASM3 Parser (`arvak-qasm3`) | ✅ Complete | Parse & emit, neutral-atom pragmas |
 | Compilation (`arvak-compile`) | ✅ Complete | Pass manager, layout, routing, optimization, measurement verification |
 | HAL (`arvak-hal`) | ✅ Complete | Backend trait, plugin system, registry, neutral-atom topology |
-| CLI (`arvak-cli`) | ✅ Complete | compile, run, backends commands |
+| CLI (`arvak-cli`) | ✅ Complete | compile, run, eval, backends commands |
+| **Evaluator** (`arvak-eval`) | ✅ Complete | **QDMI contracts, emitter compliance, orchestration, benchmarks** |
 | **Benchmarks** (`arvak-bench`) | ✅ Complete | **Quantum Volume, CLOPS, Randomized Benchmarking** |
 | **gRPC Service** (`arvak-grpc`) | ✅ Complete | **10 RPCs, async execution, thread-safe** |
 | **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **v1.6.0: Async, futures, caching, analysis** |
@@ -926,7 +937,22 @@ python tests/verify_integration_system.py
 - [x] Job router with automatic cloud/HPC/local routing
 - [x] **v1.3.0 release**
 
-### Phase 7: Community & Ecosystem
+### Phase 7: Compiler & Orchestration Observability ✅ COMPLETE
+- [x] Evaluator crate (`arvak-eval`) with 9-step pipeline
+- [x] Input analysis (QASM3 parsing, structural metrics, content hashing)
+- [x] Compilation observer (pass-wise before/after snapshots)
+- [x] QDMI contract checker (Safe/Conditional/Violating classification)
+- [x] Orchestration insights (hybrid DAG, critical path, batchability)
+- [x] HPC scheduler fitness (LRZ/LUMI constraints, walltime estimation)
+- [x] Emitter compliance (IQM/IBM/CUDA-Q coverage, decomposition costs, loss documentation)
+- [x] Optional benchmark loader (GHZ, QFT, Grover, Random circuits)
+- [x] Unified metrics aggregator (compilation + orchestration + emitter deltas)
+- [x] JSON export with schema versioning (v0.3.0) and reproducibility tracking
+- [x] CLI: `arvak eval` with `--orchestration`, `--emit`, `--benchmark` flags
+- [x] 62 unit tests
+- [x] **v1.4.0 release**
+
+### Phase 8: Community & Ecosystem
 - [ ] Error mitigation (ZNE, readout correction, Pauli twirling)
 - [ ] Pulse-level control for IQM/IBM
 - [ ] Advanced routing algorithms (SABRE improvements)
@@ -934,6 +960,50 @@ python tests/verify_integration_system.py
 - [ ] Plugin marketplace for community integrations
 - [ ] Performance benchmarks vs Qiskit transpiler
 - [ ] Cloud deployment guides (AWS Braket, Azure Quantum)
+
+## Evaluator (`arvak-eval`)
+
+Arvak includes a comprehensive evaluator for compiler and orchestration observability, producing structured JSON reports:
+
+```bash
+# Basic evaluation: input analysis + compilation + QDMI contract check
+arvak eval --input circuit.qasm --target iqm --export report.json
+
+# Full evaluation: orchestration + emitter compliance + benchmark
+arvak eval --input circuit.qasm --target iqm \
+  --orchestration --scheduler-site lrz \
+  --emit iqm \
+  --benchmark ghz --benchmark-qubits 8
+```
+
+**Pipeline (9 steps):**
+
+| Step | Module | Description |
+|------|--------|-------------|
+| 1 | Input Analysis | QASM3 parsing, structural metrics, content hashing |
+| 2 | Compilation Observer | Pass-wise before/after snapshots with deltas |
+| 3 | QDMI Contract Checker | Gate safety classification (Safe/Conditional/Violating) |
+| 4 | Orchestration (opt) | Hybrid quantum-classical DAG, critical path, batchability |
+| 5 | Emitter Compliance (opt) | Native gate coverage, decomposition costs, loss docs |
+| 6 | Benchmark Loader (opt) | GHZ, QFT, Grover, Random circuit workloads |
+| 7 | Metrics Aggregator | Unified compilation + orchestration + emitter deltas |
+| 8 | Reproducibility | CLI args, versions, schema tracking |
+| 9 | JSON Export | Structured report with schema v0.3.0 |
+
+**Emitter Compliance Targets:**
+
+| Target | Native Gates | Use Case |
+|--------|-------------|----------|
+| `iqm` | PRX, CZ | IQM hardware (LUMI, LRZ) |
+| `ibm` | SX, RZ, CX | IBM Quantum |
+| `cuda-q` | Universal | NVIDIA simulation |
+
+**HPC Scheduler Fitness:**
+
+| Site | Partition | Max Qubits | Max Walltime |
+|------|-----------|------------|--------------|
+| LRZ | qc_iqm | 20 | 1 hour |
+| LUMI | q_fiqci | 5 | 15 minutes |
 
 ## Benchmarks
 
