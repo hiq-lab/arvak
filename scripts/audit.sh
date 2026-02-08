@@ -253,7 +253,7 @@ for doc in README.md docs/*.md; do
 done
 
 # 4b. Check for non-existent subcommands in code blocks
-NON_EXISTENT_CMDS=("arvak auth" "arvak login" "arvak config" "arvak init" "arvak deploy")
+NON_EXISTENT_CMDS=("arvak login" "arvak config" "arvak init" "arvak deploy")
 for cmd in "${NON_EXISTENT_CMDS[@]}"; do
     for doc in README.md docs/*.md; do
         [[ -f "$doc" ]] || continue
@@ -266,22 +266,6 @@ for cmd in "${NON_EXISTENT_CMDS[@]}"; do
             while IFS= read -r line; do
                 [[ -z "$line" ]] && continue
                 fail "Non-existent CLI command '$cmd': $doc:$line"
-                CLI_SYNTAX_FAIL=$((CLI_SYNTAX_FAIL + 1))
-            done <<< "$hits"
-        fi
-    done
-done
-
-# 4c. Check for phantom subcommands (submit, status, result) that aren't in the Commands enum
-PHANTOM_CMDS=("arvak submit " "arvak status " "arvak result ")
-for cmd in "${PHANTOM_CMDS[@]}"; do
-    for doc in README.md docs/*.md; do
-        [[ -f "$doc" ]] || continue
-        hits=$(grep -nF "$cmd" "$doc" 2>/dev/null || true)
-        if [[ -n "$hits" ]]; then
-            while IFS= read -r line; do
-                [[ -z "$line" ]] && continue
-                fail "Phantom CLI command '${cmd% }': $doc:$line"
                 CLI_SYNTAX_FAIL=$((CLI_SYNTAX_FAIL + 1))
             done <<< "$hits"
         fi

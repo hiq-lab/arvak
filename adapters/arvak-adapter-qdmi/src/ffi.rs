@@ -609,10 +609,7 @@ extern "C" {
     // ── Job management ──────────────────────────────────────────────────────
 
     /// Create a new job on a device.
-    pub fn QDMI_device_create_job(
-        device: *mut QdmiDevice,
-        job: *mut *mut QdmiJob,
-    ) -> c_int;
+    pub fn QDMI_device_create_job(device: *mut QdmiDevice, job: *mut *mut QdmiJob) -> c_int;
 
     /// Set a job parameter (program format, program, shots, etc.).
     ///

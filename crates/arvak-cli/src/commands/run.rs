@@ -1,22 +1,21 @@
 //! Run command implementation.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::fs;
-use std::path::Path;
 
 use arvak_adapter_sim::SimulatorBackend;
-use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
+use arvak_compile::PassManagerBuilder;
 use arvak_hal::Backend;
 use arvak_ir::Circuit;
-use arvak_qasm3::parse;
 
 #[cfg(feature = "iqm")]
 use arvak_adapter_iqm::IqmBackend;
 
 #[cfg(feature = "ibm")]
 use arvak_adapter_ibm::IbmBackend;
+
+use super::common::{get_target_properties, load_circuit, print_results};
 
 /// Execute the run command.
 pub async fn execute(
@@ -132,63 +131,7 @@ pub async fn execute(
     spinner.finish_and_clear();
 
     // Print results
-    println!(
-        "\n{} Results ({} shots):",
-        style("✓").green().bold(),
-        result.shots
-    );
-
-    let sorted = result.counts.sorted();
-    let total = result.counts.total_shots() as f64;
-
-    for (bitstring, count) in sorted.iter().take(16) {
-        let prob = **count as f64 / total * 100.0;
-        let bar_len = (prob / 2.0).round() as usize;
-        let bar: String = "█".repeat(bar_len);
-
-        println!(
-            "  {}: {:>6} ({:>5.2}%) {}",
-            style(bitstring).cyan(),
-            count,
-            prob,
-            style(bar).green()
-        );
-    }
-
-    if sorted.len() > 16 {
-        println!("  ... and {} more outcomes", sorted.len() - 16);
-    }
-
-    if let Some(time_ms) = result.execution_time_ms {
-        println!("\n  Execution time: {} ms", style(time_ms).yellow());
-    }
+    print_results(&result);
 
     Ok(())
-}
-
-/// Load a circuit from a file.
-fn load_circuit(path: &str) -> Result<Circuit> {
-    let path_obj = Path::new(path);
-
-    if !path_obj.exists() {
-        anyhow::bail!("File not found: {}", path);
-    }
-
-    let source =
-        fs::read_to_string(path).with_context(|| format!("Failed to read file: {}", path))?;
-
-    parse(&source).map_err(|e| anyhow::anyhow!("Parse error: {}", e))
-}
-
-/// Get target properties.
-fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> {
-    match target.to_lowercase().as_str() {
-        "iqm" | "iqm5" => Ok((CouplingMap::star(5), BasisGates::iqm())),
-        "iqm20" => Ok((CouplingMap::star(20), BasisGates::iqm())),
-        "ibm" | "ibm5" => Ok((CouplingMap::linear(5), BasisGates::ibm())),
-        "simulator" | "sim" => Ok((CouplingMap::full(20), BasisGates::universal())),
-        other => {
-            anyhow::bail!("Unknown target: {}", other);
-        }
-    }
 }

@@ -307,8 +307,7 @@ impl QdmiBackend {
 
             // Second call: retrieve device pointers
             let device_count = devices_size / std::mem::size_of::<*mut QdmiDevice>();
-            let mut device_ptrs: Vec<*mut QdmiDevice> =
-                vec![std::ptr::null_mut(); device_count];
+            let mut device_ptrs: Vec<*mut QdmiDevice> = vec![std::ptr::null_mut(); device_count];
             let status = ffi::QDMI_session_query_session_property(
                 session,
                 QdmiSessionProperty::Devices as c_int,

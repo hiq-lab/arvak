@@ -5,9 +5,11 @@ use console::style;
 use std::fs;
 use std::path::Path;
 
-use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
+use arvak_compile::PassManagerBuilder;
 use arvak_ir::Circuit;
-use arvak_qasm3::{emit, parse};
+use arvak_qasm3::emit;
+
+use super::common::{get_target_properties, load_circuit};
 
 /// Execute the compile command.
 pub async fn execute(
@@ -73,33 +75,6 @@ pub async fn execute(
     Ok(())
 }
 
-/// Load a circuit from a file.
-fn load_circuit(path: &str) -> Result<Circuit> {
-    let path_obj = Path::new(path);
-
-    if !path_obj.exists() {
-        anyhow::bail!("File not found: {}", path);
-    }
-
-    let source =
-        fs::read_to_string(path).with_context(|| format!("Failed to read file: {}", path))?;
-
-    // Determine format by extension
-    let ext = path_obj.extension().and_then(|e| e.to_str()).unwrap_or("");
-
-    match ext.to_lowercase().as_str() {
-        "qasm" | "qasm3" => parse(&source).map_err(|e| anyhow::anyhow!("Parse error: {}", e)),
-        "json" => {
-            // TODO: Add JSON circuit format
-            anyhow::bail!("JSON format not yet supported")
-        }
-        _ => {
-            // Try QASM3 by default
-            parse(&source).map_err(|e| anyhow::anyhow!("Parse error: {}", e))
-        }
-    }
-}
-
 /// Save a circuit to a file.
 fn save_circuit(circuit: &Circuit, path: &str) -> Result<()> {
     let path_obj = Path::new(path);
@@ -111,7 +86,6 @@ fn save_circuit(circuit: &Circuit, path: &str) -> Result<()> {
     let content = match ext.to_lowercase().as_str() {
         "qasm" | "qasm3" => emit(circuit).map_err(|e| anyhow::anyhow!("Emit error: {}", e))?,
         "json" => {
-            // TODO: Add JSON circuit format
             anyhow::bail!("JSON format not yet supported")
         }
         _ => emit(circuit).map_err(|e| anyhow::anyhow!("Emit error: {}", e))?,
@@ -120,21 +94,4 @@ fn save_circuit(circuit: &Circuit, path: &str) -> Result<()> {
     fs::write(path, content).with_context(|| format!("Failed to write file: {}", path))?;
 
     Ok(())
-}
-
-/// Get target properties (coupling map and basis gates).
-fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> {
-    match target.to_lowercase().as_str() {
-        "iqm" | "iqm5" => Ok((CouplingMap::star(5), BasisGates::iqm())),
-        "iqm20" => Ok((CouplingMap::star(20), BasisGates::iqm())),
-        "ibm" | "ibm5" => Ok((CouplingMap::linear(5), BasisGates::ibm())),
-        "ibm27" => Ok((CouplingMap::linear(27), BasisGates::ibm())),
-        "simulator" | "sim" => Ok((CouplingMap::full(20), BasisGates::universal())),
-        other => {
-            anyhow::bail!(
-                "Unknown target: '{}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, simulator",
-                other
-            );
-        }
-    }
 }

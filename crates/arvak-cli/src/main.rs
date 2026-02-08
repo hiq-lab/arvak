@@ -51,7 +51,7 @@ use tracing_subscriber::EnvFilter;
 
 mod commands;
 
-use commands::{backends, compile, run, version};
+use commands::{auth, backends, compile, result, run, status, submit, version, wait};
 
 /// Arvak - Rust-native quantum compilation and orchestration for HPC
 #[derive(Parser)]
@@ -110,11 +110,114 @@ enum Commands {
         target: Option<String>,
     },
 
+    /// Submit a circuit to an HPC batch scheduler
+    Submit {
+        /// Input file (QASM3 or JSON)
+        #[arg(short, long)]
+        input: String,
+
+        /// Backend to use (simulator, iqm, ibm)
+        #[arg(short, long, default_value = "simulator")]
+        backend: String,
+
+        /// Number of shots
+        #[arg(short, long, default_value = "1024")]
+        shots: u32,
+
+        /// Batch scheduler (slurm, pbs)
+        #[arg(long, default_value = "slurm")]
+        scheduler: String,
+
+        /// Scheduler partition/queue name
+        #[arg(long)]
+        partition: Option<String>,
+
+        /// Scheduler account/project
+        #[arg(long)]
+        account: Option<String>,
+
+        /// Wall time limit (HH:MM:SS)
+        #[arg(long)]
+        time: Option<String>,
+
+        /// Job priority (low, default, high, critical)
+        #[arg(long)]
+        priority: Option<String>,
+
+        /// Wait for job to complete
+        #[arg(short, long)]
+        wait: bool,
+    },
+
+    /// Query job status
+    Status {
+        /// Job ID (UUID)
+        job_id: Option<String>,
+
+        /// List all jobs
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// Retrieve results for a completed job
+    Result {
+        /// Job ID (UUID)
+        job_id: String,
+
+        /// Output format (table, json)
+        #[arg(short, long, default_value = "table")]
+        format: String,
+    },
+
+    /// Manage authentication for HPC providers
+    Auth {
+        #[command(subcommand)]
+        action: AuthAction,
+    },
+
+    /// Wait for a job to complete
+    Wait {
+        /// Job ID (UUID)
+        job_id: String,
+
+        /// Timeout in seconds
+        #[arg(short, long, default_value = "86400")]
+        timeout: u64,
+    },
+
     /// List available backends
     Backends,
 
     /// Show version information
     Version,
+}
+
+#[derive(Subcommand)]
+enum AuthAction {
+    /// Log in to an HPC provider
+    Login {
+        /// Provider (csc, lumi, lrz)
+        #[arg(short, long)]
+        provider: String,
+
+        /// Project ID
+        #[arg(long)]
+        project: Option<String>,
+    },
+
+    /// Show authentication status
+    Status {
+        /// Provider to check (optional, checks all if omitted)
+        #[arg(short, long)]
+        provider: Option<String>,
+    },
+
+    /// Log out and clear cached tokens
+    Logout {
+        /// Provider to log out from (optional, logs out all if omitted)
+        #[arg(short, long)]
+        provider: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -150,6 +253,45 @@ async fn main() -> anyhow::Result<()> {
             compile: do_compile,
             target,
         } => run::execute(&input, shots, &backend, do_compile, target.as_deref()).await,
+
+        Commands::Submit {
+            input,
+            backend,
+            shots,
+            scheduler,
+            partition,
+            account,
+            time,
+            priority,
+            wait: do_wait,
+        } => {
+            submit::execute(
+                &input,
+                &backend,
+                shots,
+                &scheduler,
+                partition.as_deref(),
+                account.as_deref(),
+                time.as_deref(),
+                priority.as_deref(),
+                do_wait,
+            )
+            .await
+        }
+
+        Commands::Status { job_id, all } => status::execute(job_id.as_deref(), all).await,
+
+        Commands::Result { job_id, format } => result::execute(&job_id, &format).await,
+
+        Commands::Auth { action } => match action {
+            AuthAction::Login { provider, project } => {
+                auth::execute_login(&provider, project.as_deref()).await
+            }
+            AuthAction::Status { provider } => auth::execute_status(provider.as_deref()).await,
+            AuthAction::Logout { provider } => auth::execute_logout(provider.as_deref()).await,
+        },
+
+        Commands::Wait { job_id, timeout } => wait::execute(&job_id, timeout).await,
 
         Commands::Backends => backends::execute().await,
 
