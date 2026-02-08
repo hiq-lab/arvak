@@ -62,6 +62,12 @@ Current quantum compilation toolchains are largely opaque. A circuit goes in, a 
                                     │
                     ┌───────────────▼───────────────────┐
                     │         JSON Report (v0.3.0)       │
+                    └───────────────┬───────────────────┘
+                                    │
+                    ┌───────────────▼───────────────────┐
+                    │      Arvak Dashboard (Web UI)      │
+                    │  Interactive evaluation, D3 charts, │
+                    │  summary cards, export to JSON      │
                     └───────────────────────────────────┘
 ```
 
@@ -287,7 +293,72 @@ The `MetricsAggregator` unifies data from all modules into a single metrics sect
 }
 ```
 
-## 8. Benchmark Reference Workloads
+## 8. Dashboard Integration
+
+The Arvak Dashboard (`arvak-dashboard`) provides an interactive web interface for the evaluator at `/app/`. This exposes the full evaluation pipeline through a browser-based UI, complementing the CLI and programmatic interfaces.
+
+### 8.1 Evaluator View
+
+The dashboard's **Evaluator** tab provides a two-panel layout: an input panel on the left and a results panel on the right.
+
+**Input panel** — users configure:
+
+- **QASM3 Source**: Inline editor with a default Bell state circuit
+- **Target Backend**: IQM (Star, PRX+CZ), IBM (Linear, SX+RZ+CX), or Simulator (Universal)
+- **Optimization Level**: 0 (None) through 3 (Heavy)
+- **Orchestration**: Toggle for hybrid quantum-classical DAG analysis
+- **Emitter Compliance**: Toggle for backend-specific materialization analysis
+- **Scheduler Site**: Auto, LRZ (qc_iqm), or LUMI (q_fiqci)
+
+![Evaluator input panel](images/eval-input.png)
+*The Evaluator input panel with QASM3 editor, target backend selector, and evaluation options.*
+
+### 8.2 Evaluation Report
+
+After clicking **Evaluate**, the results panel renders the full report with interactive visualizations:
+
+![Full evaluation results](images/eval-results-full.png)
+*Evaluation results for a Bell state circuit compiled for IQM with orchestration and LRZ scheduler enabled.*
+
+**Summary cards** — at-a-glance metrics for qubits, input/compiled depth and gate count (with deltas), and number of compiler passes applied.
+
+**QDMI Contract** — a stacked compliance bar showing safe (green), conditional (yellow), and violating (red) gate counts, with a COMPLIANT/NON-COMPLIANT badge. A gate-by-gate table below lists each operation and its safety classification.
+
+**Emitter Compliance** — coverage metrics (native coverage, materializable coverage, expansion factor, emission status) and a D3 donut chart showing the native vs. decomposed gate ratio. Includes a gate materialization table with per-gate costs and a loss documentation table.
+
+**Orchestration** — quantum/classical phase counts, critical path cost, parallelism metrics, and an interactive D3 hybrid DAG visualization showing the quantum-classical phase graph with node-to-node dependencies.
+
+**Scheduler Fitness** — qubit fit, walltime fit, fitness score, recommended walltime, batch capacity, and a human-readable assessment.
+
+![Full results panel](images/eval-results-panel.png)
+*The complete evaluation report with all sections: summary, QDMI contract, emitter compliance with donut chart, orchestration with hybrid DAG, and scheduler fitness.*
+
+### 8.3 API Endpoint
+
+The dashboard communicates with the evaluator through a REST endpoint:
+
+```
+POST /api/eval
+Content-Type: application/json
+
+{
+    "qasm": "OPENQASM 3.0; ...",
+    "target": "iqm",
+    "optimization_level": 1,
+    "target_qubits": 20,
+    "orchestration": true,
+    "scheduler_site": "lrz",
+    "emit_target": "iqm"
+}
+```
+
+The response is the same JSON report described in Section 10, consumed directly by the dashboard's rendering logic.
+
+### 8.4 Export
+
+The **Export JSON** button (visible after evaluation) allows downloading the raw JSON report for archival, CI integration, or further processing.
+
+## 9. Benchmark Reference Workloads
 
 The evaluator includes a non-normative benchmark loader for standard circuit families:
 
@@ -300,7 +371,7 @@ The evaluator includes a non-normative benchmark loader for standard circuit fam
 
 Benchmarks are generated as `arvak-ir` circuits and emitted to QASM3. They are labeled "non-normative" -- they provide a reference workload, not a performance claim.
 
-## 9. JSON Report Schema
+## 10. JSON Report Schema
 
 The report uses schema version `0.3.0`. All fields are present in every report; optional sections (`orchestration`, `scheduler`, `emitter`, `benchmark`) are omitted from JSON serialization when their corresponding CLI flags are not used, via `#[serde(skip_serializing_if = "Option::is_none")]`.
 
@@ -321,9 +392,9 @@ Top-level structure:
 | `benchmark` | BenchmarkCircuit | No |
 | `reproducibility` | ReproducibilityInfo | Yes |
 
-## 10. Integration with the MQSS
+## 11. Integration with the MQSS
 
-### 10.1 QDMI Alignment
+### 11.1 QDMI Alignment
 
 The contract checker's safety classification directly maps to QDMI concepts:
 
@@ -333,7 +404,7 @@ The contract checker's safety classification directly maps to QDMI concepts:
 
 The `Capabilities` struct (from `arvak-hal`) serves as the QDMI contract source. Its factory methods (`Capabilities::iqm()`, `Capabilities::ibm()`) encode device-specific gate sets, qubit counts, and feature flags.
 
-### 10.2 LRZ/LUMI Deployment
+### 11.2 LRZ/LUMI Deployment
 
 The scheduler context module directly models LRZ's `qc_iqm` and LUMI's `q_fiqci` partitions. The fitness assessment can be used to:
 
@@ -342,7 +413,7 @@ The scheduler context module directly models LRZ's `qc_iqm` and LUMI's `q_fiqci`
 3. **Estimate batch capacity** for variational algorithm iterations (VQE, QAOA)
 4. **Flag incompatible workloads** (too many qubits, exceeds walltime)
 
-### 10.3 IQM Backend Integration
+### 11.3 IQM Backend Integration
 
 The emitter compliance module specifically models the IQM native gate set (PRX, CZ). When compiling for IQM targets, the evaluator can report:
 
@@ -351,7 +422,9 @@ The emitter compliance module specifically models the IQM native gate set (PRX, 
 - Whether the compiled circuit can be emitted to QASM3 for IQM submission
 - The expected gate expansion factor (important for noise budget estimation)
 
-### 10.4 Suggested Workflow
+### 11.4 Suggested Workflow
+
+**Option A: CLI**
 
 ```
 Developer writes QASM3 circuit
@@ -360,7 +433,7 @@ Developer writes QASM3 circuit
 arvak eval --input circuit.qasm3 --target iqm --orchestration --emit iqm --scheduler-site lrz
     |
     v
-Review report:
+Review JSON report:
   - Contract compliant? (no violating gates)
   - Emitter materializable? (no lost gates)
   - Scheduler fit? (qubits fit, walltime ok)
@@ -371,7 +444,30 @@ If OK: submit to LRZ SLURM with recommended walltime
 If not: adjust circuit or compilation settings
 ```
 
-## 11. Reproducibility
+**Option B: Dashboard**
+
+```
+Open Arvak Dashboard at /app/
+    |
+    v
+Navigate to Evaluator tab → paste QASM3 → select target, opt level, options
+    |
+    v
+Click "Evaluate" → review interactive report:
+  - Summary cards: qubit count, depth/gate deltas
+  - QDMI compliance bar: safe/conditional/violating breakdown
+  - Emitter donut chart: native vs. decomposed gate ratio
+  - Orchestration DAG: quantum-classical phase dependencies
+  - Scheduler fitness: walltime, batch capacity, assessment
+    |
+    v
+If OK: export JSON for submission pipeline
+If not: adjust circuit in the editor and re-evaluate
+```
+
+The dashboard is particularly useful for rapid iteration and visual inspection, while the CLI is better suited for automation and CI/CD pipelines.
+
+## 12. Reproducibility
 
 Every report includes:
 
@@ -382,15 +478,16 @@ Every report includes:
 
 This ensures any report can be traced back to its exact inputs and toolchain version.
 
-## 12. Current Status
+## 13. Current Status
 
 - **Schema version**: 0.3.0
 - **Test coverage**: 62 unit and integration tests
 - **Targets**: IQM, IBM, CUDA-Q / simulator
 - **Scheduler models**: LRZ (`qc_iqm`), LUMI (`q_fiqci`), local simulator
 - **Benchmark suites**: GHZ, QFT, Grover, Random
+- **Dashboard**: Interactive Evaluator view with D3 visualizations, deployed at `arvak.io/app/`
 
-## 13. Future Directions
+## 14. Future Directions
 
 - **Live QDMI queries**: Replace static `Capabilities` with runtime QDMI device queries
 - **Noise-aware evaluation**: Integrate error rates from QDMI properties into fitness scoring
