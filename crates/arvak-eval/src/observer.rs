@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 use tracing::debug;
 
 use arvak_compile::{PassManager, PropertySet};
-use arvak_ir::instruction::InstructionKind;
 use arvak_ir::CircuitDag;
+use arvak_ir::instruction::InstructionKind;
 
 use crate::error::{EvalError, EvalResult};
 
@@ -136,7 +136,8 @@ impl CompilationObserver {
         // the standard run() and capture only before/after the full pipeline.
         let before_all = CircuitSnapshot::capture(dag);
 
-        pm.run(dag, props).map_err(|e| EvalError::Compilation(e.to_string()))?;
+        pm.run(dag, props)
+            .map_err(|e| EvalError::Compilation(e.to_string()))?;
 
         let after_all = CircuitSnapshot::capture(dag);
 
@@ -155,8 +156,7 @@ impl CompilationObserver {
 
         debug!(
             "Compilation observed: depth {} -> {}, ops {} -> {}",
-            initial_metrics.depth, after_all.depth,
-            initial_metrics.total_ops, after_all.total_ops,
+            initial_metrics.depth, after_all.depth, initial_metrics.total_ops, after_all.total_ops,
         );
 
         Ok(Self {
@@ -241,9 +241,7 @@ mod tests {
         circuit.h(QubitId(0)).unwrap();
         circuit.cx(QubitId(0), QubitId(1)).unwrap();
 
-        let (pm, mut props) = PassManagerBuilder::new()
-            .with_optimization_level(0)
-            .build();
+        let (pm, mut props) = PassManagerBuilder::new().with_optimization_level(0).build();
 
         let mut dag = circuit.into_dag();
         let observer = CompilationObserver::observe(&pm, &mut dag, &mut props).unwrap();

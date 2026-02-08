@@ -35,7 +35,12 @@ mod tests {
 
     #[test]
     fn test_reproducibility_capture() {
-        let args = vec!["arvak".into(), "eval".into(), "--input".into(), "test.qasm3".into()];
+        let args = vec![
+            "arvak".into(),
+            "eval".into(),
+            "--input".into(),
+            "test.qasm3".into(),
+        ];
         let info = ReproducibilityInfo::capture(&args);
 
         assert!(!info.arvak_version.is_empty());

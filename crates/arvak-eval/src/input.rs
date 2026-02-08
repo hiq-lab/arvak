@@ -6,8 +6,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use arvak_ir::instruction::InstructionKind;
 use arvak_ir::Circuit;
+use arvak_ir::instruction::InstructionKind;
 
 use crate::error::{EvalError, EvalResult};
 
@@ -55,8 +55,8 @@ impl InputAnalysis {
         let content_hash = sha256_hex(qasm_source);
 
         // Parse QASM3
-        let circuit = arvak_qasm3::parse(qasm_source)
-            .map_err(|e| EvalError::Parse(e.to_string()))?;
+        let circuit =
+            arvak_qasm3::parse(qasm_source).map_err(|e| EvalError::Parse(e.to_string()))?;
 
         // Extract structural metrics
         let structural_metrics = extract_metrics(&circuit);
@@ -152,7 +152,8 @@ fn extract_metrics(circuit: &Circuit) -> StructuralMetrics {
         }
     }
 
-    let total_ops = single_qubit_gates + two_qubit_gates + multi_qubit_gates + measurements + barriers;
+    let total_ops =
+        single_qubit_gates + two_qubit_gates + multi_qubit_gates + measurements + barriers;
 
     StructuralMetrics {
         num_qubits: circuit.num_qubits(),
