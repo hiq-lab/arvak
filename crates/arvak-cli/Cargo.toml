@@ -22,6 +22,7 @@ arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim" }
 arvak-adapter-iqm = { path = "../../adapters/arvak-adapter-iqm", optional = true }
 arvak-adapter-ibm = { path = "../../adapters/arvak-adapter-ibm", optional = true }
 arvak-sched = { workspace = true }
+arvak-eval = { workspace = true }
 
 clap = { workspace = true }
 chrono = { workspace = true }

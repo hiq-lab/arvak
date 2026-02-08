@@ -41,7 +41,9 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             get(api::jobs::get_job).delete(api::jobs::delete_job),
         )
         .route("/jobs/{id}/result", get(api::jobs::get_job_result))
-        .route("/vqe/demo", get(api::vqe::vqe_demo));
+        .route("/vqe/demo", get(api::vqe::vqe_demo))
+        // Evaluator route
+        .route("/eval", post(api::eval::evaluate));
 
     // Static file routes
     let static_routes = Router::new()
