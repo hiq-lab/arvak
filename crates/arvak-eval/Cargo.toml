@@ -1,0 +1,25 @@
+[package]
+name = "arvak-eval"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Arvak Evaluator: Compiler & Orchestration Observability for QUASM3/QDMI"
+keywords = ["quantum", "evaluator", "compiler", "qdmi"]
+categories = ["science", "compilers"]
+
+[dependencies]
+arvak-ir = { workspace = true }
+arvak-qasm3 = { path = "../arvak-qasm3" }
+arvak-compile = { workspace = true }
+arvak-hal = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
