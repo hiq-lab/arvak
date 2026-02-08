@@ -218,6 +218,18 @@ enum Commands {
         /// HPC scheduler site for constraints (lrz, lumi)
         #[arg(long)]
         scheduler_site: Option<String>,
+
+        /// Emitter compliance target (iqm, ibm, cuda-q)
+        #[arg(long)]
+        emit: Option<String>,
+
+        /// Optional benchmark workload (ghz, qft, grover, random)
+        #[arg(long)]
+        benchmark: Option<String>,
+
+        /// Number of qubits for benchmark circuit (defaults to input circuit size)
+        #[arg(long)]
+        benchmark_qubits: Option<usize>,
     },
 
     /// List available backends
@@ -337,6 +349,9 @@ async fn main() -> anyhow::Result<()> {
             export,
             orchestration,
             scheduler_site,
+            emit,
+            benchmark,
+            benchmark_qubits,
         } => {
             eval::execute(
                 &input,
@@ -347,6 +362,9 @@ async fn main() -> anyhow::Result<()> {
                 target_qubits,
                 orchestration,
                 scheduler_site.as_deref(),
+                emit.as_deref(),
+                benchmark.as_deref(),
+                benchmark_qubits,
             )
             .await
         }
