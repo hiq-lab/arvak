@@ -210,6 +210,14 @@ enum Commands {
         /// Output file for JSON report (stdout if omitted)
         #[arg(short, long)]
         export: Option<String>,
+
+        /// Include orchestration analysis (hybrid DAG, batchability, critical path)
+        #[arg(long)]
+        orchestration: bool,
+
+        /// HPC scheduler site for constraints (lrz, lumi)
+        #[arg(long)]
+        scheduler_site: Option<String>,
     },
 
     /// List available backends
@@ -327,6 +335,8 @@ async fn main() -> anyhow::Result<()> {
             optimization_level,
             target_qubits,
             export,
+            orchestration,
+            scheduler_site,
         } => {
             eval::execute(
                 &input,
@@ -335,6 +345,8 @@ async fn main() -> anyhow::Result<()> {
                 optimization_level,
                 export.as_deref(),
                 target_qubits,
+                orchestration,
+                scheduler_site.as_deref(),
             )
             .await
         }

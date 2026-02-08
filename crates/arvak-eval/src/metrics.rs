@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::contract::ContractReport;
 use crate::input::InputAnalysis;
 use crate::observer::CompilationObserver;
+use crate::orchestration::OrchestrationReport;
+use crate::scheduler_context::SchedulerFitness;
 
 /// Compilation effect metrics (deltas from compilation).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +41,27 @@ pub struct ComplianceSummary {
     pub violating_fraction: f64,
 }
 
+/// Orchestration effect metrics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrchestrationEffect {
+    /// Number of quantum phases in the hybrid DAG.
+    pub quantum_phases: usize,
+    /// Number of classical phases.
+    pub classical_phases: usize,
+    /// Critical path cost (abstract time units).
+    pub critical_path_cost: f64,
+    /// Critical path length (number of nodes).
+    pub critical_path_length: usize,
+    /// Maximum parallelizable quantum jobs.
+    pub max_parallel_quantum: usize,
+    /// Parallelism ratio (higher = more parallel opportunity).
+    pub parallelism_ratio: f64,
+    /// Whether the workload is purely quantum.
+    pub is_purely_quantum: bool,
+    /// Scheduler fitness score (0.0-1.0, None if no scheduler context).
+    pub scheduler_fitness: Option<f64>,
+}
+
 /// Aggregated evaluation metrics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AggregatedMetrics {
@@ -46,6 +69,8 @@ pub struct AggregatedMetrics {
     pub compilation_effect: Option<CompilationEffect>,
     /// QDMI compliance summary.
     pub compliance: ComplianceSummary,
+    /// Orchestration effect (None if --orchestration not used).
+    pub orchestration_effect: Option<OrchestrationEffect>,
 }
 
 /// Aggregator for combining metrics from all modules.
@@ -64,6 +89,43 @@ impl MetricsAggregator {
         AggregatedMetrics {
             compilation_effect,
             compliance,
+            orchestration_effect: None,
+        }
+    }
+
+    /// Aggregate metrics including orchestration analysis.
+    pub fn aggregate_with_orchestration(
+        input: &InputAnalysis,
+        observer: &CompilationObserver,
+        contract: &ContractReport,
+        orchestration: &OrchestrationReport,
+        scheduler_fitness: Option<&SchedulerFitness>,
+    ) -> AggregatedMetrics {
+        let compilation_effect = Self::compute_compilation_effect(input, observer);
+        let compliance = Self::compute_compliance(contract);
+        let orchestration_effect =
+            Some(Self::compute_orchestration_effect(orchestration, scheduler_fitness));
+
+        AggregatedMetrics {
+            compilation_effect,
+            compliance,
+            orchestration_effect,
+        }
+    }
+
+    fn compute_orchestration_effect(
+        orch: &OrchestrationReport,
+        scheduler_fitness: Option<&SchedulerFitness>,
+    ) -> OrchestrationEffect {
+        OrchestrationEffect {
+            quantum_phases: orch.summary.quantum_phases,
+            classical_phases: orch.summary.classical_phases,
+            critical_path_cost: orch.critical_path.total_cost,
+            critical_path_length: orch.critical_path.node_indices.len(),
+            max_parallel_quantum: orch.batchability.max_parallel_quantum,
+            parallelism_ratio: orch.batchability.parallelism_ratio,
+            is_purely_quantum: orch.batchability.is_purely_quantum,
+            scheduler_fitness: scheduler_fitness.map(|f| f.fitness_score),
         }
     }
 
