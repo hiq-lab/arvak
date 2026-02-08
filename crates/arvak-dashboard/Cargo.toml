@@ -24,6 +24,7 @@ arvak-hal = { workspace = true }
 arvak-sched = { workspace = true }
 arvak-compile = { workspace = true }
 arvak-qasm3 = { workspace = true }
+arvak-eval = { workspace = true }
 
 # Web framework
 axum = { version = "0.8", features = ["ws", "macros"] }
