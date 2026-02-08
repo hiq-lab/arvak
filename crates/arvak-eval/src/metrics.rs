@@ -130,8 +130,10 @@ impl MetricsAggregator {
     ) -> AggregatedMetrics {
         let compilation_effect = Self::compute_compilation_effect(input, observer);
         let compliance = Self::compute_compliance(contract);
-        let orchestration_effect =
-            Some(Self::compute_orchestration_effect(orchestration, scheduler_fitness));
+        let orchestration_effect = Some(Self::compute_orchestration_effect(
+            orchestration,
+            scheduler_fitness,
+        ));
 
         AggregatedMetrics {
             compilation_effect,
@@ -151,8 +153,8 @@ impl MetricsAggregator {
     ) -> AggregatedMetrics {
         let compilation_effect = Self::compute_compilation_effect(input, observer);
         let compliance = Self::compute_compliance(contract);
-        let orchestration_effect = orchestration
-            .map(|(orch, sched)| Self::compute_orchestration_effect(orch, sched));
+        let orchestration_effect =
+            orchestration.map(|(orch, sched)| Self::compute_orchestration_effect(orch, sched));
         let emitter_effect = emitter.map(Self::compute_emitter_effect);
 
         AggregatedMetrics {
@@ -281,6 +283,11 @@ mod tests {
         };
 
         assert!(summary.compliant);
-        assert!((summary.safe_fraction + summary.conditional_fraction + summary.violating_fraction - 1.0).abs() < 1e-10);
+        assert!(
+            (summary.safe_fraction + summary.conditional_fraction + summary.violating_fraction
+                - 1.0)
+                .abs()
+                < 1e-10
+        );
     }
 }

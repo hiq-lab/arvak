@@ -22,8 +22,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use arvak_ir::instruction::InstructionKind;
 use arvak_ir::CircuitDag;
+use arvak_ir::instruction::InstructionKind;
 
 /// Type of node in the hybrid DAG.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -278,7 +278,13 @@ impl OrchestrationAnalyzer {
             let q_node = HybridNode {
                 index: phase_index,
                 kind: HybridNodeKind::Quantum,
-                label: format!("q{}", nodes.iter().filter(|n| n.kind == HybridNodeKind::Quantum).count()),
+                label: format!(
+                    "q{}",
+                    nodes
+                        .iter()
+                        .filter(|n| n.kind == HybridNodeKind::Quantum)
+                        .count()
+                ),
                 depth: Some(current_depth_estimate),
                 gate_count: Some(current_gate_count),
                 num_qubits: Some(num_qubits),
@@ -403,10 +409,8 @@ impl OrchestrationAnalyzer {
         let is_purely_quantum = total_classical == 0;
 
         // Build dependency sets for quantum nodes
-        let dependent_on: BTreeMap<usize, Vec<usize>> = dag
-            .edges
-            .iter()
-            .fold(BTreeMap::new(), |mut map, edge| {
+        let dependent_on: BTreeMap<usize, Vec<usize>> =
+            dag.edges.iter().fold(BTreeMap::new(), |mut map, edge| {
                 map.entry(edge.to).or_default().push(edge.from);
                 map
             });
@@ -420,13 +424,7 @@ impl OrchestrationAnalyzer {
             // Find the latest group of any predecessor
             let max_pred_group = dependent_on
                 .get(&qn)
-                .map(|preds| {
-                    preds
-                        .iter()
-                        .filter_map(|p| assigned.get(p))
-                        .max()
-                        .copied()
-                })
+                .map(|preds| preds.iter().filter_map(|p| assigned.get(p)).max().copied())
                 .flatten();
 
             let group = match max_pred_group {

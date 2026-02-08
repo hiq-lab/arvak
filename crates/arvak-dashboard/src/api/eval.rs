@@ -367,8 +367,16 @@ pub async fn evaluate(
     });
 
     let metrics = MetricsView {
-        depth_ratio: report.metrics.compilation_effect.as_ref().map(|e| e.depth_ratio),
-        ops_ratio: report.metrics.compilation_effect.as_ref().map(|e| e.ops_ratio),
+        depth_ratio: report
+            .metrics
+            .compilation_effect
+            .as_ref()
+            .map(|e| e.depth_ratio),
+        ops_ratio: report
+            .metrics
+            .compilation_effect
+            .as_ref()
+            .map(|e| e.ops_ratio),
         two_qubit_ratio: report
             .metrics
             .compilation_effect
@@ -382,7 +390,11 @@ pub async fn evaluate(
             .orchestration_effect
             .as_ref()
             .and_then(|o| o.scheduler_fitness),
-        native_coverage: report.metrics.emitter_effect.as_ref().map(|e| e.native_coverage),
+        native_coverage: report
+            .metrics
+            .emitter_effect
+            .as_ref()
+            .map(|e| e.native_coverage),
         materializable_coverage: report
             .metrics
             .emitter_effect

@@ -343,7 +343,10 @@ mod tests {
     #[test]
     fn test_display_names() {
         assert_eq!(BenchmarkSuite::Ghz.display_name(), "GHZ State");
-        assert_eq!(BenchmarkSuite::Qft.display_name(), "Quantum Fourier Transform");
+        assert_eq!(
+            BenchmarkSuite::Qft.display_name(),
+            "Quantum Fourier Transform"
+        );
         assert_eq!(BenchmarkSuite::Grover.display_name(), "Grover Search");
         assert_eq!(BenchmarkSuite::Random.display_name(), "Random Circuit");
     }
