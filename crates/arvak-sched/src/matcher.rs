@@ -359,6 +359,7 @@ mod tests {
                 max_shots: 10000,
                 is_simulator,
                 features: vec![],
+                noise_profile: None,
             },
             available: true,
         })

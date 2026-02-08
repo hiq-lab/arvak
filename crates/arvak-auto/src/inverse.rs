@@ -150,6 +150,10 @@ pub fn inverse_instruction(instruction: &Instruction) -> UncomputeResult<Instruc
                 clbits: instruction.clbits.clone(),
             })
         }
+
+        InstructionKind::NoiseChannel { .. } => {
+            Err(UncomputeError::NonUnitaryOperation("noise_channel".into()))
+        }
     }
 }
 

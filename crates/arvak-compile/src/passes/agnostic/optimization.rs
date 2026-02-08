@@ -4,6 +4,7 @@ use arvak_ir::CircuitDag;
 use arvak_ir::dag::{DagNode, NodeIndex, WireId};
 use arvak_ir::gate::{GateKind, StandardGate};
 use arvak_ir::instruction::{Instruction, InstructionKind};
+use arvak_ir::noise::NoiseRole;
 use arvak_ir::parameter::ParameterExpression;
 use arvak_ir::qubit::QubitId;
 use petgraph::Direction;
@@ -214,6 +215,26 @@ impl Optimize1qGates {
                             }
                         }
                     }
+                }
+
+                // Resource noise channels are optimization barriers —
+                // they must not be reordered or removed.
+                if let InstructionKind::NoiseChannel { role: NoiseRole::Resource, .. } = &inst.kind {
+                    if current_run.len() > 1 {
+                        for &idx in &current_run {
+                            visited.insert(idx);
+                        }
+                        runs.push((qubit, std::mem::take(&mut current_run)));
+                    } else {
+                        current_run.clear();
+                    }
+                    continue;
+                }
+
+                // Deficit noise channels are informational — skip over them
+                // without breaking the run.
+                if let InstructionKind::NoiseChannel { role: NoiseRole::Deficit, .. } = &inst.kind {
+                    continue;
                 }
 
                 // Multi-qubit gate or non-optimizable: end current run
@@ -801,6 +822,28 @@ mod tests {
 
         // Should merge and normalize to near-zero, which might remove the gate
         assert!(dag.num_ops() <= 1);
+    }
+
+    #[test]
+    fn test_resource_noise_blocks_optimization() {
+        use arvak_ir::noise::{NoiseModel, NoiseRole};
+
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.h(QubitId(0)).unwrap();
+        circuit
+            .channel_resource(NoiseModel::Depolarizing { p: 0.03 }, QubitId(0))
+            .unwrap();
+        circuit.h(QubitId(0)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let initial_ops = dag.num_ops();
+        assert_eq!(initial_ops, 3);
+
+        let mut props = PropertySet::new();
+        Optimize1qGates::new().run(&mut dag, &mut props).unwrap();
+
+        // H·H would normally cancel, but Resource noise channel prevents it
+        assert!(dag.num_ops() >= 2, "Resource noise should block H·H cancellation");
     }
 
     #[test]

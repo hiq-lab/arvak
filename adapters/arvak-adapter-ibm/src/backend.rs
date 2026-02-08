@@ -190,6 +190,7 @@ impl Backend for IbmBackend {
                     max_shots: info.max_shots.unwrap_or(100_000),
                     is_simulator: info.simulator,
                     features: vec!["dynamic_circuits".to_string()],
+                    noise_profile: None,
                 })
             }
             Err(_) => {

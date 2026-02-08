@@ -198,6 +198,7 @@ impl Backend for IqmBackend {
                     max_shots: info.max_shots.unwrap_or(20_000),
                     is_simulator: false,
                     features: vec![],
+                    noise_profile: None,
                 })
             }
             Err(e) => {

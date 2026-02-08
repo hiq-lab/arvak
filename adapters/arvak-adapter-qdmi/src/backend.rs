@@ -208,6 +208,7 @@ impl QdmiBackend {
             max_shots: 100_000,
             is_simulator: false,
             features: vec!["qdmi".into(), "mqss".into()],
+            noise_profile: None,
         })
     }
 }
@@ -432,6 +433,7 @@ impl QdmiBackend {
                 max_shots: 100_000,
                 is_simulator: false,
                 features: vec!["qdmi".into(), "mqss".into(), "system".into()],
+                noise_profile: None,
             })
         }
     }

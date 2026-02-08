@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::gate::{Gate, StandardGate};
+use crate::noise::{NoiseModel, NoiseRole};
 use crate::qubit::{ClbitId, QubitId};
 
 /// The kind of instruction in a circuit.
@@ -27,6 +28,17 @@ pub enum InstructionKind {
         from_zone: u32,
         /// Destination zone index.
         to_zone: u32,
+    },
+    /// Noise channel operation.
+    ///
+    /// Represents a non-unitary noise process applied to a qubit.
+    /// The [`NoiseRole`] determines whether the compiler may optimize
+    /// around this channel (`Deficit`) or must preserve it (`Resource`).
+    NoiseChannel {
+        /// The noise model describing the physical process.
+        model: NoiseModel,
+        /// Semantic role: deficit (mitigate) or resource (preserve).
+        role: NoiseRole,
     },
 }
 
@@ -118,6 +130,41 @@ impl Instruction {
         }
     }
 
+    /// Create a noise channel instruction.
+    pub fn noise_channel(model: NoiseModel, role: NoiseRole, qubit: QubitId) -> Self {
+        Self {
+            kind: InstructionKind::NoiseChannel { model, role },
+            qubits: vec![qubit],
+            clbits: vec![],
+        }
+    }
+
+    /// Create a deficit noise channel (hardware noise to mitigate).
+    pub fn channel_noise(model: NoiseModel, qubit: QubitId) -> Self {
+        Self::noise_channel(model, NoiseRole::Deficit, qubit)
+    }
+
+    /// Create a resource noise channel (protocol noise to preserve).
+    pub fn channel_resource(model: NoiseModel, qubit: QubitId) -> Self {
+        Self::noise_channel(model, NoiseRole::Resource, qubit)
+    }
+
+    /// Check if this is a noise channel instruction.
+    pub fn is_noise_channel(&self) -> bool {
+        matches!(self.kind, InstructionKind::NoiseChannel { .. })
+    }
+
+    /// Check if this is a resource noise channel (must be preserved).
+    pub fn is_noise_resource(&self) -> bool {
+        matches!(
+            self.kind,
+            InstructionKind::NoiseChannel {
+                role: NoiseRole::Resource,
+                ..
+            }
+        )
+    }
+
     /// Check if this is a shuttle instruction.
     pub fn is_shuttle(&self) -> bool {
         matches!(self.kind, InstructionKind::Shuttle { .. })
@@ -168,6 +215,12 @@ impl Instruction {
             InstructionKind::Barrier => "barrier",
             InstructionKind::Delay { .. } => "delay",
             InstructionKind::Shuttle { .. } => "shuttle",
+            InstructionKind::NoiseChannel { role, .. } => {
+                match role {
+                    NoiseRole::Deficit => "noise_deficit",
+                    NoiseRole::Resource => "noise_resource",
+                }
+            }
         }
     }
 }
@@ -197,6 +250,28 @@ mod tests {
         let inst = Instruction::barrier([QubitId(0), QubitId(1), QubitId(2)]);
         assert!(inst.is_barrier());
         assert_eq!(inst.qubits.len(), 3);
+    }
+
+    #[test]
+    fn test_noise_channel_instruction() {
+        use crate::noise::{NoiseModel, NoiseRole};
+
+        let inst = Instruction::channel_resource(
+            NoiseModel::Depolarizing { p: 0.03 },
+            QubitId(0),
+        );
+        assert!(inst.is_noise_channel());
+        assert!(inst.is_noise_resource());
+        assert_eq!(inst.name(), "noise_resource");
+        assert_eq!(inst.qubits.len(), 1);
+
+        let deficit = Instruction::channel_noise(
+            NoiseModel::AmplitudeDamping { gamma: 0.01 },
+            QubitId(1),
+        );
+        assert!(deficit.is_noise_channel());
+        assert!(!deficit.is_noise_resource());
+        assert_eq!(deficit.name(), "noise_deficit");
     }
 
     #[test]

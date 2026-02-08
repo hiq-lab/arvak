@@ -46,7 +46,8 @@ impl Statevector {
             InstructionKind::Measure
             | InstructionKind::Barrier
             | InstructionKind::Delay { .. }
-            | InstructionKind::Shuttle { .. } => {
+            | InstructionKind::Shuttle { .. }
+            | InstructionKind::NoiseChannel { .. } => {
                 // These don't modify the statevector in simulation
             }
         }

@@ -1,5 +1,6 @@
 //! Backend capabilities.
 
+use arvak_ir::noise::NoiseProfile;
 use serde::{Deserialize, Serialize};
 
 /// Capabilities of a quantum backend.
@@ -20,6 +21,9 @@ pub struct Capabilities {
     /// Additional features supported.
     #[serde(default)]
     pub features: Vec<String>,
+    /// Hardware noise profile.
+    #[serde(default)]
+    pub noise_profile: Option<NoiseProfile>,
 }
 
 impl Capabilities {
@@ -33,6 +37,7 @@ impl Capabilities {
             max_shots: 100_000,
             is_simulator: true,
             features: vec!["statevector".into(), "unitary".into()],
+            noise_profile: None,
         }
     }
 
@@ -46,6 +51,7 @@ impl Capabilities {
             max_shots: 20_000,
             is_simulator: false,
             features: vec![],
+            noise_profile: None,
         }
     }
 
@@ -59,6 +65,7 @@ impl Capabilities {
             max_shots: 100_000,
             is_simulator: false,
             features: vec!["dynamic_circuits".into()],
+            noise_profile: None,
         }
     }
     /// Create capabilities for a neutral-atom device (e.g., planqc, Pasqal).
@@ -71,7 +78,14 @@ impl Capabilities {
             max_shots: 100_000,
             is_simulator: false,
             features: vec!["shuttling".into(), "zoned".into()],
+            noise_profile: None,
         }
+    }
+
+    /// Attach a noise profile to these capabilities.
+    pub fn with_noise_profile(mut self, profile: NoiseProfile) -> Self {
+        self.noise_profile = Some(profile);
+        self
     }
 }
 
