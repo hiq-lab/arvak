@@ -1,6 +1,6 @@
 //! Arvak backend adapter for NVIDIA CUDA-Q.
 //!
-//! This crate provides an Arvak [`Backend`](arvak_hal::Backend) implementation
+//! This crate provides an Arvak [`Backend`] implementation
 //! that submits circuits to CUDA-Q targets (GPU-accelerated simulators and
 //! hardware backends) via REST API. Circuits are converted to OpenQASM 3.0
 //! as the interchange format.
