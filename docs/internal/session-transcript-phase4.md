@@ -333,7 +333,7 @@ git push origin v1.0.0
 
 #### 2. Added Release Announcement
 ```markdown
-> **v1.0.0 Released!** See [CHANGELOG.md](CHANGELOG.md) for details.
+> **v1.0.0 Released!** See [CHANGELOG.md](../CHANGELOG.md) for details.
 ```
 
 #### 3. Updated Roadmap
@@ -381,7 +381,7 @@ license = "Apache-2.0"
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)]
 
 ## License
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../LICENSE) for details.
 ```
 
 #### 3. Updated CONTRIBUTING.md

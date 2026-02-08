@@ -1,1 +1,0 @@
-/Users/hinderinkd/Projects/HIQ/docs/INTEGRATION_GUIDE.md

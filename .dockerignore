@@ -16,10 +16,9 @@ target/
 docs/
 *.md
 LICENSE
-REVIEW_NOTES.json
 
 # Python bindings (excluded from workspace build)
-crates/hiq-python/
+crates/arvak-python/
 
 # macOS
 .DS_Store

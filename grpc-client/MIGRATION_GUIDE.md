@@ -393,7 +393,7 @@ RetryPolicy(max_attempts=5, initial_backoff=2.0, max_backoff=60.0)
 
 ## Examples
 
-Complete examples available in `python/arvak_grpc/examples/`:
+Complete examples available in `grpc-client/arvak_grpc/examples/`:
 
 - `async_submit.py` - Async client usage
 - `job_future_example.py` - JobFuture patterns
@@ -403,8 +403,8 @@ Complete examples available in `python/arvak_grpc/examples/`:
 ## Getting Help
 
 - **GitHub Issues:** https://github.com/hiq-lab/arvak/issues
-- **Examples:** `python/arvak_grpc/examples/`
-- **Tests:** `python/tests/`
+- **Examples:** `grpc-client/arvak_grpc/examples/`
+- **Tests:** `grpc-client/tests/`
 
 ---
 

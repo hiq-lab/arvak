@@ -3,7 +3,7 @@
 use axum::Json;
 
 /// Embedded VQE result from `results/vqe_result.json`.
-const VQE_RESULT: &str = include_str!("../../../../results/vqe_result.json");
+const VQE_RESULT: &str = include_str!("../../../../demos/data/vqe_result.json");
 
 /// GET /api/vqe/demo — return the pre-computed VQE H₂ ground-state result.
 pub async fn vqe_demo() -> Json<serde_json::Value> {

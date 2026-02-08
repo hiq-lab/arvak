@@ -511,7 +511,7 @@ arvak/
 │   ├── arvak-bench/       # Benchmark suite (QV, CLOPS, Randomized Benchmarking)
 │   ├── arvak-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── arvak-auto/        # Automatic uncomputation
-├── python/
+├── grpc-client/
 │   └── arvak_grpc/        # gRPC Python client (v1.6.0)
 │       ├── client.py               # Sync client
 │       ├── async_client.py         # Async client with connection pooling

@@ -263,7 +263,7 @@ compilation:
 - [IR Specification](ir-specification.md) — Learn the circuit representation
 - [Compilation Guide](compilation.md) — Explore transpilation passes
 - [HPC Deployment](hpc-deployment.md) — Deploy on HPC clusters
-- [Contributing](contributing.md) — Join the development
+- [Contributing](../CONTRIBUTING.md) — Join the development
 
 ## Getting Help
 

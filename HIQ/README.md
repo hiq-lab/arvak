@@ -1,2 +1,0 @@
-# Arvak (Legacy)
-
