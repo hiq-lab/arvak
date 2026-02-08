@@ -832,6 +832,250 @@ button.secondary:hover {
     margin-top: 1rem;
 }
 
+/* Evaluator View */
+.eval-input-panel {
+    max-width: 360px;
+    flex: 0 0 auto;
+}
+
+.eval-results-panel {
+    flex: 1;
+    min-width: 500px;
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+/* Eval summary cards */
+.eval-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.eval-card {
+    background-color: var(--bg-secondary);
+    border-radius: 6px;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.eval-card-value {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.eval-card-value.improved {
+    color: var(--success);
+}
+
+.eval-card-value.degraded {
+    color: var(--warning);
+}
+
+.eval-card-value small {
+    font-size: 0.75rem;
+    font-weight: normal;
+}
+
+.eval-card-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+/* Eval sections */
+.eval-section {
+    background-color: var(--bg-secondary);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.eval-section h3 {
+    font-size: 0.95rem;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+}
+
+.eval-section h4 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 1rem 0 0.5rem;
+}
+
+/* Contract compliance bar */
+.eval-compliance-bar {
+    display: flex;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.bar-safe {
+    background-color: var(--success);
+    color: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+}
+
+.bar-conditional {
+    background-color: var(--warning);
+    color: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+}
+
+.bar-violating {
+    background-color: var(--error);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+}
+
+.eval-compliance-legend {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.8rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.legend-safe { color: var(--success); }
+.legend-conditional { color: var(--warning); }
+.legend-violating { color: var(--error); }
+
+.compliance-badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+.compliance-badge.compliant {
+    background-color: rgba(0, 255, 136, 0.15);
+    color: var(--success);
+}
+
+.compliance-badge.non-compliant {
+    background-color: rgba(255, 68, 68, 0.15);
+    color: var(--error);
+}
+
+/* Gate tag badges */
+.tag-safe {
+    color: var(--success);
+    font-weight: 500;
+}
+
+.tag-conditional {
+    color: var(--warning);
+    font-weight: 500;
+}
+
+.tag-violating {
+    color: var(--error);
+    font-weight: 500;
+}
+
+/* Eval tables */
+.eval-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.eval-table th,
+.eval-table td {
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.eval-table th {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.8rem;
+    background-color: var(--bg-primary);
+}
+
+/* Coverage metrics grid */
+.eval-coverage-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.eval-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+}
+
+.eval-metric-value {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.eval-metric-value.improved { color: var(--success); }
+.eval-metric-value.degraded { color: var(--error); }
+
+.eval-metric-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+/* Eval chart container */
+.eval-chart {
+    background-color: var(--bg-primary);
+    border-radius: 4px;
+    padding: 0.75rem;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+    min-height: 100px;
+}
+
+/* Scheduler assessment */
+.eval-assessment {
+    background-color: var(--bg-primary);
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    border-left: 3px solid var(--accent);
+}
+
 /* Responsive */
 @media (max-width: 900px) {
     .view.active {

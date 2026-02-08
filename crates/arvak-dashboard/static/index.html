@@ -14,6 +14,7 @@
             <a href="#" data-view="circuits" class="active">Circuits</a>
             <a href="#" data-view="backends">Backends</a>
             <a href="#" data-view="jobs">Jobs</a>
+            <a href="#" data-view="eval">Evaluator</a>
             <a href="#" data-view="vqe">VQE</a>
         </nav>
     </header>
@@ -113,6 +114,69 @@ c = measure q;</textarea>
                 </div>
             </div>
         </section>
+        <!-- Evaluator View -->
+        <section id="eval-view" class="view">
+            <div class="panel eval-input-panel">
+                <h2>Evaluator Input</h2>
+                <div class="input-group">
+                    <label for="eval-qasm">QASM3 Source:</label>
+                    <textarea id="eval-qasm" rows="10">OPENQASM 3.0;
+include "stdgates.inc";
+
+qubit[2] q;
+bit[2] c;
+
+h q[0];
+cx q[0], q[1];
+
+c = measure q;</textarea>
+                </div>
+                <div class="input-group">
+                    <label for="eval-target">Target Backend:</label>
+                    <select id="eval-target">
+                        <option value="iqm" selected>IQM (Star, PRX+CZ)</option>
+                        <option value="ibm">IBM (Linear, SX+RZ+CX)</option>
+                        <option value="simulator">Simulator (Universal)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="eval-opt-level">Optimization Level:</label>
+                    <select id="eval-opt-level">
+                        <option value="0">0 - None</option>
+                        <option value="1" selected>1 - Light</option>
+                        <option value="2">2 - Moderate</option>
+                        <option value="3">3 - Heavy</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Options:</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="eval-orchestration"> Orchestration</label>
+                        <label><input type="checkbox" id="eval-emitter" checked> Emitter Compliance</label>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="eval-scheduler">Scheduler Site:</label>
+                    <select id="eval-scheduler">
+                        <option value="">Auto</option>
+                        <option value="lrz">LRZ (qc_iqm)</option>
+                        <option value="lumi">LUMI (q_fiqci)</option>
+                    </select>
+                </div>
+                <div class="button-group">
+                    <button id="eval-run-btn" class="primary">Evaluate</button>
+                    <button id="eval-export-btn" style="display:none;">Export JSON</button>
+                </div>
+            </div>
+
+            <div class="panel eval-results-panel">
+                <h2>Evaluation Report</h2>
+                <div id="eval-results">
+                    <p class="placeholder">Configure options and click "Evaluate" to run the pipeline.</p>
+                </div>
+            </div>
+        </section>
+
         <!-- VQE View -->
         <section id="vqe-view" class="view">
             <div class="panel full-width">
