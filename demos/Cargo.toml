@@ -6,6 +6,7 @@ description = "Demo suite for Arvak HPC-quantum orchestration"
 
 [dependencies]
 arvak-ir = { workspace = true }
+arvak-compile = { workspace = true }
 arvak-qasm3 = { workspace = true }
 arvak-hal = { workspace = true }
 arvak-sched = { workspace = true }
@@ -48,6 +49,10 @@ path = "bin/demo_qaoa.rs"
 [[bin]]
 name = "demo-multi"
 path = "bin/demo_multi.rs"
+
+[[bin]]
+name = "demo-qi-nutshell"
+path = "bin/demo_qi_nutshell.rs"
 
 [[bin]]
 name = "demo-all"
