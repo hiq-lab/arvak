@@ -1,4 +1,4 @@
-//! Arvak Evaluator: Compiler & Orchestration Observability
+//! Arvak Evaluator: Compiler, Orchestration & Emitter Observability
 //!
 //! This crate provides the evaluation framework for observing and analyzing
 //! quantum circuit compilation pipelines. It is QDMI-first and independent
@@ -12,7 +12,10 @@
 //! - **Input Analysis**: Parsing, validation, and content hashing
 //! - **Compilation Observation**: Pass-wise metrics with before/after deltas
 //! - **QDMI Contract Checking**: Safety classification against device capabilities
-//! - **Metrics Aggregation**: Structural and compilation effect metrics
+//! - **Orchestration Analysis**: Hybrid DAG, critical path, batchability (v0.2)
+//! - **Emitter Compliance**: Native gate coverage, loss documentation (v0.3)
+//! - **Benchmark Loading**: Standard circuit workloads (GHZ, QFT, etc.) (v0.3)
+//! - **Metrics Aggregation**: Compilation + Orchestration + Emitter deltas
 //! - **Reproducibility**: CLI snapshots, versioning, and deterministic exports
 //!
 //! # Architecture
@@ -24,6 +27,12 @@
 //!                            QDMI Contract Module
 //!                                    |
 //!                                    v
+//!                          Orchestration Module (opt)
+//!                                    |
+//!                                    v
+//!                       Emitter Compliance Module (opt)
+//!                                    |
+//!                                    v
 //!                           Metrics Aggregator
 //!                                    |
 //!                                    v
@@ -32,19 +41,10 @@
 //!                                    v
 //!                                JSON Output
 //! ```
-//!
-//! # Example
-//!
-//! ```ignore
-//! use arvak_eval::{Evaluator, EvalConfig};
-//!
-//! let config = EvalConfig::default();
-//! let evaluator = Evaluator::new(config);
-//! let report = evaluator.evaluate_file("circuit.qasm3")?;
-//! println!("{}", serde_json::to_string_pretty(&report)?);
-//! ```
 
+pub mod benchmark;
 pub mod contract;
+pub mod emitter;
 pub mod error;
 pub mod export;
 pub mod input;
@@ -58,14 +58,16 @@ pub mod scheduler_context;
 pub use error::{EvalError, EvalResult};
 pub use report::EvalReport;
 
+use benchmark::{BenchmarkLoader, BenchmarkSuite};
+use contract::ContractChecker;
+use emitter::{EmitTarget, EmitterAnalyzer};
+use export::ExportConfig;
 use input::InputAnalysis;
 use metrics::MetricsAggregator;
 use observer::CompilationObserver;
-use contract::ContractChecker;
 use orchestration::OrchestrationAnalyzer;
 use reproducibility::ReproducibilityInfo;
 use scheduler_context::{SchedulerConstraints, SchedulerContext};
-use export::ExportConfig;
 
 use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
 use arvak_hal::Capabilities;
@@ -88,6 +90,12 @@ pub struct EvalConfig {
     pub orchestration: bool,
     /// HPC site for scheduler constraints (lrz, lumi, or None for auto-detect).
     pub scheduler_site: Option<String>,
+    /// Emit target for emitter compliance analysis (iqm, ibm, cuda-q, or None).
+    pub emit_target: Option<String>,
+    /// Benchmark suite to use as workload input (ghz, qft, grover, random, or None).
+    pub benchmark: Option<String>,
+    /// Number of qubits for benchmark circuit generation.
+    pub benchmark_qubits: Option<usize>,
 }
 
 impl Default for EvalConfig {
@@ -100,6 +108,9 @@ impl Default for EvalConfig {
             export: ExportConfig::default(),
             orchestration: false,
             scheduler_site: None,
+            emit_target: None,
+            benchmark: None,
+            benchmark_qubits: None,
         }
     }
 }
@@ -220,29 +231,75 @@ impl Evaluator {
             (None, None)
         };
 
-        // 5. Metrics aggregation
-        let aggregated = if let (Some(orch), _) = (&orchestration_report, &scheduler_fitness) {
-            MetricsAggregator::aggregate_with_orchestration(
-                &input_analysis,
-                &observer,
-                &contract_report,
-                orch,
-                scheduler_fitness.as_ref(),
-            )
+        // 5. Emitter compliance analysis (optional)
+        let emitter_report = if let Some(emit_name) = &self.config.emit_target {
+            let emit_target = EmitTarget::from_name(emit_name).unwrap_or_else(|| {
+                // Default to matching the compilation target
+                EmitTarget::from_name(&self.config.target).unwrap_or(EmitTarget::CudaQ)
+            });
+
+            let report =
+                EmitterAnalyzer::analyze(&observer.final_dag, &emit_target, &capabilities)?;
+
+            info!(
+                "Emitter: {} target, {:.0}% native coverage, {:.0}% materializable, expansion {:.1}x",
+                report.target,
+                report.coverage.native_coverage * 100.0,
+                report.coverage.materializable_coverage * 100.0,
+                report.coverage.estimated_expansion,
+            );
+
+            Some(report)
         } else {
-            MetricsAggregator::aggregate(
-                &input_analysis,
-                &observer,
-                &contract_report,
-            )
+            None
         };
 
-        // 6. Reproducibility
+        // 6. Benchmark info (optional, non-normative)
+        let benchmark_info = if let Some(bench_name) = &self.config.benchmark {
+            let suite = BenchmarkSuite::from_name(bench_name);
+            if let Some(suite) = suite {
+                let num_qubits = self
+                    .config
+                    .benchmark_qubits
+                    .unwrap_or(input_analysis.structural_metrics.num_qubits);
+                match BenchmarkLoader::generate(&suite, num_qubits) {
+                    Ok(bench) => {
+                        info!(
+                            "Benchmark: {} ({} qubits, {} gates)",
+                            bench.name, bench.num_qubits, bench.expected_gates,
+                        );
+                        Some(bench)
+                    }
+                    Err(e) => {
+                        info!("Benchmark generation failed: {}", e);
+                        None
+                    }
+                }
+            } else {
+                info!("Unknown benchmark suite: {}", bench_name);
+                None
+            }
+        } else {
+            None
+        };
+
+        // 7. Metrics aggregation (unified: compilation + orchestration + emitter)
+        let aggregated = MetricsAggregator::aggregate_full(
+            &input_analysis,
+            &observer,
+            &contract_report,
+            orchestration_report
+                .as_ref()
+                .map(|o| (o, scheduler_fitness.as_ref())),
+            emitter_report.as_ref(),
+        );
+
+        // 8. Reproducibility
         let reproducibility = ReproducibilityInfo::capture(cli_args);
 
-        // 7. Build report
+        // 9. Build report
         let report = EvalReport {
-            schema_version: "0.2.0".into(),
+            schema_version: "0.3.0".into(),
             timestamp: chrono::Utc::now(),
             profile: self.config.profile.clone(),
             input: input_analysis.into_report(),
@@ -251,6 +308,8 @@ impl Evaluator {
             metrics: aggregated,
             orchestration: orchestration_report,
             scheduler: scheduler_fitness,
+            emitter: emitter_report,
+            benchmark: benchmark_info,
             reproducibility,
         };
 
@@ -293,11 +352,13 @@ c = measure q;
         let evaluator = Evaluator::new(config);
         let report = evaluator.evaluate(BELL_QASM, &[]).unwrap();
 
-        assert_eq!(report.schema_version, "0.2.0");
+        assert_eq!(report.schema_version, "0.3.0");
         assert_eq!(report.input.num_qubits, 2);
         assert!(report.input.total_ops >= 2);
         assert!(!report.input.content_hash.is_empty());
-        assert!(report.orchestration.is_none()); // Not enabled
+        assert!(report.orchestration.is_none());
+        assert!(report.emitter.is_none());
+        assert!(report.benchmark.is_none());
     }
 
     #[test]
@@ -358,6 +419,88 @@ c = measure q;
     }
 
     #[test]
+    fn test_evaluator_with_emitter_iqm() {
+        let config = EvalConfig {
+            target: "iqm".into(),
+            target_qubits: 20,
+            emit_target: Some("iqm".into()),
+            ..Default::default()
+        };
+        let evaluator = Evaluator::new(config);
+        let report = evaluator.evaluate(BELL_QASM, &[]).unwrap();
+
+        assert!(report.emitter.is_some());
+        let emitter = report.emitter.unwrap();
+        assert_eq!(emitter.target, "IQM");
+        assert!(emitter.fully_materializable);
+        assert!(emitter.emission.success);
+
+        // Metrics should include emitter effect
+        assert!(report.metrics.emitter_effect.is_some());
+        let effect = report.metrics.emitter_effect.unwrap();
+        assert!(effect.fully_materializable);
+    }
+
+    #[test]
+    fn test_evaluator_with_emitter_ibm() {
+        let config = EvalConfig {
+            target: "ibm".into(),
+            target_qubits: 20,
+            emit_target: Some("ibm".into()),
+            ..Default::default()
+        };
+        let evaluator = Evaluator::new(config);
+        let report = evaluator.evaluate(BELL_QASM, &[]).unwrap();
+
+        assert!(report.emitter.is_some());
+        let emitter = report.emitter.unwrap();
+        assert_eq!(emitter.target, "IBM");
+    }
+
+    #[test]
+    fn test_evaluator_with_benchmark() {
+        let config = EvalConfig {
+            target: "simulator".into(),
+            target_qubits: 5,
+            benchmark: Some("ghz".into()),
+            benchmark_qubits: Some(4),
+            ..Default::default()
+        };
+        let evaluator = Evaluator::new(config);
+        let report = evaluator.evaluate(BELL_QASM, &[]).unwrap();
+
+        assert!(report.benchmark.is_some());
+        let bench = report.benchmark.unwrap();
+        assert_eq!(bench.num_qubits, 4);
+        assert!(bench.qasm3_source.contains("OPENQASM 3.0"));
+    }
+
+    #[test]
+    fn test_evaluator_full_pipeline() {
+        // All features enabled: orchestration + emitter + benchmark
+        let config = EvalConfig {
+            target: "iqm".into(),
+            target_qubits: 20,
+            orchestration: true,
+            scheduler_site: Some("lrz".into()),
+            emit_target: Some("iqm".into()),
+            benchmark: Some("qft".into()),
+            benchmark_qubits: Some(3),
+            ..Default::default()
+        };
+        let evaluator = Evaluator::new(config);
+        let report = evaluator.evaluate(BELL_QASM, &[]).unwrap();
+
+        assert_eq!(report.schema_version, "0.3.0");
+        assert!(report.orchestration.is_some());
+        assert!(report.scheduler.is_some());
+        assert!(report.emitter.is_some());
+        assert!(report.benchmark.is_some());
+        assert!(report.metrics.orchestration_effect.is_some());
+        assert!(report.metrics.emitter_effect.is_some());
+    }
+
+    #[test]
     fn test_evaluator_json_export() {
         let config = EvalConfig {
             target: "simulator".into(),
@@ -370,6 +513,26 @@ c = measure q;
         let json = serde_json::to_string_pretty(&report).unwrap();
         assert!(json.contains("schema_version"));
         assert!(json.contains("content_hash"));
+        // Optional fields should not appear when disabled
+        assert!(!json.contains("\"emitter\""));
+        assert!(!json.contains("\"benchmark\""));
+    }
+
+    #[test]
+    fn test_evaluator_json_with_emitter() {
+        let config = EvalConfig {
+            target: "simulator".into(),
+            target_qubits: 5,
+            emit_target: Some("cuda-q".into()),
+            ..Default::default()
+        };
+        let evaluator = Evaluator::new(config);
+        let report = evaluator.evaluate(BELL_QASM, &[]).unwrap();
+
+        let json = serde_json::to_string_pretty(&report).unwrap();
+        assert!(json.contains("\"emitter\""));
+        assert!(json.contains("native_coverage"));
+        assert!(json.contains("materializable_coverage"));
     }
 
     #[test]

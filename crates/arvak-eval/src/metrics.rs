@@ -1,11 +1,12 @@
-//! Metrics Aggregator: structural and compilation effect metrics.
+//! Metrics Aggregator: structural, compilation, orchestration, and emitter effect metrics.
 //!
-//! Combines data from input analysis, compilation observation, and
-//! contract checking into unified evaluation metrics.
+//! Combines data from input analysis, compilation observation, contract checking,
+//! orchestration analysis, and emitter compliance into unified evaluation metrics.
 
 use serde::{Deserialize, Serialize};
 
 use crate::contract::ContractReport;
+use crate::emitter::EmitterReport;
 use crate::input::InputAnalysis;
 use crate::observer::CompilationObserver;
 use crate::orchestration::OrchestrationReport;
@@ -62,6 +63,27 @@ pub struct OrchestrationEffect {
     pub scheduler_fitness: Option<f64>,
 }
 
+/// Emitter compliance effect metrics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmitterEffect {
+    /// Target backend name.
+    pub target: String,
+    /// Native gate coverage ratio (0.0-1.0).
+    pub native_coverage: f64,
+    /// Total materializable coverage ratio (0.0-1.0).
+    pub materializable_coverage: f64,
+    /// Estimated gate expansion factor from decomposition.
+    pub estimated_expansion: f64,
+    /// Number of distinct gate types requiring decomposition.
+    pub decomposed_gate_types: usize,
+    /// Number of distinct gate types that are lost.
+    pub lost_gate_types: usize,
+    /// Whether the circuit is fully materializable.
+    pub fully_materializable: bool,
+    /// Whether QASM3 emission succeeded.
+    pub emission_success: bool,
+}
+
 /// Aggregated evaluation metrics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AggregatedMetrics {
@@ -70,7 +92,11 @@ pub struct AggregatedMetrics {
     /// QDMI compliance summary.
     pub compliance: ComplianceSummary,
     /// Orchestration effect (None if --orchestration not used).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub orchestration_effect: Option<OrchestrationEffect>,
+    /// Emitter compliance effect (None if --emit not used).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub emitter_effect: Option<EmitterEffect>,
 }
 
 /// Aggregator for combining metrics from all modules.
@@ -90,6 +116,7 @@ impl MetricsAggregator {
             compilation_effect,
             compliance,
             orchestration_effect: None,
+            emitter_effect: None,
         }
     }
 
@@ -110,6 +137,29 @@ impl MetricsAggregator {
             compilation_effect,
             compliance,
             orchestration_effect,
+            emitter_effect: None,
+        }
+    }
+
+    /// Aggregate all metrics: compilation + orchestration + emitter.
+    pub fn aggregate_full(
+        input: &InputAnalysis,
+        observer: &CompilationObserver,
+        contract: &ContractReport,
+        orchestration: Option<(&OrchestrationReport, Option<&SchedulerFitness>)>,
+        emitter: Option<&EmitterReport>,
+    ) -> AggregatedMetrics {
+        let compilation_effect = Self::compute_compilation_effect(input, observer);
+        let compliance = Self::compute_compliance(contract);
+        let orchestration_effect = orchestration
+            .map(|(orch, sched)| Self::compute_orchestration_effect(orch, sched));
+        let emitter_effect = emitter.map(Self::compute_emitter_effect);
+
+        AggregatedMetrics {
+            compilation_effect,
+            compliance,
+            orchestration_effect,
+            emitter_effect,
         }
     }
 
@@ -126,6 +176,32 @@ impl MetricsAggregator {
             parallelism_ratio: orch.batchability.parallelism_ratio,
             is_purely_quantum: orch.batchability.is_purely_quantum,
             scheduler_fitness: scheduler_fitness.map(|f| f.fitness_score),
+        }
+    }
+
+    fn compute_emitter_effect(emitter: &EmitterReport) -> EmitterEffect {
+        use crate::emitter::MaterializationStatus;
+
+        let decomposed_gate_types = emitter
+            .gate_materializations
+            .iter()
+            .filter(|m| m.status == MaterializationStatus::Decomposed)
+            .count();
+        let lost_gate_types = emitter
+            .gate_materializations
+            .iter()
+            .filter(|m| m.status == MaterializationStatus::Lost)
+            .count();
+
+        EmitterEffect {
+            target: emitter.target.clone(),
+            native_coverage: emitter.coverage.native_coverage,
+            materializable_coverage: emitter.coverage.materializable_coverage,
+            estimated_expansion: emitter.coverage.estimated_expansion,
+            decomposed_gate_types,
+            lost_gate_types,
+            fully_materializable: emitter.fully_materializable,
+            emission_success: emitter.emission.success,
         }
     }
 
