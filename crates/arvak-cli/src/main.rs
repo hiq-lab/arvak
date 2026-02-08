@@ -51,7 +51,7 @@ use tracing_subscriber::EnvFilter;
 
 mod commands;
 
-use commands::{auth, backends, compile, result, run, status, submit, version, wait};
+use commands::{auth, backends, compile, eval, result, run, status, submit, version, wait};
 
 /// Arvak - Rust-native quantum compilation and orchestration for HPC
 #[derive(Parser)]
@@ -185,6 +185,33 @@ enum Commands {
         timeout: u64,
     },
 
+    /// Evaluate a circuit: compilation observability, QDMI contract check, metrics
+    Eval {
+        /// Input file (QASM3)
+        #[arg(short, long)]
+        input: String,
+
+        /// Evaluation profile
+        #[arg(short, long, default_value = "default")]
+        profile: String,
+
+        /// Target backend (iqm, ibm, simulator)
+        #[arg(short, long, default_value = "iqm")]
+        target: String,
+
+        /// Optimization level (0-3)
+        #[arg(long, default_value = "1")]
+        optimization_level: u8,
+
+        /// Number of qubits on target device
+        #[arg(long, default_value = "20")]
+        target_qubits: u32,
+
+        /// Output file for JSON report (stdout if omitted)
+        #[arg(short, long)]
+        export: Option<String>,
+    },
+
     /// List available backends
     Backends,
 
@@ -292,6 +319,25 @@ async fn main() -> anyhow::Result<()> {
         },
 
         Commands::Wait { job_id, timeout } => wait::execute(&job_id, timeout).await,
+
+        Commands::Eval {
+            input,
+            profile,
+            target,
+            optimization_level,
+            target_qubits,
+            export,
+        } => {
+            eval::execute(
+                &input,
+                &profile,
+                &target,
+                optimization_level,
+                export.as_deref(),
+                target_qubits,
+            )
+            .await
+        }
 
         Commands::Backends => backends::execute().await,
 
