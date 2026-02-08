@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use arvak_hal::Capabilities;
 use arvak_ir::CircuitDag;
 use arvak_ir::instruction::InstructionKind;
+use arvak_ir::noise::NoiseRole;
 
 /// Safety classification for a gate against a QDMI contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,6 +121,34 @@ impl ContractChecker {
                         tag,
                         format!("Shuttle requires shuttling capability"),
                     )
+                }
+                InstructionKind::NoiseChannel { model, role } => {
+                    let name = format!("noise_{}_{}", role, model.name());
+                    let tag = match role {
+                        NoiseRole::Deficit => SafetyTag::Safe,
+                        NoiseRole::Resource => SafetyTag::Conditional,
+                    };
+                    let reason = match role {
+                        NoiseRole::Deficit => {
+                            format!("Deficit noise channel '{}' is informational", model.name())
+                        }
+                        NoiseRole::Resource => {
+                            if capabilities.noise_profile.is_some() {
+                                format!(
+                                    "Resource noise channel '{}' — backend has noise profile, \
+                                     protocol-level validation recommended",
+                                    model.name()
+                                )
+                            } else {
+                                format!(
+                                    "Resource noise channel '{}' — backend has no noise profile, \
+                                     cannot verify noise compatibility",
+                                    model.name()
+                                )
+                            }
+                        }
+                    };
+                    (name, tag, reason)
                 }
             };
 
@@ -327,6 +356,31 @@ mod tests {
         // H and CX are not native on IQM, but are decomposable
         assert!(report.conditional_count > 0);
         assert_eq!(report.violating_count, 0);
+    }
+
+    #[test]
+    fn test_contract_noise_channels() {
+        use arvak_ir::noise::{NoiseModel, NoiseProfile};
+
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.h(QubitId(0)).unwrap();
+        circuit
+            .channel_resource(NoiseModel::Depolarizing { p: 0.03 }, QubitId(0))
+            .unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit
+            .channel_noise(NoiseModel::AmplitudeDamping { gamma: 0.01 }, QubitId(0))
+            .unwrap();
+
+        let dag = circuit.into_dag();
+
+        let caps = simulator_caps();
+        let report = ContractChecker::check(&dag, &caps);
+
+        assert!(report.safe_count > 0);
+        assert!(report.conditional_count > 0);
+        assert_eq!(report.violating_count, 0);
+        assert!(report.compliant);
     }
 
     #[test]

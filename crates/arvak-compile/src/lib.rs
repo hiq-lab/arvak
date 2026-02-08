@@ -114,4 +114,5 @@ pub mod passes;
 pub use error::{CompileError, CompileResult};
 pub use manager::{PassManager, PassManagerBuilder};
 pub use pass::{AnalysisPass, Pass, PassKind, TransformationPass};
+pub use passes::agnostic::NoiseInjectionPass;
 pub use property::{BasisGates, CouplingMap, Layout, PropertySet};

@@ -380,6 +380,10 @@ fn instruction_to_view(instruction: &Instruction) -> OperationView {
             "shuttle".to_string(),
             format!("S({}-{})", from_zone, to_zone),
         ),
+        InstructionKind::NoiseChannel { model, role } => (
+            format!("noise_{}", role),
+            format!("N({})", model.name()),
+        ),
     };
 
     OperationView {

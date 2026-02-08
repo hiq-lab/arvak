@@ -191,6 +191,7 @@ impl CudaqBackend {
             max_shots: 1_000_000,
             is_simulator,
             features: vec!["gpu-accelerated".into(), "qasm3".into()],
+            noise_profile: None,
         }
     }
 }
@@ -235,6 +236,7 @@ impl Backend for CudaqBackend {
                 max_shots: info.max_shots.unwrap_or(1_000_000),
                 is_simulator: info.is_simulator,
                 features: vec!["gpu-accelerated".into(), "qasm3".into()],
+                noise_profile: None,
             }),
             Err(e) => {
                 warn!("Failed to fetch target info, using defaults: {}", e);
