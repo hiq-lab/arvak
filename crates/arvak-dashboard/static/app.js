@@ -121,6 +121,19 @@ const api = {
         return res.json();
     },
 
+    async evaluate(params) {
+        const res = await fetch('/api/eval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+        });
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.message || 'Evaluation failed');
+        }
+        return res.json();
+    },
+
     async getVqeDemo() {
         const res = await fetch('/api/vqe/demo');
         if (!res.ok) {
@@ -388,6 +401,8 @@ function showView(viewName) {
         loadJobs();
     } else if (viewName === 'vqe') {
         loadVqe();
+    } else if (viewName === 'eval') {
+        // Eval view loads on demand via button
     }
 }
 
@@ -1034,6 +1049,354 @@ function clearCircuit() {
 }
 
 // ============================================================================
+// Evaluator View Controller
+// ============================================================================
+
+let evalReport = null;
+
+async function runEvaluation() {
+    const container = document.getElementById('eval-results');
+    const exportBtn = document.getElementById('eval-export-btn');
+
+    const qasm = document.getElementById('eval-qasm').value;
+    if (!qasm.trim()) {
+        showError(container, 'Please enter QASM3 code');
+        return;
+    }
+
+    const target = document.getElementById('eval-target').value;
+    const optLevel = parseInt(document.getElementById('eval-opt-level').value, 10);
+    const orchestration = document.getElementById('eval-orchestration').checked;
+    const emitter = document.getElementById('eval-emitter').checked;
+    const schedulerSite = document.getElementById('eval-scheduler').value || null;
+
+    const params = {
+        qasm,
+        target,
+        optimization_level: optLevel,
+        target_qubits: target === 'iqm' ? 20 : target === 'ibm' ? 20 : 10,
+        orchestration,
+        scheduler_site: orchestration ? schedulerSite : null,
+        emit_target: emitter ? target : null,
+    };
+
+    try {
+        container.innerHTML = '<p class="placeholder">Running evaluation pipeline...</p>';
+        exportBtn.style.display = 'none';
+
+        const result = await api.evaluate(params);
+        evalReport = result;
+        exportBtn.style.display = '';
+
+        renderEvalReport(container, result);
+    } catch (error) {
+        showError(container, error.message);
+    }
+}
+
+function renderEvalReport(container, r) {
+    let html = '';
+
+    // --- Summary Cards ---
+    html += '<div class="eval-summary-grid">';
+    html += evalCard('Qubits', r.input.num_qubits);
+    html += evalCard('Input Depth', r.input.depth);
+    html += evalCard('Input Gates', r.input.total_ops);
+    html += evalCard('Compiled Depth', r.compilation.compiled_depth,
+        r.compilation.depth_delta < 0 ? 'improved' : r.compilation.depth_delta > 0 ? 'degraded' : '',
+        `${r.compilation.depth_delta >= 0 ? '+' : ''}${r.compilation.depth_delta}`);
+    html += evalCard('Compiled Gates', r.compilation.compiled_ops,
+        r.compilation.ops_delta < 0 ? 'improved' : r.compilation.ops_delta > 0 ? 'degraded' : '',
+        `${r.compilation.ops_delta >= 0 ? '+' : ''}${r.compilation.ops_delta}`);
+    html += evalCard('Passes', r.compilation.num_passes);
+    html += '</div>';
+
+    // --- Contract Compliance ---
+    html += '<div class="eval-section">';
+    html += `<h3>QDMI Contract: ${r.contract.target_name}</h3>`;
+    const total = r.contract.safe_count + r.contract.conditional_count + r.contract.violating_count;
+    html += `<div class="eval-compliance-bar">`;
+    if (r.contract.safe_count > 0) {
+        html += `<div class="bar-safe" style="width:${(r.contract.safe_count/total*100).toFixed(1)}%" title="${r.contract.safe_count} safe">${r.contract.safe_count}</div>`;
+    }
+    if (r.contract.conditional_count > 0) {
+        html += `<div class="bar-conditional" style="width:${(r.contract.conditional_count/total*100).toFixed(1)}%" title="${r.contract.conditional_count} conditional">${r.contract.conditional_count}</div>`;
+    }
+    if (r.contract.violating_count > 0) {
+        html += `<div class="bar-violating" style="width:${(r.contract.violating_count/total*100).toFixed(1)}%" title="${r.contract.violating_count} violating">${r.contract.violating_count}</div>`;
+    }
+    html += '</div>';
+    html += `<div class="eval-compliance-legend">`;
+    html += `<span class="legend-safe">Safe: ${r.contract.safe_count}</span>`;
+    html += `<span class="legend-conditional">Conditional: ${r.contract.conditional_count}</span>`;
+    html += `<span class="legend-violating">Violating: ${r.contract.violating_count}</span>`;
+    html += `<span class="compliance-badge ${r.contract.compliant ? 'compliant' : 'non-compliant'}">${r.contract.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'}</span>`;
+    html += '</div>';
+
+    // Gate table
+    if (r.contract.gates.length > 0) {
+        html += '<table class="eval-table"><thead><tr><th>Gate</th><th>Tag</th></tr></thead><tbody>';
+        r.contract.gates.forEach(g => {
+            html += `<tr><td class="mono">${escapeHtml(g.gate)}</td><td><span class="tag-${g.tag}">${g.tag}</span></td></tr>`;
+        });
+        html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    // --- Emitter Compliance ---
+    if (r.emitter) {
+        html += '<div class="eval-section">';
+        html += `<h3>Emitter Compliance: ${escapeHtml(r.emitter.target)}</h3>`;
+
+        // Coverage bar
+        html += '<div class="eval-coverage-grid">';
+        html += evalMetric('Native Coverage', `${(r.emitter.native_coverage * 100).toFixed(0)}%`);
+        html += evalMetric('Materializable', `${(r.emitter.materializable_coverage * 100).toFixed(0)}%`);
+        html += evalMetric('Expansion', `${r.emitter.estimated_expansion.toFixed(1)}x`);
+        html += evalMetric('Emission', r.emitter.emission_success ? 'OK' : 'FAILED',
+            r.emitter.emission_success ? 'improved' : 'degraded');
+        html += evalMetric('Materializable', r.emitter.fully_materializable ? 'YES' : 'NO',
+            r.emitter.fully_materializable ? 'improved' : 'degraded');
+        html += '</div>';
+
+        // Donut chart placeholder
+        html += '<div id="eval-emitter-chart" class="eval-chart"></div>';
+
+        // Gate materialization table
+        if (r.emitter.gates.length > 0) {
+            html += '<table class="eval-table"><thead><tr><th>Gate</th><th>Count</th><th>Status</th><th>Cost</th></tr></thead><tbody>';
+            r.emitter.gates.forEach(g => {
+                const statusClass = g.status === 'Native' ? 'tag-safe' : g.status === 'Decomposed' ? 'tag-conditional' : 'tag-violating';
+                html += `<tr><td class="mono">${escapeHtml(g.gate)}</td><td>${g.count}</td><td><span class="${statusClass}">${g.status}</span></td><td>${g.cost !== null ? g.cost : '-'}</td></tr>`;
+            });
+            html += '</tbody></table>';
+        }
+
+        // Losses
+        if (r.emitter.losses.length > 0) {
+            html += '<h4>Loss Documentation</h4>';
+            html += '<table class="eval-table"><thead><tr><th>Capability</th><th>Category</th><th>Impact</th></tr></thead><tbody>';
+            r.emitter.losses.forEach(l => {
+                html += `<tr><td class="mono">${escapeHtml(l.capability)}</td><td>${l.category}</td><td>${escapeHtml(l.impact)}</td></tr>`;
+            });
+            html += '</tbody></table>';
+        }
+        html += '</div>';
+    }
+
+    // --- Orchestration ---
+    if (r.orchestration) {
+        html += '<div class="eval-section">';
+        html += '<h3>Orchestration</h3>';
+        html += '<div class="eval-coverage-grid">';
+        html += evalMetric('Quantum Phases', r.orchestration.quantum_phases);
+        html += evalMetric('Classical Phases', r.orchestration.classical_phases);
+        html += evalMetric('Critical Path Cost', r.orchestration.critical_path_cost.toFixed(1));
+        html += evalMetric('Max Parallel', r.orchestration.max_parallel_quantum);
+        html += evalMetric('Parallelism', r.orchestration.parallelism_ratio.toFixed(2));
+        html += evalMetric('Purely Quantum', r.orchestration.is_purely_quantum ? 'Yes' : 'No');
+        html += '</div>';
+
+        // Hybrid DAG
+        html += '<div id="eval-hybrid-dag" class="eval-chart"></div>';
+        html += '</div>';
+    }
+
+    // --- Scheduler ---
+    if (r.scheduler) {
+        html += '<div class="eval-section">';
+        html += `<h3>Scheduler Fitness: ${escapeHtml(r.scheduler.site)} (${escapeHtml(r.scheduler.partition)})</h3>`;
+        html += '<div class="eval-coverage-grid">';
+        html += evalMetric('Qubits Fit', r.scheduler.qubits_fit ? 'YES' : 'NO',
+            r.scheduler.qubits_fit ? 'improved' : 'degraded');
+        html += evalMetric('Walltime Fit', r.scheduler.fits_walltime ? 'YES' : 'NO',
+            r.scheduler.fits_walltime ? 'improved' : 'degraded');
+        html += evalMetric('Fitness Score', r.scheduler.fitness_score.toFixed(2));
+        html += evalMetric('Walltime (rec)', `${r.scheduler.recommended_walltime}s`);
+        html += evalMetric('Batch Capacity', r.scheduler.batch_capacity);
+        html += '</div>';
+        html += `<div class="eval-assessment">${escapeHtml(r.scheduler.assessment)}</div>`;
+        html += '</div>';
+    }
+
+    // --- Benchmark ---
+    if (r.benchmark) {
+        html += '<div class="eval-section">';
+        html += '<h3>Benchmark (non-normative)</h3>';
+        html += '<div class="eval-coverage-grid">';
+        html += evalMetric('Suite', r.benchmark.name);
+        html += evalMetric('Qubits', r.benchmark.num_qubits);
+        html += evalMetric('Expected Gates', r.benchmark.expected_gates);
+        html += '</div>';
+        html += '</div>';
+    }
+
+    container.innerHTML = html;
+
+    // Render D3 charts after DOM is updated
+    if (r.emitter) {
+        renderEmitterDonut(document.getElementById('eval-emitter-chart'), r.emitter);
+    }
+    if (r.orchestration && r.orchestration.nodes.length > 0) {
+        renderHybridDag(document.getElementById('eval-hybrid-dag'), r.orchestration);
+    }
+}
+
+function evalCard(label, value, cls, delta) {
+    return `<div class="eval-card">
+        <div class="eval-card-value ${cls || ''}">${value}${delta ? ` <small>(${delta})</small>` : ''}</div>
+        <div class="eval-card-label">${label}</div>
+    </div>`;
+}
+
+function evalMetric(label, value, cls) {
+    return `<div class="eval-metric">
+        <span class="eval-metric-value ${cls || ''}">${value}</span>
+        <span class="eval-metric-label">${label}</span>
+    </div>`;
+}
+
+function renderEmitterDonut(container, emitter) {
+    if (!container) return;
+
+    const data = [
+        { label: 'Native', value: 0, color: '#00ff88' },
+        { label: 'Decomposed', value: 0, color: '#ffaa00' },
+        { label: 'Lost', value: 0, color: '#ff4444' },
+    ];
+
+    emitter.gates.forEach(g => {
+        if (g.status === 'Native') data[0].value += g.count;
+        else if (g.status === 'Decomposed') data[1].value += g.count;
+        else data[2].value += g.count;
+    });
+
+    const filtered = data.filter(d => d.value > 0);
+    if (filtered.length === 0) return;
+
+    const width = 220, height = 220, radius = 90;
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width + 160)
+        .attr('height', height)
+        .append('g')
+        .attr('transform', `translate(${width / 2}, ${height / 2})`);
+
+    const pie = d3.pie().value(d => d.value).sort(null);
+    const arc = d3.arc().innerRadius(50).outerRadius(radius);
+
+    svg.selectAll('path')
+        .data(pie(filtered))
+        .enter()
+        .append('path')
+        .attr('d', arc)
+        .attr('fill', d => d.data.color)
+        .attr('stroke', '#1a1a2e')
+        .attr('stroke-width', 2);
+
+    // Legend
+    const legend = svg.append('g').attr('transform', `translate(${radius + 20}, ${-filtered.length * 12})`);
+    filtered.forEach((d, i) => {
+        const g = legend.append('g').attr('transform', `translate(0, ${i * 24})`);
+        g.append('rect').attr('width', 14).attr('height', 14).attr('fill', d.color).attr('rx', 2);
+        g.append('text').attr('x', 20).attr('y', 12).attr('fill', '#e8e8e8').attr('font-size', '12px')
+            .text(`${d.label}: ${d.value}`);
+    });
+}
+
+function renderHybridDag(container, orch) {
+    if (!container || !orch.nodes || orch.nodes.length === 0) return;
+
+    const nodes = orch.nodes;
+    const edges = orch.edges;
+
+    const nodeW = 100, nodeH = 50, gapX = 60, gapY = 0;
+    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+    const width = margin.left + margin.right + nodes.length * (nodeW + gapX);
+    const height = margin.top + margin.bottom + nodeH + 40;
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .append('g')
+        .attr('transform', `translate(${margin.left}, ${margin.top})`);
+
+    // Positions: lay out horizontally
+    const pos = {};
+    nodes.forEach((n, i) => {
+        pos[n.index] = { x: i * (nodeW + gapX) + nodeW / 2, y: nodeH / 2 + 10 };
+    });
+
+    // Draw edges
+    edges.forEach(e => {
+        if (pos[e.from] && pos[e.to]) {
+            svg.append('line')
+                .attr('x1', pos[e.from].x + nodeW / 2 - 10)
+                .attr('y1', pos[e.from].y)
+                .attr('x2', pos[e.to].x - nodeW / 2 + 10)
+                .attr('y2', pos[e.to].y)
+                .attr('stroke', '#00d9ff')
+                .attr('stroke-width', 2)
+                .attr('marker-end', 'url(#arrowhead)');
+        }
+    });
+
+    // Arrowhead marker
+    svg.append('defs').append('marker')
+        .attr('id', 'arrowhead')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 9).attr('refY', 5)
+        .attr('markerWidth', 8).attr('markerHeight', 8)
+        .attr('orient', 'auto')
+        .append('path').attr('d', 'M 0 0 L 10 5 L 0 10 z').attr('fill', '#00d9ff');
+
+    // Draw nodes
+    nodes.forEach(n => {
+        const p = pos[n.index];
+        const color = n.kind === 'quantum' ? '#00d9ff' : '#ffaa00';
+
+        svg.append('rect')
+            .attr('x', p.x - nodeW / 2)
+            .attr('y', p.y - nodeH / 2)
+            .attr('width', nodeW)
+            .attr('height', nodeH)
+            .attr('rx', 6)
+            .attr('fill', '#16213e')
+            .attr('stroke', color)
+            .attr('stroke-width', 2);
+
+        svg.append('text')
+            .attr('x', p.x)
+            .attr('y', p.y - 5)
+            .attr('text-anchor', 'middle')
+            .attr('fill', color)
+            .attr('font-size', '12px')
+            .attr('font-weight', 'bold')
+            .text(n.label);
+
+        svg.append('text')
+            .attr('x', p.x)
+            .attr('y', p.y + 12)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#a0a0a0')
+            .attr('font-size', '10px')
+            .text(n.kind === 'quantum' ? `d:${n.depth || 0} g:${n.gate_count || 0}` : 'readout');
+    });
+}
+
+function exportEvalJson() {
+    if (!evalReport) return;
+    const blob = new Blob([JSON.stringify(evalReport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'eval-report.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ============================================================================
 // Initialization
 // ============================================================================
 
@@ -1060,6 +1423,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('clear-btn').addEventListener('click', clearCircuit);
     document.getElementById('refresh-backends-btn').addEventListener('click', loadBackends);
     document.getElementById('refresh-jobs-btn').addEventListener('click', loadJobs);
+    document.getElementById('eval-run-btn').addEventListener('click', runEvaluation);
+    document.getElementById('eval-export-btn').addEventListener('click', exportEvalJson);
 
     // Allow Ctrl+Enter to visualize
     document.getElementById('qasm-input').addEventListener('keydown', e => {
@@ -1069,7 +1434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Handle hash-based routing
-    const validViews = ['circuits', 'backends', 'jobs', 'vqe'];
+    const validViews = ['circuits', 'backends', 'jobs', 'eval', 'vqe'];
     const hashView = location.hash.replace('#', '');
     showView(validViews.includes(hashView) ? hashView : 'circuits');
 
