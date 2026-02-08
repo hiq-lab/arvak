@@ -4,6 +4,7 @@ use crate::dag::CircuitDag;
 use crate::error::IrResult;
 use crate::gate::{Gate, StandardGate};
 use crate::instruction::Instruction;
+use crate::noise::{NoiseModel, NoiseRole};
 use crate::parameter::ParameterExpression;
 use crate::qubit::{Clbit, ClbitId, Qubit, QubitId};
 
@@ -506,6 +507,36 @@ impl Circuit {
     }
 
     // =========================================================================
+    // Noise channels
+    // =========================================================================
+
+    /// Apply a noise channel with explicit role.
+    pub fn noise_channel(
+        &mut self,
+        model: NoiseModel,
+        role: NoiseRole,
+        qubit: QubitId,
+    ) -> IrResult<&mut Self> {
+        self.dag
+            .apply(Instruction::noise_channel(model, role, qubit))?;
+        Ok(self)
+    }
+
+    /// Apply a deficit noise channel (hardware noise, compiler may optimize around).
+    pub fn channel_noise(&mut self, model: NoiseModel, qubit: QubitId) -> IrResult<&mut Self> {
+        self.dag
+            .apply(Instruction::channel_noise(model, qubit))?;
+        Ok(self)
+    }
+
+    /// Apply a resource noise channel (protocol resource, compiler must preserve).
+    pub fn channel_resource(&mut self, model: NoiseModel, qubit: QubitId) -> IrResult<&mut Self> {
+        self.dag
+            .apply(Instruction::channel_resource(model, qubit))?;
+        Ok(self)
+    }
+
+    // =========================================================================
     // Accessors
     // =========================================================================
 
@@ -717,6 +748,23 @@ mod tests {
             .unwrap();
 
         assert_eq!(circuit.depth(), 2);
+    }
+
+    #[test]
+    fn test_noise_channel_builder() {
+        use crate::noise::{NoiseModel, NoiseRole};
+
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.h(QubitId(0)).unwrap();
+        circuit
+            .channel_resource(NoiseModel::Depolarizing { p: 0.03 }, QubitId(0))
+            .unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit
+            .channel_noise(NoiseModel::AmplitudeDamping { gamma: 0.01 }, QubitId(0))
+            .unwrap();
+
+        assert_eq!(circuit.depth(), 4);
     }
 
     #[test]

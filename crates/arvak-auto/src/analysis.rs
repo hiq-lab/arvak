@@ -168,6 +168,9 @@ pub fn find_reversible_ops(circuit: &Circuit) -> Vec<usize> {
                 // Shuttling is reversible (swap zones)
                 reversible.push(idx);
             }
+            InstructionKind::NoiseChannel { .. } => {
+                // Noise channels are non-unitary annotations, not reversible
+            }
         }
     }
 
