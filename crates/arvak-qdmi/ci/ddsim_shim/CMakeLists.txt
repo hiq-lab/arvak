@@ -40,7 +40,6 @@ FetchContent_Declare(
   mqt-core
   GIT_REPOSITORY https://github.com/cda-tum/mqt-core.git
   GIT_TAG        ${MQT_CORE_VERSION}
-  GIT_SHALLOW    TRUE
 )
 
 # Disable parts of mqt-core we don't need (saves significant build time)
