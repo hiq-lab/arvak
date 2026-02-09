@@ -27,6 +27,10 @@ set(MQT_CORE_VERSION "v3.4.1" CACHE STRING "mqt-core git tag or branch")
 
 message(STATUS "Building DDSIM shim against mqt-core ${MQT_CORE_VERSION}")
 
+# All code (including fetched dependencies) must be compiled with -fPIC
+# because the static libraries end up linked into a shared library.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # ---------------------------------------------------------------------------
 # Fetch mqt-core
 # ---------------------------------------------------------------------------
