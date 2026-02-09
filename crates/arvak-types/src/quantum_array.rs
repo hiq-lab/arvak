@@ -98,7 +98,10 @@ impl<const N: usize, const W: usize> QuantumArray<N, W> {
 
     /// Get all qubits in the array.
     pub fn all_qubits(&self) -> Vec<QubitId> {
-        self.registers.iter().flat_map(super::register::QubitRegister::iter).collect()
+        self.registers
+            .iter()
+            .flat_map(super::register::QubitRegister::iter)
+            .collect()
     }
 
     /// Swap two elements in the array.

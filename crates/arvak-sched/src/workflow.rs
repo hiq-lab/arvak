@@ -284,11 +284,7 @@ impl Workflow {
     pub fn completed_count(&self) -> usize {
         self.dag
             .node_indices()
-            .filter(|idx| {
-                self.dag
-                    .node_weight(*idx)
-                    .is_some_and(|n| n.completed)
-            })
+            .filter(|idx| self.dag.node_weight(*idx).is_some_and(|n| n.completed))
             .count()
     }
 
@@ -296,11 +292,7 @@ impl Workflow {
     pub fn failed_count(&self) -> usize {
         self.dag
             .node_indices()
-            .filter(|idx| {
-                self.dag
-                    .node_weight(*idx)
-                    .is_some_and(|n| n.failed)
-            })
+            .filter(|idx| self.dag.node_weight(*idx).is_some_and(|n| n.failed))
             .count()
     }
 

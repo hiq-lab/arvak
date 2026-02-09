@@ -213,7 +213,8 @@ impl StateStore for SqliteStore {
         let mut stmt = conn.prepare(&sql)?;
 
         // Convert params to references for query
-        let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(std::convert::AsRef::as_ref).collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(std::convert::AsRef::as_ref).collect();
         let mut rows = stmt.query(params_refs.as_slice())?;
 
         let mut jobs = Vec::new();

@@ -65,9 +65,7 @@ fn main() {
             demo_qec(&args);
         }
         other => {
-            eprintln!(
-                "Unknown protocol: {other}. Use bb84, bbm92, pccm-sweep, qec, or all."
-            );
+            eprintln!("Unknown protocol: {other}. Use bb84, bbm92, pccm-sweep, qec, or all.");
             std::process::exit(1);
         }
     }
@@ -210,10 +208,7 @@ fn demo_pccm_sweep(_args: &Args) {
 
     println!();
     let opt = optimal_symmetric_angle();
-    print_result(
-        "Optimal symmetric angle",
-        format!("θ = π/4 = {opt:.4} rad"),
-    );
+    print_result("Optimal symmetric angle", format!("θ = π/4 = {opt:.4} rad"));
 }
 
 // ============================================================================

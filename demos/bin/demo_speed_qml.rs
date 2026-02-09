@@ -119,9 +119,7 @@ fn main() {
         slow_total_s / 60.0
     );
     println!("  compiling — before any quantum hardware is touched.");
-    println!(
-        "  Arvak compiles the entire training run in {time_o2:.2?}."
-    );
+    println!("  Arvak compiles the entire training run in {time_o2:.2?}.");
 
     println!();
     print_success("QML compilation throughput demo complete!");

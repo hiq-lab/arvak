@@ -68,7 +68,11 @@ fn is_in_basis(gate: &Gate, basis: &crate::property::BasisGates) -> bool {
 }
 
 /// Translate a gate instruction to the target basis.
-#[allow(clippy::similar_names, clippy::cast_possible_truncation, clippy::no_effect_underscore_binding)]
+#[allow(
+    clippy::similar_names,
+    clippy::cast_possible_truncation,
+    clippy::no_effect_underscore_binding
+)]
 fn translate_gate(
     instruction: &Instruction,
     basis: &crate::property::BasisGates,

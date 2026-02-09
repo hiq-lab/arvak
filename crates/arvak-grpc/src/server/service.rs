@@ -10,7 +10,14 @@ use tracing::{error, info, instrument, warn};
 use crate::config::ResourceLimits;
 use crate::error::{Error, Result};
 use crate::metrics::Metrics;
-use crate::proto::{CircuitPayload, circuit_payload, JobState, arvak_service_server, JobStatusUpdate, ResultChunk, BatchJobResult, SubmitJobRequest, SubmitJobResponse, SubmitBatchRequest, SubmitBatchResponse, GetJobStatusRequest, GetJobStatusResponse, Job, WatchJobRequest, StreamResultsRequest, BatchJobSubmission, batch_job_result, JobResult, GetJobResultRequest, GetJobResultResponse, CancelJobRequest, CancelJobResponse, ListBackendsRequest, ListBackendsResponse, BackendInfo, GetBackendInfoRequest, GetBackendInfoResponse};
+use crate::proto::{
+    BackendInfo, BatchJobResult, BatchJobSubmission, CancelJobRequest, CancelJobResponse,
+    CircuitPayload, GetBackendInfoRequest, GetBackendInfoResponse, GetJobResultRequest,
+    GetJobResultResponse, GetJobStatusRequest, GetJobStatusResponse, Job, JobResult, JobState,
+    JobStatusUpdate, ListBackendsRequest, ListBackendsResponse, ResultChunk, StreamResultsRequest,
+    SubmitBatchRequest, SubmitBatchResponse, SubmitJobRequest, SubmitJobResponse, WatchJobRequest,
+    arvak_service_server, batch_job_result, circuit_payload,
+};
 use crate::resource_manager::ResourceManager;
 use crate::server::{BackendRegistry, JobStore};
 

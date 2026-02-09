@@ -380,10 +380,9 @@ fn instruction_to_view(instruction: &Instruction) -> OperationView {
         InstructionKind::Reset => ("reset".to_string(), "|0⟩".to_string()),
         InstructionKind::Barrier => ("barrier".to_string(), "║".to_string()),
         InstructionKind::Delay { duration } => ("delay".to_string(), format!("D({duration})")),
-        InstructionKind::Shuttle { from_zone, to_zone } => (
-            "shuttle".to_string(),
-            format!("S({from_zone}-{to_zone})"),
-        ),
+        InstructionKind::Shuttle { from_zone, to_zone } => {
+            ("shuttle".to_string(), format!("S({from_zone}-{to_zone})"))
+        }
         InstructionKind::NoiseChannel { model, role } => {
             (format!("noise_{role}"), format!("N({})", model.name()))
         }
@@ -412,7 +411,10 @@ fn format_gate_label(gate: &arvak_ir::Gate) -> String {
 
 /// Format a `StandardGate` label with parameters.
 fn format_standard_gate_label(gate: &arvak_ir::StandardGate) -> String {
-    use arvak_ir::StandardGate::{I, X, Y, Z, H, S, Sdg, T, Tdg, SX, SXdg, CX, CY, CZ, CH, Swap, ISwap, CCX, CSwap, Rx, Ry, Rz, P, U, CRx, CRy, CRz, CP, RXX, RYY, RZZ, PRX};
+    use arvak_ir::StandardGate::{
+        CCX, CH, CP, CRx, CRy, CRz, CSwap, CX, CY, CZ, H, I, ISwap, P, PRX, RXX, RYY, RZZ, Rx, Ry,
+        Rz, S, SX, SXdg, Sdg, Swap, T, Tdg, U, X, Y, Z,
+    };
 
     match gate {
         // Simple gates (no parameters)

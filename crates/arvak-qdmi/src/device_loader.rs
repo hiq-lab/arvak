@@ -95,9 +95,7 @@ impl QdmiDevice {
             cause: e.to_string(),
         })?;
 
-        log::info!(
-            "loaded QDMI device library '{path_str}' with prefix '{prefix}'"
-        );
+        log::info!("loaded QDMI device library '{path_str}' with prefix '{prefix}'");
 
         // -- Device lifecycle (required) ----------------------------------------
 
@@ -196,9 +194,7 @@ impl QdmiDevice {
             resolve_optional::<ffi::FnJobFree>(&library, prefix, "QDMI_device_job_free");
 
         if fn_create_device_job.is_none() {
-            log::warn!(
-                "device '{prefix}' does not export job submission functions"
-            );
+            log::warn!("device '{prefix}' does not export job submission functions");
         }
 
         // -- Call device_initialize immediately after loading -------------------
@@ -372,7 +368,10 @@ pub fn scan_directory(
                 }
             }
         } else {
-            log::debug!("no prefix mapping for '{lookup_key}'; skipping {}", path.display());
+            log::debug!(
+                "no prefix mapping for '{lookup_key}'; skipping {}",
+                path.display()
+            );
         }
     }
 

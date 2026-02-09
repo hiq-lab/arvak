@@ -138,9 +138,7 @@ fn main() {
     }
 
     print_section("Demo Narrative");
-    println!(
-        "  This demo simulates finding the ground state energy of {molecule_name}."
-    );
+    println!("  This demo simulates finding the ground state energy of {molecule_name}.");
     println!();
     println!("  In pharmaceutical applications, VQE is used to:");
     println!("  - Compute molecular properties for drug discovery");

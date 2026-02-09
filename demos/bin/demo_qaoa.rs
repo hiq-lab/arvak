@@ -60,10 +60,7 @@ fn main() {
     print_result("Max iterations", args.iterations);
     println!();
     print_result("Optimal cut (exact)", exact_cut);
-    print_result(
-        "Optimal partition",
-        format!("{exact_s:?} | {exact_t:?}"),
-    );
+    print_result("Optimal partition", format!("{exact_s:?} | {exact_t:?}"));
 
     print_section("Max-Cut Problem");
     println!("  The Max-Cut problem: Partition graph nodes into two sets");

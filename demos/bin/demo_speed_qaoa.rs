@@ -149,9 +149,7 @@ fn main() {
         slow_total_s / 60.0
     );
     println!("  to explore the QAOA parameter space across three scenarios.");
-    println!(
-        "  Arvak completes the same sweep in {grand_total_time_o2:.2?} — enabling"
-    );
+    println!("  Arvak completes the same sweep in {grand_total_time_o2:.2?} — enabling");
     println!("  real-time re-optimization as the situation evolves.");
 
     println!();

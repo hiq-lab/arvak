@@ -246,7 +246,10 @@ impl PbsAdapter {
                 .work_dir
                 .join("results")
                 .join(job.id.to_string());
-            let circuit_refs: Vec<&Path> = circuit_files.iter().map(std::path::PathBuf::as_path).collect();
+            let circuit_refs: Vec<&Path> = circuit_files
+                .iter()
+                .map(std::path::PathBuf::as_path)
+                .collect();
             templates::generate_pbs_script_multi(job, &self.config, &circuit_refs, &result_dir)
         };
 

@@ -548,7 +548,15 @@ impl DeviceJob<'_, '_> {
 
         // Phase 1: size probe
         let mut size: usize = 0;
-        let ret = unsafe { get_fn(self.handle, result_type, 0, std::ptr::null_mut(), &raw mut size) };
+        let ret = unsafe {
+            get_fn(
+                self.handle,
+                result_type,
+                0,
+                std::ptr::null_mut(),
+                &raw mut size,
+            )
+        };
         check_qdmi_result(ret)?;
 
         if size == 0 {

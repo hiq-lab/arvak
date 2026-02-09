@@ -459,9 +459,7 @@ impl OidcAuth {
         } else if error_body.contains("slow_down") {
             Err(PollError::SlowDown)
         } else {
-            Err(PollError::Error(format!(
-                "Token poll failed: {error_body}"
-            )))
+            Err(PollError::Error(format!("Token poll failed: {error_body}")))
         }
     }
 

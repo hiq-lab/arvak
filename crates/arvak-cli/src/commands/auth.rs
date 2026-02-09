@@ -52,7 +52,10 @@ pub async fn execute_login(provider: &str, project: Option<&str>) -> Result<()> 
     println!(
         "  Token expires: {}",
         style(
-            chrono::DateTime::from_timestamp(token.expires_at as i64, 0).map_or_else(|| "unknown".to_string(), |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+            chrono::DateTime::from_timestamp(token.expires_at as i64, 0).map_or_else(
+                || "unknown".to_string(),
+                |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
+            )
         )
         .yellow()
     );

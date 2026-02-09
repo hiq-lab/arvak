@@ -759,7 +759,12 @@ pub unsafe fn c_str_to_string(ptr: *const c_char) -> Option<String> {
         return None;
     }
     // SAFETY: Caller must ensure ptr is valid and null-terminated
-    unsafe { CStr::from_ptr(ptr).to_str().ok().map(std::string::ToString::to_string) }
+    unsafe {
+        CStr::from_ptr(ptr)
+            .to_str()
+            .ok()
+            .map(std::string::ToString::to_string)
+    }
 }
 
 /// Result type for QDMI operations.
