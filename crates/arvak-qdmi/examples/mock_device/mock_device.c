@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 
 /* -----------------------------------------------------------------------
  * QDMI v1.2.1 status codes (must match ffi.rs)
@@ -151,8 +152,10 @@ static const int32_t SUPPORTED_FORMATS[] = {
 /* Duration scale factor: 1e-9 (raw values in nanoseconds) */
 static const double DURATION_SCALE_FACTOR = 1e-9;
 
-/* Device initialization reference count (supports concurrent test loads) */
-static int device_init_refcount = 0;
+/* Device initialization reference count (supports concurrent test loads).
+ * Must be atomic because parallel test threads call initialize/finalize
+ * on the same shared library concurrently. */
+static atomic_int device_init_refcount = 0;
 
 /* -----------------------------------------------------------------------
  * Session struct
@@ -216,12 +219,13 @@ static int write_property(
  * ======================================================================= */
 
 int MOCK_QDMI_device_initialize(void) {
-    device_init_refcount++;
+    atomic_fetch_add(&device_init_refcount, 1);
     return QDMI_SUCCESS;
 }
 
 int MOCK_QDMI_device_finalize(void) {
-    if (device_init_refcount > 0) device_init_refcount--;
+    int prev = atomic_fetch_sub(&device_init_refcount, 1);
+    if (prev <= 0) atomic_fetch_add(&device_init_refcount, 1); /* floor at 0 */
     return QDMI_SUCCESS;
 }
 
@@ -231,7 +235,7 @@ int MOCK_QDMI_device_finalize(void) {
 
 int MOCK_QDMI_device_session_alloc(void **session_out) {
     if (!session_out) return QDMI_ERROR_INVALIDARGUMENT;
-    if (device_init_refcount <= 0) return QDMI_ERROR_BADSTATE;
+    if (atomic_load(&device_init_refcount) <= 0) return QDMI_ERROR_BADSTATE;
 
     MockSession *s = (MockSession*)calloc(1, sizeof(MockSession));
     if (!s) return QDMI_ERROR_OUTOFMEM;
