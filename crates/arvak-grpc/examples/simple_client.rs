@@ -7,7 +7,10 @@
 //! 4. Poll for job status
 //! 5. Retrieve results
 
-use arvak_grpc::proto::{arvak_service_client::ArvakServiceClient, ListBackendsRequest, SubmitJobRequest, CircuitPayload, circuit_payload, GetJobStatusRequest, JobState, GetJobResultRequest};
+use arvak_grpc::proto::{
+    CircuitPayload, GetJobResultRequest, GetJobStatusRequest, JobState, ListBackendsRequest,
+    SubmitJobRequest, arvak_service_client::ArvakServiceClient, circuit_payload,
+};
 use tonic::Request;
 
 const BELL_STATE: &str = r"

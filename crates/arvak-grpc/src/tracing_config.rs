@@ -72,11 +72,12 @@ impl TracingConfig {
     pub fn from_env() -> Self {
         let log_level = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
 
-        let format = std::env::var("ARVAK_LOG_FORMAT")
-            .map_or(TracingFormat::Console, |f| match f.as_str() {
-                "json" => TracingFormat::Json,
-                _ => TracingFormat::Console,
-            });
+        let format = std::env::var("ARVAK_LOG_FORMAT").map_or(TracingFormat::Console, |f| match f
+            .as_str()
+        {
+            "json" => TracingFormat::Json,
+            _ => TracingFormat::Console,
+        });
 
         let service_name =
             std::env::var("ARVAK_SERVICE_NAME").unwrap_or_else(|_| "arvak-grpc".to_string());

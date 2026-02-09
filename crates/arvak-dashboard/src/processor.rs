@@ -44,29 +44,33 @@ pub async fn run_job_processor(state: Arc<AppState>) {
             };
             drop(backends);
 
-            let backend = if let Some(b) = backend { b } else {
+            let backend = if let Some(b) = backend {
+                b
+            } else {
                 warn!("No backend available for job {}", job_id);
                 continue;
             };
 
             // Resolve the first circuit
-            let circuit = if let Some(spec) = job.circuits.first() { match spec.resolve() {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("Failed to resolve circuit for job {}: {}", job_id, e);
-                    let _ = store
-                        .update_status(
-                            &job_id,
-                            ScheduledJobStatus::Failed {
-                                reason: format!("Circuit resolve error: {e}"),
-                                slurm_job_id: None,
-                                quantum_job_id: None,
-                            },
-                        )
-                        .await;
-                    continue;
+            let circuit = if let Some(spec) = job.circuits.first() {
+                match spec.resolve() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        error!("Failed to resolve circuit for job {}: {}", job_id, e);
+                        let _ = store
+                            .update_status(
+                                &job_id,
+                                ScheduledJobStatus::Failed {
+                                    reason: format!("Circuit resolve error: {e}"),
+                                    slurm_job_id: None,
+                                    quantum_job_id: None,
+                                },
+                            )
+                            .await;
+                        continue;
+                    }
                 }
-            } } else {
+            } else {
                 error!("Job {} has no circuits", job_id);
                 let _ = store
                     .update_status(

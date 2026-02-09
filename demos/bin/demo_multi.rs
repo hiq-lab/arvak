@@ -54,9 +54,7 @@ fn main() {
                 n_qubits,
                 marked_state,
             } => {
-                format!(
-                    "Grover search: {n_qubits} qubits, searching for |{marked_state}⟩"
-                )
+                format!("Grover search: {n_qubits} qubits, searching for |{marked_state}⟩")
             }
             DemoJob::Vqe { iterations } => {
                 format!("VQE H₂ molecule: {iterations} iterations")

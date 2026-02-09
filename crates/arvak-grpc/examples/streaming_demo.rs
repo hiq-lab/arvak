@@ -8,7 +8,10 @@
 //! Run with: cargo run --example `streaming_demo`
 
 use arvak_grpc::proto::arvak_service_client::ArvakServiceClient;
-use arvak_grpc::proto::{SubmitJobRequest, CircuitPayload, circuit_payload, WatchJobRequest, JobState, StreamResultsRequest, BatchJobSubmission, batch_job_result};
+use arvak_grpc::proto::{
+    BatchJobSubmission, CircuitPayload, JobState, StreamResultsRequest, SubmitJobRequest,
+    WatchJobRequest, batch_job_result, circuit_payload,
+};
 use tonic::Request;
 
 #[tokio::main]
@@ -100,27 +103,27 @@ cx q[0], q[1];
     println!("3. SubmitBatchStream - Real-time batch processing");
 
     let batch_stream = async_stream::stream! {
-        // Submit 3 jobs via the stream
-        for i in 1..=3 {
-            let qasm = r"
+            // Submit 3 jobs via the stream
+            for i in 1..=3 {
+                let qasm = r"
 OPENQASM 3.0;
 qubit[1] q;
 h q[0];
 ".to_string();
 
-            yield BatchJobSubmission {
-                circuit: Some(CircuitPayload {
-                    format: Some(circuit_payload::Format::Qasm3(qasm)),
-                }),
-                backend_id: "simulator".to_string(),
-                shots: 100,
-                client_request_id: format!("batch-job-{i}"),
-            };
+                yield BatchJobSubmission {
+                    circuit: Some(CircuitPayload {
+                        format: Some(circuit_payload::Format::Qasm3(qasm)),
+                    }),
+                    backend_id: "simulator".to_string(),
+                    shots: 100,
+                    client_request_id: format!("batch-job-{i}"),
+                };
 
-            // Small delay between submissions
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
-    };
+                // Small delay between submissions
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            }
+        };
 
     let mut response_stream = client
         .submit_batch_stream(Request::new(batch_stream))
@@ -156,9 +159,7 @@ h q[0];
         }
     }
 
-    println!(
-        "   ✓ Batch complete: {submitted_count} submitted, {completed_count} completed\n"
-    );
+    println!("   ✓ Batch complete: {submitted_count} submitted, {completed_count} completed\n");
 
     println!("=== All Streaming Examples Complete ===");
     Ok(())

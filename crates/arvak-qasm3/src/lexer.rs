@@ -329,7 +329,9 @@ pub fn tokenize(source: &str) -> Vec<Result<SpannedToken, (std::ops::Range<usize
 
     while let Some(result) = lexer.next() {
         let span = lexer.span();
-        if let Ok(token) = result { tokens.push(Ok(SpannedToken { token, span })) } else {
+        if let Ok(token) = result {
+            tokens.push(Ok(SpannedToken { token, span }))
+        } else {
             let slice = &source[span.clone()];
             tokens.push(Err((span, format!("Invalid token: '{slice}'"))));
         }

@@ -261,7 +261,8 @@ impl Backend for IbmBackend {
             "COMPLETED" => JobStatus::Completed,
             "FAILED" | "ERROR" => {
                 let msg = status
-                    .error.map_or_else(|| "Unknown error".to_string(), |e| e.message);
+                    .error
+                    .map_or_else(|| "Unknown error".to_string(), |e| e.message);
                 JobStatus::Failed(msg)
             }
             "CANCELLED" => JobStatus::Cancelled,
@@ -282,7 +283,8 @@ impl Backend for IbmBackend {
         if !status.is_completed() {
             if status.is_failed() {
                 let msg = status
-                    .error.map_or_else(|| "Job failed".to_string(), |e| e.message);
+                    .error
+                    .map_or_else(|| "Job failed".to_string(), |e| e.message);
                 return Err(HalError::JobFailed(msg));
             }
             if status.is_cancelled() {

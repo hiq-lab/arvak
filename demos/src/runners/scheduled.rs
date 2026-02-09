@@ -57,13 +57,10 @@ impl ScheduledRunner {
         let requirements = ResourceRequirements::new(n_qubits as u32);
 
         // Create and submit the job
-        let job = ScheduledJob::new(
-            format!("grover_{n_qubits}q_search_{marked_state}"),
-            spec,
-        )
-        .with_priority(priority)
-        .with_shots(1024)
-        .with_requirements(requirements);
+        let job = ScheduledJob::new(format!("grover_{n_qubits}q_search_{marked_state}"), spec)
+            .with_priority(priority)
+            .with_shots(1024)
+            .with_requirements(requirements);
 
         self.scheduler.submit(job).await
     }
@@ -135,7 +132,11 @@ impl ScheduledRunner {
             })
             .collect();
 
-        let n_qubits = circuits.iter().map(arvak_ir::Circuit::num_qubits).max().unwrap_or(2) as u32;
+        let n_qubits = circuits
+            .iter()
+            .map(arvak_ir::Circuit::num_qubits)
+            .max()
+            .unwrap_or(2) as u32;
         let requirements = ResourceRequirements::new(n_qubits);
 
         self.scheduler
