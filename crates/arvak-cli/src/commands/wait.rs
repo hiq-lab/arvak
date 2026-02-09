@@ -15,7 +15,7 @@ pub async fn execute(job_id: &str, timeout: u64) -> Result<()> {
     let scheduler = create_scheduler()?;
 
     let parsed_id = ScheduledJobId::parse(job_id)
-        .map_err(|e| anyhow::anyhow!("Invalid job ID '{}': {}", job_id, e))?;
+        .map_err(|e| anyhow::anyhow!("Invalid job ID '{job_id}': {e}"))?;
 
     println!(
         "{} Waiting for job {} (timeout: {}s)",
@@ -40,7 +40,7 @@ pub async fn execute(job_id: &str, timeout: u64) -> Result<()> {
         let status = scheduler
             .status(&parsed_id)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to get status: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to get status: {e}"))?;
 
         spinner.set_message(format!("Status: {} ...", status.name()));
 
@@ -51,7 +51,7 @@ pub async fn execute(job_id: &str, timeout: u64) -> Result<()> {
                 let result = scheduler
                     .result(&parsed_id)
                     .await
-                    .map_err(|e| anyhow::anyhow!("Failed to get result: {}", e))?;
+                    .map_err(|e| anyhow::anyhow!("Failed to get result: {e}"))?;
                 print_results(&result);
             } else {
                 println!(

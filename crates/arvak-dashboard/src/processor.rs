@@ -44,40 +44,21 @@ pub async fn run_job_processor(state: Arc<AppState>) {
             };
             drop(backends);
 
-            let backend = match backend {
-                Some(b) => b,
-                None => {
-                    warn!("No backend available for job {}", job_id);
-                    continue;
-                }
+            let backend = if let Some(b) = backend { b } else {
+                warn!("No backend available for job {}", job_id);
+                continue;
             };
 
             // Resolve the first circuit
-            let circuit = match job.circuits.first() {
-                Some(spec) => match spec.resolve() {
-                    Ok(c) => c,
-                    Err(e) => {
-                        error!("Failed to resolve circuit for job {}: {}", job_id, e);
-                        let _ = store
-                            .update_status(
-                                &job_id,
-                                ScheduledJobStatus::Failed {
-                                    reason: format!("Circuit resolve error: {}", e),
-                                    slurm_job_id: None,
-                                    quantum_job_id: None,
-                                },
-                            )
-                            .await;
-                        continue;
-                    }
-                },
-                None => {
-                    error!("Job {} has no circuits", job_id);
+            let circuit = if let Some(spec) = job.circuits.first() { match spec.resolve() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to resolve circuit for job {}: {}", job_id, e);
                     let _ = store
                         .update_status(
                             &job_id,
                             ScheduledJobStatus::Failed {
-                                reason: "Job has no circuits".to_string(),
+                                reason: format!("Circuit resolve error: {e}"),
                                 slurm_job_id: None,
                                 quantum_job_id: None,
                             },
@@ -85,6 +66,19 @@ pub async fn run_job_processor(state: Arc<AppState>) {
                         .await;
                     continue;
                 }
+            } } else {
+                error!("Job {} has no circuits", job_id);
+                let _ = store
+                    .update_status(
+                        &job_id,
+                        ScheduledJobStatus::Failed {
+                            reason: "Job has no circuits".to_string(),
+                            slurm_job_id: None,
+                            quantum_job_id: None,
+                        },
+                    )
+                    .await;
+                continue;
             };
 
             // Submit to backend
@@ -96,7 +90,7 @@ pub async fn run_job_processor(state: Arc<AppState>) {
                         .update_status(
                             &job_id,
                             ScheduledJobStatus::Failed {
-                                reason: format!("Backend submit error: {}", e),
+                                reason: format!("Backend submit error: {e}"),
                                 slurm_job_id: None,
                                 quantum_job_id: None,
                             },
@@ -143,7 +137,7 @@ pub async fn run_job_processor(state: Arc<AppState>) {
                         .update_status(
                             &job_id,
                             ScheduledJobStatus::Failed {
-                                reason: format!("Backend result error: {}", e),
+                                reason: format!("Backend result error: {e}"),
                                 slurm_job_id: Some(slurm_job_id),
                                 quantum_job_id: Some(quantum_job_id),
                             },

@@ -55,18 +55,17 @@ fn main() {
                 marked_state,
             } => {
                 format!(
-                    "Grover search: {} qubits, searching for |{}⟩",
-                    n_qubits, marked_state
+                    "Grover search: {n_qubits} qubits, searching for |{marked_state}⟩"
                 )
             }
             DemoJob::Vqe { iterations } => {
-                format!("VQE H₂ molecule: {} iterations", iterations)
+                format!("VQE H₂ molecule: {iterations} iterations")
             }
             DemoJob::Qaoa { layers } => {
-                format!("QAOA Max-Cut: {} layers", layers)
+                format!("QAOA Max-Cut: {layers} layers")
             }
             DemoJob::Batch { count } => {
-                format!("Batch execution: {} circuits", count)
+                format!("Batch execution: {count} circuits")
             }
         };
         println!("  [{}] {}", i + 1, desc);
@@ -104,7 +103,7 @@ fn main() {
 
     // Calculate average job time
     let avg_time = result.total_duration / result.jobs.len() as u32;
-    print_result("Average job time", format!("{:.2?}", avg_time));
+    print_result("Average job time", format!("{avg_time:.2?}"));
 
     print_section("Demo Narrative");
     println!("  This orchestration demo shows Arvak managing:");

@@ -1,10 +1,10 @@
-//! Parser for OpenQASM 3.
+//! Parser for `OpenQASM` 3.
 
 use std::collections::HashMap;
 
 use arvak_ir::{Circuit, ClbitId, ParameterExpression, QubitId};
 
-use crate::ast::*;
+use crate::ast::{Program, Statement, Range, BitRef, GateCall, QubitRef, Expression, BinOp};
 use crate::error::{ParseError, ParseResult};
 use crate::lexer::{SpannedToken, Token, tokenize};
 
@@ -29,6 +29,13 @@ struct Parser {
     line: usize,
 }
 
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::unnecessary_wraps,
+    clippy::unused_self,
+    clippy::only_used_in_recursion
+)]
 impl Parser {
     /// Create a new parser from source.
     fn new(source: &str) -> ParseResult<Self> {
@@ -75,10 +82,11 @@ impl Parser {
     }
 
     /// Expect a specific token.
+    #[allow(clippy::needless_pass_by_value)]
     fn expect(&mut self, expected: Token) -> ParseResult<()> {
         let found = self
             .advance()
-            .ok_or_else(|| ParseError::UnexpectedEof(format!("expected {}", expected)))?;
+            .ok_or_else(|| ParseError::UnexpectedEof(format!("expected {expected}")))?;
 
         if std::mem::discriminant(&found) != std::mem::discriminant(&expected) {
             return Err(ParseError::UnexpectedToken {
@@ -128,8 +136,8 @@ impl Parser {
     /// Parse version number.
     fn parse_version(&mut self) -> ParseResult<String> {
         match self.advance() {
-            Some(Token::FloatLiteral(v)) => Ok(format!("{}", v)),
-            Some(Token::IntLiteral(v)) => Ok(format!("{}.0", v)),
+            Some(Token::FloatLiteral(v)) => Ok(format!("{v}")),
+            Some(Token::IntLiteral(v)) => Ok(format!("{v}.0")),
             Some(other) => Err(ParseError::InvalidVersion(other.to_string())),
             None => Err(ParseError::UnexpectedEof("version number".into())),
         }
@@ -245,10 +253,10 @@ impl Parser {
     /// Parse barrier statement.
     fn parse_barrier(&mut self) -> ParseResult<Statement> {
         self.expect(Token::Barrier)?;
-        let qubits = if !self.check(&Token::Semicolon) {
-            self.parse_qubit_refs()?
-        } else {
+        let qubits = if self.check(&Token::Semicolon) {
             vec![]
+        } else {
+            self.parse_qubit_refs()?
         };
         self.expect(Token::Semicolon)?;
         Ok(Statement::Barrier { qubits })
@@ -674,9 +682,9 @@ fn lower_to_circuit(program: &Program) -> ParseResult<Circuit> {
 
 /// Lowers AST to Circuit.
 struct Lowerer {
-    /// Qubit registers: name -> (start_id, size).
+    /// Qubit registers: name -> (`start_id`, size).
     qregs: HashMap<String, (u32, u32)>,
-    /// Classical bit registers: name -> (start_id, size).
+    /// Classical bit registers: name -> (`start_id`, size).
     cregs: HashMap<String, (u32, u32)>,
     /// Next qubit ID.
     next_qubit: u32,
@@ -684,6 +692,12 @@ struct Lowerer {
     next_clbit: u32,
 }
 
+#[allow(
+    clippy::too_many_lines,
+    clippy::match_same_arms,
+    clippy::unused_self,
+    clippy::unnecessary_wraps
+)]
 impl Lowerer {
     fn new() -> Self {
         Self {
@@ -1111,7 +1125,8 @@ impl Lowerer {
     }
 }
 
-/// Convert AST expression to ParameterExpression.
+/// Convert AST expression to `ParameterExpression`.
+#[allow(clippy::cast_precision_loss)]
 fn expr_to_param(expr: &Expression) -> ParseResult<ParameterExpression> {
     Ok(match expr {
         Expression::Int(v) => ParameterExpression::Constant(*v as f64),
@@ -1131,8 +1146,7 @@ fn expr_to_param(expr: &Expression) -> ParseResult<ParameterExpression> {
                 BinOp::Div => ParameterExpression::Div(l, r),
                 _ => {
                     return Err(ParseError::Generic(format!(
-                        "Unsupported operator in parameter: {:?}",
-                        op
+                        "Unsupported operator in parameter: {op:?}"
                     )));
                 }
             }
@@ -1147,20 +1161,18 @@ fn expr_to_param(expr: &Expression) -> ParseResult<ParameterExpression> {
                         ParameterExpression::Constant(v)
                     } else {
                         return Err(ParseError::Generic(format!(
-                            "Cannot evaluate function {} with symbolic arguments",
-                            name
+                            "Cannot evaluate function {name} with symbolic arguments"
                         )));
                     }
                 }
                 _ => {
-                    return Err(ParseError::Generic(format!("Unknown function: {}", name)));
+                    return Err(ParseError::Generic(format!("Unknown function: {name}")));
                 }
             }
         }
         _ => {
             return Err(ParseError::Generic(format!(
-                "Cannot convert expression to parameter: {:?}",
-                expr
+                "Cannot convert expression to parameter: {expr:?}"
             )));
         }
     })
@@ -1171,26 +1183,26 @@ fn check_param_count(
     params: &[ParameterExpression],
     expected: usize,
 ) -> ParseResult<()> {
-    if params.len() != expected {
+    if params.len() == expected {
+        Ok(())
+    } else {
         Err(ParseError::WrongParameterCount {
             gate: gate.into(),
             expected,
             got: params.len(),
         })
-    } else {
-        Ok(())
     }
 }
 
 fn check_qubit_count(gate: &str, qubits: &[QubitId], expected: usize) -> ParseResult<()> {
-    if qubits.len() != expected {
+    if qubits.len() == expected {
+        Ok(())
+    } else {
         Err(ParseError::WrongQubitCount {
             gate: gate.into(),
             expected,
             got: qubits.len(),
         })
-    } else {
-        Ok(())
     }
 }
 
@@ -1200,14 +1212,14 @@ mod tests {
 
     #[test]
     fn test_parse_bell_state() {
-        let source = r#"
+        let source = r"
             OPENQASM 3.0;
             qubit[2] q;
             bit[2] c;
             h q[0];
             cx q[0], q[1];
             c = measure q;
-        "#;
+        ";
 
         let circuit = parse(source).unwrap();
         assert_eq!(circuit.num_qubits(), 2);
@@ -1216,7 +1228,7 @@ mod tests {
 
     #[test]
     fn test_parse_ghz() {
-        let source = r#"
+        let source = r"
             OPENQASM 3.0;
             qubit[3] q;
             bit[3] c;
@@ -1224,7 +1236,7 @@ mod tests {
             cx q[0], q[1];
             cx q[1], q[2];
             c = measure q;
-        "#;
+        ";
 
         let circuit = parse(source).unwrap();
         assert_eq!(circuit.num_qubits(), 3);
@@ -1232,13 +1244,13 @@ mod tests {
 
     #[test]
     fn test_parse_parameterized() {
-        let source = r#"
+        let source = r"
             OPENQASM 3.0;
             qubit q;
             rx(pi/2) q;
             ry(pi/4) q;
             rz(0.5) q;
-        "#;
+        ";
 
         let circuit = parse(source).unwrap();
         assert_eq!(circuit.num_qubits(), 1);
@@ -1247,14 +1259,14 @@ mod tests {
 
     #[test]
     fn test_parse_multiple_registers() {
-        let source = r#"
+        let source = r"
             OPENQASM 3.0;
             qubit[2] q1;
             qubit[2] q2;
             bit[4] c;
             h q1[0];
             cx q1[0], q2[0];
-        "#;
+        ";
 
         let circuit = parse(source).unwrap();
         assert_eq!(circuit.num_qubits(), 4);
@@ -1262,10 +1274,10 @@ mod tests {
 
     #[test]
     fn test_parse_error_undefined() {
-        let source = r#"
+        let source = r"
             OPENQASM 3.0;
             h undefined[0];
-        "#;
+        ";
 
         let result = parse(source);
         assert!(result.is_err());

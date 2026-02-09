@@ -66,8 +66,7 @@ fn main() {
         }
         other => {
             eprintln!(
-                "Unknown protocol: {}. Use bb84, bbm92, pccm-sweep, qec, or all.",
-                other
+                "Unknown protocol: {other}. Use bb84, bbm92, pccm-sweep, qec, or all."
             );
             std::process::exit(1);
         }
@@ -111,8 +110,8 @@ fn demo_bb84(args: &Args) {
     let (f_ab, f_ae) = pccm_fidelities(theta);
     print_result("Scenario 3", format!("PCCM attack, θ = {:.2}π", args.theta));
     print_circuit_stats(&attacked);
-    print_result("  F(Alice→Bob)", format!("{:.4}", f_ab));
-    print_result("  F(Alice→Eve)", format!("{:.4}", f_ae));
+    print_result("  F(Alice→Bob)", format!("{f_ab:.4}"));
+    print_result("  F(Alice→Eve)", format!("{f_ae:.4}"));
     print_result("  QBER", format!("{:.1}%", pccm_qber(theta) * 100.0));
 
     // Scenario 4: Variational PCCM (symbolic parameter)
@@ -182,7 +181,7 @@ fn demo_pccm_sweep(_args: &Args) {
 
     let steps = 9;
     for i in 0..=steps {
-        let theta_frac = i as f64 / (2 * steps) as f64; // 0 to 0.5
+        let theta_frac = f64::from(i) / f64::from(2 * steps); // 0 to 0.5
         let theta = theta_frac * PI;
         let (f_ab, f_ae) = pccm_fidelities(theta);
         let qber = pccm_qber(theta);
@@ -213,7 +212,7 @@ fn demo_pccm_sweep(_args: &Args) {
     let opt = optimal_symmetric_angle();
     print_result(
         "Optimal symmetric angle",
-        format!("θ = π/4 = {:.4} rad", opt),
+        format!("θ = π/4 = {opt:.4} rad"),
     );
 }
 
@@ -264,15 +263,15 @@ fn print_circuit_stats(circuit: &Circuit) {
 }
 
 fn print_qasm(label: &str, circuit: &Circuit) {
-    print_section(&format!("QASM3 Output: {}", label));
+    print_section(&format!("QASM3 Output: {label}"));
     match emit(circuit) {
-        Ok(qasm) => println!("{}", qasm),
-        Err(e) => eprintln!("  Error generating QASM: {}", e),
+        Ok(qasm) => println!("{qasm}"),
+        Err(e) => eprintln!("  Error generating QASM: {e}"),
     }
 }
 
 fn compile_and_report(label: &str, circuit: Circuit, opt_level: u8) {
-    print_section(&format!("Compilation: {} → Ion-Trap Native", label));
+    print_section(&format!("Compilation: {label} → Ion-Trap Native"));
 
     let pre_depth = circuit.depth();
     let pre_gates = circuit.dag().num_ops();
@@ -298,25 +297,25 @@ fn compile_and_report(label: &str, circuit: Circuit, opt_level: u8) {
 
             print_result(
                 "Pre-compilation",
-                format!("depth={}, gates={}", pre_depth, pre_gates),
+                format!("depth={pre_depth}, gates={pre_gates}"),
             );
             print_result(
                 "Post-compilation",
-                format!("depth={}, gates={}", post_depth, post_gates),
+                format!("depth={post_depth}, gates={post_gates}"),
             );
-            print_result("Compile time", format!("{:.2?}", compile_time));
+            print_result("Compile time", format!("{compile_time:.2?}"));
             print_result("Optimization level", opt_level);
             print_result("Target basis", "CZ + PRX (ion-trap native)");
-            print_result("Topology", format!("linear chain, {} qubits", num_qubits));
+            print_result("Topology", format!("linear chain, {num_qubits} qubits"));
 
             if post_gates > 0 && pre_gates > 0 {
                 let ratio = post_gates as f64 / pre_gates as f64;
-                print_result("Gate expansion", format!("{:.2}×", ratio));
+                print_result("Gate expansion", format!("{ratio:.2}×"));
             }
 
             if compile_time.as_nanos() > 0 && post_gates > 0 {
                 let gates_per_sec = post_gates as f64 / compile_time.as_secs_f64();
-                print_result("Throughput", format!("{:.0} gates/s", gates_per_sec));
+                print_result("Throughput", format!("{gates_per_sec:.0} gates/s"));
             }
 
             // Emit compiled QASM
@@ -325,11 +324,11 @@ fn compile_and_report(label: &str, circuit: Circuit, opt_level: u8) {
                     let lines: Vec<_> = qasm.lines().collect();
                     print_result("Compiled QASM3", format!("{} lines", lines.len()));
                 }
-                Err(e) => print_result("QASM emit", format!("error: {}", e)),
+                Err(e) => print_result("QASM emit", format!("error: {e}")),
             }
         }
         Err(e) => {
-            eprintln!("  Compilation error: {}", e);
+            eprintln!("  Compilation error: {e}");
         }
     }
 }

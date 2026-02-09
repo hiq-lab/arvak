@@ -119,7 +119,7 @@ impl ContractChecker {
                     (
                         "shuttle".into(),
                         tag,
-                        format!("Shuttle requires shuttling capability"),
+                        "Shuttle requires shuttling capability".to_string(),
                     )
                 }
                 InstructionKind::NoiseChannel { model, role } => {
@@ -360,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_contract_noise_channels() {
-        use arvak_ir::noise::{NoiseModel, NoiseProfile};
+        use arvak_ir::noise::NoiseModel;
 
         let mut circuit = Circuit::with_size("test", 2, 0);
         circuit.h(QubitId(0)).unwrap();

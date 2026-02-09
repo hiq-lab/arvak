@@ -26,9 +26,8 @@ pub async fn list_backends(
             name: name.clone(),
             is_simulator: capabilities
                 .as_ref()
-                .map(|c| c.is_simulator)
-                .unwrap_or(false),
-            num_qubits: capabilities.as_ref().map(|c| c.num_qubits).unwrap_or(0),
+                .is_some_and(|c| c.is_simulator),
+            num_qubits: capabilities.as_ref().map_or(0, |c| c.num_qubits),
             available,
             native_gates: capabilities
                 .as_ref()
@@ -48,7 +47,7 @@ pub async fn get_backend(
     let backends = state.backends.read().await;
     let backend = backends
         .get(&name)
-        .ok_or_else(|| ApiError::NotFound(format!("Backend '{}' not found", name)))?;
+        .ok_or_else(|| ApiError::NotFound(format!("Backend '{name}' not found")))?;
 
     let available = backend.is_available().await.unwrap_or(false);
     let capabilities = backend

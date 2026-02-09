@@ -174,7 +174,7 @@ impl CudaqClient {
 pub struct SubmitRequest {
     /// Target backend or simulator.
     pub target: String,
-    /// Circuit program (OpenQASM 3 or QIR).
+    /// Circuit program (`OpenQASM` 3 or QIR).
     pub program: String,
     /// Program format.
     pub format: ProgramFormat,
@@ -228,7 +228,7 @@ pub enum ProgramFormat {
 /// Execution options.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionOptions {
-    /// Noise model name (e.g., "depolarizing", "amplitude_damping").
+    /// Noise model name (e.g., "depolarizing", "`amplitude_damping`").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub noise_model: Option<String>,
     /// Seed for deterministic simulation.

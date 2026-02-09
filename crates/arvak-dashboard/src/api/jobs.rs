@@ -64,13 +64,13 @@ pub async fn get_job(
         .ok_or_else(|| ApiError::Internal("No job store configured".to_string()))?;
 
     let job_id = ScheduledJobId::parse(&id)
-        .map_err(|_| ApiError::BadRequest(format!("Invalid job ID: {}", id)))?;
+        .map_err(|_| ApiError::BadRequest(format!("Invalid job ID: {id}")))?;
 
     let job = store
         .load_job(&job_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
-        .ok_or_else(|| ApiError::NotFound(format!("Job not found: {}", id)))?;
+        .ok_or_else(|| ApiError::NotFound(format!("Job not found: {id}")))?;
 
     Ok(Json(job_to_details(&job)))
 }
@@ -121,14 +121,14 @@ pub async fn delete_job(
         .ok_or_else(|| ApiError::Internal("No job store configured".to_string()))?;
 
     let job_id = ScheduledJobId::parse(&id)
-        .map_err(|_| ApiError::BadRequest(format!("Invalid job ID: {}", id)))?;
+        .map_err(|_| ApiError::BadRequest(format!("Invalid job ID: {id}")))?;
 
     // Load the job to check if it exists
     let job = store
         .load_job(&job_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
-        .ok_or_else(|| ApiError::NotFound(format!("Job not found: {}", id)))?;
+        .ok_or_else(|| ApiError::NotFound(format!("Job not found: {id}")))?;
 
     // If not terminal, cancel it first
     if !job.status.is_terminal() {
@@ -161,14 +161,14 @@ pub async fn get_job_result(
         .ok_or_else(|| ApiError::Internal("No job store configured".to_string()))?;
 
     let job_id = ScheduledJobId::parse(&id)
-        .map_err(|_| ApiError::BadRequest(format!("Invalid job ID: {}", id)))?;
+        .map_err(|_| ApiError::BadRequest(format!("Invalid job ID: {id}")))?;
 
     // Check job exists and is completed
     let job = store
         .load_job(&job_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
-        .ok_or_else(|| ApiError::NotFound(format!("Job not found: {}", id)))?;
+        .ok_or_else(|| ApiError::NotFound(format!("Job not found: {id}")))?;
 
     if !job.status.is_terminal() {
         return Err(ApiError::BadRequest(
@@ -181,7 +181,7 @@ pub async fn get_job_result(
         .load_result(&job_id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
-        .ok_or_else(|| ApiError::NotFound(format!("No result found for job: {}", id)))?;
+        .ok_or_else(|| ApiError::NotFound(format!("No result found for job: {id}")))?;
 
     // Convert to histogram
     let histogram = result_to_histogram(&id, &result);
@@ -197,7 +197,7 @@ fn job_to_summary(job: ScheduledJob) -> JobSummary {
     let status_details = match &job.status {
         ScheduledJobStatus::SlurmQueued { slurm_job_id }
         | ScheduledJobStatus::SlurmRunning { slurm_job_id } => {
-            Some(format!("SLURM: {}", slurm_job_id))
+            Some(format!("SLURM: {slurm_job_id}"))
         }
         ScheduledJobStatus::QuantumSubmitted { quantum_job_id, .. }
         | ScheduledJobStatus::QuantumRunning { quantum_job_id, .. } => {
@@ -226,7 +226,7 @@ fn job_to_details(job: &ScheduledJob) -> JobDetails {
     let status_details = match &job.status {
         ScheduledJobStatus::SlurmQueued { slurm_job_id }
         | ScheduledJobStatus::SlurmRunning { slurm_job_id } => {
-            Some(format!("SLURM: {}", slurm_job_id))
+            Some(format!("SLURM: {slurm_job_id}"))
         }
         ScheduledJobStatus::QuantumSubmitted { quantum_job_id, .. }
         | ScheduledJobStatus::QuantumRunning { quantum_job_id, .. } => {
@@ -268,7 +268,7 @@ fn result_to_histogram(job_id: &str, result: &arvak_hal::ExecutionResult) -> Res
         .counts
         .iter()
         .map(|(bitstring, &count)| {
-            let probability = count as f64 / result.shots as f64;
+            let probability = count as f64 / f64::from(result.shots);
             HistogramBar {
                 bitstring: bitstring.clone(),
                 count,

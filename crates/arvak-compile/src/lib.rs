@@ -68,7 +68,7 @@
 //!
 //! ## Layout Passes
 //! - [`passes::TrivialLayout`]: Simple 1:1 mapping of virtual to physical qubits
-//! - [`passes::DenseLayout`]: Pack qubits into well-connected region
+//! - `passes::DenseLayout` (planned): Pack qubits into well-connected region
 //!
 //! ## Routing Passes
 //! - [`passes::BasicRouting`]: Greedy SWAP insertion for connectivity

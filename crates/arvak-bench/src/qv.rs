@@ -4,7 +4,7 @@
 //! computer. It generates random SU(4) circuits of width w and depth w,
 //! then checks if the heavy output probability exceeds 2/3.
 //!
-//! QV = 2^(max_width where heavy output probability > 2/3)
+//! QV = `2^(max_width` where heavy output probability > 2/3)
 
 use rand::{Rng, SeedableRng};
 use std::f64::consts::PI;
@@ -120,8 +120,8 @@ pub fn heavy_output_probability(
 pub fn qv_result(achieved_width: u32, total_trials: u32) -> BenchmarkResult {
     let qv = 1u64 << achieved_width;
     BenchmarkResult::new("quantum_volume", qv as f64, "QV")
-        .with_metric("achieved_width", achieved_width as u64)
-        .with_metric("total_trials", total_trials as u64)
+        .with_metric("achieved_width", u64::from(achieved_width))
+        .with_metric("total_trials", u64::from(total_trials))
 }
 
 #[cfg(test)]

@@ -22,7 +22,7 @@
 //!
 //! - **Multi-Scheduler**: Unified API for SLURM and PBS
 //! - **Workflows**: DAG-based job dependencies for complex pipelines
-//! - **Persistence**: JSON or SQLite storage for job state
+//! - **Persistence**: JSON or `SQLite` storage for job state
 //! - **Batch Jobs**: Submit multiple circuits as array jobs
 //! - **Resource Matching**: Automatic backend selection based on circuit requirements
 //!

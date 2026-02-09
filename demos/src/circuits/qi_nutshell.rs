@@ -171,7 +171,7 @@ pub fn bb84_circuit(bit: bool, alice_basis: Basis, bob_basis: Basis, eve: &EveSt
 /// Build a full BB84 key exchange for `n` rounds.
 ///
 /// Each round uses independently random bases for Alice and Bob.
-/// Returns the circuit plus the list of (alice_basis, bob_basis) pairs
+/// Returns the circuit plus the list of (`alice_basis`, `bob_basis`) pairs
 /// for sifting in classical post-processing.
 pub fn bb84_multi_round(
     key_bits: &[bool],
@@ -495,30 +495,30 @@ pub fn bb84_qec_circuit(
 
 /// Compute theoretical PCCM fidelities for a given attack angle.
 ///
-/// Returns (F_AB, F_AE) where:
-/// - F_AB = fidelity of Bob's state with Alice's original
-/// - F_AE = fidelity of Eve's clone with Alice's original
+/// Returns (`F_AB`, `F_AE`) where:
+/// - `F_AB` = fidelity of Bob's state with Alice's original
+/// - `F_AE` = fidelity of Eve's clone with Alice's original
 pub fn pccm_fidelities(theta: f64) -> (f64, f64) {
     let cos_t = theta.cos();
     let sin_t = theta.sin();
 
     // From QI-Nutshell paper: equatorial qubit cloning fidelities
-    let f_ab = (1.0 + cos_t) / 2.0;
-    let f_ae = (1.0 + sin_t) / 2.0;
+    let f_ab = f64::midpoint(1.0, cos_t);
+    let f_ae = f64::midpoint(1.0, sin_t);
 
     (f_ab, f_ae)
 }
 
 /// Find the optimal symmetric PCCM attack angle.
 ///
-/// At the symmetric point, F_AB = F_AE, which occurs at θ = π/4.
+/// At the symmetric point, `F_AB` = `F_AE`, which occurs at θ = π/4.
 pub fn optimal_symmetric_angle() -> f64 {
     PI / 4.0
 }
 
 /// QBER (Quantum Bit Error Rate) estimate for a given PCCM angle.
 ///
-/// When Alice and Bob use matching bases, QBER = 1 - F_AB.
+/// When Alice and Bob use matching bases, QBER = 1 - `F_AB`.
 pub fn pccm_qber(theta: f64) -> f64 {
     let (f_ab, _) = pccm_fidelities(theta);
     1.0 - f_ab

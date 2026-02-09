@@ -91,7 +91,7 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
                 marked_state,
             } => {
                 if let Some(ref pb) = pb {
-                    pb.set_message(format!("Grover search ({} qubits)", n_qubits));
+                    pb.set_message(format!("Grover search ({n_qubits} qubits)"));
                 }
 
                 let iterations = optimal_iterations(*n_qubits);
@@ -103,12 +103,11 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
                 }
 
                 DemoJobResult {
-                    name: format!("grover_{}", i),
+                    name: format!("grover_{i}"),
                     job_type: "Grover".to_string(),
                     duration: job_start.elapsed(),
                     summary: format!(
-                        "Searched for |{}⟩ in {} qubits ({} iterations)",
-                        marked_state, n_qubits, iterations
+                        "Searched for |{marked_state}⟩ in {n_qubits} qubits ({iterations} iterations)"
                     ),
                     success: true,
                 }
@@ -138,7 +137,7 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
                 }
 
                 DemoJobResult {
-                    name: format!("vqe_{}", i),
+                    name: format!("vqe_{i}"),
                     job_type: "VQE".to_string(),
                     duration: job_start.elapsed(),
                     summary: format!(
@@ -176,7 +175,7 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
                     Graph::square_4().bitstring_to_partition(result.best_bitstring);
 
                 DemoJobResult {
-                    name: format!("qaoa_{}", i),
+                    name: format!("qaoa_{i}"),
                     job_type: "QAOA".to_string(),
                     duration: job_start.elapsed(),
                     summary: format!(
@@ -210,10 +209,10 @@ pub fn run_multi_demo(jobs: &[DemoJob], show_progress: bool) -> MultiDemoResult 
                 }
 
                 DemoJobResult {
-                    name: format!("batch_{}", i),
+                    name: format!("batch_{i}"),
                     job_type: "Batch".to_string(),
                     duration: job_start.elapsed(),
-                    summary: format!("{} Bell state circuits executed", count),
+                    summary: format!("{count} Bell state circuits executed"),
                     success: true,
                 }
             }

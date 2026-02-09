@@ -53,6 +53,7 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
     pub const TOTAL_QUBITS: usize = 1 + M + E; // sign + mantissa + exponent
 
     /// Create a new quantum float, allocating qubits from the circuit.
+    #[allow(clippy::cast_possible_truncation)]
     pub fn new(circuit: &mut Circuit) -> Self {
         let start = circuit.num_qubits();
         let total = start + Self::TOTAL_QUBITS;
@@ -206,7 +207,8 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
         Ok(())
     }
 
-    /// Encode a classical float as (mantissa_bits, exponent_bits).
+    /// Encode a classical float as (`mantissa_bits`, `exponent_bits`).
+    #[allow(clippy::cast_possible_truncation, clippy::unreadable_literal, clippy::cast_sign_loss)]
     fn encode_float(&self, value: f64) -> TypeResult<(u64, u64)> {
         if value == 0.0 {
             return Ok((0, 0));

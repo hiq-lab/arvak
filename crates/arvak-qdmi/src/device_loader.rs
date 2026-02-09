@@ -84,6 +84,7 @@ impl QdmiDevice {
     ///
     /// Returns [`QdmiError::LoadFailed`] if `dlopen` fails, or
     /// [`QdmiError::SymbolNotFound`] if a required symbol cannot be resolved.
+    #[allow(clippy::too_many_lines)]
     pub fn load(path: &Path, prefix: &str) -> Result<Self> {
         let path_str = path.display().to_string();
 
@@ -95,9 +96,7 @@ impl QdmiDevice {
         })?;
 
         log::info!(
-            "loaded QDMI device library '{}' with prefix '{}'",
-            path_str,
-            prefix
+            "loaded QDMI device library '{path_str}' with prefix '{prefix}'"
         );
 
         // -- Device lifecycle (required) ----------------------------------------
@@ -198,8 +197,7 @@ impl QdmiDevice {
 
         if fn_create_device_job.is_none() {
             log::warn!(
-                "device '{}' does not export job submission functions",
-                prefix
+                "device '{prefix}' does not export job submission functions"
             );
         }
 
@@ -208,12 +206,11 @@ impl QdmiDevice {
         let ret = unsafe { fn_device_initialize() };
         if !ffi::is_success(ret) {
             return Err(QdmiError::SessionError(format!(
-                "device_initialize failed for '{}' (code {})",
-                prefix, ret
+                "device_initialize failed for '{prefix}' (code {ret})"
             )));
         }
 
-        log::debug!("device '{}' initialized successfully", prefix);
+        log::debug!("device '{prefix}' initialized successfully");
 
         Ok(Self {
             _library: library,
@@ -259,25 +256,26 @@ impl QdmiDevice {
 impl Drop for QdmiDevice {
     fn drop(&mut self) {
         let ret = unsafe { (self.fn_device_finalize)() };
-        if !ffi::is_success(ret) {
+        if ffi::is_success(ret) {
+            log::debug!("device '{}' finalized", self.prefix);
+        } else {
             log::error!(
                 "device_finalize failed for '{}' (code {})",
                 self.prefix,
                 ret
             );
-        } else {
-            log::debug!("device '{}' finalized", self.prefix);
         }
     }
 }
 
+#[allow(clippy::missing_fields_in_debug)]
 impl std::fmt::Debug for QdmiDevice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QdmiDevice")
             .field("prefix", &self.prefix)
             .field("library_path", &self.library_path)
             .field("supports_jobs", &self.supports_jobs())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -298,7 +296,7 @@ fn resolve_required<T: Copy>(
     _lib_path: &str,
 ) -> Result<T> {
     let sym_name = prefixed_symbol(prefix, base_name);
-    log::trace!("resolving required symbol '{}'", sym_name);
+    log::trace!("resolving required symbol '{sym_name}'");
 
     // SAFETY: The caller guarantees the type `T` matches the actual function
     // signature exported by the library. This is the core FFI contract.
@@ -317,7 +315,7 @@ fn resolve_required<T: Copy>(
 /// Resolve an optional symbol. Returns `None` if the symbol is missing.
 fn resolve_optional<T: Copy>(library: &Library, prefix: &str, base_name: &str) -> Option<T> {
     let sym_name = prefixed_symbol(prefix, base_name);
-    log::trace!("resolving optional symbol '{}'", sym_name);
+    log::trace!("resolving optional symbol '{sym_name}'");
 
     unsafe { library.get::<T>(sym_name.as_bytes()).ok().map(|s| *s) }
 }
@@ -333,6 +331,7 @@ fn resolve_optional<T: Copy>(library: &Library, prefix: &str, base_name: &str) -
 /// to load are silently skipped (with a debug-level log message).
 ///
 /// The caller must supply a mapping from library filename (stem) to prefix.
+#[allow(clippy::implicit_hasher)]
 pub fn scan_directory(
     dir: &Path,
     prefix_map: &std::collections::HashMap<String, String>,
@@ -365,15 +364,15 @@ pub fn scan_directory(
         if let Some(prefix) = prefix_map.get(&lookup_key) {
             match QdmiDevice::load(&path, prefix) {
                 Ok(device) => {
-                    log::info!("discovered QDMI device '{}' at {:?}", prefix, path);
+                    log::info!("discovered QDMI device '{prefix}' at {}", path.display());
                     devices.push(device);
                 }
                 Err(e) => {
-                    log::debug!("skipping {:?}: {}", path, e);
+                    log::debug!("skipping {}: {e}", path.display());
                 }
             }
         } else {
-            log::debug!("no prefix mapping for '{lookup_key}'; skipping {:?}", path);
+            log::debug!("no prefix mapping for '{lookup_key}'; skipping {}", path.display());
         }
     }
 

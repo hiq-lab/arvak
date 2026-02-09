@@ -218,7 +218,7 @@ mod tests {
         // Create multiple jobs
         for i in 0..5 {
             let job = StoredJob {
-                id: JobId::new(format!("test-{}", i)),
+                id: JobId::new(format!("test-{i}")),
                 circuit: Circuit::with_size("test", 2, 0),
                 backend_id: if i < 3 { "sim" } else { "iqm" }.to_string(),
                 shots: 1000,

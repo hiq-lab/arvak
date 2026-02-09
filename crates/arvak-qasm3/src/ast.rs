@@ -1,4 +1,4 @@
-//! Abstract Syntax Tree for OpenQASM 3.
+//! Abstract Syntax Tree for `OpenQASM` 3.
 
 use serde::{Deserialize, Serialize};
 
@@ -134,6 +134,7 @@ impl QubitRef {
     }
 
     /// Get the register name.
+    #[allow(clippy::match_same_arms)]
     pub fn register_name(&self) -> &str {
         match self {
             QubitRef::Single { register, .. } => register,
@@ -232,6 +233,7 @@ impl Expression {
     }
 
     /// Try to evaluate as a constant f64.
+    #[allow(clippy::cast_precision_loss)]
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Expression::Int(v) => Some(*v as f64),

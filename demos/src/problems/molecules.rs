@@ -128,7 +128,7 @@ pub fn h2_hamiltonian_4q() -> PauliHamiltonian {
     ])
 }
 
-/// LiH molecule Hamiltonian (simplified 4-qubit version).
+/// `LiH` molecule Hamiltonian (simplified 4-qubit version).
 ///
 /// Lithium Hydride at equilibrium geometry.
 /// This is an approximation for demo purposes.
@@ -155,7 +155,7 @@ pub fn lih_hamiltonian() -> PauliHamiltonian {
     ])
 }
 
-/// BeH2 molecule Hamiltonian (simplified 6-qubit version).
+/// `BeH2` molecule Hamiltonian (simplified 6-qubit version).
 ///
 /// Beryllium Hydride at equilibrium geometry (linear molecule).
 /// This demonstrates a slightly larger molecular system.

@@ -37,11 +37,11 @@ pub fn generate_pbs_script(
     } else {
         config.queue.clone()
     };
-    script.push_str(&format!("#PBS -q {}\n", queue));
+    script.push_str(&format!("#PBS -q {queue}\n"));
 
     // Account if specified
     if let Some(ref account) = config.account {
-        script.push_str(&format!("#PBS -A {}\n", account));
+        script.push_str(&format!("#PBS -A {account}\n"));
     }
 
     // Resource requests using -l flag
@@ -60,7 +60,7 @@ pub fn generate_pbs_script(
 
     // Additional directives
     for directive in &config.extra_directives {
-        script.push_str(&format!("#PBS {}\n", directive));
+        script.push_str(&format!("#PBS {directive}\n"));
     }
 
     // Environment setup
@@ -76,7 +76,7 @@ pub fn generate_pbs_script(
     if !config.modules.is_empty() {
         script.push_str("# Load required modules\n");
         for module in &config.modules {
-            script.push_str(&format!("module load {}\n", module));
+            script.push_str(&format!("module load {module}\n"));
         }
         script.push('\n');
     }
@@ -99,7 +99,7 @@ pub fn generate_pbs_script(
     script.push_str("# Execute quantum job\n");
 
     let backend_flag = if let Some(ref backend) = job.matched_backend {
-        format!("--backend {}", backend)
+        format!("--backend {backend}")
     } else {
         String::new()
     };
@@ -152,15 +152,15 @@ pub fn generate_pbs_script_multi(
     } else {
         config.queue.clone()
     };
-    script.push_str(&format!("#PBS -q {}\n", queue));
+    script.push_str(&format!("#PBS -q {queue}\n"));
 
     if let Some(ref account) = config.account {
-        script.push_str(&format!("#PBS -A {}\n", account));
+        script.push_str(&format!("#PBS -A {account}\n"));
     }
 
     // Scale walltime based on number of circuits
     let scaled_walltime = scale_walltime(&config.walltime, circuit_files.len());
-    script.push_str(&format!("#PBS -l walltime={}\n", scaled_walltime));
+    script.push_str(&format!("#PBS -l walltime={scaled_walltime}\n"));
     script.push_str(&format!(
         "#PBS -l nodes={}:ppn={}\n",
         config.nodes, config.ppn
@@ -171,7 +171,7 @@ pub fn generate_pbs_script_multi(
 
     // Additional directives
     for directive in &config.extra_directives {
-        script.push_str(&format!("#PBS {}\n", directive));
+        script.push_str(&format!("#PBS {directive}\n"));
     }
 
     // Environment setup
@@ -186,7 +186,7 @@ pub fn generate_pbs_script_multi(
     if !config.modules.is_empty() {
         script.push_str("# Load required modules\n");
         for module in &config.modules {
-            script.push_str(&format!("module load {}\n", module));
+            script.push_str(&format!("module load {module}\n"));
         }
         script.push('\n');
     }
@@ -211,13 +211,13 @@ pub fn generate_pbs_script_multi(
     script.push_str("FAILED=0\n\n");
 
     let backend_flag = if let Some(ref backend) = job.matched_backend {
-        format!("--backend {}", backend)
+        format!("--backend {backend}")
     } else {
         String::new()
     };
 
     for (i, circuit_file) in circuit_files.iter().enumerate() {
-        let result_file = result_dir.join(format!("result_{}.json", i));
+        let result_file = result_dir.join(format!("result_{i}.json"));
         script.push_str(&format!(
             "echo \"Running circuit {} of {}\"\n",
             i + 1,
@@ -270,7 +270,7 @@ fn scale_walltime(walltime: &str, count: usize) -> String {
     let parts: Vec<&str> = walltime.split(':').collect();
     if parts.len() != 3 {
         // Return scaled default if parsing fails
-        return format!("{:02}:00:00", count);
+        return format!("{count:02}:00:00");
     }
 
     let hours: u32 = parts[0].parse().unwrap_or(1);
@@ -283,7 +283,7 @@ fn scale_walltime(walltime: &str, count: usize) -> String {
     let new_minutes = (total_seconds % 3600) / 60;
     let new_seconds = total_seconds % 60;
 
-    format!("{:02}:{:02}:{:02}", new_hours, new_minutes, new_seconds)
+    format!("{new_hours:02}:{new_minutes:02}:{new_seconds:02}")
 }
 
 /// Generate PBS array job script (for embarrassingly parallel workloads).
@@ -312,7 +312,7 @@ pub fn generate_pbs_array_script(
     script.push_str(&format!("#PBS -q {}\n", config.queue));
 
     if let Some(ref account) = config.account {
-        script.push_str(&format!("#PBS -A {}\n", account));
+        script.push_str(&format!("#PBS -A {account}\n"));
     }
 
     // Array job specification
@@ -335,7 +335,7 @@ pub fn generate_pbs_array_script(
     if !config.modules.is_empty() {
         script.push_str("# Load required modules\n");
         for module in &config.modules {
-            script.push_str(&format!("module load {}\n", module));
+            script.push_str(&format!("module load {module}\n"));
         }
         script.push('\n');
     }
@@ -364,7 +364,7 @@ pub fn generate_pbs_array_script(
     script.push_str("echo \"Array task $PBS_ARRAYID: Running $CIRCUIT\"\n");
 
     let backend_flag = if let Some(ref backend) = job.matched_backend {
-        format!("--backend {}", backend)
+        format!("--backend {backend}")
     } else {
         String::new()
     };

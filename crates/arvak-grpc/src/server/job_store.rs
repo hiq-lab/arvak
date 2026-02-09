@@ -1,7 +1,7 @@
 //! Job storage and management.
 //!
 //! This module provides a wrapper around pluggable storage backends.
-//! The actual storage implementation can be in-memory, SQLite, PostgreSQL, etc.
+//! The actual storage implementation can be in-memory, `SQLite`, `PostgreSQL`, etc.
 
 use arvak_hal::job::{JobId, JobStatus};
 use arvak_hal::result::ExecutionResult;

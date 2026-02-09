@@ -146,7 +146,7 @@ impl CliffordGate {
 
     /// Get the gate sequence for this Clifford as a list of primitive gates.
     fn gate_sequence(&self) -> &'static [PrimitiveGate] {
-        use PrimitiveGate::*;
+        use PrimitiveGate::{H, S, X};
         match self.index {
             0 => &[],
             1 => &[H],
@@ -320,7 +320,7 @@ pub fn fit_rb_decay(data: &[(u32, f64)]) -> (f64, f64, f64) {
     for &(m, prob) in data {
         let shifted = prob - b_guess;
         if shifted > 0.001 {
-            let x = m as f64;
+            let x = f64::from(m);
             let y = shifted.ln();
             sum_x += x;
             sum_y += y;
@@ -346,7 +346,7 @@ pub fn fit_rb_decay(data: &[(u32, f64)]) -> (f64, f64, f64) {
 
 /// Compute error per Clifford (EPC) from the decay parameter.
 ///
-/// EPC = (d - 1)(1 - p) / d where d = 2^num_qubits.
+/// EPC = (d - 1)(1 - p) / d where d = `2^num_qubits`.
 pub fn error_per_clifford(p: f64, num_qubits: u32) -> f64 {
     let d = (1u64 << num_qubits) as f64;
     (d - 1.0) * (1.0 - p) / d
@@ -363,10 +363,10 @@ pub fn rb_result(
     BenchmarkResult::new(format!("rb_{num_qubits}q"), fidelity, "gate_fidelity")
         .with_metric("error_per_clifford", serde_json::Value::from(epc))
         .with_metric("decay_parameter", serde_json::Value::from(decay_param))
-        .with_metric("num_qubits", num_qubits as u64)
+        .with_metric("num_qubits", u64::from(num_qubits))
         .with_metric(
             "max_sequence_length",
-            *sequence_lengths.last().unwrap_or(&0) as u64,
+            u64::from(*sequence_lengths.last().unwrap_or(&0)),
         )
 }
 

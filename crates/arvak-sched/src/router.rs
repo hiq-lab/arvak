@@ -138,7 +138,7 @@ mod tests {
     }
 
     fn large_qasm(n: usize) -> CircuitSpec {
-        let mut qasm = format!("OPENQASM 3.0; qubit[{}] q;", n);
+        let mut qasm = format!("OPENQASM 3.0; qubit[{n}] q;");
         for i in 0..n.saturating_sub(1) {
             qasm.push_str(&format!(" cx q[{}], q[{}];", i, i + 1));
         }

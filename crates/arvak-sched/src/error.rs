@@ -64,7 +64,7 @@ pub enum SchedError {
     #[error("Persistence error: {0}")]
     PersistenceError(String),
 
-    /// SQLite database error.
+    /// `SQLite` database error.
     #[error("Database error: {0}")]
     DatabaseError(String),
 

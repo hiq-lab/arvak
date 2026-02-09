@@ -239,7 +239,7 @@ impl<const N: usize> QuantumInt<N> {
     }
 }
 
-/// Create two QuantumInts that share no qubits (for safe operations).
+/// Create two `QuantumInts` that share no qubits (for safe operations).
 pub fn create_pair<const N: usize>(circuit: &mut Circuit) -> (QuantumInt<N>, QuantumInt<N>) {
     let a = QuantumInt::new(circuit);
     let b = QuantumInt::new(circuit);

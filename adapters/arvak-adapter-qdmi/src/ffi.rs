@@ -197,21 +197,21 @@ pub enum QdmiDeviceProperty {
     Name = 0,
     /// Device version (char*)
     Version = 1,
-    /// Device status (QDMI_Device_Status)
+    /// Device status (`QDMI_Device_Status`)
     Status = 2,
     /// QDMI library version (char*)
     LibraryVersion = 3,
-    /// Number of qubits (size_t)
+    /// Number of qubits (`size_t`)
     QubitsNum = 4,
-    /// List of sites (QDMI_Site* array)
+    /// List of sites (`QDMI_Site`* array)
     Sites = 5,
-    /// List of supported operations (QDMI_Operation* array)
+    /// List of supported operations (`QDMI_Operation`* array)
     Operations = 6,
-    /// Coupling map (QDMI_Site* flattened pairs)
+    /// Coupling map (`QDMI_Site`* flattened pairs)
     CouplingMap = 7,
-    /// Whether calibration is needed (size_t, 0=no)
+    /// Whether calibration is needed (`size_t`, 0=no)
     NeedsCalibration = 8,
-    /// Pulse support level (QDMI_Device_Pulse_Support_Level)
+    /// Pulse support level (`QDMI_Device_Pulse_Support_Level`)
     PulseSupport = 9,
     /// Length unit, SI string (char*)
     LengthUnit = 10,
@@ -221,9 +221,9 @@ pub enum QdmiDeviceProperty {
     DurationUnit = 12,
     /// Duration scale factor (double)
     DurationScaleFactor = 13,
-    /// Minimum atom distance (uint64_t raw)
+    /// Minimum atom distance (`uint64_t` raw)
     MinAtomDistance = 14,
-    /// Supported program formats (QDMI_Program_Format* array)
+    /// Supported program formats (`QDMI_Program_Format`* array)
     SupportedProgramFormats = 15,
     /// Sentinel
     Max = 16,
@@ -243,31 +243,31 @@ pub enum QdmiDeviceProperty {
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QdmiSiteProperty {
-    /// Site index (size_t, required for all sites)
+    /// Site index (`size_t`, required for all sites)
     Index = 0,
-    /// T1 coherence time (uint64_t raw)
+    /// T1 coherence time (`uint64_t` raw)
     T1 = 1,
-    /// T2 coherence time (uint64_t raw)
+    /// T2 coherence time (`uint64_t` raw)
     T2 = 2,
     /// Site name (char*)
     Name = 3,
-    /// X coordinate (int64_t raw)
+    /// X coordinate (`int64_t` raw)
     XCoordinate = 4,
-    /// Y coordinate (int64_t raw)
+    /// Y coordinate (`int64_t` raw)
     YCoordinate = 5,
-    /// Z coordinate (int64_t raw)
+    /// Z coordinate (`int64_t` raw)
     ZCoordinate = 6,
     /// Whether this is a zone (bool)
     IsZone = 7,
-    /// X extent for zones (uint64_t raw)
+    /// X extent for zones (`uint64_t` raw)
     XExtent = 8,
-    /// Y extent for zones (uint64_t raw)
+    /// Y extent for zones (`uint64_t` raw)
     YExtent = 9,
-    /// Z extent for zones (uint64_t raw)
+    /// Z extent for zones (`uint64_t` raw)
     ZExtent = 10,
-    /// Module index (uint64_t)
+    /// Module index (`uint64_t`)
     ModuleIndex = 11,
-    /// Submodule index (uint64_t)
+    /// Submodule index (`uint64_t`)
     SubmoduleIndex = 12,
     /// Sentinel
     Max = 13,
@@ -290,25 +290,25 @@ pub enum QdmiSiteProperty {
 pub enum QdmiOperationProperty {
     /// Operation name (char*)
     Name = 0,
-    /// Number of qubits (size_t)
+    /// Number of qubits (`size_t`)
     QubitsNum = 1,
-    /// Number of parameters (size_t)
+    /// Number of parameters (`size_t`)
     ParametersNum = 2,
-    /// Duration (uint64_t raw)
+    /// Duration (`uint64_t` raw)
     Duration = 3,
     /// Fidelity (double)
     Fidelity = 4,
-    /// Interaction radius (uint64_t raw)
+    /// Interaction radius (`uint64_t` raw)
     InteractionRadius = 5,
-    /// Blocking radius (uint64_t raw)
+    /// Blocking radius (`uint64_t` raw)
     BlockingRadius = 6,
     /// Idling fidelity (double)
     IdlingFidelity = 7,
     /// Whether this is a zoned operation (bool)
     IsZoned = 8,
-    /// Applicable sites (QDMI_Site* array)
+    /// Applicable sites (`QDMI_Site`* array)
     Sites = 9,
-    /// Mean shuttling speed (uint64_t raw)
+    /// Mean shuttling speed (`uint64_t` raw)
     MeanShuttlingSpeed = 10,
     /// Sentinel
     Max = 11,
@@ -392,9 +392,9 @@ impl From<c_int> for QdmiJobStatus {
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QdmiProgramFormat {
-    /// OpenQASM 2.0 (char*)
+    /// `OpenQASM` 2.0 (char*)
     Qasm2 = 0,
-    /// OpenQASM 3.0 (char*)
+    /// `OpenQASM` 3.0 (char*)
     Qasm3 = 1,
     /// QIR Base Profile text (char*)
     QirBaseString = 2,
@@ -432,7 +432,7 @@ pub enum QdmiJobResult {
     Shots = 0,
     /// Histogram keys (char*)
     HistKeys = 1,
-    /// Histogram values / counts (size_t*)
+    /// Histogram values / counts (`size_t`*)
     HistValues = 2,
     /// Dense state vector (double* [re,im,re,im,...])
     StatevectorDense = 3,
@@ -667,7 +667,7 @@ extern "C" {
 
 #[cfg(not(feature = "system-qdmi"))]
 pub mod mock {
-    use super::*;
+    use super::{QdmiDeviceStatus, QdmiJobStatus};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static MOCK_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -759,7 +759,7 @@ pub unsafe fn c_str_to_string(ptr: *const c_char) -> Option<String> {
         return None;
     }
     // SAFETY: Caller must ensure ptr is valid and null-terminated
-    unsafe { CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_string()) }
+    unsafe { CStr::from_ptr(ptr).to_str().ok().map(std::string::ToString::to_string) }
 }
 
 /// Result type for QDMI operations.

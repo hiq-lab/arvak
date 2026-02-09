@@ -27,7 +27,7 @@ pub enum EmitTarget {
 }
 
 impl EmitTarget {
-    /// Parse a target name string into an EmitTarget.
+    /// Parse a target name string into an `EmitTarget`.
     pub fn from_name(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "iqm" => Some(Self::Iqm),
@@ -220,19 +220,19 @@ impl EmitterAnalyzer {
                 (
                     MaterializationStatus::Native,
                     None,
-                    format!("'{}' is native on target", gate_name),
+                    format!("'{gate_name}' is native on target"),
                 )
             } else if let Some(cost) = decomposition_cost(gate_name) {
                 (
                     MaterializationStatus::Decomposed,
                     Some(cost),
-                    format!("'{}' decomposes into ~{} native gates", gate_name, cost),
+                    format!("'{gate_name}' decomposes into ~{cost} native gates"),
                 )
             } else {
                 (
                     MaterializationStatus::Lost,
                     None,
-                    format!("'{}' cannot be materialized for this target", gate_name),
+                    format!("'{gate_name}' cannot be materialized for this target"),
                 )
             };
 

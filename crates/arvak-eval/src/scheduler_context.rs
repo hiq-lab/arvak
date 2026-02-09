@@ -3,7 +3,7 @@
 //! Models the constraints of HPC scheduler environments (SLURM/PBS)
 //! that affect quantum circuit execution planning.
 //!
-//! Reference: LRZ SuperMUC-NG / LUMI q_fiqci partition.
+//! Reference: LRZ SuperMUC-NG / LUMI `q_fiqci` partition.
 
 use serde::{Deserialize, Serialize};
 
@@ -47,7 +47,7 @@ impl SchedulerConstraints {
 
     /// LUMI (CSC Finland) reference constraints.
     ///
-    /// Based on the q_fiqci partition with Helmi (IQM) backend.
+    /// Based on the `q_fiqci` partition with Helmi (IQM) backend.
     pub fn lumi() -> Self {
         Self {
             site: "LUMI".into(),
@@ -207,7 +207,7 @@ impl SchedulerContext {
         }
 
         let base = 0.5;
-        let batch_bonus = (batch_capacity as f64 / 10.0).min(0.3);
+        let batch_bonus = (f64::from(batch_capacity) / 10.0).min(0.3);
         let walltime_bonus = 0.2; // fits within limits
 
         (base + batch_bonus + walltime_bonus).min(1.0)

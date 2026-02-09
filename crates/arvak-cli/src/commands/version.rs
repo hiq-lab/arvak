@@ -9,7 +9,7 @@ pub fn execute() {
     println!(
         "{} {} - Rust-native quantum compilation and orchestration",
         style("Arvak").cyan().bold(),
-        style(format!("v{}", version)).yellow()
+        style(format!("v{version}")).yellow()
     );
     println!();
     println!("Components:");

@@ -180,7 +180,7 @@ impl IqmClient {
 pub struct SubmitRequest {
     /// Target quantum computer.
     pub backend: String,
-    /// Circuit in OpenQASM 3 format.
+    /// Circuit in `OpenQASM` 3 format.
     pub program: String,
     /// Number of shots.
     pub shots: u32,

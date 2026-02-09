@@ -178,7 +178,7 @@ impl SlurmAdapter {
                 .work_dir
                 .join("results")
                 .join(job.id.to_string());
-            let circuit_refs: Vec<&Path> = circuit_files.iter().map(|p| p.as_path()).collect();
+            let circuit_refs: Vec<&Path> = circuit_files.iter().map(std::path::PathBuf::as_path).collect();
             templates::generate_batch_script_multi(job, &self.config, &circuit_refs, &result_dir)
         };
 

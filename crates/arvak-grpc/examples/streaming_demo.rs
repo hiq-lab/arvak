@@ -1,14 +1,14 @@
 //! Comprehensive streaming demonstration.
 //!
 //! This example demonstrates all three streaming patterns:
-//! 1. WatchJob - Server streaming for job status updates
-//! 2. StreamResults - Server streaming for large result sets
-//! 3. SubmitBatchStream - Bidirectional streaming for batch jobs
+//! 1. `WatchJob` - Server streaming for job status updates
+//! 2. `StreamResults` - Server streaming for large result sets
+//! 3. `SubmitBatchStream` - Bidirectional streaming for batch jobs
 //!
-//! Run with: cargo run --example streaming_demo
+//! Run with: cargo run --example `streaming_demo`
 
 use arvak_grpc::proto::arvak_service_client::ArvakServiceClient;
-use arvak_grpc::proto::*;
+use arvak_grpc::proto::{SubmitJobRequest, CircuitPayload, circuit_payload, WatchJobRequest, JobState, StreamResultsRequest, BatchJobSubmission, batch_job_result};
 use tonic::Request;
 
 #[tokio::main]
@@ -23,12 +23,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("1. WatchJob - Real-time status updates");
     println!("   Submitting a job...");
 
-    let qasm = r#"
+    let qasm = r"
 OPENQASM 3.0;
 qubit[2] q;
 h q[0];
 cx q[0], q[1];
-"#;
+";
 
     let submit_req = SubmitJobRequest {
         circuit: Some(CircuitPayload {
@@ -40,7 +40,7 @@ cx q[0], q[1];
 
     let response = client.submit_job(submit_req).await?;
     let job_id = response.into_inner().job_id.clone();
-    println!("   Job submitted: {}", job_id);
+    println!("   Job submitted: {job_id}");
 
     // Watch the job status
     println!("   Watching job status...");
@@ -64,7 +64,7 @@ cx q[0], q[1];
 
         if matches!(
             JobState::try_from(update.state),
-            Ok(JobState::Completed) | Ok(JobState::Failed) | Ok(JobState::Canceled)
+            Ok(JobState::Completed | JobState::Failed | JobState::Canceled)
         ) {
             break;
         }
@@ -92,7 +92,7 @@ cx q[0], q[1];
         );
 
         if chunk.is_final {
-            println!("   ✓ Received all {} result entries\n", total_counts);
+            println!("   ✓ Received all {total_counts} result entries\n");
         }
     }
 
@@ -102,11 +102,11 @@ cx q[0], q[1];
     let batch_stream = async_stream::stream! {
         // Submit 3 jobs via the stream
         for i in 1..=3 {
-            let qasm = r#"
+            let qasm = r"
 OPENQASM 3.0;
 qubit[1] q;
 h q[0];
-"#.to_string();
+".to_string();
 
             yield BatchJobSubmission {
                 circuit: Some(CircuitPayload {
@@ -114,7 +114,7 @@ h q[0];
                 }),
                 backend_id: "simulator".to_string(),
                 shots: 100,
-                client_request_id: format!("batch-job-{}", i),
+                client_request_id: format!("batch-job-{i}"),
             };
 
             // Small delay between submissions
@@ -157,8 +157,7 @@ h q[0];
     }
 
     println!(
-        "   ✓ Batch complete: {} submitted, {} completed\n",
-        submitted_count, completed_count
+        "   ✓ Batch complete: {submitted_count} submitted, {completed_count} completed\n"
     );
 
     println!("=== All Streaming Examples Complete ===");

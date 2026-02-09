@@ -219,10 +219,10 @@ async fn shutdown_signal_handler() {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => {
+        () = ctrl_c => {
             info!("Received SIGINT (Ctrl+C)");
         }
-        _ = terminate => {
+        () = terminate => {
             info!("Received SIGTERM");
         }
     }
