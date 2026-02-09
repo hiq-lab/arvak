@@ -370,7 +370,8 @@ jobs:
       - name: Locate DDSIM .so and verify symbols
         id: ddsim
         run: |
-          SO_PATH=$(find build-ddsim -name "libmqt_ddsim_qdmi_device.so" | head -1)
+          SO_PATH=$(find build-ddsim -name "libmqt_ddsim_qdmi_device.so" -print -quit)
+          SO_PATH=$(realpath "$SO_PATH")
           if [[ -z "$SO_PATH" ]]; then
             echo "ERROR: libmqt_ddsim_qdmi_device.so not found"
             exit 1
@@ -437,7 +438,8 @@ jobs:
       - name: Locate DDSIM .so and verify symbols
         id: ddsim
         run: |
-          SO_PATH=$(find build-ddsim-latest -name "libmqt_ddsim_qdmi_device.so" | head -1)
+          SO_PATH=$(find build-ddsim-latest -name "libmqt_ddsim_qdmi_device.so" -print -quit)
+          SO_PATH=$(realpath "$SO_PATH")
           if [[ -z "$SO_PATH" ]]; then
             echo "ERROR: libmqt_ddsim_qdmi_device.so not found"
             exit 1
