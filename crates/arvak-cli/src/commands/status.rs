@@ -18,7 +18,7 @@ pub async fn execute(job_id: Option<&str>, all: bool) -> Result<()> {
         let jobs = scheduler
             .list_jobs(JobFilter::default())
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to list jobs: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to list jobs: {e}"))?;
 
         if jobs.is_empty() {
             println!("No jobs found.");
@@ -65,12 +65,12 @@ pub async fn execute(job_id: Option<&str>, all: bool) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Please provide a job ID or use --all to list all jobs"))?;
 
     let parsed_id = ScheduledJobId::parse(job_id_str)
-        .map_err(|e| anyhow::anyhow!("Invalid job ID '{}': {}", job_id_str, e))?;
+        .map_err(|e| anyhow::anyhow!("Invalid job ID '{job_id_str}': {e}"))?;
 
     let status = scheduler
         .status(&parsed_id)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to get status: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to get status: {e}"))?;
 
     let status_name = status.name();
     let status_styled = match status_name {

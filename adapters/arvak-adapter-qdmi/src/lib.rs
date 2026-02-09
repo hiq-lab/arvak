@@ -20,7 +20,7 @@
 //!
 //! - **Session Management**: Authenticated sessions with token/OIDC support
 //! - **Device Queries**: Query device properties (qubits, topology, gate fidelities)
-//! - **Job Submission**: Submit OpenQASM 3.0 circuits via QDMI
+//! - **Job Submission**: Submit `OpenQASM` 3.0 circuits via QDMI
 //! - **Result Retrieval**: Get measurement counts and histograms
 //! - **Mock Mode**: Testing without QDMI library installed
 //!
@@ -112,8 +112,8 @@
 //!
 //! | Feature | Status |
 //! |---------|--------|
-//! | OpenQASM 2.0 | ✅ Supported |
-//! | OpenQASM 3.0 | ✅ Supported (preferred) |
+//! | `OpenQASM` 2.0 | ✅ Supported |
+//! | `OpenQASM` 3.0 | ✅ Supported (preferred) |
 //! | QIR Base Profile | ⚠️ Future |
 //! | Token Auth | ✅ Supported |
 //! | OIDC Auth | ✅ Supported |

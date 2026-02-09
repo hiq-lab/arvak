@@ -28,9 +28,9 @@ pub async fn execute(
         target: target.into(),
         target_qubits,
         orchestration,
-        scheduler_site: scheduler_site.map(|s| s.to_string()),
-        emit_target: emit.map(|s| s.to_string()),
-        benchmark: benchmark.map(|s| s.to_string()),
+        scheduler_site: scheduler_site.map(std::string::ToString::to_string),
+        emit_target: emit.map(std::string::ToString::to_string),
+        benchmark: benchmark.map(std::string::ToString::to_string),
         benchmark_qubits,
         ..Default::default()
     };

@@ -122,7 +122,7 @@ pub struct TracingConfig {
     #[serde(default)]
     pub enabled: bool,
 
-    /// OTLP endpoint (e.g., "http://localhost:4317")
+    /// OTLP endpoint (e.g., "<http://localhost:4317>")
     pub otlp_endpoint: Option<String>,
 
     /// Service name for traces
@@ -441,8 +441,7 @@ impl Config {
             "memory" | "sqlite" | "postgres" => {}
             other => {
                 return Err(ConfigError::ValidationError(format!(
-                    "Unknown storage backend: {}",
-                    other
+                    "Unknown storage backend: {other}"
                 )));
             }
         }
@@ -452,8 +451,7 @@ impl Config {
             "trace" | "debug" | "info" | "warn" | "error" => {}
             other => {
                 return Err(ConfigError::ValidationError(format!(
-                    "Invalid log level: {}",
-                    other
+                    "Invalid log level: {other}"
                 )));
             }
         }
@@ -463,8 +461,7 @@ impl Config {
             "console" | "json" => {}
             other => {
                 return Err(ConfigError::ValidationError(format!(
-                    "Invalid log format: {}",
-                    other
+                    "Invalid log format: {other}"
                 )));
             }
         }

@@ -3,7 +3,7 @@
 //! Measures end-to-end throughput of a quantum system including
 //! circuit parameterization, compilation, submission, and result retrieval.
 //!
-//! CLOPS = (num_templates * num_updates * num_qubits * depth) / total_time
+//! CLOPS = (`num_templates` * `num_updates` * `num_qubits` * depth) / `total_time`
 
 use std::f64::consts::PI;
 use std::time::Instant;
@@ -65,9 +65,9 @@ pub fn generate_clops_circuit(num_qubits: u32, depth: u32, seed: u64) -> Circuit
     circuit
 }
 
-/// Rebuild a fresh PropertySet from the target fields of an existing one.
+/// Rebuild a fresh `PropertySet` from the target fields of an existing one.
 ///
-/// This avoids needing `Clone` on PropertySet (which contains type-erased custom data).
+/// This avoids needing `Clone` on `PropertySet` (which contains type-erased custom data).
 /// Only copies the target configuration fields needed for compilation.
 fn rebuild_props(props: &PropertySet) -> PropertySet {
     let mut new = PropertySet::new();
@@ -95,14 +95,14 @@ pub fn measure_compilation_clops(
 
     for template_id in 0..config.num_templates {
         for update_id in 0..config.num_updates {
-            let seed = (template_id as u64) * 1000 + update_id as u64;
+            let seed = u64::from(template_id) * 1000 + u64::from(update_id);
             let circuit = generate_clops_circuit(config.num_qubits, config.depth, seed);
 
             let mut dag = circuit.into_dag();
             let mut local_props = rebuild_props(props);
             let _ = pm.run(&mut dag, &mut local_props);
 
-            total_layers += config.depth as u64 * config.num_qubits as u64;
+            total_layers += u64::from(config.depth) * u64::from(config.num_qubits);
         }
     }
 
@@ -112,10 +112,10 @@ pub fn measure_compilation_clops(
     BenchmarkResult::new("clops_compilation", clops, "layer_ops/sec")
         .with_duration(elapsed)
         .with_metric("total_layers", total_layers)
-        .with_metric("num_templates", config.num_templates as u64)
-        .with_metric("num_updates", config.num_updates as u64)
-        .with_metric("num_qubits", config.num_qubits as u64)
-        .with_metric("depth", config.depth as u64)
+        .with_metric("num_templates", u64::from(config.num_templates))
+        .with_metric("num_updates", u64::from(config.num_updates))
+        .with_metric("num_qubits", u64::from(config.num_qubits))
+        .with_metric("depth", u64::from(config.depth))
 }
 
 #[cfg(test)]

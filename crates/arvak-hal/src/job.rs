@@ -73,7 +73,7 @@ impl std::fmt::Display for JobStatus {
             JobStatus::Queued => write!(f, "Queued"),
             JobStatus::Running => write!(f, "Running"),
             JobStatus::Completed => write!(f, "Completed"),
-            JobStatus::Failed(msg) => write!(f, "Failed: {}", msg),
+            JobStatus::Failed(msg) => write!(f, "Failed: {msg}"),
             JobStatus::Cancelled => write!(f, "Cancelled"),
         }
     }

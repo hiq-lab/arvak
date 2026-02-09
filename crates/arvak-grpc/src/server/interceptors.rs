@@ -40,12 +40,10 @@ impl tonic::service::Interceptor for RequestIdInterceptor {
         let request_id = request
             .metadata()
             .get(REQUEST_ID_HEADER)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| {
+            .and_then(|v| v.to_str().ok()).map_or_else(|| {
                 // Generate new request ID if not provided
                 Uuid::new_v4().to_string()
-            });
+            }, std::string::ToString::to_string);
 
         // Add request ID to tracing span
         tracing::Span::current().record("request_id", request_id.as_str());
@@ -86,9 +84,7 @@ impl LoggingInterceptor {
 impl tonic::service::Interceptor for LoggingInterceptor {
     fn call(&mut self, request: Request<()>) -> Result<Request<()>, Status> {
         let remote_addr = request
-            .remote_addr()
-            .map(|addr| addr.to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+            .remote_addr().map_or_else(|| "unknown".to_string(), |addr| addr.to_string());
 
         info!(
             client = %remote_addr,

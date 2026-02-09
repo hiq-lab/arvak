@@ -10,7 +10,7 @@ use crate::register::QubitRegister;
 /// A quantum array holding multiple quantum values.
 ///
 /// This represents an array where each element is a quantum value
-/// (could be QuantumInt, QuantumFloat, or raw qubits).
+/// (could be `QuantumInt`, `QuantumFloat`, or raw qubits).
 ///
 /// # Type Parameters
 ///
@@ -39,6 +39,7 @@ impl<const N: usize, const W: usize> QuantumArray<N, W> {
     pub const TOTAL_QUBITS: usize = N * W;
 
     /// Create a new quantum array, allocating qubits from the circuit.
+    #[allow(clippy::cast_possible_truncation)]
     pub fn new(circuit: &mut Circuit) -> Self {
         let start = circuit.num_qubits();
         let total = start + Self::TOTAL_QUBITS;
@@ -92,12 +93,12 @@ impl<const N: usize, const W: usize> QuantumArray<N, W> {
 
     /// Get the qubits for a specific element.
     pub fn element_qubits(&self, index: usize) -> TypeResult<&[QubitId]> {
-        self.get(index).map(|r| r.qubits())
+        self.get(index).map(super::register::QubitRegister::qubits)
     }
 
     /// Get all qubits in the array.
     pub fn all_qubits(&self) -> Vec<QubitId> {
-        self.registers.iter().flat_map(|r| r.iter()).collect()
+        self.registers.iter().flat_map(super::register::QubitRegister::iter).collect()
     }
 
     /// Swap two elements in the array.
@@ -153,7 +154,7 @@ impl<const N: usize, const W: usize> QuantumArray<N, W> {
 /// more complex circuits are needed.
 #[derive(Debug, Clone)]
 pub struct QuantumIndex<const I: usize> {
-    /// Index register (log2(array_size) qubits needed).
+    /// Index register (`log2(array_size)` qubits needed).
     register: QubitRegister,
 }
 

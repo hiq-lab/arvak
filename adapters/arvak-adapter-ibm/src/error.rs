@@ -86,8 +86,7 @@ impl From<IbmError> for arvak_hal::HalError {
                 required,
                 available,
             } => arvak_hal::HalError::CircuitTooLarge(format!(
-                "Circuit requires {} qubits but backend only has {}",
-                required, available
+                "Circuit requires {required} qubits but backend only has {available}"
             )),
             _ => arvak_hal::HalError::Backend(e.to_string()),
         }

@@ -7,15 +7,15 @@
 //! 4. Poll for job status
 //! 5. Retrieve results
 
-use arvak_grpc::proto::{arvak_service_client::ArvakServiceClient, *};
+use arvak_grpc::proto::{arvak_service_client::ArvakServiceClient, ListBackendsRequest, SubmitJobRequest, CircuitPayload, circuit_payload, GetJobStatusRequest, JobState, GetJobResultRequest};
 use tonic::Request;
 
-const BELL_STATE: &str = r#"
+const BELL_STATE: &str = r"
 OPENQASM 3.0;
 qubit[2] q;
 h q[0];
 cx q[0], q[1];
-"#;
+";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let submit_response = client.submit_job(submit_request).await?;
     let job_id = submit_response.into_inner().job_id;
-    println!("Job submitted: {}", job_id);
+    println!("Job submitted: {job_id}");
 
     // Poll for completion
     println!("\nWaiting for job to complete...");
@@ -97,12 +97,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     counts.sort_by_key(|(bitstring, _)| *bitstring);
 
     for (bitstring, count) in counts {
-        let prob = *count as f64 / result.shots as f64;
-        println!("  {}: {} ({:.3})", bitstring, count, prob);
+        let prob = *count as f64 / f64::from(result.shots);
+        println!("  {bitstring}: {count} ({prob:.3})");
     }
 
     if let Some(exec_time) = result.execution_time_ms.checked_sub(0) {
-        println!("\nExecution time: {} ms", exec_time);
+        println!("\nExecution time: {exec_time} ms");
     }
 
     println!("\nDone!");

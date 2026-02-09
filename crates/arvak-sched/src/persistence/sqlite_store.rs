@@ -22,7 +22,7 @@ pub struct SqliteStore {
 }
 
 impl SqliteStore {
-    /// Create a new SQLite store at the given path.
+    /// Create a new `SQLite` store at the given path.
     pub fn new(path: impl AsRef<Path>) -> SchedResult<Self> {
         let conn = Connection::open(path)?;
         let store = Self {
@@ -32,7 +32,7 @@ impl SqliteStore {
         Ok(store)
     }
 
-    /// Create a new in-memory SQLite store.
+    /// Create a new in-memory `SQLite` store.
     pub fn in_memory() -> SchedResult<Self> {
         let conn = Connection::open_in_memory()?;
         let store = Self {
@@ -48,7 +48,7 @@ impl SqliteStore {
             .lock()
             .map_err(|e| SchedError::DatabaseError(e.to_string()))?;
         conn.execute_batch(
-            r#"
+            r"
             CREATE TABLE IF NOT EXISTS jobs (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -76,7 +76,7 @@ impl SqliteStore {
                 data TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
-            "#,
+            ",
         )?;
         Ok(())
     }
@@ -92,10 +92,10 @@ impl StateStore for SqliteStore {
         let data = serde_json::to_string(job)?;
 
         conn.execute(
-            r#"
+            r"
             INSERT OR REPLACE INTO jobs (id, name, status, priority, data, created_at, submitted_at, completed_at)
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-            "#,
+            ",
             rusqlite::params![
                 job.id.to_string(),
                 job.name,
@@ -192,28 +192,28 @@ impl StateStore for SqliteStore {
 
         if let Some(min_priority) = filter.min_priority {
             let idx = params.len() + 1;
-            sql.push_str(&format!(" AND priority >= ?{}", idx));
-            params.push(Box::new(min_priority.value() as i64));
+            sql.push_str(&format!(" AND priority >= ?{idx}"));
+            params.push(Box::new(i64::from(min_priority.value())));
         }
 
         if let Some(max_priority) = filter.max_priority {
             let idx = params.len() + 1;
-            sql.push_str(&format!(" AND priority <= ?{}", idx));
-            params.push(Box::new(max_priority.value() as i64));
+            sql.push_str(&format!(" AND priority <= ?{idx}"));
+            params.push(Box::new(i64::from(max_priority.value())));
         }
 
         sql.push_str(" ORDER BY priority DESC, created_at ASC");
 
         if let Some(limit) = filter.limit {
             let idx = params.len() + 1;
-            sql.push_str(&format!(" LIMIT ?{}", idx));
+            sql.push_str(&format!(" LIMIT ?{idx}"));
             params.push(Box::new(limit as i64));
         }
 
         let mut stmt = conn.prepare(&sql)?;
 
         // Convert params to references for query
-        let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(std::convert::AsRef::as_ref).collect();
         let mut rows = stmt.query(params_refs.as_slice())?;
 
         let mut jobs = Vec::new();
@@ -291,10 +291,10 @@ impl StateStore for SqliteStore {
         let data = serde_json::to_string(workflow)?;
 
         conn.execute(
-            r#"
+            r"
             INSERT OR REPLACE INTO workflows (id, name, data, created_at)
             VALUES (?1, ?2, ?3, ?4)
-            "#,
+            ",
             rusqlite::params![
                 workflow.id.to_string(),
                 workflow.name,
@@ -367,25 +367,25 @@ impl StateStore for SqliteStore {
 
         // Delete results for old jobs first (foreign key)
         conn.execute(
-            r#"
+            r"
             DELETE FROM results WHERE job_id IN (
                 SELECT id FROM jobs
                 WHERE completed_at IS NOT NULL
                 AND completed_at < ?1
                 AND status IN ('Completed', 'Failed', 'Cancelled')
             )
-            "#,
+            ",
             rusqlite::params![cutoff_str],
         )?;
 
         // Delete old jobs
         let deleted = conn.execute(
-            r#"
+            r"
             DELETE FROM jobs
             WHERE completed_at IS NOT NULL
             AND completed_at < ?1
             AND status IN ('Completed', 'Failed', 'Cancelled')
-            "#,
+            ",
             rusqlite::params![cutoff_str],
         )?;
 

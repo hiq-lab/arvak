@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 pub struct Graph {
     /// Number of nodes.
     pub n_nodes: usize,
-    /// Edges as (node_a, node_b, weight).
+    /// Edges as (`node_a`, `node_b`, weight).
     pub edges: Vec<(usize, usize, f64)>,
 }
 
@@ -160,8 +160,8 @@ impl Graph {
     /// Get the Ising Hamiltonian for this Max-Cut problem.
     ///
     /// Max-Cut maps to finding the ground state of:
-    /// H = -1/2 Σ_{(i,j) ∈ E} w_{ij} (1 - Z_i Z_j)
-    ///   = const - 1/2 Σ_{(i,j) ∈ E} w_{ij} Z_i Z_j
+    /// H = -1/2 Σ_{(i,j) ∈ E} w_{ij} (1 - `Z_i` `Z_j`)
+    ///   = const - 1/2 Σ_{(i,j) ∈ E} w_{ij} `Z_i` `Z_j`
     ///
     /// The ground state corresponds to the maximum cut.
     pub fn to_ising_coefficients(&self) -> (f64, Vec<(usize, usize, f64)>) {
@@ -185,9 +185,9 @@ impl std::fmt::Display for Graph {
         )?;
         for (a, b, w) in &self.edges {
             if (*w - 1.0).abs() < 1e-10 {
-                writeln!(f, "  {} -- {}", a, b)?;
+                writeln!(f, "  {a} -- {b}")?;
             } else {
-                writeln!(f, "  {} -- {} (weight: {:.2})", a, b, w)?;
+                writeln!(f, "  {a} -- {b} (weight: {w:.2})")?;
             }
         }
         Ok(())

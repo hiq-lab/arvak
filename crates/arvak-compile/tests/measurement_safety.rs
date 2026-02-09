@@ -125,8 +125,7 @@ fn test_rz_measure_rz_not_merged() {
     let gate_count = ops.iter().filter(|op| *op != "measure").count();
     assert!(
         gate_count >= 2,
-        "Both Rz gates should survive when separated by measurement, got ops: {:?}",
-        ops
+        "Both Rz gates should survive when separated by measurement, got ops: {ops:?}"
     );
     assert_eq!(count_measurements(&dag), 1);
 }
@@ -205,13 +204,11 @@ fn test_measure_reset_h_not_merged_with_pre_measurement() {
     let ops = ops_on_qubit(&dag, QubitId(0));
     assert!(
         ops.contains(&"reset".to_string()),
-        "Reset must survive, got: {:?}",
-        ops
+        "Reset must survive, got: {ops:?}"
     );
     assert!(
         ops.contains(&"measure".to_string()),
-        "Measurement must survive, got: {:?}",
-        ops
+        "Measurement must survive, got: {ops:?}"
     );
 }
 
@@ -270,8 +267,7 @@ fn test_adjacent_hh_is_cancelled() {
     let gate_count = count_gates(&dag);
     assert!(
         gate_count < 2,
-        "Adjacent H-H should be optimized, got {} gates",
-        gate_count
+        "Adjacent H-H should be optimized, got {gate_count} gates"
     );
 }
 
@@ -345,7 +341,6 @@ fn test_barrier_blocks_optimization() {
     let ops = ops_on_qubit(&dag, QubitId(0));
     assert!(
         ops.contains(&"barrier".to_string()),
-        "Barrier must survive, got: {:?}",
-        ops
+        "Barrier must survive, got: {ops:?}"
     );
 }

@@ -277,16 +277,14 @@ fn test_site_properties() {
     let t1 = props.t1.expect("T1 missing for site 0");
     assert!(
         (t1.as_secs_f64() - 100e-6).abs() < 1e-10,
-        "T1 = {:?}, expected ~100μs",
-        t1
+        "T1 = {t1:?}, expected ~100μs"
     );
 
     // T2 = 50000 ns * 1e-9 = 50 μs
     let t2 = props.t2.expect("T2 missing for site 0");
     assert!(
         (t2.as_secs_f64() - 50e-6).abs() < 1e-10,
-        "T2 = {:?}, expected ~50μs",
-        t2
+        "T2 = {t2:?}, expected ~50μs"
     );
 }
 
@@ -317,16 +315,16 @@ fn test_all_sites_have_properties() {
 
     for site in &caps.sites {
         let props = caps.site_properties.get(site);
-        assert!(props.is_some(), "missing properties for site {:?}", site);
+        assert!(props.is_some(), "missing properties for site {site:?}");
 
         let props = props.unwrap();
-        assert!(props.t1.is_some(), "missing T1 for {:?}", site);
-        assert!(props.t2.is_some(), "missing T2 for {:?}", site);
+        assert!(props.t1.is_some(), "missing T1 for {site:?}");
+        assert!(props.t2.is_some(), "missing T2 for {site:?}");
 
         // T1 should always be >= T2
         let t1 = props.t1.unwrap();
         let t2 = props.t2.unwrap();
-        assert!(t1 >= t2, "T1 ({:?}) < T2 ({:?}) for {:?}", t1, t2, site);
+        assert!(t1 >= t2, "T1 ({t1:?}) < T2 ({t2:?}) for {site:?}");
     }
 }
 
@@ -345,8 +343,7 @@ fn test_duration_scale_factor_applied() {
     // Should be in range 1e-5 to 1e-3 (10μs to 1ms)
     assert!(
         t1_secs > 1e-5 && t1_secs < 1e-3,
-        "T1 = {}s not in microsecond range; scale factor may not be applied",
-        t1_secs
+        "T1 = {t1_secs}s not in microsecond range; scale factor may not be applied"
     );
 }
 
@@ -365,19 +362,18 @@ fn test_operation_properties() {
 
     for op in &caps.operations {
         let props = caps.operation_properties.get(op);
-        assert!(props.is_some(), "missing properties for op {:?}", op);
+        assert!(props.is_some(), "missing properties for op {op:?}");
 
         let props = props.unwrap();
-        assert!(props.name.is_some(), "missing name for op {:?}", op);
-        assert!(props.fidelity.is_some(), "missing fidelity for op {:?}", op);
-        assert!(props.duration.is_some(), "missing duration for op {:?}", op);
+        assert!(props.name.is_some(), "missing name for op {op:?}");
+        assert!(props.fidelity.is_some(), "missing fidelity for op {op:?}");
+        assert!(props.duration.is_some(), "missing duration for op {op:?}");
 
         // Fidelity should be between 0 and 1
         let fid = props.fidelity.unwrap();
         assert!(
             (0.0..=1.0).contains(&fid),
-            "fidelity {fid} out of range for op {:?}",
-            op
+            "fidelity {fid} out of range for op {op:?}"
         );
     }
 }
@@ -464,8 +460,7 @@ fn test_operation_durations_scaled() {
     let h_secs = h_dur.as_secs_f64();
     assert!(
         (h_secs - 30e-9).abs() < 1e-15,
-        "H duration = {}s, expected ~30ns",
-        h_secs
+        "H duration = {h_secs}s, expected ~30ns"
     );
 }
 
@@ -495,8 +490,7 @@ fn test_coupling_map_distances_are_symmetric() {
             let d_ba = caps.coupling_map.distance(b, a);
             assert_eq!(
                 d_ab, d_ba,
-                "asymmetric distance between {:?} and {:?}: {:?} vs {:?}",
-                a, b, d_ab, d_ba
+                "asymmetric distance between {a:?} and {b:?}: {d_ab:?} vs {d_ba:?}"
             );
         }
     }
@@ -543,8 +537,7 @@ fn test_job_lifecycle() {
     assert_eq!(
         status,
         ffi::QDMI_JOB_STATUS_DONE,
-        "expected DONE, got {}",
-        status
+        "expected DONE, got {status}"
     );
 
     // Wait (should return immediately for mock)
@@ -597,7 +590,6 @@ fn test_unsupported_result_type() {
     let result = job.get_results(ffi::QDMI_JOB_RESULT_STATEVECTORDENSE);
     assert!(
         matches!(result, Err(QdmiError::NotSupported)),
-        "expected NotSupported, got {:?}",
-        result
+        "expected NotSupported, got {result:?}"
     );
 }

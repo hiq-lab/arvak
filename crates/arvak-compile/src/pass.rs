@@ -28,10 +28,10 @@ pub trait Pass: Send + Sync {
     /// Run the pass on the given DAG.
     ///
     /// For analysis passes, this should not modify the DAG but may
-    /// write to the PropertySet.
+    /// write to the `PropertySet`.
     ///
     /// For transformation passes, this modifies the DAG and may read
-    /// from the PropertySet.
+    /// from the `PropertySet`.
     fn run(&self, dag: &mut CircuitDag, properties: &mut PropertySet) -> CompileResult<()>;
 
     /// Check if this pass should run based on current state.
@@ -44,7 +44,7 @@ pub trait Pass: Send + Sync {
 
 /// Marker trait for analysis passes.
 ///
-/// Analysis passes read the DAG and write to the PropertySet.
+/// Analysis passes read the DAG and write to the `PropertySet`.
 /// They should NOT modify the DAG.
 pub trait AnalysisPass: Send + Sync {
     /// Get the name of this analysis pass.
@@ -62,7 +62,7 @@ pub trait AnalysisPass: Send + Sync {
 /// Marker trait for transformation passes.
 ///
 /// Transformation passes modify the DAG.
-/// They may read from the PropertySet but should NOT modify it.
+/// They may read from the `PropertySet` but should NOT modify it.
 pub trait TransformationPass: Send + Sync {
     /// Get the name of this transformation pass.
     fn name(&self) -> &str;
@@ -83,7 +83,7 @@ mod tests {
     struct TestPass;
 
     impl Pass for TestPass {
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "test"
         }
 

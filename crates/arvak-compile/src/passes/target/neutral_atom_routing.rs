@@ -65,7 +65,7 @@ impl NeutralAtomRouting {
 }
 
 impl Pass for NeutralAtomRouting {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "NeutralAtomRouting"
     }
 
@@ -73,6 +73,7 @@ impl Pass for NeutralAtomRouting {
         PassKind::Transformation
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn run(&self, dag: &mut CircuitDag, properties: &mut PropertySet) -> CompileResult<()> {
         let layout = properties
             .layout

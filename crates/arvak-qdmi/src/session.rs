@@ -43,7 +43,7 @@ impl<'dev> DeviceSession<'dev> {
     ) -> Result<Self> {
         // Phase 1: Allocate
         let mut handle: ffi::QdmiDeviceSession = std::ptr::null_mut();
-        let ret = unsafe { (device.fn_session_alloc)(&mut handle) };
+        let ret = unsafe { (device.fn_session_alloc)(&raw mut handle) };
 
         if !ffi::is_success(ret) {
             return Err(QdmiError::SessionError(format!(
@@ -66,7 +66,7 @@ impl<'dev> DeviceSession<'dev> {
                     handle,
                     param,
                     value.len(),
-                    value.as_ptr() as *const c_void,
+                    value.as_ptr().cast::<c_void>(),
                 )
             };
             if !ffi::is_success(ret) {
@@ -126,7 +126,7 @@ impl<'dev> DeviceSession<'dev> {
                 prop,
                 0,
                 std::ptr::null_mut(),
-                &mut size,
+                &raw mut size,
             )
         };
         check_qdmi_result(ret)?;
@@ -142,7 +142,7 @@ impl<'dev> DeviceSession<'dev> {
                 self.handle,
                 prop,
                 size,
-                buf.as_mut_ptr() as *mut c_void,
+                buf.as_mut_ptr().cast::<c_void>(),
                 std::ptr::null_mut(),
             )
         };
@@ -152,7 +152,7 @@ impl<'dev> DeviceSession<'dev> {
     }
 
     /// Query a site-level property for a specific site. Returns raw bytes.
-    #[allow(clippy::not_unsafe_ptr_arg_deref)] // opaque QDMI handle, deref is in C via FFI
+    #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::similar_names)] // opaque QDMI handle, deref is in C via FFI
     pub fn raw_query_site_property(
         &self,
         site: ffi::QdmiSite,
@@ -167,7 +167,7 @@ impl<'dev> DeviceSession<'dev> {
                 prop,
                 0,
                 std::ptr::null_mut(),
-                &mut size,
+                &raw mut size,
             )
         };
         check_qdmi_result(ret)?;
@@ -184,7 +184,7 @@ impl<'dev> DeviceSession<'dev> {
                 site,
                 prop,
                 size,
-                buf.as_mut_ptr() as *mut c_void,
+                buf.as_mut_ptr().cast::<c_void>(),
                 std::ptr::null_mut(),
             )
         };
@@ -230,7 +230,7 @@ impl<'dev> DeviceSession<'dev> {
                 prop,
                 0,
                 std::ptr::null_mut(),
-                &mut size,
+                &raw mut size,
             )
         };
         check_qdmi_result(ret)?;
@@ -251,7 +251,7 @@ impl<'dev> DeviceSession<'dev> {
                 params_ptr,
                 prop,
                 size,
-                buf.as_mut_ptr() as *mut c_void,
+                buf.as_mut_ptr().cast::<c_void>(),
                 std::ptr::null_mut(),
             )
         };
@@ -422,7 +422,7 @@ impl<'dev> DeviceSession<'dev> {
             .ok_or(QdmiError::NotSupported)?;
 
         let mut job: ffi::QdmiDeviceJob = std::ptr::null_mut();
-        let ret = unsafe { create_fn(self.handle, &mut job) };
+        let ret = unsafe { create_fn(self.handle, &raw mut job) };
         check_qdmi_result(ret)?;
 
         if job.is_null() {
@@ -438,7 +438,7 @@ impl<'dev> DeviceSession<'dev> {
     }
 }
 
-impl<'dev> Drop for DeviceSession<'dev> {
+impl Drop for DeviceSession<'_> {
     fn drop(&mut self) {
         if !self.handle.is_null() {
             unsafe { (self.device.fn_session_free)(self.handle) };
@@ -466,7 +466,7 @@ pub struct DeviceJob<'sess, 'dev> {
     session: &'sess DeviceSession<'dev>,
 }
 
-impl<'sess, 'dev> DeviceJob<'sess, 'dev> {
+impl DeviceJob<'_, '_> {
     /// Set a job parameter (e.g. program format, program, shots).
     pub fn set_parameter(&self, param: ffi::QdmiDeviceJobParameter, value: &[u8]) -> Result<()> {
         let set_fn = self
@@ -480,7 +480,7 @@ impl<'sess, 'dev> DeviceJob<'sess, 'dev> {
                 self.handle,
                 param,
                 value.len(),
-                value.as_ptr() as *const c_void,
+                value.as_ptr().cast::<c_void>(),
             )
         };
         check_qdmi_result(ret)
@@ -507,7 +507,7 @@ impl<'sess, 'dev> DeviceJob<'sess, 'dev> {
             .ok_or(QdmiError::NotSupported)?;
 
         let mut status: ffi::QdmiJobStatus = 0;
-        let ret = unsafe { check_fn(self.handle, &mut status) };
+        let ret = unsafe { check_fn(self.handle, &raw mut status) };
         check_qdmi_result(ret)?;
         Ok(status)
     }
@@ -548,7 +548,7 @@ impl<'sess, 'dev> DeviceJob<'sess, 'dev> {
 
         // Phase 1: size probe
         let mut size: usize = 0;
-        let ret = unsafe { get_fn(self.handle, result_type, 0, std::ptr::null_mut(), &mut size) };
+        let ret = unsafe { get_fn(self.handle, result_type, 0, std::ptr::null_mut(), &raw mut size) };
         check_qdmi_result(ret)?;
 
         if size == 0 {
@@ -562,7 +562,7 @@ impl<'sess, 'dev> DeviceJob<'sess, 'dev> {
                 self.handle,
                 result_type,
                 size,
-                buf.as_mut_ptr() as *mut c_void,
+                buf.as_mut_ptr().cast::<c_void>(),
                 std::ptr::null_mut(),
             )
         };

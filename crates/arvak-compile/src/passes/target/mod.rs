@@ -1,6 +1,6 @@
 //! Target-specific compilation passes.
 //!
-//! These passes require target hardware properties from the PropertySet
+//! These passes require target hardware properties from the `PropertySet`
 //! (coupling map, basis gates, layout) and produce hardware-compatible
 //! circuits for specific quantum devices.
 

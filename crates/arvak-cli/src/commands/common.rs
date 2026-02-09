@@ -16,20 +16,20 @@ pub fn load_circuit(path: &str) -> Result<Circuit> {
     let path_obj = Path::new(path);
 
     if !path_obj.exists() {
-        anyhow::bail!("File not found: {}", path);
+        anyhow::bail!("File not found: {path}");
     }
 
     let source =
-        fs::read_to_string(path).with_context(|| format!("Failed to read file: {}", path))?;
+        fs::read_to_string(path).with_context(|| format!("Failed to read file: {path}"))?;
 
     let ext = path_obj.extension().and_then(|e| e.to_str()).unwrap_or("");
 
     match ext.to_lowercase().as_str() {
-        "qasm" | "qasm3" => parse(&source).map_err(|e| anyhow::anyhow!("Parse error: {}", e)),
+        "qasm" | "qasm3" => parse(&source).map_err(|e| anyhow::anyhow!("Parse error: {e}")),
         "json" => {
             anyhow::bail!("JSON format not yet supported")
         }
-        _ => parse(&source).map_err(|e| anyhow::anyhow!("Parse error: {}", e)),
+        _ => parse(&source).map_err(|e| anyhow::anyhow!("Parse error: {e}")),
     }
 }
 
@@ -43,8 +43,7 @@ pub fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> 
         "simulator" | "sim" => Ok((CouplingMap::full(20), BasisGates::universal())),
         other => {
             anyhow::bail!(
-                "Unknown target: '{}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, simulator",
-                other
+                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, simulator"
             );
         }
     }
@@ -63,7 +62,7 @@ pub fn default_state_dir() -> Result<PathBuf> {
     Ok(state_dir)
 }
 
-/// Create an HpcScheduler with mock SLURM adapter backed by local SQLite store.
+/// Create an `HpcScheduler` with mock SLURM adapter backed by local `SQLite` store.
 ///
 /// Used by `status`, `result`, and `wait` commands to query local job state
 /// without requiring a real SLURM/PBS installation.

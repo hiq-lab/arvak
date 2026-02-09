@@ -152,6 +152,7 @@ impl Optimize1qGates {
     }
 
     /// Convert ZYZ angles to RZ-SX decomposition.
+    #[allow(clippy::unused_self)]
     fn zyz_to_zsx(&self, alpha: f64, beta: f64, gamma: f64) -> Vec<StandardGate> {
         // RY(β) = RZ(π/2) · SX · RZ(β) · SX · RZ(-π/2)
         // So: RZ(α) · RY(β) · RZ(γ)
@@ -189,6 +190,7 @@ impl Optimize1qGates {
     }
 
     /// Find runs of consecutive 1q gates on each qubit.
+    #[allow(clippy::unused_self)]
     fn find_1q_runs(&self, dag: &CircuitDag) -> Vec<(QubitId, Vec<NodeIndex>)> {
         let mut runs = Vec::new();
         let mut visited: FxHashSet<NodeIndex> = FxHashSet::default();
@@ -270,7 +272,7 @@ impl Optimize1qGates {
 }
 
 impl Pass for Optimize1qGates {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Optimize1qGates"
     }
 
@@ -313,7 +315,7 @@ impl Pass for Optimize1qGates {
 
             if num_new == 0 {
                 // All gates cancel - remove all nodes in this run
-                for &node_idx in nodes.iter() {
+                for &node_idx in &nodes {
                     let _ = dag.remove_op(node_idx);
                 }
             } else if num_new <= nodes.len() {
@@ -328,7 +330,7 @@ impl Pass for Optimize1qGates {
                 }
 
                 // Remove extra nodes
-                for &node_idx in remove.iter() {
+                for &node_idx in remove {
                     let _ = dag.remove_op(node_idx);
                 }
             } else {
@@ -366,6 +368,7 @@ impl CancelCX {
     }
 
     /// Find pairs of adjacent CX gates that can be cancelled.
+    #[allow(clippy::unused_self)]
     fn find_cancellable_pairs(&self, dag: &CircuitDag) -> Vec<(NodeIndex, NodeIndex)> {
         let mut pairs = Vec::new();
         let mut processed: FxHashSet<NodeIndex> = FxHashSet::default();
@@ -426,6 +429,7 @@ impl CancelCX {
     }
 
     /// Check if two nodes are truly adjacent on both wires.
+    #[allow(clippy::unused_self)]
     fn is_truly_adjacent(
         &self,
         dag: &CircuitDag,
@@ -465,7 +469,7 @@ impl Default for CancelCX {
 }
 
 impl Pass for CancelCX {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "CancelCX"
     }
 
@@ -514,7 +518,7 @@ impl CommutativeCancellation {
     ///
     /// This is used for future enhancements where gates can be reordered
     /// to enable additional cancellations.
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::match_same_arms)]
     fn gates_commute(
         gate1: &StandardGate,
         qubits1: &[QubitId],
@@ -553,7 +557,7 @@ impl CommutativeCancellation {
 
     /// Check if a gate is diagonal (only affects phases, not populations).
     ///
-    /// Used by gates_commute for determining commutation relationships.
+    /// Used by `gates_commute` for determining commutation relationships.
     #[allow(dead_code)]
     fn is_diagonal(gate: &StandardGate) -> bool {
         matches!(
@@ -608,7 +612,8 @@ impl CommutativeCancellation {
     }
 
     /// Find mergeable rotation pairs.
-    /// Returns (node1, node2, Option<merged_gate>) where None means both gates cancel.
+    /// Returns (node1, node2, Option<`merged_gate`>) where None means both gates cancel.
+    #[allow(clippy::similar_names, clippy::unused_self)]
     fn find_mergeable_rotations(
         &self,
         dag: &CircuitDag,
@@ -677,7 +682,7 @@ impl Default for CommutativeCancellation {
 }
 
 impl Pass for CommutativeCancellation {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "CommutativeCancellation"
     }
 
@@ -834,7 +839,7 @@ mod tests {
 
     #[test]
     fn test_resource_noise_blocks_optimization() {
-        use arvak_ir::noise::{NoiseModel, NoiseRole};
+        use arvak_ir::noise::NoiseModel;
 
         let mut circuit = Circuit::with_size("test", 1, 0);
         circuit.h(QubitId(0)).unwrap();
@@ -871,9 +876,7 @@ mod tests {
             let got = reconstructed.data[i] * global;
             assert!(
                 (expected - got).norm() < 1e-6,
-                "Mismatch: expected {:?}, got {:?}",
-                expected,
-                got
+                "Mismatch: expected {expected:?}, got {got:?}"
             );
         }
     }

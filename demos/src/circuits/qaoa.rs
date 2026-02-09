@@ -60,7 +60,7 @@ pub fn qaoa_circuit(graph: &Graph, gamma: &[f64], beta: &[f64]) -> Circuit {
 
 /// Apply the cost unitary for Max-Cut.
 ///
-/// For each edge (i,j), apply: RZZ(γ) = exp(-i γ/2 Z_i Z_j)
+/// For each edge (i,j), apply: RZZ(γ) = exp(-i γ/2 `Z_i` `Z_j`)
 /// RZZ can be decomposed as: CNOT(i,j) · RZ(γ)[j] · CNOT(i,j)
 fn apply_cost_unitary(circuit: &mut Circuit, graph: &Graph, gamma: f64) {
     for (i, j, weight) in &graph.edges {

@@ -112,7 +112,7 @@ impl PriorityQueue {
     /// Peek at the highest priority job without removing it.
     pub fn peek(&self) -> Option<&ScheduledJob> {
         // Find the first entry that still has a corresponding job
-        for entry in self.heap.iter() {
+        for entry in &self.heap {
             if let Some(job) = self.jobs.get(&entry.job_id) {
                 return Some(job);
             }
@@ -173,7 +173,7 @@ impl PriorityQueue {
     /// Update a job's priority.
     ///
     /// This re-inserts the job with the new priority. The old entry in the heap
-    /// will be skipped on pop().
+    /// will be skipped on `pop()`.
     pub fn update_priority(&mut self, job_id: &ScheduledJobId, new_priority: Priority) -> bool {
         if let Some(job) = self.jobs.get_mut(job_id) {
             job.priority = new_priority;

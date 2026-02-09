@@ -139,8 +139,7 @@ fn get_target_config(
             ))
         }
         _ => Err(ApiError::BadRequest(format!(
-            "Unknown target '{}'. Supported targets: iqm, iqm5, iqm20, ibm, ibm5, ibm27, simulator, linear, star",
-            target
+            "Unknown target '{target}'. Supported targets: iqm, iqm5, iqm20, ibm, ibm5, ibm27, simulator, linear, star"
         ))),
     }
 }

@@ -58,7 +58,7 @@ impl ScheduledRunner {
 
         // Create and submit the job
         let job = ScheduledJob::new(
-            format!("grover_{}q_search_{}", n_qubits, marked_state),
+            format!("grover_{n_qubits}q_search_{marked_state}"),
             spec,
         )
         .with_priority(priority)
@@ -71,7 +71,7 @@ impl ScheduledRunner {
     /// Submit a VQE energy evaluation to the scheduler.
     ///
     /// This submits a single energy evaluation circuit. For full VQE
-    /// optimization, use the VqeRunner instead.
+    /// optimization, use the `VqeRunner` instead.
     pub async fn submit_vqe_evaluation(
         &self,
         params: &[f64],
@@ -88,7 +88,7 @@ impl ScheduledRunner {
         // VQE uses small molecule Hamiltonians
         let requirements = ResourceRequirements::new(n_qubits as u32);
 
-        let job = ScheduledJob::new(format!("vqe_{}q_evaluation", n_qubits), spec)
+        let job = ScheduledJob::new(format!("vqe_{n_qubits}q_evaluation"), spec)
             .with_priority(priority)
             .with_shots(1024)
             .with_requirements(requirements);
@@ -135,7 +135,7 @@ impl ScheduledRunner {
             })
             .collect();
 
-        let n_qubits = circuits.iter().map(|c| c.num_qubits()).max().unwrap_or(2) as u32;
+        let n_qubits = circuits.iter().map(arvak_ir::Circuit::num_qubits).max().unwrap_or(2) as u32;
         let requirements = ResourceRequirements::new(n_qubits);
 
         self.scheduler

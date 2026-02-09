@@ -1,6 +1,6 @@
-//! OpenQASM 3 Parser and Emitter for Arvak
+//! `OpenQASM` 3 Parser and Emitter for Arvak
 //!
-//! This crate provides a complete parser and emitter for the OpenQASM 3.0 quantum
+//! This crate provides a complete parser and emitter for the `OpenQASM` 3.0 quantum
 //! assembly language, enabling Arvak to read and write standard quantum circuit files.
 //!
 //! # Supported Features

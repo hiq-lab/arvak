@@ -14,7 +14,7 @@ use crate::property::PropertySet;
 pub struct BasicRouting;
 
 impl Pass for BasicRouting {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "BasicRouting"
     }
 
@@ -22,6 +22,7 @@ impl Pass for BasicRouting {
         PassKind::Transformation
     }
 
+    #[allow(clippy::similar_names, clippy::cast_possible_truncation)]
     fn run(&self, dag: &mut CircuitDag, properties: &mut PropertySet) -> CompileResult<()> {
         let coupling_map = properties
             .coupling_map

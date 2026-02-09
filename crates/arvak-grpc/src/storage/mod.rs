@@ -4,8 +4,8 @@
 //! backends to be used interchangeably:
 //!
 //! - `MemoryStorage`: In-memory storage (no persistence)
-//! - `SqliteStorage`: SQLite database for single-node deployments
-//! - `PostgresStorage`: PostgreSQL for production clusters
+//! - `SqliteStorage`: `SQLite` database for single-node deployments
+//! - `PostgresStorage`: `PostgreSQL` for production clusters
 
 use arvak_hal::job::{JobId, JobStatus};
 use arvak_hal::result::ExecutionResult;
@@ -100,19 +100,19 @@ pub trait JobStorage: Send + Sync {
 
     /// Update the status of a job.
     ///
-    /// This method should also update timestamps (started_at, completed_at)
+    /// This method should also update timestamps (`started_at`, `completed_at`)
     /// based on the new status.
     async fn update_status(&self, job_id: &JobId, status: JobStatus) -> Result<()>;
 
     /// Store the result of a completed job.
     ///
     /// This method should also update the job status to Completed and set
-    /// the completed_at timestamp.
+    /// the `completed_at` timestamp.
     async fn store_result(&self, job_id: &JobId, result: ExecutionResult) -> Result<()>;
 
     /// List jobs matching the filter criteria.
     ///
-    /// Results are ordered by submitted_at descending (most recent first).
+    /// Results are ordered by `submitted_at` descending (most recent first).
     async fn list_jobs(&self, filter: JobFilter) -> Result<Vec<StoredJob>>;
 
     /// Delete a job from storage.
@@ -122,7 +122,7 @@ pub trait JobStorage: Send + Sync {
 
     /// Get a job result by ID.
     ///
-    /// This is a convenience method that combines get_job and extracting
+    /// This is a convenience method that combines `get_job` and extracting
     /// the result. Returns an error if the job is not completed.
     async fn get_result(&self, job_id: &JobId) -> Result<ExecutionResult> {
         let job = self

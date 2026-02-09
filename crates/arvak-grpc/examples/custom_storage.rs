@@ -1,12 +1,12 @@
 //! Example demonstrating custom storage backend usage.
 //!
 //! This example shows how to:
-//! 1. Create a JobStore with default in-memory storage
-//! 2. Create a JobStore with a custom storage backend
+//! 1. Create a `JobStore` with default in-memory storage
+//! 2. Create a `JobStore` with a custom storage backend
 //! 3. Store and retrieve jobs
 //! 4. Update job status and results
 //!
-//! Run with: cargo run --example custom_storage
+//! Run with: cargo run --example `custom_storage`
 
 use arvak_grpc::JobStore;
 use arvak_grpc::storage::{JobStorage, MemoryStorage};
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nonexistent_job = JobId::new("nonexistent-123".to_string());
     match job_store.get_job(&nonexistent_job).await {
         Ok(_) => println!("   Unexpected success!"),
-        Err(e) => println!("   Expected error: {}", e),
+        Err(e) => println!("   Expected error: {e}"),
     }
     println!();
 

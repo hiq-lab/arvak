@@ -57,13 +57,13 @@ fn main() {
     let circuit = grover_circuit(n_qubits, marked, grover_iters);
 
     print_result("Qubits", n_qubits);
-    print_result("Marked state", format!("|{}⟩", marked));
+    print_result("Marked state", format!("|{marked}⟩"));
     print_result("Iterations", grover_iters);
     print_result("Circuit depth", circuit.depth());
     print_result("Time", format!("{:.2?}", grover_start.elapsed()));
 
     let success_prob = (((2 * grover_iters + 1) as f64 * std::f64::consts::PI
-        / (4.0 * ((1 << n_qubits) as f64).sqrt()))
+        / (4.0 * f64::from(1 << n_qubits).sqrt()))
     .sin())
     .powi(2);
     print_result(
@@ -132,7 +132,7 @@ fn main() {
     let (set_s, set_t) = graph.bitstring_to_partition(result.best_bitstring);
 
     print_result("Found cut", result.best_cut);
-    print_result("Partition", format!("{:?} | {:?}", set_s, set_t));
+    print_result("Partition", format!("{set_s:?} | {set_t:?}"));
     print_result(
         "Approximation ratio",
         format!("{:.1}%", result.approximation_ratio * 100.0),
@@ -174,7 +174,7 @@ fn main() {
     print_section("Demo Summary");
 
     let total_time = start.elapsed();
-    print_result("Total demo time", format!("{:.2?}", total_time));
+    print_result("Total demo time", format!("{total_time:.2?}"));
 
     println!();
     println!("  Key takeaways:");

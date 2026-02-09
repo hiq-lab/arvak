@@ -14,7 +14,7 @@ use crate::property::{Layout, PropertySet};
 pub struct TrivialLayout;
 
 impl Pass for TrivialLayout {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "TrivialLayout"
     }
 
@@ -22,6 +22,7 @@ impl Pass for TrivialLayout {
         PassKind::Analysis
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn run(&self, dag: &mut CircuitDag, properties: &mut PropertySet) -> CompileResult<()> {
         // Check if we have a coupling map
         let coupling_map = properties

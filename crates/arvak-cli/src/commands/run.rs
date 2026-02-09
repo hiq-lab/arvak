@@ -102,15 +102,14 @@ pub async fn execute(
         }
         other => {
             anyhow::bail!(
-                "Unknown backend: '{}'. Available: simulator, iqm, ibm",
-                other
+                "Unknown backend: '{other}'. Available: simulator, iqm, ibm"
             );
         }
     };
 
     // Check availability
     if !backend_impl.is_available().await? {
-        anyhow::bail!("Backend '{}' is not available", backend);
+        anyhow::bail!("Backend '{backend}' is not available");
     }
 
     // Submit job
@@ -124,7 +123,7 @@ pub async fn execute(
     spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
     let job_id = backend_impl.submit(&circuit, shots).await?;
-    spinner.set_message(format!("Running job {}...", job_id));
+    spinner.set_message(format!("Running job {job_id}..."));
 
     // Wait for result
     let result = backend_impl.wait(&job_id).await?;

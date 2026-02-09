@@ -327,7 +327,7 @@ impl CircuitVisualization {
     }
 }
 
-/// Convert a CircuitDag to visualization layers.
+/// Convert a `CircuitDag` to visualization layers.
 ///
 /// This groups operations by their depth (earliest time they can execute)
 /// for rendering as a circuit diagram.
@@ -368,7 +368,7 @@ fn circuit_to_layers(dag: &CircuitDag) -> Vec<CircuitLayer> {
     layers
 }
 
-/// Convert an Instruction to an OperationView for visualization.
+/// Convert an Instruction to an `OperationView` for visualization.
 fn instruction_to_view(instruction: &Instruction) -> OperationView {
     let (gate, label) = match &instruction.kind {
         InstructionKind::Gate(g) => {
@@ -379,13 +379,13 @@ fn instruction_to_view(instruction: &Instruction) -> OperationView {
         InstructionKind::Measure => ("measure".to_string(), "M".to_string()),
         InstructionKind::Reset => ("reset".to_string(), "|0⟩".to_string()),
         InstructionKind::Barrier => ("barrier".to_string(), "║".to_string()),
-        InstructionKind::Delay { duration } => ("delay".to_string(), format!("D({})", duration)),
+        InstructionKind::Delay { duration } => ("delay".to_string(), format!("D({duration})")),
         InstructionKind::Shuttle { from_zone, to_zone } => (
             "shuttle".to_string(),
-            format!("S({}-{})", from_zone, to_zone),
+            format!("S({from_zone}-{to_zone})"),
         ),
         InstructionKind::NoiseChannel { model, role } => {
-            (format!("noise_{}", role), format!("N({})", model.name()))
+            (format!("noise_{role}"), format!("N({})", model.name()))
         }
     };
 
@@ -410,9 +410,9 @@ fn format_gate_label(gate: &arvak_ir::Gate) -> String {
     }
 }
 
-/// Format a StandardGate label with parameters.
+/// Format a `StandardGate` label with parameters.
 fn format_standard_gate_label(gate: &arvak_ir::StandardGate) -> String {
-    use arvak_ir::StandardGate::*;
+    use arvak_ir::StandardGate::{I, X, Y, Z, H, S, Sdg, T, Tdg, SX, SXdg, CX, CY, CZ, CH, Swap, ISwap, CCX, CSwap, Rx, Ry, Rz, P, U, CRx, CRy, CRz, CP, RXX, RYY, RZZ, PRX};
 
     match gate {
         // Simple gates (no parameters)
@@ -474,7 +474,7 @@ fn format_param(param: &arvak_ir::ParameterExpression) -> String {
         } else if (value + pi / 2.0).abs() < 1e-10 {
             "-π/2".to_string()
         } else {
-            format!("{:.2}", value)
+            format!("{value:.2}")
         }
     } else {
         // Symbolic parameter

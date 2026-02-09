@@ -115,7 +115,7 @@ pub struct BatchabilityAnalysis {
     pub total_quantum_phases: usize,
     /// Total classical phases.
     pub total_classical_phases: usize,
-    /// Parallelism ratio (max_parallel / total_quantum, higher is better).
+    /// Parallelism ratio (`max_parallel` / `total_quantum`, higher is better).
     pub parallelism_ratio: f64,
     /// Whether the circuit is purely quantum (no classical interleavings).
     pub is_purely_quantum: bool,
@@ -160,7 +160,7 @@ impl OrchestrationAnalyzer {
     /// Analyze a compiled circuit DAG and build the orchestration report.
     ///
     /// For a single circuit without classical feedback, this produces a simple
-    /// linear DAG: [quantum] -> [classical_readout].
+    /// linear DAG: \[quantum\] -> \[classical_readout\].
     ///
     /// Circuits with measurements mid-circuit produce interleaved phases.
     pub fn analyze(circuit_dag: &CircuitDag, num_qubits: usize) -> OrchestrationReport {
@@ -253,7 +253,7 @@ impl OrchestrationAnalyzer {
                     };
 
                     // Edge: quantum -> classical (measurement results)
-                    if nodes.len() >= 1 {
+                    if !nodes.is_empty() {
                         edges.push(HybridEdge {
                             from: phase_index - 1,
                             to: phase_index,
@@ -358,8 +358,7 @@ impl OrchestrationAnalyzer {
             .iter()
             .enumerate()
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(i, _)| i)
-            .unwrap_or(0);
+            .map_or(0, |(i, _)| i);
 
         // Trace back the critical path
         let mut path = vec![end_idx];
@@ -424,8 +423,7 @@ impl OrchestrationAnalyzer {
             // Find the latest group of any predecessor
             let max_pred_group = dependent_on
                 .get(&qn)
-                .map(|preds| preds.iter().filter_map(|p| assigned.get(p)).max().copied())
-                .flatten();
+                .and_then(|preds| preds.iter().filter_map(|p| assigned.get(p)).max().copied());
 
             let group = match max_pred_group {
                 Some(g) => g + 1,
@@ -439,7 +437,7 @@ impl OrchestrationAnalyzer {
             assigned.insert(qn, group);
         }
 
-        let max_parallel = parallel_groups.iter().map(|g| g.len()).max().unwrap_or(0);
+        let max_parallel = parallel_groups.iter().map(std::vec::Vec::len).max().unwrap_or(0);
         let parallelism_ratio = if total_quantum > 0 {
             max_parallel as f64 / total_quantum as f64
         } else {

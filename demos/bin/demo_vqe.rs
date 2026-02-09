@@ -81,11 +81,11 @@ fn main() {
     print_result("Max iterations", args.iterations);
 
     if let Some(exact) = exact_energy {
-        print_result("Exact ground state", format!("{:.4} Hartree", exact));
+        print_result("Exact ground state", format!("{exact:.4} Hartree"));
     }
 
     print_section("Hamiltonian");
-    println!("{}", hamiltonian);
+    println!("{hamiltonian}");
 
     print_section("Running VQE Optimization");
     println!();
@@ -123,8 +123,8 @@ fn main() {
     if let Some(exact) = exact_energy {
         let error: f64 = (result.optimal_energy - exact).abs();
         let relative_error: f64 = (error / exact.abs()) * 100.0;
-        print_result("Absolute error", format!("{:.6} Hartree", error));
-        print_result("Relative error", format!("{:.2}%", relative_error));
+        print_result("Absolute error", format!("{error:.6} Hartree"));
+        print_result("Relative error", format!("{relative_error:.2}%"));
     }
 
     print_section("Energy Convergence");
@@ -139,8 +139,7 @@ fn main() {
 
     print_section("Demo Narrative");
     println!(
-        "  This demo simulates finding the ground state energy of {}.",
-        molecule_name
+        "  This demo simulates finding the ground state energy of {molecule_name}."
     );
     println!();
     println!("  In pharmaceutical applications, VQE is used to:");

@@ -36,10 +36,10 @@ fn main() {
 
     print_section("Problem Setup");
     print_result("Scenarios", scenarios.len());
-    print_result("QAOA depth sweep", format!("p = 1..{}", max_depth));
+    print_result("QAOA depth sweep", format!("p = 1..{max_depth}"));
     print_result(
         "Angle grid",
-        format!("{}x{} (gamma x beta)", grid_size, grid_size),
+        format!("{grid_size}x{grid_size} (gamma x beta)"),
     );
     print_result("Circuits per scenario", format_count(circuits_per_problem));
     print_result(
@@ -136,7 +136,7 @@ fn main() {
     );
     print_result(
         "Arvak speedup",
-        format!("{:.0}x (O0) / {:.0}x (O2)", speedup_o0, speedup_o2),
+        format!("{speedup_o0:.0}x (O0) / {speedup_o2:.0}x (O2)"),
     );
 
     print_section("Operational Impact");
@@ -150,8 +150,7 @@ fn main() {
     );
     println!("  to explore the QAOA parameter space across three scenarios.");
     println!(
-        "  Arvak completes the same sweep in {:.2?} — enabling",
-        grand_total_time_o2
+        "  Arvak completes the same sweep in {grand_total_time_o2:.2?} — enabling"
     );
     println!("  real-time re-optimization as the situation evolves.");
 
@@ -194,7 +193,7 @@ fn format_count(n: usize) -> String {
     } else if n >= 1_000 {
         format!("{},{:03}", n / 1_000, n % 1_000)
     } else {
-        format!("{}", n)
+        format!("{n}")
     }
 }
 
@@ -207,6 +206,6 @@ fn format_duration_us(nanos: f64) -> String {
     if us >= 1000.0 {
         format!("{:.1}ms", us / 1000.0)
     } else {
-        format!("{:.0}us", us)
+        format!("{us:.0}us")
     }
 }

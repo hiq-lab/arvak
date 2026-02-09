@@ -31,7 +31,7 @@ impl NoiseInjectionPass {
 }
 
 impl Pass for NoiseInjectionPass {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "NoiseInjection"
     }
 

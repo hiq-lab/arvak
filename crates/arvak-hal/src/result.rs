@@ -50,6 +50,7 @@ impl Counts {
     }
 
     /// Get probabilities for each bitstring.
+    #[allow(clippy::cast_precision_loss)]
     pub fn probabilities(&self) -> FxHashMap<String, f64> {
         let total = self.total_shots() as f64;
         if total == 0.0 {
@@ -131,6 +132,7 @@ impl ExecutionResult {
     }
 
     /// Get the most frequent measurement result.
+    #[allow(clippy::cast_precision_loss)]
     pub fn most_frequent(&self) -> Option<(&String, f64)> {
         let total = self.counts.total_shots() as f64;
         self.counts

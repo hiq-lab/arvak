@@ -148,8 +148,7 @@ impl BackendRegistry {
         }
 
         Err(HalError::BackendUnavailable(format!(
-            "No backend registered with name '{}'",
-            name
+            "No backend registered with name '{name}'"
         )))
     }
 

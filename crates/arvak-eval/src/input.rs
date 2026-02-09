@@ -49,7 +49,7 @@ pub struct InputAnalysis {
 }
 
 impl InputAnalysis {
-    /// Parse and analyze an OpenQASM 3.0 source string.
+    /// Parse and analyze an `OpenQASM` 3.0 source string.
     pub fn analyze(qasm_source: &str) -> EvalResult<Self> {
         // Hash the raw input
         let content_hash = sha256_hex(qasm_source);
@@ -183,27 +183,27 @@ fn sha256_hex(input: &str) -> String {
 
     for &b in bytes {
         // DJB2a
-        h1 = h1.wrapping_mul(33) ^ (b as u64);
+        h1 = h1.wrapping_mul(33) ^ u64::from(b);
         // FNV-1a
-        h2 ^= b as u64;
+        h2 ^= u64::from(b);
         h2 = h2.wrapping_mul(0x100000001b3);
     }
 
-    format!("{:016x}{:016x}", h1, h2)
+    format!("{h1:016x}{h2:016x}")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const BELL_QASM: &str = r#"
+    const BELL_QASM: &str = r"
 OPENQASM 3.0;
 qubit[2] q;
 bit[2] c;
 h q[0];
 cx q[0], q[1];
 c = measure q;
-"#;
+";
 
     #[test]
     fn test_input_analysis() {
@@ -241,14 +241,14 @@ c = measure q;
 
     #[test]
     fn test_ghz_circuit() {
-        let qasm = r#"
+        let qasm = r"
 OPENQASM 3.0;
 qubit[4] q;
 h q[0];
 cx q[0], q[1];
 cx q[1], q[2];
 cx q[2], q[3];
-"#;
+";
         let analysis = InputAnalysis::analyze(qasm).unwrap();
         assert_eq!(analysis.structural_metrics.num_qubits, 4);
         assert_eq!(analysis.structural_metrics.single_qubit_gates, 1);

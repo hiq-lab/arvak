@@ -107,9 +107,9 @@ impl ResourceMatcher {
 
         // Qubit count score (prefer closer match)
         let qubit_diff = (capabilities.num_qubits as i32 - requirements.min_qubits as i32).abs();
-        let qubit_score = 20.0 / (1.0 + qubit_diff as f64 * 0.1);
+        let qubit_score = 20.0 / (1.0 + f64::from(qubit_diff) * 0.1);
         score += qubit_score;
-        breakdown.push((format!("Qubit match (diff: {})", qubit_diff), qubit_score));
+        breakdown.push((format!("Qubit match (diff: {qubit_diff})"), qubit_score));
 
         // Simulator preference
         if !requirements.allow_simulator && capabilities.is_simulator {
@@ -161,7 +161,7 @@ impl ResourceMatcher {
             TopologyPreference::Grid => {
                 // Prefer topologies with higher connectivity
                 let avg_degree =
-                    capabilities.topology.edges.len() as f64 / capabilities.num_qubits as f64;
+                    capabilities.topology.edges.len() as f64 / f64::from(capabilities.num_qubits);
                 if avg_degree >= 2.0 { 10.0 } else { 5.0 }
             }
             TopologyPreference::AllToAll => {
@@ -206,7 +206,7 @@ impl ResourceMatcher {
             }
         }
 
-        let ratio = matched as f64 / requirements.required_gates.len() as f64;
+        let ratio = f64::from(matched) / requirements.required_gates.len() as f64;
         if ratio < 1.0 {
             // Some required gates are missing
             ratio * 5.0

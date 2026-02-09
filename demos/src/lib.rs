@@ -56,7 +56,7 @@ pub fn create_progress_bar(len: u64, message: &str) -> ProgressBar {
 pub fn print_header(title: &str) {
     println!();
     println!("{}", style("═".repeat(60)).cyan());
-    println!("{}", style(format!("  {}", title)).cyan().bold());
+    println!("{}", style(format!("  {title}")).cyan().bold());
     println!("{}", style("═".repeat(60)).cyan());
     println!();
 }
@@ -64,13 +64,13 @@ pub fn print_header(title: &str) {
 /// Print a demo section.
 pub fn print_section(title: &str) {
     println!();
-    println!("{}", style(format!("▶ {}", title)).green().bold());
+    println!("{}", style(format!("▶ {title}")).green().bold());
     println!("{}", style("─".repeat(40)).dim());
 }
 
 /// Print a result line.
 pub fn print_result(label: &str, value: impl std::fmt::Display) {
-    println!("  {} {}", style(format!("{}:", label)).dim(), value);
+    println!("  {} {}", style(format!("{label}:")).dim(), value);
 }
 
 /// Print a success message.

@@ -28,7 +28,7 @@ fn main() {
     print_result("Molecule", "LiH (Lithium Hydride)");
     print_result("Qubits", n_qubits);
     print_result("Hamiltonian terms", n_terms);
-    print_result("Ansatz", format!("TwoLocal (reps={})", reps));
+    print_result("Ansatz", format!("TwoLocal (reps={reps})"));
     print_result("Optimizer iterations", iterations);
     print_result("Total circuits", format_count(total_circuits));
     print_result("Target", "IQM (CZ + PRX)");
@@ -49,7 +49,7 @@ fn main() {
         circuits.push(two_local_ansatz(n_qubits, reps, &params));
     }
     let gen_time = gen_start.elapsed();
-    print_result("Generation time", format!("{:.2?}", gen_time));
+    print_result("Generation time", format!("{gen_time:.2?}"));
 
     // Sample gate count from first circuit
     let sample_gates = circuits[0].dag().num_ops();
@@ -68,8 +68,8 @@ fn main() {
 
     println!();
     println!(
-        "  {:<8}{:<12}{:<16}{}",
-        "Level", "Total", "Per-Circuit", "Gates/s"
+        "  {:<8}{:<12}{:<16}Gates/s",
+        "Level", "Total", "Per-Circuit"
     );
     println!(
         "  {:<8}{:<12}{:<16}{}",
@@ -99,7 +99,7 @@ fn main() {
     );
     print_result(
         "Arvak speedup",
-        format!("{:.0}x (O0) / {:.0}x (O2)", speedup_o0, speedup_o2),
+        format!("{speedup_o0:.0}x (O0) / {speedup_o2:.0}x (O2)"),
     );
 
     print_section("Why This Matters");
@@ -113,7 +113,7 @@ fn main() {
         "  takes {:.1} minutes — longer than the quantum execution.",
         slow_total_s / 60.0
     );
-    println!("  Arvak compiles the entire batch in {:.2?}.", time_o2);
+    println!("  Arvak compiles the entire batch in {time_o2:.2?}.");
 
     println!();
     print_success("VQE compilation throughput demo complete!");
@@ -154,7 +154,7 @@ fn format_count(n: usize) -> String {
     } else if n >= 1_000 {
         format!("{},{:03}", n / 1_000, n % 1_000)
     } else {
-        format!("{}", n)
+        format!("{n}")
     }
 }
 
@@ -167,7 +167,7 @@ fn format_duration_us(nanos: f64) -> String {
     if us >= 1000.0 {
         format!("{:.1}ms", us / 1000.0)
     } else {
-        format!("{:.0}us", us)
+        format!("{us:.0}us")
     }
 }
 
@@ -177,6 +177,6 @@ fn format_rate(per_sec: f64) -> String {
     } else if per_sec >= 1_000.0 {
         format!("{:.0}K", per_sec / 1_000.0)
     } else {
-        format!("{:.0}", per_sec)
+        format!("{per_sec:.0}")
     }
 }

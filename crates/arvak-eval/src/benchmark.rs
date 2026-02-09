@@ -89,10 +89,10 @@ impl BenchmarkLoader {
         };
 
         let qasm3_source = arvak_qasm3::emit(&circuit)
-            .map_err(|e| EvalError::Parse(format!("Failed to emit benchmark: {}", e)))?;
+            .map_err(|e| EvalError::Parse(format!("Failed to emit benchmark: {e}")))?;
 
         Ok(BenchmarkCircuit {
-            suite: format!("{:?}", suite),
+            suite: format!("{suite:?}"),
             name: format!("{} ({}q)", suite.display_name(), num_qubits),
             num_qubits,
             expected_gates,
@@ -309,10 +309,10 @@ mod tests {
         assert_eq!(bench.num_qubits, 4);
         assert!(!bench.qasm3_source.is_empty());
         // Should contain diverse gate types
-        assert!(bench.qasm3_source.contains("h"));
+        assert!(bench.qasm3_source.contains('h'));
         assert!(bench.qasm3_source.contains("cx"));
-        assert!(bench.qasm3_source.contains("s"));
-        assert!(bench.qasm3_source.contains("t"));
+        assert!(bench.qasm3_source.contains('s'));
+        assert!(bench.qasm3_source.contains('t'));
     }
 
     #[test]

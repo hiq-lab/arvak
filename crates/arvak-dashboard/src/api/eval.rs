@@ -242,7 +242,7 @@ pub async fn evaluate(
     let eval_start = Instant::now();
     let report = evaluator
         .evaluate(&req.qasm, &[])
-        .map_err(|e| ApiError::Internal(format!("Evaluation failed: {}", e)))?;
+        .map_err(|e| ApiError::Internal(format!("Evaluation failed: {e}")))?;
     let eval_time = eval_start.elapsed();
 
     // Build response from report
@@ -272,14 +272,12 @@ pub async fn evaluate(
             .metrics
             .compilation_effect
             .as_ref()
-            .map(|e| e.depth_delta)
-            .unwrap_or(0),
+            .map_or(0, |e| e.depth_delta),
         ops_delta: report
             .metrics
             .compilation_effect
             .as_ref()
-            .map(|e| e.ops_delta)
-            .unwrap_or(0),
+            .map_or(0, |e| e.ops_delta),
         compile_time_us,
         throughput_gates_per_sec,
     };

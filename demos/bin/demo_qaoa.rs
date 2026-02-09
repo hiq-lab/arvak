@@ -48,7 +48,7 @@ fn main() {
     };
 
     print_section("Problem Setup");
-    println!("{}", graph);
+    println!("{graph}");
 
     // Compute exact solution
     let (exact_bitstring, exact_cut) = graph.max_cut_brute_force();
@@ -62,7 +62,7 @@ fn main() {
     print_result("Optimal cut (exact)", exact_cut);
     print_result(
         "Optimal partition",
-        format!("{:?} | {:?}", exact_s, exact_t),
+        format!("{exact_s:?} | {exact_t:?}"),
     );
 
     print_section("Max-Cut Problem");
@@ -96,7 +96,7 @@ fn main() {
     let (found_s, found_t) = graph.bitstring_to_partition(result.best_bitstring);
 
     print_result("Best cut found", result.best_cut);
-    print_result("Best partition", format!("{:?} | {:?}", found_s, found_t));
+    print_result("Best partition", format!("{found_s:?} | {found_t:?}"));
     print_result(
         "Approximation ratio",
         format!("{:.1}%", result.approximation_ratio * 100.0),

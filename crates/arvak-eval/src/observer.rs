@@ -1,6 +1,6 @@
 //! Compilation Observer: pass-wise metrics collection and delta calculation.
 //!
-//! Wraps the PassManager execution to capture before/after snapshots
+//! Wraps the `PassManager` execution to capture before/after snapshots
 //! of circuit metrics at each compilation pass.
 
 use serde::{Deserialize, Serialize};
