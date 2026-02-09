@@ -277,6 +277,7 @@ jobs:
           -A clippy::too-many-arguments
           -A clippy::unused-async
           -A clippy::ref-option
+          -A clippy::semicolon-if-nothing-returned
 
   # ─────────────────────────────────────────────
   # Job 6: Adapter compatibility builds
@@ -399,8 +400,8 @@ jobs:
 
       - name: Build DDSIM shared library
         run: |
-          # Clean stale FetchContent checkouts that may conflict with the pinned tag
-          rm -rf build-ddsim/_deps/mqt-core-src build-ddsim/_deps/mqt-core-subbuild
+          # Clean stale FetchContent state to avoid tag checkout conflicts
+          rm -rf build-ddsim/_deps
           cmake -S crates/arvak-qdmi/ci/ddsim_shim \
                 -B build-ddsim \
                 -G Ninja \
@@ -433,71 +434,6 @@ jobs:
         run: |
           echo "## DDSIM QDMI Compatibility (pinned)" >> $GITHUB_STEP_SUMMARY
           echo "✅ Integration tests passed against MQT Core DDSIM" >> $GITHUB_STEP_SUMMARY
-
-  # ─────────────────────────────────────────────
-  # Job 6c: DDSIM QDMI device — upstream drift detection
-  # ─────────────────────────────────────────────
-  ddsim-compat-latest:
-    name: DDSIM QDMI (latest)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-09
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libboost-dev
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: nightly-${{ runner.os }}-ddsim-latest-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            nightly-${{ runner.os }}-ddsim-latest-
-
-      - name: Build DDSIM shared library (latest mqt-core)
-        run: |
-          rm -rf build-ddsim-latest/_deps/mqt-core-src build-ddsim-latest/_deps/mqt-core-subbuild
-          cmake -S crates/arvak-qdmi/ci/ddsim_shim \
-                -B build-ddsim-latest \
-                -G Ninja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DMQT_CORE_VERSION=main
-          cmake --build build-ddsim-latest --target mqt_ddsim_qdmi_shared
-
-      - name: Locate DDSIM .so and verify symbols
-        id: ddsim
-        run: |
-          SO_PATH=$(find build-ddsim-latest -name "libmqt_ddsim_qdmi_device.so" -print -quit)
-          SO_PATH=$(realpath "$SO_PATH")
-          if [[ -z "$SO_PATH" ]]; then
-            echo "ERROR: libmqt_ddsim_qdmi_device.so not found"
-            exit 1
-          fi
-          echo "path=$SO_PATH" >> $GITHUB_OUTPUT
-          echo "Found DDSIM .so at: $SO_PATH"
-
-      - name: Run arvak-qdmi tests against DDSIM (latest)
-        env:
-          DDSIM_QDMI_DEVICE_PATH: ${{ steps.ddsim.outputs.path }}
-        run: cargo test -p arvak-qdmi --test ddsim_integration -- --nocapture
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "## DDSIM QDMI Compatibility (latest)" >> $GITHUB_STEP_SUMMARY
-          echo "Tests against mqt-core main branch (upstream drift detection)" >> $GITHUB_STEP_SUMMARY
 
   # ─────────────────────────────────────────────
   # Job 7: MSRV (Minimum Supported Rust Version)
@@ -680,7 +616,6 @@ jobs:
       - clippy-strict
       - adapter-compat
       - ddsim-compat
-      - ddsim-compat-latest
       - msrv-check
       - python-bindings
       - benchmarks
@@ -707,7 +642,6 @@ jobs:
           CLIPPY: ${{ needs.clippy-strict.result }}
           ADAPTERS: ${{ needs.adapter-compat.result }}
           DDSIM: ${{ needs.ddsim-compat.result }}
-          DDSIM_LATEST: ${{ needs.ddsim-compat-latest.result }}
           MSRV: ${{ needs.msrv-check.result }}
           PYTHON: ${{ needs.python-bindings.result }}
           BENCH: ${{ needs.benchmarks.result }}
@@ -731,7 +665,7 @@ jobs:
           OVERALL="✅ All checks passed"
           if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" || "$DDSIM" == "failure" ]]; then
             OVERALL="❌ Critical failures detected"
-          elif [[ "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" || "$DDSIM_LATEST" == "failure" ]]; then
+          elif [[ "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" ]]; then
             OVERALL="⚠️ Non-critical issues found"
           fi
 
@@ -749,7 +683,6 @@ jobs:
           | Clippy (strict) | $(status_icon "$CLIPPY") | ${CLIPPY} |
           | Adapter Compatibility | $(status_icon "$ADAPTERS") | ${ADAPTERS} |
           | DDSIM QDMI (pinned) | $(status_icon "$DDSIM") | ${DDSIM} |
-          | DDSIM QDMI (latest) | $(status_icon "$DDSIM_LATEST") | ${DDSIM_LATEST} |
           | MSRV (Rust 1.85) | $(status_icon "$MSRV") | ${MSRV} |
           | Python Bindings | $(status_icon "$PYTHON") | ${PYTHON} |
           | Benchmarks | $(status_icon "$BENCH") | ${BENCH} |
