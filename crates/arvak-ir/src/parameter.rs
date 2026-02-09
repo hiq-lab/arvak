@@ -45,9 +45,8 @@ impl ParameterExpression {
     /// Check if this expression contains any symbols.
     pub fn is_symbolic(&self) -> bool {
         match self {
-            ParameterExpression::Constant(_) => false,
             ParameterExpression::Symbol(_) => true,
-            ParameterExpression::Pi => false,
+            ParameterExpression::Constant(_) | ParameterExpression::Pi => false,
             ParameterExpression::Neg(e) => e.is_symbolic(),
             ParameterExpression::Add(a, b)
             | ParameterExpression::Sub(a, b)
@@ -97,9 +96,10 @@ impl ParameterExpression {
     /// Bind a symbol to a value, returning a new expression.
     pub fn bind(&self, name: &str, value: f64) -> Self {
         match self {
-            ParameterExpression::Constant(_) | ParameterExpression::Pi => self.clone(),
             ParameterExpression::Symbol(n) if n == name => ParameterExpression::Constant(value),
-            ParameterExpression::Symbol(_) => self.clone(),
+            ParameterExpression::Constant(_)
+            | ParameterExpression::Pi
+            | ParameterExpression::Symbol(_) => self.clone(),
             ParameterExpression::Neg(e) => ParameterExpression::Neg(Box::new(e.bind(name, value))),
             ParameterExpression::Add(a, b) => ParameterExpression::Add(
                 Box::new(a.bind(name, value)),
@@ -174,14 +174,14 @@ impl ParameterExpression {
 impl fmt::Display for ParameterExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParameterExpression::Constant(v) => write!(f, "{}", v),
-            ParameterExpression::Symbol(name) => write!(f, "{}", name),
+            ParameterExpression::Constant(v) => write!(f, "{v}"),
+            ParameterExpression::Symbol(name) => write!(f, "{name}"),
             ParameterExpression::Pi => write!(f, "π"),
-            ParameterExpression::Neg(e) => write!(f, "-({})", e),
-            ParameterExpression::Add(a, b) => write!(f, "({} + {})", a, b),
-            ParameterExpression::Sub(a, b) => write!(f, "({} - {})", a, b),
-            ParameterExpression::Mul(a, b) => write!(f, "({} * {})", a, b),
-            ParameterExpression::Div(a, b) => write!(f, "({} / {})", a, b),
+            ParameterExpression::Neg(e) => write!(f, "-({e})"),
+            ParameterExpression::Add(a, b) => write!(f, "({a} + {b})"),
+            ParameterExpression::Sub(a, b) => write!(f, "({a} - {b})"),
+            ParameterExpression::Mul(a, b) => write!(f, "({a} * {b})"),
+            ParameterExpression::Div(a, b) => write!(f, "({a} / {b})"),
         }
     }
 }
@@ -194,7 +194,7 @@ impl From<f64> for ParameterExpression {
 
 impl From<i32> for ParameterExpression {
     fn from(value: i32) -> Self {
-        ParameterExpression::Constant(value as f64)
+        ParameterExpression::Constant(f64::from(value))
     }
 }
 

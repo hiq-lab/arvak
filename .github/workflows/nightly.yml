@@ -528,7 +528,7 @@ jobs:
         run: |
           pip install crates/arvak-python/target/wheels/arvak-*.whl || pip install target/wheels/arvak-*.whl
           python -c "
-          import importlib, sys
+          import importlib.util, sys
           spec = importlib.util.find_spec('arvak')
           if spec is None:
               print('ERROR: arvak package not found after install')

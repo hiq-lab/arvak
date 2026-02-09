@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_noise_channel_instruction() {
-        use crate::noise::{NoiseModel, NoiseRole};
+        use crate::noise::NoiseModel;
 
         let inst = Instruction::channel_resource(NoiseModel::Depolarizing { p: 0.03 }, QubitId(0));
         assert!(inst.is_noise_channel());

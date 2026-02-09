@@ -10,7 +10,7 @@ use std::f64::consts::PI;
 fn bench_circuit_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("circuit_creation");
 
-    for num_qubits in [2, 5, 10, 20, 50].iter() {
+    for num_qubits in &[2, 5, 10, 20, 50] {
         group.bench_with_input(
             BenchmarkId::new("with_size", num_qubits),
             num_qubits,
@@ -70,7 +70,7 @@ fn bench_gate_addition(c: &mut Criterion) {
 fn bench_ghz_circuit(c: &mut Criterion) {
     let mut group = c.benchmark_group("ghz_circuit");
 
-    for num_qubits in [3, 5, 10, 20, 50, 100].iter() {
+    for num_qubits in &[3, 5, 10, 20, 50, 100] {
         group.bench_with_input(
             BenchmarkId::new("create", num_qubits),
             num_qubits,
@@ -97,7 +97,7 @@ fn bench_ghz_circuit(c: &mut Criterion) {
 fn bench_circuit_depth(c: &mut Criterion) {
     let mut group = c.benchmark_group("circuit_depth");
 
-    for num_qubits in [5, 10, 20, 50].iter() {
+    for num_qubits in &[5, 10, 20, 50] {
         // Create a circuit with some depth
         let mut circuit = Circuit::with_size("bench", *num_qubits, 0);
 
