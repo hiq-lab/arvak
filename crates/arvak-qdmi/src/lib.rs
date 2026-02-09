@@ -21,6 +21,7 @@
 //!                  │                  │
 //!                  │  QdmiDevice      │ ← dlopen + prefix-aware dlsym
 //!                  │  DeviceSession   │ ← RAII session management
+//!                  │  DeviceJob       │ ← RAII job lifecycle
 //!                  │  DeviceCapab.    │ ← structured query results
 //!                  └────────┬─────────┘
 //!                           │ C ABI (extern "C")
@@ -44,7 +45,7 @@
 //!     "EX",
 //! ).expect("failed to load device");
 //!
-//! // Open a session
+//! // Open a session (three-phase: alloc → init)
 //! let session = DeviceSession::open(&device)
 //!     .expect("failed to open session");
 //!
@@ -74,4 +75,4 @@ pub use capabilities::{CouplingMap, DeviceCapabilities, OperationId, SiteId};
 pub use device_loader::QdmiDevice;
 pub use error::QdmiError;
 pub use format::CircuitFormat;
-pub use session::DeviceSession;
+pub use session::{DeviceJob, DeviceSession};

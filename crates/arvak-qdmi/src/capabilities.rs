@@ -35,11 +35,17 @@ pub struct DeviceCapabilities {
     /// Human-readable device name.
     pub name: String,
 
-    /// QDMI library version (if reported).
+    /// Device version (if reported).
     pub version: Option<String>,
+
+    /// Device status code.
+    pub status: Option<i32>,
 
     /// Total number of qubits.
     pub num_qubits: usize,
+
+    /// Duration scale factor for converting raw uint64 values to physical durations.
+    pub duration_scale_factor: f64,
 
     /// Ordered list of site (qubit) identifiers.
     pub sites: Vec<SiteId>,
@@ -60,22 +66,20 @@ pub struct DeviceCapabilities {
     pub supported_formats: Vec<CircuitFormat>,
 }
 
-/// Per-qubit properties.
+/// Per-qubit properties (QDMI v1.2.1 spec-compliant).
 #[derive(Debug, Clone, Default)]
 pub struct SiteProperties {
+    /// Site index (required in QDMI v1.2.1).
+    pub index: Option<usize>,
     /// T₁ relaxation time.
     pub t1: Option<Duration>,
     /// T₂ dephasing time.
     pub t2: Option<Duration>,
-    /// Single-shot readout error rate (0.0 – 1.0).
-    pub readout_error: Option<f64>,
-    /// Readout duration.
-    pub readout_duration: Option<Duration>,
-    /// Qubit frequency (Hz).
-    pub frequency: Option<f64>,
+    /// Site name (optional).
+    pub name: Option<String>,
 }
 
-/// Per-gate properties.
+/// Per-gate properties (QDMI v1.2.1 spec-compliant).
 #[derive(Debug, Clone, Default)]
 pub struct OperationProperties {
     /// Gate name (e.g. "cx", "rz", "h").
@@ -86,6 +90,8 @@ pub struct OperationProperties {
     pub fidelity: Option<f64>,
     /// Number of qubits this gate acts on.
     pub num_qubits: Option<usize>,
+    /// Number of parameters this gate takes.
+    pub num_parameters: Option<usize>,
 }
 
 // ---------------------------------------------------------------------------
@@ -126,7 +132,7 @@ impl CouplingMap {
     pub fn is_connected(&self, a: SiteId, b: SiteId) -> bool {
         self.adjacency
             .get(&a)
-            .map_or(false, |nbrs| nbrs.contains(&b))
+            .is_some_and(|nbrs| nbrs.contains(&b))
     }
 
     /// Neighbours reachable from `site` in one hop.
@@ -153,8 +159,8 @@ impl CouplingMap {
                 if nbr == to {
                     return Some(d + 1);
                 }
-                if !visited.contains_key(&nbr) {
-                    visited.insert(nbr, d + 1);
+                if let std::collections::hash_map::Entry::Vacant(e) = visited.entry(nbr) {
+                    e.insert(d + 1);
                     queue.push_back(nbr);
                 }
             }
@@ -203,9 +209,25 @@ impl DeviceCapabilities {
             .query_device_string(ffi::QDMI_DEVICE_PROPERTY_VERSION)
             .ok();
 
+        let status = session
+            .raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_STATUS)
+            .ok()
+            .and_then(|buf| {
+                if buf.len() >= std::mem::size_of::<i32>() {
+                    Some(i32::from_ne_bytes(buf[..4].try_into().unwrap()))
+                } else {
+                    None
+                }
+            });
+
         let num_qubits = session
             .query_device_usize(ffi::QDMI_DEVICE_PROPERTY_QUBITSNUM)
             .unwrap_or(0);
+
+        // Duration scale factor (default 1.0 = raw values are already in seconds)
+        let duration_scale_factor = session
+            .query_device_f64(ffi::QDMI_DEVICE_PROPERTY_DURATIONSCALEFACTOR)
+            .unwrap_or(1.0);
 
         // -- Sites -----------------------------------------------------------
 
@@ -213,7 +235,7 @@ impl DeviceCapabilities {
 
         // -- Coupling map ----------------------------------------------------
 
-        let coupling_map = query_coupling_map(session, &sites)?;
+        let coupling_map = query_coupling_map(session)?;
 
         // -- Operations ------------------------------------------------------
 
@@ -223,7 +245,7 @@ impl DeviceCapabilities {
 
         let mut site_properties = HashMap::new();
         for &site in &sites {
-            let props = query_site_properties(session, site)?;
+            let props = query_site_properties(session, site, duration_scale_factor)?;
             site_properties.insert(site, props);
         }
 
@@ -231,18 +253,20 @@ impl DeviceCapabilities {
 
         let mut operation_properties = HashMap::new();
         for &op in &operations {
-            let props = query_operation_props(session, op)?;
+            let props = query_operation_props(session, op, duration_scale_factor)?;
             operation_properties.insert(op, props);
         }
 
-        // -- Supported formats (best-effort) ---------------------------------
+        // -- Supported formats -----------------------------------------------
 
         let supported_formats = query_supported_formats(session);
 
         Ok(Self {
             name,
             version,
+            status,
             num_qubits,
+            duration_scale_factor,
             sites,
             coupling_map,
             operations,
@@ -292,10 +316,7 @@ fn query_sites(session: &DeviceSession<'_>) -> Result<Vec<SiteId>> {
 ///
 /// The QDMI coupling map is returned as a flat array of `QDMI_Site` pairs:
 /// `[a0, b0, a1, b1, ...]` where each `(aᵢ, bᵢ)` is a directed edge.
-fn query_coupling_map(
-    session: &DeviceSession<'_>,
-    _sites: &[SiteId],
-) -> Result<CouplingMap> {
+fn query_coupling_map(session: &DeviceSession<'_>) -> Result<CouplingMap> {
     let buf = match session.raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_COUPLINGMAP) {
         Ok(b) => b,
         Err(QdmiError::NotSupported) => {
@@ -346,9 +367,9 @@ fn query_operations(session: &DeviceSession<'_>) -> Result<Vec<OperationId>> {
 
     let ptr_size = std::mem::size_of::<ffi::QdmiOperation>();
     if buf.len() % ptr_size != 0 {
-        return Err(QdmiError::ParseError(format!(
-            "operations buffer not aligned to pointer size"
-        )));
+        return Err(QdmiError::ParseError(
+            "operations buffer not aligned to pointer size".into(),
+        ));
     }
 
     let count = buf.len() / ptr_size;
@@ -365,33 +386,46 @@ fn query_operations(session: &DeviceSession<'_>) -> Result<Vec<OperationId>> {
 }
 
 /// Query per-site physical properties, gracefully handling unsupported ones.
-fn query_site_properties(session: &DeviceSession<'_>, site: SiteId) -> Result<SiteProperties> {
+fn query_site_properties(
+    session: &DeviceSession<'_>,
+    site: SiteId,
+    duration_scale_factor: f64,
+) -> Result<SiteProperties> {
     let site_ptr = site.0 as ffi::QdmiSite;
 
+    // Index (usize, but stored as size_t by QDMI)
+    let index = match session.raw_query_site_property(site_ptr, ffi::QDMI_SITE_PROPERTY_INDEX) {
+        Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => {
+            Some(usize::from_ne_bytes(
+                buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
+            ))
+        }
+        _ => None,
+    };
+
+    // T1 and T2: raw uint64_t values, scaled by duration_scale_factor to get seconds
     let t1 = session
-        .query_site_f64_optional(site_ptr, ffi::QDMI_SITE_PROPERTY_T1)?
-        .map(Duration::from_secs_f64);
+        .query_site_u64_optional(site_ptr, ffi::QDMI_SITE_PROPERTY_T1)?
+        .map(|raw| Duration::from_secs_f64(raw as f64 * duration_scale_factor));
 
     let t2 = session
-        .query_site_f64_optional(site_ptr, ffi::QDMI_SITE_PROPERTY_T2)?
-        .map(Duration::from_secs_f64);
+        .query_site_u64_optional(site_ptr, ffi::QDMI_SITE_PROPERTY_T2)?
+        .map(|raw| Duration::from_secs_f64(raw as f64 * duration_scale_factor));
 
-    let readout_error =
-        session.query_site_f64_optional(site_ptr, ffi::QDMI_SITE_PROPERTY_READOUTERROR)?;
-
-    let readout_duration = session
-        .query_site_f64_optional(site_ptr, ffi::QDMI_SITE_PROPERTY_READOUTDURATION)?
-        .map(Duration::from_secs_f64);
-
-    let frequency =
-        session.query_site_f64_optional(site_ptr, ffi::QDMI_SITE_PROPERTY_FREQUENCY)?;
+    // Site name
+    let name = match session.raw_query_site_property(site_ptr, ffi::QDMI_SITE_PROPERTY_NAME) {
+        Ok(buf) => std::ffi::CStr::from_bytes_until_nul(&buf)
+            .ok()
+            .and_then(|c| c.to_str().ok())
+            .map(|s| s.to_string()),
+        Err(_) => None,
+    };
 
     Ok(SiteProperties {
+        index,
         t1,
         t2,
-        readout_error,
-        readout_duration,
-        frequency,
+        name,
     })
 }
 
@@ -399,12 +433,18 @@ fn query_site_properties(session: &DeviceSession<'_>, site: SiteId) -> Result<Si
 fn query_operation_props(
     session: &DeviceSession<'_>,
     op: OperationId,
+    duration_scale_factor: f64,
 ) -> Result<OperationProperties> {
     let op_ptr = op.0 as ffi::QdmiOperation;
 
     // Name (string property)
     let name = {
-        match session.raw_query_operation_property(op_ptr, ffi::QDMI_OPERATION_PROPERTY_NAME) {
+        match session.raw_query_operation_property(
+            op_ptr,
+            &[],
+            &[],
+            ffi::QDMI_OPERATION_PROPERTY_NAME,
+        ) {
             Ok(buf) => std::ffi::CStr::from_bytes_until_nul(&buf)
                 .ok()
                 .and_then(|c| c.to_str().ok())
@@ -413,16 +453,48 @@ fn query_operation_props(
         }
     };
 
-    let duration = session
-        .query_operation_f64_optional(op_ptr, ffi::QDMI_OPERATION_PROPERTY_DURATION)?
-        .map(Duration::from_secs_f64);
+    // Duration: raw uint64_t * scale factor → Duration
+    let duration = {
+        match session.raw_query_operation_property(
+            op_ptr,
+            &[],
+            &[],
+            ffi::QDMI_OPERATION_PROPERTY_DURATION,
+        ) {
+            Ok(buf) if buf.len() >= std::mem::size_of::<u64>() => {
+                let raw = u64::from_ne_bytes(buf[..8].try_into().unwrap());
+                Some(Duration::from_secs_f64(raw as f64 * duration_scale_factor))
+            }
+            _ => None,
+        }
+    };
 
     let fidelity =
         session.query_operation_f64_optional(op_ptr, ffi::QDMI_OPERATION_PROPERTY_FIDELITY)?;
 
     let num_qubits = {
-        match session.raw_query_operation_property(op_ptr, ffi::QDMI_OPERATION_PROPERTY_QUBITSNUM)
-        {
+        match session.raw_query_operation_property(
+            op_ptr,
+            &[],
+            &[],
+            ffi::QDMI_OPERATION_PROPERTY_QUBITSNUM,
+        ) {
+            Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => {
+                Some(usize::from_ne_bytes(
+                    buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
+                ))
+            }
+            _ => None,
+        }
+    };
+
+    let num_parameters = {
+        match session.raw_query_operation_property(
+            op_ptr,
+            &[],
+            &[],
+            ffi::QDMI_OPERATION_PROPERTY_PARAMETERSNUM,
+        ) {
             Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => {
                 Some(usize::from_ne_bytes(
                     buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
@@ -437,26 +509,50 @@ fn query_operation_props(
         duration,
         fidelity,
         num_qubits,
+        num_parameters,
     })
 }
 
-/// Best-effort query for supported circuit formats.
+/// Query supported circuit formats from the device.
 ///
-/// If the device doesn't advertise formats, we fall back to `[OpenQasm3]` with
-/// a warning—this matches the legacy behaviour while being explicit about it.
-fn query_supported_formats(_session: &DeviceSession<'_>) -> Vec<CircuitFormat> {
-    // TODO: Once the QDMI spec stabilises a circuit-format property key, query
-    // it here. For now, we try a common convention and fall back.
-    //
-    // Some devices may expose this through a session property or a
-    // device-specific extension.
-
-    log::debug!(
-        "circuit format query not yet standardised in QDMI; \
-         defaulting to OpenQASM 3 (update when spec provides a property key)"
-    );
-
-    vec![CircuitFormat::OpenQasm3]
+/// If the device reports `QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS`, we
+/// parse the array of `QDMI_Program_Format` (c_int) values and map them to
+/// `CircuitFormat`. Otherwise we fall back to `[OpenQasm3]`.
+fn query_supported_formats(session: &DeviceSession<'_>) -> Vec<CircuitFormat> {
+    match session.raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS) {
+        Ok(buf) => {
+            let int_size = std::mem::size_of::<i32>();
+            if buf.len() % int_size != 0 || buf.is_empty() {
+                log::warn!(
+                    "supported program formats buffer has unexpected size {}; falling back",
+                    buf.len()
+                );
+                return vec![CircuitFormat::OpenQasm3];
+            }
+            let count = buf.len() / int_size;
+            let formats: Vec<CircuitFormat> = (0..count)
+                .filter_map(|i| {
+                    let offset = i * int_size;
+                    let fmt_code =
+                        i32::from_ne_bytes(buf[offset..offset + int_size].try_into().unwrap());
+                    CircuitFormat::from_qdmi_format(fmt_code)
+                })
+                .collect();
+            if formats.is_empty() {
+                log::warn!("device reported formats but none are supported by Arvak; falling back");
+                vec![CircuitFormat::OpenQasm3]
+            } else {
+                log::debug!("device supports formats: {:?}", formats);
+                formats
+            }
+        }
+        Err(_) => {
+            log::debug!(
+                "device does not report supported program formats; defaulting to OpenQASM 3"
+            );
+            vec![CircuitFormat::OpenQasm3]
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

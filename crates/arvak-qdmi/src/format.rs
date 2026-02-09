@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Circuit format types and negotiation.
 
+use crate::ffi;
+
 /// Circuit serialization formats that a QDMI device may accept.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CircuitFormat {
@@ -47,6 +49,30 @@ impl CircuitFormat {
             CircuitFormat::Qir => "qir",
             CircuitFormat::NativeGates => "native",
             CircuitFormat::Custom(s) => s.as_str(),
+        }
+    }
+
+    /// Convert a QDMI program format code to a `CircuitFormat`.
+    ///
+    /// Returns `None` for formats Arvak doesn't natively support (e.g. QPY, IQM JSON).
+    pub fn from_qdmi_format(fmt: ffi::QdmiProgramFormat) -> Option<Self> {
+        match fmt {
+            ffi::QDMI_PROGRAM_FORMAT_QASM2 => Some(CircuitFormat::OpenQasm2),
+            ffi::QDMI_PROGRAM_FORMAT_QASM3 => Some(CircuitFormat::OpenQasm3),
+            ffi::QDMI_PROGRAM_FORMAT_QIRBASESTRING
+            | ffi::QDMI_PROGRAM_FORMAT_QIRADAPTIVESTRING => Some(CircuitFormat::Qir),
+            // QPY, IQM JSON, binary QIR modules, calibration — not directly supported
+            _ => None,
+        }
+    }
+
+    /// Convert a `CircuitFormat` to the QDMI program format code for job submission.
+    pub fn to_qdmi_format(&self) -> Option<ffi::QdmiProgramFormat> {
+        match self {
+            CircuitFormat::OpenQasm2 => Some(ffi::QDMI_PROGRAM_FORMAT_QASM2),
+            CircuitFormat::OpenQasm3 => Some(ffi::QDMI_PROGRAM_FORMAT_QASM3),
+            CircuitFormat::Qir => Some(ffi::QDMI_PROGRAM_FORMAT_QIRBASESTRING),
+            _ => None,
         }
     }
 }
@@ -101,6 +127,22 @@ mod tests {
         assert_eq!(
             CircuitFormat::from_device_string("something_else"),
             CircuitFormat::Custom("something_else".into())
+        );
+    }
+
+    #[test]
+    fn test_qdmi_format_roundtrip() {
+        assert_eq!(
+            CircuitFormat::from_qdmi_format(ffi::QDMI_PROGRAM_FORMAT_QASM2),
+            Some(CircuitFormat::OpenQasm2)
+        );
+        assert_eq!(
+            CircuitFormat::from_qdmi_format(ffi::QDMI_PROGRAM_FORMAT_QASM3),
+            Some(CircuitFormat::OpenQasm3)
+        );
+        assert_eq!(
+            CircuitFormat::OpenQasm2.to_qdmi_format(),
+            Some(ffi::QDMI_PROGRAM_FORMAT_QASM2)
         );
     }
 }

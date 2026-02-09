@@ -5,7 +5,12 @@
 //! the example device uses `EX`:
 //!
 //! ```text
+//! EX_QDMI_device_initialize
+//! EX_QDMI_device_finalize
+//! EX_QDMI_device_session_alloc
+//! EX_QDMI_device_session_set_parameter
 //! EX_QDMI_device_session_init
+//! EX_QDMI_device_session_free
 //! EX_QDMI_device_session_query_device_property
 //! ...
 //! ```
@@ -38,26 +43,33 @@ pub struct QdmiDevice {
     /// Path the library was loaded from (for diagnostics).
     library_path: String,
 
-    // -- Session management --------------------------------------------------
+    // -- Device lifecycle ----------------------------------------------------
+    #[allow(dead_code)]
+    pub(crate) fn_device_initialize: ffi::FnDeviceInitialize,
+    pub(crate) fn_device_finalize: ffi::FnDeviceFinalize,
+
+    // -- Session lifecycle ---------------------------------------------------
+    pub(crate) fn_session_alloc: ffi::FnSessionAlloc,
+    pub(crate) fn_session_set_parameter: ffi::FnSessionSetParameter,
     pub(crate) fn_session_init: ffi::FnSessionInit,
-    pub(crate) fn_session_deinit: ffi::FnSessionDeinit,
+    pub(crate) fn_session_free: ffi::FnSessionFree,
 
-    // -- Query interface: device level ---------------------------------------
+    // -- Query interface -----------------------------------------------------
     pub(crate) fn_query_device_property: ffi::FnQueryDeviceProperty,
-
-    // -- Query interface: site level -----------------------------------------
     pub(crate) fn_query_site_property: ffi::FnQuerySiteProperty,
-
-    // -- Query interface: operation level ------------------------------------
     pub(crate) fn_query_operation_property: ffi::FnQueryOperationProperty,
 
-    // -- Job interface -------------------------------------------------------
-    pub(crate) fn_submit_job: Option<ffi::FnSubmitJob>,
-    pub(crate) fn_query_job_status: Option<ffi::FnQueryJobStatus>,
+    // -- Job interface (optional — some devices are query-only) ---------------
+    pub(crate) fn_create_device_job: Option<ffi::FnCreateDeviceJob>,
+    pub(crate) fn_job_set_parameter: Option<ffi::FnJobSetParameter>,
     #[allow(dead_code)]
-    pub(crate) fn_query_job_result: Option<ffi::FnQueryJobResult>,
-    #[allow(dead_code)]
-    pub(crate) fn_cancel_job: Option<ffi::FnCancelJob>,
+    pub(crate) fn_job_query_property: Option<ffi::FnJobQueryProperty>,
+    pub(crate) fn_job_submit: Option<ffi::FnJobSubmit>,
+    pub(crate) fn_job_cancel: Option<ffi::FnJobCancel>,
+    pub(crate) fn_job_check: Option<ffi::FnJobCheck>,
+    pub(crate) fn_job_wait: Option<ffi::FnJobWait>,
+    pub(crate) fn_job_get_results: Option<ffi::FnJobGetResults>,
+    pub(crate) fn_job_free: Option<ffi::FnJobFree>,
 }
 
 impl QdmiDevice {
@@ -88,12 +100,50 @@ impl QdmiDevice {
             prefix
         );
 
-        // -- Resolve required symbols ----------------------------------------
+        // -- Device lifecycle (required) ----------------------------------------
 
-        let fn_session_init =
-            resolve_required::<ffi::FnSessionInit>(&library, prefix, "QDMI_device_session_init", &path_str)?;
-        let fn_session_deinit =
-            resolve_required::<ffi::FnSessionDeinit>(&library, prefix, "QDMI_device_session_deinit", &path_str)?;
+        let fn_device_initialize = resolve_required::<ffi::FnDeviceInitialize>(
+            &library,
+            prefix,
+            "QDMI_device_initialize",
+            &path_str,
+        )?;
+        let fn_device_finalize = resolve_required::<ffi::FnDeviceFinalize>(
+            &library,
+            prefix,
+            "QDMI_device_finalize",
+            &path_str,
+        )?;
+
+        // -- Session lifecycle (required) ---------------------------------------
+
+        let fn_session_alloc = resolve_required::<ffi::FnSessionAlloc>(
+            &library,
+            prefix,
+            "QDMI_device_session_alloc",
+            &path_str,
+        )?;
+        let fn_session_set_parameter = resolve_required::<ffi::FnSessionSetParameter>(
+            &library,
+            prefix,
+            "QDMI_device_session_set_parameter",
+            &path_str,
+        )?;
+        let fn_session_init = resolve_required::<ffi::FnSessionInit>(
+            &library,
+            prefix,
+            "QDMI_device_session_init",
+            &path_str,
+        )?;
+        let fn_session_free = resolve_required::<ffi::FnSessionFree>(
+            &library,
+            prefix,
+            "QDMI_device_session_free",
+            &path_str,
+        )?;
+
+        // -- Query interface (required) -----------------------------------------
+
         let fn_query_device_property = resolve_required::<ffi::FnQueryDeviceProperty>(
             &library,
             prefix,
@@ -113,34 +163,77 @@ impl QdmiDevice {
             &path_str,
         )?;
 
-        // -- Resolve optional symbols (job interface) ------------------------
+        // -- Job interface (optional) -------------------------------------------
 
-        let fn_submit_job =
-            resolve_optional::<ffi::FnSubmitJob>(&library, prefix, "QDMI_device_session_submit_job");
-        let fn_query_job_status =
-            resolve_optional::<ffi::FnQueryJobStatus>(&library, prefix, "QDMI_device_session_query_job_status");
-        let fn_query_job_result =
-            resolve_optional::<ffi::FnQueryJobResult>(&library, prefix, "QDMI_device_session_query_job_result");
-        let fn_cancel_job =
-            resolve_optional::<ffi::FnCancelJob>(&library, prefix, "QDMI_device_session_cancel_job");
+        let fn_create_device_job = resolve_optional::<ffi::FnCreateDeviceJob>(
+            &library,
+            prefix,
+            "QDMI_device_session_create_device_job",
+        );
+        let fn_job_set_parameter = resolve_optional::<ffi::FnJobSetParameter>(
+            &library,
+            prefix,
+            "QDMI_device_job_set_parameter",
+        );
+        let fn_job_query_property = resolve_optional::<ffi::FnJobQueryProperty>(
+            &library,
+            prefix,
+            "QDMI_device_job_query_property",
+        );
+        let fn_job_submit =
+            resolve_optional::<ffi::FnJobSubmit>(&library, prefix, "QDMI_device_job_submit");
+        let fn_job_cancel =
+            resolve_optional::<ffi::FnJobCancel>(&library, prefix, "QDMI_device_job_cancel");
+        let fn_job_check =
+            resolve_optional::<ffi::FnJobCheck>(&library, prefix, "QDMI_device_job_check");
+        let fn_job_wait =
+            resolve_optional::<ffi::FnJobWait>(&library, prefix, "QDMI_device_job_wait");
+        let fn_job_get_results = resolve_optional::<ffi::FnJobGetResults>(
+            &library,
+            prefix,
+            "QDMI_device_job_get_results",
+        );
+        let fn_job_free =
+            resolve_optional::<ffi::FnJobFree>(&library, prefix, "QDMI_device_job_free");
 
-        if fn_submit_job.is_none() {
+        if fn_create_device_job.is_none() {
             log::warn!("device '{}' does not export job submission functions", prefix);
         }
+
+        // -- Call device_initialize immediately after loading -------------------
+
+        let ret = unsafe { fn_device_initialize() };
+        if !ffi::is_success(ret) {
+            return Err(QdmiError::SessionError(format!(
+                "device_initialize failed for '{}' (code {})",
+                prefix, ret
+            )));
+        }
+
+        log::debug!("device '{}' initialized successfully", prefix);
 
         Ok(Self {
             _library: library,
             prefix: prefix.to_string(),
             library_path: path_str,
+            fn_device_initialize,
+            fn_device_finalize,
+            fn_session_alloc,
+            fn_session_set_parameter,
             fn_session_init,
-            fn_session_deinit,
+            fn_session_free,
             fn_query_device_property,
             fn_query_site_property,
             fn_query_operation_property,
-            fn_submit_job,
-            fn_query_job_status,
-            fn_query_job_result,
-            fn_cancel_job,
+            fn_create_device_job,
+            fn_job_set_parameter,
+            fn_job_query_property,
+            fn_job_submit,
+            fn_job_cancel,
+            fn_job_check,
+            fn_job_wait,
+            fn_job_get_results,
+            fn_job_free,
         })
     }
 
@@ -156,7 +249,22 @@ impl QdmiDevice {
 
     /// Whether the device supports job submission.
     pub fn supports_jobs(&self) -> bool {
-        self.fn_submit_job.is_some()
+        self.fn_create_device_job.is_some()
+    }
+}
+
+impl Drop for QdmiDevice {
+    fn drop(&mut self) {
+        let ret = unsafe { (self.fn_device_finalize)() };
+        if !ffi::is_success(ret) {
+            log::error!(
+                "device_finalize failed for '{}' (code {})",
+                self.prefix,
+                ret
+            );
+        } else {
+            log::debug!("device '{}' finalized", self.prefix);
+        }
     }
 }
 
@@ -221,8 +329,6 @@ fn resolve_optional<T: Copy>(library: &Library, prefix: &str, base_name: &str) -
 /// to load are silently skipped (with a debug-level log message).
 ///
 /// The caller must supply a mapping from library filename (stem) to prefix.
-/// If no mapping is provided, the function tries to auto-detect by looking
-/// for a well-known init symbol pattern.
 pub fn scan_directory(
     dir: &Path,
     prefix_map: &std::collections::HashMap<String, String>,
@@ -237,7 +343,7 @@ pub fn scan_directory(
 
         let is_shared_lib = path
             .extension()
-            .map_or(false, |ext| ext == "so" || ext == "dylib");
+            .is_some_and(|ext| ext == "so" || ext == "dylib");
 
         if !is_shared_lib {
             continue;
