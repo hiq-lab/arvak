@@ -26,7 +26,7 @@
 use std::f64::consts::PI;
 
 use arvak_ir::parameter::ParameterExpression;
-use arvak_ir::qubit::{ClbitId, QubitId};
+use arvak_ir::qubit::QubitId;
 use arvak_ir::Circuit;
 
 /// Encoding basis for QKD protocols.
@@ -84,9 +84,6 @@ pub fn bb84_circuit(
         EveStrategy::InterceptResend => 0, // Eve uses Alice's qubit directly
         EveStrategy::Pccm(_) | EveStrategy::PccmVariational => 2,
     };
-
-    let total_qubits = 1 + eve_qubits; // Alice's qubit + Eve's register
-    let total_clbits = 1 + if matches!(eve, EveStrategy::None) { 0 } else { 1 };
 
     let mut circuit = Circuit::new("bb84");
 
