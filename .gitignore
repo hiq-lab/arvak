@@ -28,3 +28,4 @@ __pycache__/
 # Sensitive / deployment
 *.key
 DEPLOY-*.md
+docs/qaoa-sensor-network-demo.md
