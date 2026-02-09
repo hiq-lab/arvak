@@ -59,8 +59,9 @@ impl CircuitFormat {
         match fmt {
             ffi::QDMI_PROGRAM_FORMAT_QASM2 => Some(CircuitFormat::OpenQasm2),
             ffi::QDMI_PROGRAM_FORMAT_QASM3 => Some(CircuitFormat::OpenQasm3),
-            ffi::QDMI_PROGRAM_FORMAT_QIRBASESTRING
-            | ffi::QDMI_PROGRAM_FORMAT_QIRADAPTIVESTRING => Some(CircuitFormat::Qir),
+            ffi::QDMI_PROGRAM_FORMAT_QIRBASESTRING | ffi::QDMI_PROGRAM_FORMAT_QIRADAPTIVESTRING => {
+                Some(CircuitFormat::Qir)
+            }
             // QPY, IQM JSON, binary QIR modules, calibration — not directly supported
             _ => None,
         }
@@ -122,8 +123,14 @@ mod tests {
 
     #[test]
     fn test_parse_format_strings() {
-        assert_eq!(CircuitFormat::from_device_string("qasm3"), CircuitFormat::OpenQasm3);
-        assert_eq!(CircuitFormat::from_device_string("OpenQASM 2.0"), CircuitFormat::OpenQasm2);
+        assert_eq!(
+            CircuitFormat::from_device_string("qasm3"),
+            CircuitFormat::OpenQasm3
+        );
+        assert_eq!(
+            CircuitFormat::from_device_string("OpenQASM 2.0"),
+            CircuitFormat::OpenQasm2
+        );
         assert_eq!(
             CircuitFormat::from_device_string("something_else"),
             CircuitFormat::Custom("something_else".into())

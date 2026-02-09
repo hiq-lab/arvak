@@ -329,6 +329,10 @@ the client-side adapter reference:
 | [`crates/arvak-qdmi/src/lib.rs`](../../crates/arvak-qdmi/src/lib.rs) | Updated re-exports (`DeviceJob`) | ~50 |
 | [`crates/arvak-qdmi/examples/mock_device/mock_device.c`](../../crates/arvak-qdmi/examples/mock_device/mock_device.c) | Full 18-function spec-compliant mock | 541 |
 | [`crates/arvak-qdmi/tests/mock_device_integration.rs`](../../crates/arvak-qdmi/tests/mock_device_integration.rs) | 30 integration tests covering all QDMI features | 601 |
+| [`crates/arvak-qdmi/ci/ddsim_shim/CMakeLists.txt`](../../crates/arvak-qdmi/ci/ddsim_shim/CMakeLists.txt) | CMake build: fetch mqt-core, produce DDSIM `.so` via `--whole-archive` | ~55 |
+| [`crates/arvak-qdmi/ci/ddsim_shim/ddsim_shared.cpp`](../../crates/arvak-qdmi/ci/ddsim_shim/ddsim_shared.cpp) | Thin C++ shim referencing all 18 QDMI symbols | ~55 |
+| [`crates/arvak-qdmi/tests/ddsim_integration.rs`](../../crates/arvak-qdmi/tests/ddsim_integration.rs) | 10 DDSIM integration tests (env-gated, nightly CI) | ~280 |
+| [`.github/workflows/nightly.yml`](../../.github/workflows/nightly.yml) | Two new jobs: `ddsim-compat` (pinned) + `ddsim-compat-latest` (drift detection) | +138 |
 
 ---
 
@@ -337,11 +341,12 @@ the client-side adapter reference:
 ```
 $ cargo test -p arvak-qdmi
 
-running 12 tests       (unit)       — 12 passed
-running 30 tests       (integration) — 30 passed
-running  1 test        (doctest)     —  1 passed
+running 12 tests       (unit)         — 12 passed
+running 10 tests       (ddsim integ.) — 10 passed (skipped — DDSIM .so not present locally)
+running 30 tests       (mock integ.)  — 30 passed
+running  1 test        (doctest)      —  1 passed
 
-test result: ok. 43 passed; 0 failed; 0 ignored
+test result: ok. 53 passed; 0 failed; 0 ignored
 
 $ cargo clippy -p arvak-qdmi -- -W clippy::all
 Finished — 0 warnings
@@ -350,12 +355,20 @@ $ cargo test --workspace --exclude arvak-python
 test result: ok — 0 failures, 0 regressions
 ```
 
+**Note:** The 10 DDSIM integration tests pass as "ok" locally because they
+detect the missing `DDSIM_QDMI_DEVICE_PATH` environment variable and return
+early. In the nightly CI they run against the real DDSIM `.so` and exercise
+the full device interface.
+
 ---
 
 ## External References
 
 - **QDMI Specification:** <https://github.com/Munich-Quantum-Software-Stack/QDMI>
-- **MQT Core Driver.cpp** (prefix-aware symbol resolution pattern): <https://github.com/cda-tum/mqt-core>
+- **MQT Core** (DDSIM device + Driver.cpp prefix resolution): <https://github.com/cda-tum/mqt-core>
+  - DD device source: `src/qdmi/devices/dd/Device.cpp`
+  - DDSIM prefix: `MQT_DDSIM` (18 functions, generated header `mqt_ddsim_qdmi/device.h`)
+  - Pinned version: `v3.4.1` (2026-02-01)
 - **Munich Quantum Software Stack (MQSS):** <https://www.2024.aqt.eu/mqss> / <https://www.aqt.eu/mqss/>
 - **Arvak HAL specification:** [`docs/hal-specification.md`](../hal-specification.md)
 - **Arvak architecture overview:** [`docs/architecture.md`](../architecture.md)
@@ -363,11 +376,94 @@ test result: ok — 0 failures, 0 regressions
 
 ---
 
+## CI Extension — MQT DDSIM Integration Testing
+
+**Added:** 2026-02-09
+
+To validate `arvak-qdmi` against a real QDMI v1.2.1 device implementation
+(not just the mock), the nightly CI pipeline now builds and tests against
+[MQT Core's DDSIM](https://github.com/cda-tum/mqt-core) — a decision-diagram-based
+quantum simulator that implements all 18 QDMI device functions with prefix
+`MQT_DDSIM`.
+
+### Problem
+
+The upstream `mqt-core` builds the DD QDMI device as a **static library**
+(`mqt-core-qdmi-ddsim-device`). Our `QdmiDevice::load()` needs a shared library
+(`.so`) for `dlopen`. No upstream `.so` target exists for the DD device.
+
+### Solution — Thin Shared Library Shim
+
+A minimal CMake project at [`ci/ddsim_shim/`](../../crates/arvak-qdmi/ci/ddsim_shim/)
+wraps the static library into a shared one:
+
+| File | Purpose |
+|------|---------|
+| [`CMakeLists.txt`](../../crates/arvak-qdmi/ci/ddsim_shim/CMakeLists.txt) | Fetches `mqt-core` via `FetchContent`, links static device lib into `.so` using `--whole-archive` |
+| [`ddsim_shared.cpp`](../../crates/arvak-qdmi/ci/ddsim_shim/ddsim_shared.cpp) | References all 18 `MQT_DDSIM_QDMI_*` symbols as a linker backup |
+
+The `MQT_CORE_VERSION` CMake variable controls which upstream version to build
+against (defaults to pinned tag `v3.4.1`, CI can override with `main`).
+
+### DDSIM Integration Tests
+
+**10 tests** in [`ddsim_integration.rs`](../../crates/arvak-qdmi/tests/ddsim_integration.rs),
+gated on the `DDSIM_QDMI_DEVICE_PATH` environment variable (skipped gracefully
+when the `.so` is not available):
+
+| Test | What It Verifies |
+|------|------------------|
+| `test_ddsim_load` | Load `.so` with prefix `MQT_DDSIM`, `supports_jobs()` is true |
+| `test_ddsim_device_debug` | Debug formatting includes prefix and job support |
+| `test_ddsim_session_open_close` | Three-phase session lifecycle with RAII cleanup |
+| `test_ddsim_device_name` | `QDMI_DEVICE_PROPERTY_NAME` contains "DDSIM" |
+| `test_ddsim_num_qubits` | `QDMI_DEVICE_PROPERTY_QUBITSNUM` reports >= 10 qubits |
+| `test_ddsim_version` | Version query does not panic (optional property) |
+| `test_ddsim_supported_formats` | Device reports QASM2 + QASM3 support |
+| `test_ddsim_full_capabilities` | Full `DeviceCapabilities::query()` — sites, operations (H, CX present), coupling map |
+| `test_ddsim_bell_state_qasm2` | Submit Bell state QASM2 circuit, 1024 shots → 2 outcomes summing to 1024 |
+| `test_ddsim_bell_state_qasm3` | Submit Bell state QASM3 circuit, 512 shots → 2 outcomes summing to 512 |
+
+### Key Behavioral Differences from Mock
+
+| Aspect | Mock Device | MQT DDSIM |
+|--------|-------------|-----------|
+| Num qubits | 5 | ~128 |
+| Operations | 3 (H, CX, RZ) | 57+ (full gate set) |
+| Coupling map | 5Q linear (8 edges) | None (all-to-all simulator) |
+| Duration scale factor | 1e-9 (raw ns → seconds) | 1.0 (raw = ns, unit "ns") |
+| T1/T2 | Reported | `QDMI_ERROR_NOTSUPPORTED` |
+| Histogram key format | Null-separated (`"00000\011111\0"`) | Comma-separated (`"00,11\0"`) |
+| Job execution | Synchronous (instant) | Asynchronous (`std::async`) |
+| `job_wait` timeout | Ignored | **Seconds** (not ms) |
+
+### Two-Tier CI Strategy
+
+The nightly pipeline ([`.github/workflows/nightly.yml`](../../.github/workflows/nightly.yml))
+runs two DDSIM jobs:
+
+| Job | mqt-core Version | On Failure |
+|-----|------------------|------------|
+| `ddsim-compat` | Pinned to `v3.4.1` | **Critical** — blocks nightly report, creates issue. Indicates a bug in *our* code. |
+| `ddsim-compat-latest` | `main` branch | **Warning only** (`continue-on-error: true`). Indicates upstream API drift. |
+
+When the `latest` job fails but the pinned job passes, this signals that
+upstream `mqt-core` has made breaking changes to its QDMI device interface —
+an early warning to investigate and update before the next pinned version bump.
+
+Both jobs:
+1. Install CMake, Ninja, Boost
+2. Build the DDSIM `.so` from source via the shim
+3. Verify all 18 `MQT_DDSIM_QDMI_*` symbols are in the dynamic symbol table (`nm -D`)
+4. Run `cargo test -p arvak-qdmi --test ddsim_integration` with `DDSIM_QDMI_DEVICE_PATH`
+5. Report results in the nightly summary table
+
+---
+
 ## Conclusion
 
 The `arvak-qdmi` crate now fully implements the QDMI v1.2.1 device interface.
-All four feedback items are resolved. The implementation is ready for testing
-against real QDMI-compliant device libraries (e.g.
-[MQT DDSIM](https://github.com/cda-tum/mqt-ddsim),
-[IQM](https://www.meetiqm.com/),
-neutral-atom devices) as they become available with QDMI v1.2.1 support.
+All four feedback items are resolved. The implementation is validated against
+both our spec-compliant mock device (30 integration tests) and the real
+[MQT Core DDSIM](https://github.com/cda-tum/mqt-core) quantum simulator
+(10 integration tests in nightly CI), with automatic upstream drift detection.

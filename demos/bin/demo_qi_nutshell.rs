@@ -65,7 +65,10 @@ fn main() {
             demo_qec(&args);
         }
         other => {
-            eprintln!("Unknown protocol: {}. Use bb84, bbm92, pccm-sweep, qec, or all.", other);
+            eprintln!(
+                "Unknown protocol: {}. Use bb84, bbm92, pccm-sweep, qec, or all.",
+                other
+            );
             std::process::exit(1);
         }
     }
@@ -146,7 +149,10 @@ fn demo_bbm92(args: &Args) {
     // With PCCM attack
     let theta = args.theta * PI;
     let attacked = bbm92_circuit(Basis::Z, Basis::Z, &EveStrategy::Pccm(theta));
-    print_result("Scenario 2", format!("Eve clones Bob's half, θ = {:.2}π", args.theta));
+    print_result(
+        "Scenario 2",
+        format!("Eve clones Bob's half, θ = {:.2}π", args.theta),
+    );
     print_circuit_stats(&attacked);
 
     if args.show_qasm {
@@ -168,9 +174,11 @@ fn demo_pccm_sweep(_args: &Args) {
     println!("  The Phase Covariant Cloning Machine (PCCM) attack angle θ");
     println!("  controls the clone quality. Arvak compiles each configuration.");
     println!();
-    println!("  {:>8}  {:>8}  {:>8}  {:>8}  {:>6}  {:>5}",
-        "θ/π", "F(A→B)", "F(A→E)", "QBER%", "Depth", "Gates");
-    println!("  {}",  "─".repeat(55));
+    println!(
+        "  {:>8}  {:>8}  {:>8}  {:>8}  {:>6}  {:>5}",
+        "θ/π", "F(A→B)", "F(A→E)", "QBER%", "Depth", "Gates"
+    );
+    println!("  {}", "─".repeat(55));
 
     let steps = 9;
     for i in 0..=steps {
@@ -183,15 +191,30 @@ fn demo_pccm_sweep(_args: &Args) {
         let depth = circuit.depth();
         let gate_count = circuit.dag().num_ops();
 
-        let marker = if (theta_frac - 0.25).abs() < 0.01 { " ◀ symmetric" } else { "" };
+        let marker = if (theta_frac - 0.25).abs() < 0.01 {
+            " ◀ symmetric"
+        } else {
+            ""
+        };
 
-        println!("  {:>8.4}  {:>8.4}  {:>8.4}  {:>7.1}%  {:>6}  {:>5}{}",
-            theta_frac, f_ab, f_ae, qber * 100.0, depth, gate_count, marker);
+        println!(
+            "  {:>8.4}  {:>8.4}  {:>8.4}  {:>7.1}%  {:>6}  {:>5}{}",
+            theta_frac,
+            f_ab,
+            f_ae,
+            qber * 100.0,
+            depth,
+            gate_count,
+            marker
+        );
     }
 
     println!();
     let opt = optimal_symmetric_angle();
-    print_result("Optimal symmetric angle", format!("θ = π/4 = {:.4} rad", opt));
+    print_result(
+        "Optimal symmetric angle",
+        format!("θ = π/4 = {:.4} rad", opt),
+    );
 }
 
 // ============================================================================
@@ -273,8 +296,14 @@ fn compile_and_report(label: &str, circuit: Circuit, opt_level: u8) {
             let post_depth = compiled.depth();
             let post_gates = compiled.dag().num_ops();
 
-            print_result("Pre-compilation", format!("depth={}, gates={}", pre_depth, pre_gates));
-            print_result("Post-compilation", format!("depth={}, gates={}", post_depth, post_gates));
+            print_result(
+                "Pre-compilation",
+                format!("depth={}, gates={}", pre_depth, pre_gates),
+            );
+            print_result(
+                "Post-compilation",
+                format!("depth={}, gates={}", post_depth, post_gates),
+            );
             print_result("Compile time", format!("{:.2?}", compile_time));
             print_result("Optimization level", opt_level);
             print_result("Target basis", "CZ + PRX (ion-trap native)");

@@ -25,9 +25,9 @@
 
 use std::f64::consts::PI;
 
+use arvak_ir::Circuit;
 use arvak_ir::parameter::ParameterExpression;
 use arvak_ir::qubit::QubitId;
-use arvak_ir::Circuit;
 
 /// Encoding basis for QKD protocols.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -73,12 +73,7 @@ pub enum EveStrategy {
 /// | `a`      | 1      | Alice's prepared qubit      |
 /// | `e`      | 0–2    | Eve's ancilla (if attacking)|
 /// | `b_meas` | 1      | Bob's measurement outcome   |
-pub fn bb84_circuit(
-    bit: bool,
-    alice_basis: Basis,
-    bob_basis: Basis,
-    eve: &EveStrategy,
-) -> Circuit {
+pub fn bb84_circuit(bit: bool, alice_basis: Basis, bob_basis: Basis, eve: &EveStrategy) -> Circuit {
     let eve_qubits: u32 = match eve {
         EveStrategy::None => 0,
         EveStrategy::InterceptResend => 0, // Eve uses Alice's qubit directly
@@ -104,7 +99,13 @@ pub fn bb84_circuit(
     let a0 = alice[0];
 
     // ── Phase 1: Alice's state preparation ──────────────────────────
-    circuit.barrier([a0].into_iter().chain(eve_reg.iter().copied()).collect::<Vec<_>>()).unwrap();
+    circuit
+        .barrier(
+            [a0].into_iter()
+                .chain(eve_reg.iter().copied())
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
 
     // Encode bit value
     if bit {
@@ -117,7 +118,13 @@ pub fn bb84_circuit(
     }
 
     // ── Phase 2: Channel (Eve's attack) ─────────────────────────────
-    circuit.barrier([a0].into_iter().chain(eve_reg.iter().copied()).collect::<Vec<_>>()).unwrap();
+    circuit
+        .barrier(
+            [a0].into_iter()
+                .chain(eve_reg.iter().copied())
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
 
     match eve {
         EveStrategy::None => {
@@ -143,7 +150,13 @@ pub fn bb84_circuit(
     }
 
     // ── Phase 3: Bob's measurement ──────────────────────────────────
-    circuit.barrier([a0].into_iter().chain(eve_reg.iter().copied()).collect::<Vec<_>>()).unwrap();
+    circuit
+        .barrier(
+            [a0].into_iter()
+                .chain(eve_reg.iter().copied())
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
 
     // Bob chooses his measurement basis
     if bob_basis == Basis::X {
@@ -234,11 +247,7 @@ pub fn bb84_multi_round(
 /// | `a`      | 1      | Alice's half of Bell pair   |
 /// | `b`      | 1      | Bob's half of Bell pair     |
 /// | `e`      | 0–2    | Eve's cloning register      |
-pub fn bbm92_circuit(
-    alice_basis: Basis,
-    bob_basis: Basis,
-    eve: &EveStrategy,
-) -> Circuit {
+pub fn bbm92_circuit(alice_basis: Basis, bob_basis: Basis, eve: &EveStrategy) -> Circuit {
     let eve_qubits: u32 = match eve {
         EveStrategy::Pccm(_) | EveStrategy::PccmVariational => 2,
         _ => 0,
@@ -264,12 +273,26 @@ pub fn bbm92_circuit(
     circuit.h(a0).unwrap();
     circuit.cx(a0, b0).unwrap();
 
-    circuit.barrier([a0, b0].into_iter().chain(eve_reg.iter().copied()).collect::<Vec<_>>()).unwrap();
+    circuit
+        .barrier(
+            [a0, b0]
+                .into_iter()
+                .chain(eve_reg.iter().copied())
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
 
     // ── Phase 2: Channel (Eve intercepts Bob's half) ────────────────
     if let EveStrategy::Pccm(theta) = eve {
         apply_pccm(&mut circuit, b0, eve_reg[0], eve_reg[1], *theta);
-        circuit.barrier([a0, b0].into_iter().chain(eve_reg.iter().copied()).collect::<Vec<_>>()).unwrap();
+        circuit
+            .barrier(
+                [a0, b0]
+                    .into_iter()
+                    .chain(eve_reg.iter().copied())
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
     }
 
     // ── Phase 3: Measurements ───────────────────────────────────────
@@ -414,7 +437,14 @@ pub fn bb84_qec_circuit(
         circuit.x(data[2]).unwrap();
     }
 
-    circuit.barrier(data.iter().copied().chain(syn.iter().copied()).collect::<Vec<_>>()).unwrap();
+    circuit
+        .barrier(
+            data.iter()
+                .copied()
+                .chain(syn.iter().copied())
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
 
     // ── Phase 3: Stabilizer measurements ────────────────────────────
     // Measure X⊗X⊗X⊗X stabilizer

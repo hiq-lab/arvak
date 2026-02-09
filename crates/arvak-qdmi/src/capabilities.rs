@@ -130,9 +130,7 @@ impl CouplingMap {
 
     /// Whether a directed edge `a → b` exists.
     pub fn is_connected(&self, a: SiteId, b: SiteId) -> bool {
-        self.adjacency
-            .get(&a)
-            .is_some_and(|nbrs| nbrs.contains(&b))
+        self.adjacency.get(&a).is_some_and(|nbrs| nbrs.contains(&b))
     }
 
     /// Neighbours reachable from `site` in one hop.
@@ -395,11 +393,9 @@ fn query_site_properties(
 
     // Index (usize, but stored as size_t by QDMI)
     let index = match session.raw_query_site_property(site_ptr, ffi::QDMI_SITE_PROPERTY_INDEX) {
-        Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => {
-            Some(usize::from_ne_bytes(
-                buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
-            ))
-        }
+        Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => Some(usize::from_ne_bytes(
+            buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
+        )),
         _ => None,
     };
 
@@ -479,11 +475,9 @@ fn query_operation_props(
             &[],
             ffi::QDMI_OPERATION_PROPERTY_QUBITSNUM,
         ) {
-            Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => {
-                Some(usize::from_ne_bytes(
-                    buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
-                ))
-            }
+            Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => Some(usize::from_ne_bytes(
+                buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
+            )),
             _ => None,
         }
     };
@@ -495,11 +489,9 @@ fn query_operation_props(
             &[],
             ffi::QDMI_OPERATION_PROPERTY_PARAMETERSNUM,
         ) {
-            Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => {
-                Some(usize::from_ne_bytes(
-                    buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
-                ))
-            }
+            Ok(buf) if buf.len() >= std::mem::size_of::<usize>() => Some(usize::from_ne_bytes(
+                buf[..std::mem::size_of::<usize>()].try_into().unwrap(),
+            )),
             _ => None,
         }
     };

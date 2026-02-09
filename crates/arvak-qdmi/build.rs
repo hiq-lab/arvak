@@ -40,7 +40,10 @@ fn main() {
     }
 
     // Tell cargo where to find the compiled mock device.
-    println!("cargo:rustc-env=MOCK_QDMI_DEVICE_PATH={}", so_path.display());
+    println!(
+        "cargo:rustc-env=MOCK_QDMI_DEVICE_PATH={}",
+        so_path.display()
+    );
 
     // Re-run if the mock device source changes.
     println!("cargo:rerun-if-changed={}", mock_src);

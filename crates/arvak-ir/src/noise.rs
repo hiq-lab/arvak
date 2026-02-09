@@ -97,9 +97,7 @@ impl NoiseModel {
             NoiseModel::BitFlip { p } => *p,
             NoiseModel::PhaseFlip { p } => *p,
             NoiseModel::ReadoutError { p } => *p,
-            NoiseModel::Custom { params, .. } => {
-                params.values().next().copied().unwrap_or(0.0)
-            }
+            NoiseModel::Custom { params, .. } => params.values().next().copied().unwrap_or(0.0),
         }
     }
 }

@@ -219,7 +219,11 @@ impl Optimize1qGates {
 
                 // Resource noise channels are optimization barriers —
                 // they must not be reordered or removed.
-                if let InstructionKind::NoiseChannel { role: NoiseRole::Resource, .. } = &inst.kind {
+                if let InstructionKind::NoiseChannel {
+                    role: NoiseRole::Resource,
+                    ..
+                } = &inst.kind
+                {
                     if current_run.len() > 1 {
                         for &idx in &current_run {
                             visited.insert(idx);
@@ -233,7 +237,11 @@ impl Optimize1qGates {
 
                 // Deficit noise channels are informational — skip over them
                 // without breaking the run.
-                if let InstructionKind::NoiseChannel { role: NoiseRole::Deficit, .. } = &inst.kind {
+                if let InstructionKind::NoiseChannel {
+                    role: NoiseRole::Deficit,
+                    ..
+                } = &inst.kind
+                {
                     continue;
                 }
 
@@ -843,7 +851,10 @@ mod tests {
         Optimize1qGates::new().run(&mut dag, &mut props).unwrap();
 
         // H·H would normally cancel, but Resource noise channel prevents it
-        assert!(dag.num_ops() >= 2, "Resource noise should block H·H cancellation");
+        assert!(
+            dag.num_ops() >= 2,
+            "Resource noise should block H·H cancellation"
+        );
     }
 
     #[test]

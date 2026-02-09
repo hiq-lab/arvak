@@ -33,7 +33,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
@@ -70,7 +72,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
 
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
@@ -113,7 +117,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
 
       - name: Install cargo-outdated
         run: cargo install cargo-outdated --locked
@@ -155,8 +161,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2026-02-09
           components: rustfmt, clippy
 
       - name: Install protoc (Linux)
@@ -198,8 +205,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2026-02-09
           components: clippy
 
       - name: Install protoc
@@ -241,7 +249,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
 
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -311,6 +321,142 @@ jobs:
           echo "| Dashboard (simulator) | ✅ |" >> $GITHUB_STEP_SUMMARY
 
   # ─────────────────────────────────────────────
+  # Job 6b: DDSIM QDMI device compatibility (pinned version)
+  # ─────────────────────────────────────────────
+  ddsim-compat:
+    name: DDSIM QDMI (pinned)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libboost-dev
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-ddsim-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-ddsim-
+
+      - name: Cache DDSIM build
+        uses: actions/cache@v4
+        with:
+          path: build-ddsim
+          key: ddsim-pinned-${{ runner.os }}-${{ hashFiles('crates/arvak-qdmi/ci/ddsim_shim/CMakeLists.txt') }}
+          restore-keys: |
+            ddsim-pinned-${{ runner.os }}-
+
+      - name: Build DDSIM shared library
+        run: |
+          cmake -S crates/arvak-qdmi/ci/ddsim_shim \
+                -B build-ddsim \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-ddsim --target mqt_ddsim_qdmi_shared
+
+      - name: Locate DDSIM .so and verify symbols
+        id: ddsim
+        run: |
+          SO_PATH=$(find build-ddsim -name "libmqt_ddsim_qdmi_device.so" | head -1)
+          if [[ -z "$SO_PATH" ]]; then
+            echo "ERROR: libmqt_ddsim_qdmi_device.so not found"
+            exit 1
+          fi
+          echo "path=$SO_PATH" >> $GITHUB_OUTPUT
+          echo "Found DDSIM .so at: $SO_PATH"
+          echo "## DDSIM Symbol Check" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          nm -D "$SO_PATH" | grep "MQT_DDSIM_QDMI_device" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Run arvak-qdmi tests against DDSIM
+        env:
+          DDSIM_QDMI_DEVICE_PATH: ${{ steps.ddsim.outputs.path }}
+        run: cargo test -p arvak-qdmi --test ddsim_integration -- --nocapture
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## DDSIM QDMI Compatibility (pinned)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Integration tests passed against MQT Core DDSIM" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────
+  # Job 6c: DDSIM QDMI device — upstream drift detection
+  # ─────────────────────────────────────────────
+  ddsim-compat-latest:
+    name: DDSIM QDMI (latest)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libboost-dev
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-ddsim-latest-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-ddsim-latest-
+
+      - name: Build DDSIM shared library (latest mqt-core)
+        run: |
+          cmake -S crates/arvak-qdmi/ci/ddsim_shim \
+                -B build-ddsim-latest \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DMQT_CORE_VERSION=main
+          cmake --build build-ddsim-latest --target mqt_ddsim_qdmi_shared
+
+      - name: Locate DDSIM .so and verify symbols
+        id: ddsim
+        run: |
+          SO_PATH=$(find build-ddsim-latest -name "libmqt_ddsim_qdmi_device.so" | head -1)
+          if [[ -z "$SO_PATH" ]]; then
+            echo "ERROR: libmqt_ddsim_qdmi_device.so not found"
+            exit 1
+          fi
+          echo "path=$SO_PATH" >> $GITHUB_OUTPUT
+          echo "Found DDSIM .so at: $SO_PATH"
+
+      - name: Run arvak-qdmi tests against DDSIM (latest)
+        env:
+          DDSIM_QDMI_DEVICE_PATH: ${{ steps.ddsim.outputs.path }}
+        run: cargo test -p arvak-qdmi --test ddsim_integration -- --nocapture
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## DDSIM QDMI Compatibility (latest)" >> $GITHUB_STEP_SUMMARY
+          echo "Tests against mqt-core main branch (upstream drift detection)" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────
   # Job 7: MSRV (Minimum Supported Rust Version)
   # ─────────────────────────────────────────────
   msrv-check:
@@ -358,7 +504,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
 
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -405,7 +553,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
 
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -447,7 +597,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
 
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -484,6 +636,8 @@ jobs:
       - full-test-suite
       - clippy-strict
       - adapter-compat
+      - ddsim-compat
+      - ddsim-compat-latest
       - msrv-check
       - python-bindings
       - benchmarks
@@ -509,6 +663,8 @@ jobs:
           TESTS: ${{ needs.full-test-suite.result }}
           CLIPPY: ${{ needs.clippy-strict.result }}
           ADAPTERS: ${{ needs.adapter-compat.result }}
+          DDSIM: ${{ needs.ddsim-compat.result }}
+          DDSIM_LATEST: ${{ needs.ddsim-compat-latest.result }}
           MSRV: ${{ needs.msrv-check.result }}
           PYTHON: ${{ needs.python-bindings.result }}
           BENCH: ${{ needs.benchmarks.result }}
@@ -530,9 +686,9 @@ jobs:
 
           # Determine overall status
           OVERALL="✅ All checks passed"
-          if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" ]]; then
+          if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" || "$DDSIM" == "failure" ]]; then
             OVERALL="❌ Critical failures detected"
-          elif [[ "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" ]]; then
+          elif [[ "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" || "$DDSIM_LATEST" == "failure" ]]; then
             OVERALL="⚠️ Non-critical issues found"
           fi
 
@@ -549,6 +705,8 @@ jobs:
           | Full Test Suite | $(status_icon "$TESTS") | ${TESTS} |
           | Clippy (strict) | $(status_icon "$CLIPPY") | ${CLIPPY} |
           | Adapter Compatibility | $(status_icon "$ADAPTERS") | ${ADAPTERS} |
+          | DDSIM QDMI (pinned) | $(status_icon "$DDSIM") | ${DDSIM} |
+          | DDSIM QDMI (latest) | $(status_icon "$DDSIM_LATEST") | ${DDSIM_LATEST} |
           | MSRV (Rust 1.85) | $(status_icon "$MSRV") | ${MSRV} |
           | Python Bindings | $(status_icon "$PYTHON") | ${PYTHON} |
           | Benchmarks | $(status_icon "$BENCH") | ${BENCH} |
@@ -568,8 +726,8 @@ jobs:
           else
             # Only create an issue if something failed
             if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" || \
-                  "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || \
-                  "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" ]]; then
+                  "$DDSIM" == "failure" || "$CLIPPY" == "failure" || "$POLICY" == "failure" || \
+                  "$PYTHON" == "failure" || "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" ]]; then
               gh issue create \
                 --title "Nightly Build Report — ${DATE}" \
                 --body "$BODY" \

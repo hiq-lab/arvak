@@ -108,10 +108,21 @@ fn main() {
     print_section("Why This Matters");
     println!("  QML training requires computing gradients via parameter-shift:");
     println!("  each parameter needs 2 circuit evaluations per training step.");
-    println!("  With {} parameters and {} steps, that's {} circuits.", n_params, format_count(training_steps), format_count(total_circuits));
-    println!("  A slow transpiler at 100ms/circuit spends {:.1} minutes just", slow_total_s / 60.0);
+    println!(
+        "  With {} parameters and {} steps, that's {} circuits.",
+        n_params,
+        format_count(training_steps),
+        format_count(total_circuits)
+    );
+    println!(
+        "  A slow transpiler at 100ms/circuit spends {:.1} minutes just",
+        slow_total_s / 60.0
+    );
     println!("  compiling — before any quantum hardware is touched.");
-    println!("  Arvak compiles the entire training run in {:.2?}.", time_o2);
+    println!(
+        "  Arvak compiles the entire training run in {:.2?}.",
+        time_o2
+    );
 
     println!();
     print_success("QML compilation throughput demo complete!");
