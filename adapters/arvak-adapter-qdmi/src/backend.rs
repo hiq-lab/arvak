@@ -681,13 +681,13 @@ impl Backend for QdmiBackend {
                 ffi::check_status(status)
                     .map_err(|s| HalError::Backend(format!("set Program failed: {s:?}")))?;
 
-                // 4. Set shots
-                let shots_val = shots as c_int;
+                // 4. Set shots (QDMI expects size_t / usize)
+                let shots_val = shots as usize;
                 let status = ffi::QDMI_job_set_parameter(
                     job,
                     QdmiJobParameter::ShotsNum as c_int,
-                    std::mem::size_of::<c_int>(),
-                    &shots_val as *const c_int as *const c_void,
+                    std::mem::size_of::<usize>(),
+                    &shots_val as *const usize as *const c_void,
                 );
                 ffi::check_status(status)
                     .map_err(|s| HalError::Backend(format!("set ShotsNum failed: {s:?}")))?;
