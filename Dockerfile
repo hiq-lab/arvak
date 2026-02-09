@@ -84,6 +84,7 @@ RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
         && echo "fn main() {}" > demos/bin/demo_qaoa.rs \
         && echo "fn main() {}" > demos/bin/demo_multi.rs \
         && echo "fn main() {}" > demos/bin/demo_all.rs \
+        && echo "fn main() {}" > demos/bin/demo_qi_nutshell.rs \
     && mkdir -p demos/lumi-hybrid/src \
         && echo "fn main() {}" > demos/lumi-hybrid/src/main.rs \
         && echo "fn main() {}" > demos/lumi-hybrid/src/quantum_worker.rs \
@@ -138,6 +139,7 @@ COPY --from=builder /build/target/release/demo-vqe /usr/local/bin/demo-vqe
 COPY --from=builder /build/target/release/demo-qaoa /usr/local/bin/demo-qaoa
 COPY --from=builder /build/target/release/demo-multi /usr/local/bin/demo-multi
 COPY --from=builder /build/target/release/demo-all /usr/local/bin/demo-all
+COPY --from=builder /build/target/release/demo-qi-nutshell /usr/local/bin/demo-qi-nutshell
 COPY --from=builder /build/target/release/lumi_vqe /usr/local/bin/lumi_vqe
 COPY --from=builder /build/target/release/quantum_worker /usr/local/bin/quantum_worker
 
