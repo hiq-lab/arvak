@@ -197,7 +197,10 @@ impl QdmiDevice {
             resolve_optional::<ffi::FnJobFree>(&library, prefix, "QDMI_device_job_free");
 
         if fn_create_device_job.is_none() {
-            log::warn!("device '{}' does not export job submission functions", prefix);
+            log::warn!(
+                "device '{}' does not export job submission functions",
+                prefix
+            );
         }
 
         // -- Call device_initialize immediately after loading -------------------
@@ -300,12 +303,13 @@ fn resolve_required<T: Copy>(
     // SAFETY: The caller guarantees the type `T` matches the actual function
     // signature exported by the library. This is the core FFI contract.
     unsafe {
-        let sym: Symbol<T> = library.get(sym_name.as_bytes()).map_err(|e| {
-            QdmiError::SymbolNotFound {
-                symbol: sym_name.clone(),
-                cause: e.to_string(),
-            }
-        })?;
+        let sym: Symbol<T> =
+            library
+                .get(sym_name.as_bytes())
+                .map_err(|e| QdmiError::SymbolNotFound {
+                    symbol: sym_name.clone(),
+                    cause: e.to_string(),
+                })?;
         Ok(*sym)
     }
 }
@@ -369,10 +373,7 @@ pub fn scan_directory(
                 }
             }
         } else {
-            log::debug!(
-                "no prefix mapping for '{lookup_key}'; skipping {:?}",
-                path
-            );
+            log::debug!("no prefix mapping for '{lookup_key}'; skipping {:?}", path);
         }
     }
 

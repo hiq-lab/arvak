@@ -43,17 +43,13 @@ pub fn qml_classifier(n_qubits: usize, depth: usize, data: &[f64], weights: &[f6
     for _ in 0..depth {
         // Data encoding layer: Rx rotations
         for q in 0..n_qubits {
-            circuit
-                .rx(data[data_idx], QubitId(q as u32))
-                .unwrap();
+            circuit.rx(data[data_idx], QubitId(q as u32)).unwrap();
             data_idx += 1;
         }
 
         // Variational layer: Ry rotations
         for q in 0..n_qubits {
-            circuit
-                .ry(weights[weight_idx], QubitId(q as u32))
-                .unwrap();
+            circuit.ry(weights[weight_idx], QubitId(q as u32)).unwrap();
             weight_idx += 1;
         }
 

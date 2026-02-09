@@ -99,17 +99,20 @@ fn main() {
     );
     print_result(
         "Arvak speedup",
-        format!(
-            "{:.0}x (O0) / {:.0}x (O2)",
-            speedup_o0, speedup_o2
-        ),
+        format!("{:.0}x (O0) / {:.0}x (O2)", speedup_o0, speedup_o2),
     );
 
     print_section("Why This Matters");
     println!("  VQE requires compiling a new circuit for every parameter update");
     println!("  and every Hamiltonian term. A 500-iteration LiH optimization");
-    println!("  generates {} circuits. At 100ms/circuit, compilation alone", format_count(total_circuits));
-    println!("  takes {:.1} minutes — longer than the quantum execution.", slow_total_s / 60.0);
+    println!(
+        "  generates {} circuits. At 100ms/circuit, compilation alone",
+        format_count(total_circuits)
+    );
+    println!(
+        "  takes {:.1} minutes — longer than the quantum execution.",
+        slow_total_s / 60.0
+    );
     println!("  Arvak compiles the entire batch in {:.2?}.", time_o2);
 
     println!();

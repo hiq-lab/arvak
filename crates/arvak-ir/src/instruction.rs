@@ -215,12 +215,10 @@ impl Instruction {
             InstructionKind::Barrier => "barrier",
             InstructionKind::Delay { .. } => "delay",
             InstructionKind::Shuttle { .. } => "shuttle",
-            InstructionKind::NoiseChannel { role, .. } => {
-                match role {
-                    NoiseRole::Deficit => "noise_deficit",
-                    NoiseRole::Resource => "noise_resource",
-                }
-            }
+            InstructionKind::NoiseChannel { role, .. } => match role {
+                NoiseRole::Deficit => "noise_deficit",
+                NoiseRole::Resource => "noise_resource",
+            },
         }
     }
 }
@@ -256,19 +254,14 @@ mod tests {
     fn test_noise_channel_instruction() {
         use crate::noise::{NoiseModel, NoiseRole};
 
-        let inst = Instruction::channel_resource(
-            NoiseModel::Depolarizing { p: 0.03 },
-            QubitId(0),
-        );
+        let inst = Instruction::channel_resource(NoiseModel::Depolarizing { p: 0.03 }, QubitId(0));
         assert!(inst.is_noise_channel());
         assert!(inst.is_noise_resource());
         assert_eq!(inst.name(), "noise_resource");
         assert_eq!(inst.qubits.len(), 1);
 
-        let deficit = Instruction::channel_noise(
-            NoiseModel::AmplitudeDamping { gamma: 0.01 },
-            QubitId(1),
-        );
+        let deficit =
+            Instruction::channel_noise(NoiseModel::AmplitudeDamping { gamma: 0.01 }, QubitId(1));
         assert!(deficit.is_noise_channel());
         assert!(!deficit.is_noise_resource());
         assert_eq!(deficit.name(), "noise_deficit");

@@ -245,9 +245,7 @@ pub type FnDeviceFinalize = unsafe extern "C" fn() -> c_int;
 // -- Session lifecycle (4) --------------------------------------------------
 
 /// `int PREFIX_QDMI_device_session_alloc(PREFIX_QDMI_Device_Session *session)`
-pub type FnSessionAlloc = unsafe extern "C" fn(
-    session_out: *mut QdmiDeviceSession,
-) -> c_int;
+pub type FnSessionAlloc = unsafe extern "C" fn(session_out: *mut QdmiDeviceSession) -> c_int;
 
 /// `int PREFIX_QDMI_device_session_set_parameter(session, param, size, value)`
 pub type FnSessionSetParameter = unsafe extern "C" fn(
@@ -258,14 +256,10 @@ pub type FnSessionSetParameter = unsafe extern "C" fn(
 ) -> c_int;
 
 /// `int PREFIX_QDMI_device_session_init(PREFIX_QDMI_Device_Session session)`
-pub type FnSessionInit = unsafe extern "C" fn(
-    session: QdmiDeviceSession,
-) -> c_int;
+pub type FnSessionInit = unsafe extern "C" fn(session: QdmiDeviceSession) -> c_int;
 
 /// `void PREFIX_QDMI_device_session_free(PREFIX_QDMI_Device_Session session)`
-pub type FnSessionFree = unsafe extern "C" fn(
-    session: QdmiDeviceSession,
-);
+pub type FnSessionFree = unsafe extern "C" fn(session: QdmiDeviceSession);
 
 // -- Query interface (3) ----------------------------------------------------
 
@@ -306,10 +300,8 @@ pub type FnQueryOperationProperty = unsafe extern "C" fn(
 // -- Job interface (9) ------------------------------------------------------
 
 /// `int PREFIX_QDMI_device_session_create_device_job(session, job_out)`
-pub type FnCreateDeviceJob = unsafe extern "C" fn(
-    session: QdmiDeviceSession,
-    job_out: *mut QdmiDeviceJob,
-) -> c_int;
+pub type FnCreateDeviceJob =
+    unsafe extern "C" fn(session: QdmiDeviceSession, job_out: *mut QdmiDeviceJob) -> c_int;
 
 /// `int PREFIX_QDMI_device_job_set_parameter(job, param, size, value)`
 pub type FnJobSetParameter = unsafe extern "C" fn(
@@ -329,26 +321,16 @@ pub type FnJobQueryProperty = unsafe extern "C" fn(
 ) -> c_int;
 
 /// `int PREFIX_QDMI_device_job_submit(job)`
-pub type FnJobSubmit = unsafe extern "C" fn(
-    job: QdmiDeviceJob,
-) -> c_int;
+pub type FnJobSubmit = unsafe extern "C" fn(job: QdmiDeviceJob) -> c_int;
 
 /// `int PREFIX_QDMI_device_job_cancel(job)`
-pub type FnJobCancel = unsafe extern "C" fn(
-    job: QdmiDeviceJob,
-) -> c_int;
+pub type FnJobCancel = unsafe extern "C" fn(job: QdmiDeviceJob) -> c_int;
 
 /// `int PREFIX_QDMI_device_job_check(job, status_out)`
-pub type FnJobCheck = unsafe extern "C" fn(
-    job: QdmiDeviceJob,
-    status: *mut QdmiJobStatus,
-) -> c_int;
+pub type FnJobCheck = unsafe extern "C" fn(job: QdmiDeviceJob, status: *mut QdmiJobStatus) -> c_int;
 
 /// `int PREFIX_QDMI_device_job_wait(job, timeout_ms)`
-pub type FnJobWait = unsafe extern "C" fn(
-    job: QdmiDeviceJob,
-    timeout_ms: usize,
-) -> c_int;
+pub type FnJobWait = unsafe extern "C" fn(job: QdmiDeviceJob, timeout_ms: usize) -> c_int;
 
 /// `int PREFIX_QDMI_device_job_get_results(job, result_type, size, value, size_ret)`
 pub type FnJobGetResults = unsafe extern "C" fn(
@@ -360,6 +342,4 @@ pub type FnJobGetResults = unsafe extern "C" fn(
 ) -> c_int;
 
 /// `void PREFIX_QDMI_device_job_free(job)`
-pub type FnJobFree = unsafe extern "C" fn(
-    job: QdmiDeviceJob,
-);
+pub type FnJobFree = unsafe extern "C" fn(job: QdmiDeviceJob);

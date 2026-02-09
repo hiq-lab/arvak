@@ -78,8 +78,8 @@ pub mod dag;
 pub mod error;
 pub mod gate;
 pub mod instruction;
-pub mod parameter;
 pub mod noise;
+pub mod parameter;
 pub mod qubit;
 
 pub use circuit::Circuit;
@@ -87,6 +87,6 @@ pub use dag::{CircuitDag, CircuitLevel, DagEdge, DagNode, NodeIndex, WireId};
 pub use error::{IrError, IrResult};
 pub use gate::{ClassicalCondition, CustomGate, Gate, GateKind, StandardGate};
 pub use instruction::{Instruction, InstructionKind};
-pub use parameter::ParameterExpression;
 pub use noise::{NoiseModel, NoiseProfile, NoiseRole};
+pub use parameter::ParameterExpression;
 pub use qubit::{Clbit, ClbitId, Qubit, QubitId};

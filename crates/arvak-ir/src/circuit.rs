@@ -524,8 +524,7 @@ impl Circuit {
 
     /// Apply a deficit noise channel (hardware noise, compiler may optimize around).
     pub fn channel_noise(&mut self, model: NoiseModel, qubit: QubitId) -> IrResult<&mut Self> {
-        self.dag
-            .apply(Instruction::channel_noise(model, qubit))?;
+        self.dag.apply(Instruction::channel_noise(model, qubit))?;
         Ok(self)
     }
 

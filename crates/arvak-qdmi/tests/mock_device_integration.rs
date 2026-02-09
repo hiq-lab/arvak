@@ -11,7 +11,7 @@ use arvak_qdmi::capabilities::DeviceCapabilities;
 use arvak_qdmi::device_loader::QdmiDevice;
 use arvak_qdmi::format::CircuitFormat;
 use arvak_qdmi::session::DeviceSession;
-use arvak_qdmi::{ffi, QdmiError};
+use arvak_qdmi::{QdmiError, ffi};
 
 /// Path to the compiled mock device .so (set by build.rs).
 fn mock_device_path() -> &'static str {
@@ -101,8 +101,8 @@ fn test_session_with_parameters() {
         b"https://example.com".to_vec(),
     );
 
-    let session = DeviceSession::open_with_params(&device, &params)
-        .expect("session with params failed");
+    let session =
+        DeviceSession::open_with_params(&device, &params).expect("session with params failed");
     assert!(session.is_active());
 }
 
@@ -268,7 +268,10 @@ fn test_site_properties() {
 
     // Check first qubit's properties
     let site0 = caps.sites[0];
-    let props = caps.site_properties.get(&site0).expect("site0 properties missing");
+    let props = caps
+        .site_properties
+        .get(&site0)
+        .expect("site0 properties missing");
 
     // T1 = 100000 ns * 1e-9 = 100 μs
     let t1 = props.t1.expect("T1 missing for site 0");
@@ -563,8 +566,7 @@ fn test_job_lifecycle() {
     let value_size = std::mem::size_of::<usize>();
     assert_eq!(hist_values.len(), 2 * value_size);
     let count0 = usize::from_ne_bytes(hist_values[..value_size].try_into().unwrap());
-    let count1 =
-        usize::from_ne_bytes(hist_values[value_size..2 * value_size].try_into().unwrap());
+    let count1 = usize::from_ne_bytes(hist_values[value_size..2 * value_size].try_into().unwrap());
     assert_eq!(count0 + count1, 1024, "total counts should be 1024");
 
     // Job is freed when dropped
