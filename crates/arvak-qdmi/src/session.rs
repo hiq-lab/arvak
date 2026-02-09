@@ -62,7 +62,12 @@ impl<'dev> DeviceSession<'dev> {
         // Phase 2: Set parameters (optional)
         for (&param, value) in params {
             let ret = unsafe {
-                (device.fn_session_set_parameter)(handle, param, value.len(), value.as_ptr() as *const c_void)
+                (device.fn_session_set_parameter)(
+                    handle,
+                    param,
+                    value.len(),
+                    value.as_ptr() as *const c_void,
+                )
             };
             if !ffi::is_success(ret) {
                 // Free the allocated session before returning error
@@ -463,19 +468,21 @@ pub struct DeviceJob<'sess, 'dev> {
 
 impl<'sess, 'dev> DeviceJob<'sess, 'dev> {
     /// Set a job parameter (e.g. program format, program, shots).
-    pub fn set_parameter(
-        &self,
-        param: ffi::QdmiDeviceJobParameter,
-        value: &[u8],
-    ) -> Result<()> {
+    pub fn set_parameter(&self, param: ffi::QdmiDeviceJobParameter, value: &[u8]) -> Result<()> {
         let set_fn = self
             .session
             .device
             .fn_job_set_parameter
             .ok_or(QdmiError::NotSupported)?;
 
-        let ret =
-            unsafe { set_fn(self.handle, param, value.len(), value.as_ptr() as *const c_void) };
+        let ret = unsafe {
+            set_fn(
+                self.handle,
+                param,
+                value.len(),
+                value.as_ptr() as *const c_void,
+            )
+        };
         check_qdmi_result(ret)
     }
 

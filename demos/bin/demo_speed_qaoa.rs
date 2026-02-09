@@ -10,10 +10,10 @@ use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
 use arvak_ir::Circuit;
 
 use arvak_demos::circuits::qaoa::qaoa_circuit;
+use arvak_demos::problems::Graph;
 use arvak_demos::problems::sensor_assignment::{
     drone_patrol_6, radar_deconfliction_8, surveillance_grid_10,
 };
-use arvak_demos::problems::Graph;
 use arvak_demos::{print_header, print_info, print_result, print_section, print_success};
 
 fn main() {
@@ -37,7 +37,10 @@ fn main() {
     print_section("Problem Setup");
     print_result("Scenarios", scenarios.len());
     print_result("QAOA depth sweep", format!("p = 1..{}", max_depth));
-    print_result("Angle grid", format!("{}x{} (gamma x beta)", grid_size, grid_size));
+    print_result(
+        "Angle grid",
+        format!("{}x{} (gamma x beta)", grid_size, grid_size),
+    );
     print_result("Circuits per scenario", format_count(circuits_per_problem));
     print_result(
         "Total circuits",
@@ -59,8 +62,7 @@ fn main() {
         for p in 1..=max_depth {
             for gi in 0..grid_size {
                 for bi in 0..grid_size {
-                    let gamma_val =
-                        std::f64::consts::PI * (gi as f64 + 0.5) / grid_size as f64;
+                    let gamma_val = std::f64::consts::PI * (gi as f64 + 0.5) / grid_size as f64;
                     let beta_val =
                         std::f64::consts::FRAC_PI_2 * (bi as f64 + 0.5) / grid_size as f64;
                     let gamma = vec![gamma_val; p];
@@ -98,16 +100,16 @@ fn main() {
     }
 
     print_section("Aggregate Results");
-    print_result("Total circuits compiled", format_count(grand_total_circuits));
+    print_result(
+        "Total circuits compiled",
+        format_count(grand_total_circuits),
+    );
 
     let avg_o0 = grand_total_time_o0.as_nanos() as f64 / grand_total_circuits as f64;
     let avg_o2 = grand_total_time_o2.as_nanos() as f64 / grand_total_circuits as f64;
 
     println!();
-    println!(
-        "  {:<8}{:<12}{:<16}",
-        "Level", "Total", "Per-Circuit"
-    );
+    println!("  {:<8}{:<12}{:<16}", "Level", "Total", "Per-Circuit");
     println!(
         "  {:<8}{:<12}{:<16}",
         "O0",
@@ -142,9 +144,15 @@ fn main() {
     println!("  When a new threat is detected or assets reposition, sensor");
     println!("  assignments must be re-optimized in seconds, not minutes.");
     println!();
-    println!("  A conventional transpiler at 100ms/circuit needs {:.1} minutes", slow_total_s / 60.0);
+    println!(
+        "  A conventional transpiler at 100ms/circuit needs {:.1} minutes",
+        slow_total_s / 60.0
+    );
     println!("  to explore the QAOA parameter space across three scenarios.");
-    println!("  Arvak completes the same sweep in {:.2?} — enabling", grand_total_time_o2);
+    println!(
+        "  Arvak completes the same sweep in {:.2?} — enabling",
+        grand_total_time_o2
+    );
     println!("  real-time re-optimization as the situation evolves.");
 
     println!();

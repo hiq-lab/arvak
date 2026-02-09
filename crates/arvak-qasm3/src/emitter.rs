@@ -114,10 +114,7 @@ impl Emitter {
             InstructionKind::NoiseChannel { model, role } => {
                 // Noise channels have no QASM3 equivalent; emit as pragma comment
                 let qubits = self.emit_qubits(&instruction.qubits);
-                self.writeln(&format!(
-                    "// @pragma noise_{}({}) {};",
-                    role, model, qubits
-                ));
+                self.writeln(&format!("// @pragma noise_{}({}) {};", role, model, qubits));
             }
         }
 
