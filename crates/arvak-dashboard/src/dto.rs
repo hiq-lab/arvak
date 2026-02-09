@@ -99,6 +99,10 @@ pub struct CompilationStats {
     pub gates_before: usize,
     /// Gate count after compilation.
     pub gates_after: usize,
+    /// Compilation time in microseconds.
+    pub compile_time_us: u64,
+    /// Throughput in gates per second.
+    pub throughput_gates_per_sec: u64,
 }
 
 // ============================================================================

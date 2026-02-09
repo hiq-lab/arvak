@@ -7,6 +7,7 @@
 //! cleanly handle the protocol-to-circuit mapping used in the paper.
 
 use std::f64::consts::PI;
+use std::time::Instant;
 
 use clap::Parser;
 
@@ -264,14 +265,17 @@ fn compile_and_report(label: &str, circuit: Circuit, opt_level: u8) {
         .build();
 
     let mut dag = circuit.into_dag();
+    let compile_start = Instant::now();
     match pm.run(&mut dag, &mut props) {
         Ok(()) => {
+            let compile_time = compile_start.elapsed();
             let compiled = Circuit::from_dag(dag);
             let post_depth = compiled.depth();
             let post_gates = compiled.dag().num_ops();
 
             print_result("Pre-compilation", format!("depth={}, gates={}", pre_depth, pre_gates));
             print_result("Post-compilation", format!("depth={}, gates={}", post_depth, post_gates));
+            print_result("Compile time", format!("{:.2?}", compile_time));
             print_result("Optimization level", opt_level);
             print_result("Target basis", "CZ + PRX (ion-trap native)");
             print_result("Topology", format!("linear chain, {} qubits", num_qubits));
@@ -279,6 +283,11 @@ fn compile_and_report(label: &str, circuit: Circuit, opt_level: u8) {
             if post_gates > 0 && pre_gates > 0 {
                 let ratio = post_gates as f64 / pre_gates as f64;
                 print_result("Gate expansion", format!("{:.2}×", ratio));
+            }
+
+            if compile_time.as_nanos() > 0 && post_gates > 0 {
+                let gates_per_sec = post_gates as f64 / compile_time.as_secs_f64();
+                print_result("Throughput", format!("{:.0} gates/s", gates_per_sec));
             }
 
             // Emit compiled QASM

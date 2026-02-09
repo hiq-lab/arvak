@@ -1,6 +1,7 @@
 //! Evaluator endpoint: run arvak-eval analysis on a QASM3 circuit.
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use axum::{Json, extract::State};
 
@@ -190,6 +191,8 @@ pub struct CompilationView {
     pub compiled_ops: usize,
     pub depth_delta: i64,
     pub ops_delta: i64,
+    pub compile_time_us: u64,
+    pub throughput_gates_per_sec: u64,
 }
 
 /// Contract summary.
@@ -236,9 +239,11 @@ pub async fn evaluate(
     };
 
     let evaluator = Evaluator::new(config);
+    let eval_start = Instant::now();
     let report = evaluator
         .evaluate(&req.qasm, &[])
         .map_err(|e| ApiError::Internal(format!("Evaluation failed: {}", e)))?;
+    let eval_time = eval_start.elapsed();
 
     // Build response from report
     let input = InputView {
@@ -249,12 +254,20 @@ pub async fn evaluate(
         content_hash: report.input.content_hash.clone(),
     };
 
+    let compile_time_us = eval_time.as_micros() as u64;
+    let compiled_ops = report.compilation.final_snapshot.total_ops;
+    let throughput_gates_per_sec = if eval_time.as_nanos() > 0 {
+        (compiled_ops as f64 / eval_time.as_secs_f64()) as u64
+    } else {
+        0
+    };
+
     let compilation = CompilationView {
         num_passes: report.compilation.passes.len(),
         original_depth: report.compilation.initial.depth,
         compiled_depth: report.compilation.final_snapshot.depth,
         original_ops: report.compilation.initial.total_ops,
-        compiled_ops: report.compilation.final_snapshot.total_ops,
+        compiled_ops,
         depth_delta: report
             .metrics
             .compilation_effect
@@ -267,6 +280,8 @@ pub async fn evaluate(
             .as_ref()
             .map(|e| e.ops_delta)
             .unwrap_or(0),
+        compile_time_us,
+        throughput_gates_per_sec,
     };
 
     let contract = ContractView {
