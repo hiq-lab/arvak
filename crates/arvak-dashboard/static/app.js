@@ -1128,38 +1128,6 @@ function renderEvalReport(container, r) {
     html += evalCard('Throughput', evalThroughputStr, 'improved');
     html += '</div>';
 
-    // --- Contract Compliance ---
-    html += '<div class="eval-section">';
-    html += `<h3>QDMI Contract: ${r.contract.target_name}</h3>`;
-    const total = r.contract.safe_count + r.contract.conditional_count + r.contract.violating_count;
-    html += `<div class="eval-compliance-bar">`;
-    if (r.contract.safe_count > 0) {
-        html += `<div class="bar-safe" style="width:${(r.contract.safe_count/total*100).toFixed(1)}%" title="${r.contract.safe_count} safe">${r.contract.safe_count}</div>`;
-    }
-    if (r.contract.conditional_count > 0) {
-        html += `<div class="bar-conditional" style="width:${(r.contract.conditional_count/total*100).toFixed(1)}%" title="${r.contract.conditional_count} conditional">${r.contract.conditional_count}</div>`;
-    }
-    if (r.contract.violating_count > 0) {
-        html += `<div class="bar-violating" style="width:${(r.contract.violating_count/total*100).toFixed(1)}%" title="${r.contract.violating_count} violating">${r.contract.violating_count}</div>`;
-    }
-    html += '</div>';
-    html += `<div class="eval-compliance-legend">`;
-    html += `<span class="legend-safe">Safe: ${r.contract.safe_count}</span>`;
-    html += `<span class="legend-conditional">Conditional: ${r.contract.conditional_count}</span>`;
-    html += `<span class="legend-violating">Violating: ${r.contract.violating_count}</span>`;
-    html += `<span class="compliance-badge ${r.contract.compliant ? 'compliant' : 'non-compliant'}">${r.contract.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'}</span>`;
-    html += '</div>';
-
-    // Gate table
-    if (r.contract.gates.length > 0) {
-        html += '<table class="eval-table"><thead><tr><th>Gate</th><th>Tag</th></tr></thead><tbody>';
-        r.contract.gates.forEach(g => {
-            html += `<tr><td class="mono">${escapeHtml(g.gate)}</td><td><span class="tag-${g.tag}">${g.tag}</span></td></tr>`;
-        });
-        html += '</tbody></table>';
-    }
-    html += '</div>';
-
     // --- Emitter Compliance ---
     if (r.emitter) {
         html += '<div class="eval-section">';
