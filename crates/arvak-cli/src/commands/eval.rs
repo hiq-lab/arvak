@@ -71,22 +71,6 @@ pub async fn execute(
         report.compilation.initial.total_ops,
         report.compilation.final_snapshot.total_ops,
     );
-    eprintln!(
-        "  Contract:    {} safe, {} conditional, {} violating [{}]",
-        report.contract.safe_count,
-        report.contract.conditional_count,
-        report.contract.violating_count,
-        if report.contract.compliant {
-            style("COMPLIANT").green()
-        } else {
-            style("NON-COMPLIANT").red()
-        },
-    );
-    eprintln!(
-        "  Target:      {} ({} qubits)",
-        report.contract.target_name, report.contract.target_qubits
-    );
-
     // Orchestration summary (if enabled)
     if let Some(ref orch) = report.orchestration {
         eprintln!();

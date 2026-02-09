@@ -1,8 +1,8 @@
 //! Arvak Evaluator: Compiler, Orchestration & Emitter Observability
 //!
 //! This crate provides the evaluation framework for observing and analyzing
-//! quantum circuit compilation pipelines. It is QDMI-first and independent
-//! of external benchmark frameworks.
+//! quantum circuit compilation pipelines, independent of external benchmark
+//! frameworks.
 //!
 //! # Overview
 //!
@@ -11,7 +11,6 @@
 //!
 //! - **Input Analysis**: Parsing, validation, and content hashing
 //! - **Compilation Observation**: Pass-wise metrics with before/after deltas
-//! - **QDMI Contract Checking**: Safety classification against device capabilities
 //! - **Orchestration Analysis**: Hybrid DAG, critical path, batchability (v0.2)
 //! - **Emitter Compliance**: Native gate coverage, loss documentation (v0.3)
 //! - **Benchmark Loading**: Standard circuit workloads (GHZ, QFT, etc.) (v0.3)
@@ -22,9 +21,6 @@
 //!
 //! ```text
 //! [QASM3 Input] -> Input Module -> Compilation Observer
-//!                                    |
-//!                                    v
-//!                            QDMI Contract Module
 //!                                    |
 //!                                    v
 //!                          Orchestration Module (opt)
@@ -43,7 +39,6 @@
 //! ```
 
 pub mod benchmark;
-pub mod contract;
 pub mod emitter;
 pub mod error;
 pub mod export;
@@ -59,7 +54,6 @@ pub use error::{EvalError, EvalResult};
 pub use report::EvalReport;
 
 use benchmark::{BenchmarkLoader, BenchmarkSuite};
-use contract::ContractChecker;
 use emitter::{EmitTarget, EmitterAnalyzer};
 use export::ExportConfig;
 use input::InputAnalysis;
@@ -181,16 +175,8 @@ impl Evaluator {
             observer.final_metrics.depth,
         );
 
-        // 3. QDMI contract check
+        // 3. Target capabilities (for emitter analysis)
         let capabilities = self.config.target_capabilities();
-        let contract_report = ContractChecker::check(&observer.final_dag, &capabilities);
-
-        info!(
-            "Contract: {} safe, {} conditional, {} violating",
-            contract_report.safe_count,
-            contract_report.conditional_count,
-            contract_report.violating_count,
-        );
 
         // 4. Orchestration analysis (optional)
         let (orchestration_report, scheduler_fitness) = if self.config.orchestration {
@@ -288,7 +274,6 @@ impl Evaluator {
         let aggregated = MetricsAggregator::aggregate_full(
             &input_analysis,
             &observer,
-            &contract_report,
             orchestration_report
                 .as_ref()
                 .map(|o| (o, scheduler_fitness.as_ref())),
@@ -305,7 +290,6 @@ impl Evaluator {
             profile: self.config.profile.clone(),
             input: input_analysis.into_report(),
             compilation: observer.into_report(),
-            contract: contract_report,
             metrics: aggregated,
             orchestration: orchestration_report,
             scheduler: scheduler_fitness,
