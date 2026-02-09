@@ -91,12 +91,11 @@ impl NoiseModel {
     /// Get the primary error parameter of this noise model.
     pub fn error_param(&self) -> f64 {
         match self {
-            NoiseModel::Depolarizing { p } => *p,
-            NoiseModel::AmplitudeDamping { gamma } => *gamma,
-            NoiseModel::PhaseDamping { gamma } => *gamma,
-            NoiseModel::BitFlip { p } => *p,
-            NoiseModel::PhaseFlip { p } => *p,
-            NoiseModel::ReadoutError { p } => *p,
+            NoiseModel::AmplitudeDamping { gamma } | NoiseModel::PhaseDamping { gamma } => *gamma,
+            NoiseModel::Depolarizing { p }
+            | NoiseModel::BitFlip { p }
+            | NoiseModel::PhaseFlip { p }
+            | NoiseModel::ReadoutError { p } => *p,
             NoiseModel::Custom { params, .. } => params.values().next().copied().unwrap_or(0.0),
         }
     }
@@ -105,15 +104,15 @@ impl NoiseModel {
 impl std::fmt::Display for NoiseModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NoiseModel::Depolarizing { p } => write!(f, "depolarizing(p={:.4})", p),
+            NoiseModel::Depolarizing { p } => write!(f, "depolarizing(p={p:.4})"),
             NoiseModel::AmplitudeDamping { gamma } => {
-                write!(f, "amplitude_damping(γ={:.4})", gamma)
+                write!(f, "amplitude_damping(γ={gamma:.4})")
             }
-            NoiseModel::PhaseDamping { gamma } => write!(f, "phase_damping(γ={:.4})", gamma),
-            NoiseModel::BitFlip { p } => write!(f, "bit_flip(p={:.4})", p),
-            NoiseModel::PhaseFlip { p } => write!(f, "phase_flip(p={:.4})", p),
-            NoiseModel::ReadoutError { p } => write!(f, "readout_error(p={:.4})", p),
-            NoiseModel::Custom { name, .. } => write!(f, "custom({})", name),
+            NoiseModel::PhaseDamping { gamma } => write!(f, "phase_damping(γ={gamma:.4})"),
+            NoiseModel::BitFlip { p } => write!(f, "bit_flip(p={p:.4})"),
+            NoiseModel::PhaseFlip { p } => write!(f, "phase_flip(p={p:.4})"),
+            NoiseModel::ReadoutError { p } => write!(f, "readout_error(p={p:.4})"),
+            NoiseModel::Custom { name, .. } => write!(f, "custom({name})"),
         }
     }
 }
@@ -233,7 +232,7 @@ mod tests {
     #[test]
     fn test_noise_model_display() {
         let m = NoiseModel::Depolarizing { p: 0.03 };
-        assert_eq!(format!("{}", m), "depolarizing(p=0.0300)");
+        assert_eq!(format!("{m}"), "depolarizing(p=0.0300)");
     }
 
     #[test]

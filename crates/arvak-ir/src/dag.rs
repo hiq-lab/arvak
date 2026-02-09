@@ -174,6 +174,7 @@ impl CircuitDag {
     }
 
     /// Apply an instruction to the circuit.
+    #[allow(clippy::needless_pass_by_value, clippy::cast_possible_truncation)]
     pub fn apply(&mut self, instruction: Instruction) -> IrResult<NodeIndex> {
         // Get gate name for error context
         let gate_name = match &instruction.kind {
@@ -215,9 +216,9 @@ impl CircuitDag {
         }
 
         // Check for duplicate qubits in the instruction
-        let mut seen = FxHashMap::default();
+        let mut seen = rustc_hash::FxHashSet::default();
         for &qubit in &instruction.qubits {
-            if seen.insert(qubit, ()).is_some() {
+            if !seen.insert(qubit) {
                 return Err(IrError::DuplicateQubit {
                     qubit,
                     gate_name: gate_name.clone(),
@@ -311,13 +312,10 @@ impl CircuitDag {
             .ok_or(IrError::InvalidNode)?
             .clone();
 
-        let instruction = match dag_node {
-            DagNode::Op(inst) => inst,
-            _ => {
-                return Err(IrError::InvalidDag(
-                    "Cannot remove non-operation node".into(),
-                ));
-            }
+        let DagNode::Op(instruction) = dag_node else {
+            return Err(IrError::InvalidDag(
+                "Cannot remove non-operation node".into(),
+            ));
         };
 
         // For each wire through this node, reconnect predecessors to successors
@@ -448,6 +446,7 @@ impl CircuitDag {
     /// - The graph is acyclic
     /// - All operation nodes are reachable from some In node
     /// - Wire edges form valid paths from In to Out for each wire
+    #[allow(clippy::too_many_lines)]
     pub fn verify_integrity(&self) -> IrResult<()> {
         // 1. Check that the graph is acyclic
         if petgraph::algo::is_cyclic_directed(&self.graph) {
@@ -458,16 +457,14 @@ impl CircuitDag {
         for &qubit in self.qubit_inputs.keys() {
             if !self.qubit_outputs.contains_key(&qubit) {
                 return Err(IrError::InvalidDag(format!(
-                    "Qubit {:?} has an In node but no Out node",
-                    qubit
+                    "Qubit {qubit:?} has an In node but no Out node"
                 )));
             }
         }
         for &qubit in self.qubit_outputs.keys() {
             if !self.qubit_inputs.contains_key(&qubit) {
                 return Err(IrError::InvalidDag(format!(
-                    "Qubit {:?} has an Out node but no In node",
-                    qubit
+                    "Qubit {qubit:?} has an Out node but no In node"
                 )));
             }
         }
@@ -476,16 +473,14 @@ impl CircuitDag {
         for &clbit in self.clbit_inputs.keys() {
             if !self.clbit_outputs.contains_key(&clbit) {
                 return Err(IrError::InvalidDag(format!(
-                    "Clbit {:?} has an In node but no Out node",
-                    clbit
+                    "Clbit {clbit:?} has an In node but no Out node"
                 )));
             }
         }
         for &clbit in self.clbit_outputs.keys() {
             if !self.clbit_inputs.contains_key(&clbit) {
                 return Err(IrError::InvalidDag(format!(
-                    "Clbit {:?} has an Out node but no In node",
-                    clbit
+                    "Clbit {clbit:?} has an Out node but no In node"
                 )));
             }
         }
@@ -515,8 +510,7 @@ impl CircuitDag {
                     Some(n) => current = n,
                     None => {
                         return Err(IrError::InvalidDag(format!(
-                            "Wire for qubit {:?} is broken: no outgoing edge from node {:?}",
-                            qubit, current
+                            "Wire for qubit {qubit:?} is broken: no outgoing edge from node {current:?}"
                         )));
                     }
                 }
@@ -524,8 +518,7 @@ impl CircuitDag {
                 steps += 1;
                 if steps > max_steps {
                     return Err(IrError::InvalidDag(format!(
-                        "Wire for qubit {:?} has too many steps (possible infinite loop)",
-                        qubit
+                        "Wire for qubit {qubit:?} has too many steps (possible infinite loop)"
                     )));
                 }
             }
@@ -555,8 +548,7 @@ impl CircuitDag {
                     Some(n) => current = n,
                     None => {
                         return Err(IrError::InvalidDag(format!(
-                            "Wire for clbit {:?} is broken: no outgoing edge from node {:?}",
-                            clbit, current
+                            "Wire for clbit {clbit:?} is broken: no outgoing edge from node {current:?}"
                         )));
                     }
                 }
@@ -564,8 +556,7 @@ impl CircuitDag {
                 steps += 1;
                 if steps > max_steps {
                     return Err(IrError::InvalidDag(format!(
-                        "Wire for clbit {:?} has too many steps (possible infinite loop)",
-                        clbit
+                        "Wire for clbit {clbit:?} has too many steps (possible infinite loop)"
                     )));
                 }
             }

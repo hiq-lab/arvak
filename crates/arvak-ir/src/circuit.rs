@@ -575,6 +575,7 @@ impl Circuit {
     }
 
     /// Create a circuit from a DAG.
+    #[allow(clippy::cast_possible_truncation)]
     pub fn from_dag(dag: CircuitDag) -> Self {
         let num_qubits = dag.num_qubits() as u32;
         let num_clbits = dag.num_clbits() as u32;
@@ -664,7 +665,7 @@ impl Circuit {
             // Controlled rotations
             for j in (i + 1)..n {
                 let k = j - i;
-                let angle = PI / (1 << k) as f64;
+                let angle = PI / f64::from(1 << k);
                 circuit.cp(angle, QubitId(j), QubitId(i))?;
             }
         }
@@ -751,7 +752,7 @@ mod tests {
 
     #[test]
     fn test_noise_channel_builder() {
-        use crate::noise::{NoiseModel, NoiseRole};
+        use crate::noise::NoiseModel;
 
         let mut circuit = Circuit::with_size("test", 2, 0);
         circuit.h(QubitId(0)).unwrap();
