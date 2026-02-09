@@ -24,3 +24,7 @@ __pycache__/
 
 # Output
 *.json.bak
+
+# Sensitive / deployment
+*.key
+DEPLOY-*.md
