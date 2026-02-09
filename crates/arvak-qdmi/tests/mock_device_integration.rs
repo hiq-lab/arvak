@@ -321,10 +321,14 @@ fn test_all_sites_have_properties() {
         assert!(props.t1.is_some(), "missing T1 for {site:?}");
         assert!(props.t2.is_some(), "missing T2 for {site:?}");
 
-        // T1 should always be >= T2
+        // Quantum decoherence: 1/T2 = 1/(2*T1) + 1/T_phi, so T2 <= 2*T1 always.
         let t1 = props.t1.unwrap();
         let t2 = props.t2.unwrap();
-        assert!(t1 >= t2, "T1 ({t1:?}) < T2 ({t2:?}) for {site:?}");
+        assert!(
+            t2 <= t1 * 2,
+            "T2 ({t2:?}) > 2*T1 ({:?}) for {site:?} — violates decoherence bound",
+            t1 * 2
+        );
     }
 }
 
