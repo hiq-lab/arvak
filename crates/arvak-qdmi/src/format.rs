@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: Apache-2.0
+//! Circuit format types and negotiation.
+
+/// Circuit serialization formats that a QDMI device may accept.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CircuitFormat {
+    /// OpenQASM 2.0
+    OpenQasm2,
+    /// OpenQASM 3.0
+    OpenQasm3,
+    /// QIR (Quantum Intermediate Representation)
+    Qir,
+    /// Device-native gate sequence (opaque to the framework)
+    NativeGates,
+    /// A format we don't recognise but the device advertised.
+    Custom(String),
+}
+
+impl CircuitFormat {
+    /// Preference rank (lower = more preferred for Arvak).
+    pub(crate) fn preference_rank(&self) -> u32 {
+        match self {
+            CircuitFormat::OpenQasm3 => 0,
+            CircuitFormat::Qir => 1,
+            CircuitFormat::OpenQasm2 => 2,
+            CircuitFormat::NativeGates => 3,
+            CircuitFormat::Custom(_) => 10,
+        }
+    }
+
+    /// Parse a format name string returned by a QDMI device.
+    pub fn from_device_string(s: &str) -> Self {
+        match s.to_ascii_lowercase().trim() {
+            "openqasm2" | "qasm2" | "openqasm 2" | "openqasm 2.0" => CircuitFormat::OpenQasm2,
+            "openqasm3" | "qasm3" | "openqasm 3" | "openqasm 3.0" => CircuitFormat::OpenQasm3,
+            "qir" => CircuitFormat::Qir,
+            "native" | "nativegates" => CircuitFormat::NativeGates,
+            other => CircuitFormat::Custom(other.to_string()),
+        }
+    }
+
+    /// MIME-style identifier to pass back to the device during job submission.
+    pub fn as_device_string(&self) -> &str {
+        match self {
+            CircuitFormat::OpenQasm2 => "openqasm2",
+            CircuitFormat::OpenQasm3 => "openqasm3",
+            CircuitFormat::Qir => "qir",
+            CircuitFormat::NativeGates => "native",
+            CircuitFormat::Custom(s) => s.as_str(),
+        }
+    }
+}
+
+/// Pick the best format from a set the device supports, optionally honouring a
+/// user preference.
+pub fn negotiate_format(
+    supported: &[CircuitFormat],
+    preferred: Option<&CircuitFormat>,
+) -> Option<CircuitFormat> {
+    // If the caller has a preference and the device supports it, use it.
+    if let Some(pref) = preferred {
+        if supported.contains(pref) {
+            return Some(pref.clone());
+        }
+    }
+    // Otherwise pick by our preference ranking.
+    let mut ranked: Vec<_> = supported.to_vec();
+    ranked.sort_by_key(|f| f.preference_rank());
+    ranked.into_iter().next()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_negotiation_prefers_user_choice() {
+        let supported = vec![CircuitFormat::OpenQasm2, CircuitFormat::OpenQasm3];
+        let result = negotiate_format(&supported, Some(&CircuitFormat::OpenQasm2));
+        assert_eq!(result, Some(CircuitFormat::OpenQasm2));
+    }
+
+    #[test]
+    fn test_negotiation_falls_back_to_ranked() {
+        let supported = vec![CircuitFormat::OpenQasm2, CircuitFormat::Qir];
+        let result = negotiate_format(&supported, Some(&CircuitFormat::NativeGates));
+        // NativeGates not supported, should pick Qir (rank 1) over OpenQasm2 (rank 2)
+        assert_eq!(result, Some(CircuitFormat::Qir));
+    }
+
+    #[test]
+    fn test_negotiation_empty() {
+        let result = negotiate_format(&[], None);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_format_strings() {
+        assert_eq!(CircuitFormat::from_device_string("qasm3"), CircuitFormat::OpenQasm3);
+        assert_eq!(CircuitFormat::from_device_string("OpenQASM 2.0"), CircuitFormat::OpenQasm2);
+        assert_eq!(
+            CircuitFormat::from_device_string("something_else"),
+            CircuitFormat::Custom("something_else".into())
+        );
+    }
+}
