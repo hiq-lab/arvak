@@ -1,6 +1,7 @@
 //! Circuit visualization and compilation endpoints.
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
 use arvak_ir::Circuit;
@@ -50,7 +51,9 @@ pub async fn compile(
 
     // Convert to DAG and run compilation
     let mut dag = circuit.into_dag();
+    let compile_start = Instant::now();
     pm.run(&mut dag, &mut props)?;
+    let compile_time = compile_start.elapsed();
 
     // Convert back to circuit
     let compiled = Circuit::from_dag(dag);
@@ -59,6 +62,14 @@ pub async fn compile(
     let after = CircuitVisualization::from_circuit(&compiled);
     let compiled_depth = compiled.depth();
     let gates_after = count_gates(&compiled);
+
+    // Compute throughput
+    let compile_time_us = compile_time.as_micros() as u64;
+    let throughput_gates_per_sec = if compile_time.as_nanos() > 0 {
+        (gates_after as f64 / compile_time.as_secs_f64()) as u64
+    } else {
+        0
+    };
 
     // Emit compiled QASM
     let compiled_qasm = arvak_qasm3::emit(&compiled)?;
@@ -72,6 +83,8 @@ pub async fn compile(
             compiled_depth,
             gates_before,
             gates_after,
+            compile_time_us,
+            throughput_gates_per_sec,
         },
     }))
 }
