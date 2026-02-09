@@ -10,8 +10,8 @@ use arvak_ir::qubit::QubitId;
 /// Generate a parameterized quantum classifier circuit.
 ///
 /// Architecture per layer:
-/// 1. Data encoding: Rx(data[i]) on each qubit
-/// 2. Variational: Ry(weight[i]) on each qubit + CZ entangling ring
+/// 1. Data encoding: `Rx(data[i])` on each qubit
+/// 2. Variational: `Ry(weight[i])` on each qubit + CZ entangling ring
 ///
 /// # Arguments
 /// * `n_qubits` - Number of qubits

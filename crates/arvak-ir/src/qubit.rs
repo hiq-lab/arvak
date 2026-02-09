@@ -20,6 +20,7 @@ impl From<u32> for QubitId {
 }
 
 impl From<usize> for QubitId {
+    #[allow(clippy::cast_possible_truncation)]
     fn from(id: usize) -> Self {
         QubitId(id as u32)
     }
@@ -42,6 +43,7 @@ impl From<u32> for ClbitId {
 }
 
 impl From<usize> for ClbitId {
+    #[allow(clippy::cast_possible_truncation)]
     fn from(id: usize) -> Self {
         ClbitId(id as u32)
     }
@@ -81,7 +83,7 @@ impl Qubit {
 impl fmt::Display for Qubit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (&self.register, self.index) {
-            (Some(reg), Some(idx)) => write!(f, "{}[{}]", reg, idx),
+            (Some(reg), Some(idx)) => write!(f, "{reg}[{idx}]"),
             _ => write!(f, "{}", self.id),
         }
     }
@@ -121,7 +123,7 @@ impl Clbit {
 impl fmt::Display for Clbit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (&self.register, self.index) {
-            (Some(reg), Some(idx)) => write!(f, "{}[{}]", reg, idx),
+            (Some(reg), Some(idx)) => write!(f, "{reg}[{idx}]"),
             _ => write!(f, "{}", self.id),
         }
     }
@@ -134,18 +136,18 @@ mod tests {
     #[test]
     fn test_qubit_display() {
         let q = Qubit::new(QubitId(0));
-        assert_eq!(format!("{}", q), "q0");
+        assert_eq!(format!("{q}"), "q0");
 
         let q_reg = Qubit::with_register(QubitId(1), "qr", 0);
-        assert_eq!(format!("{}", q_reg), "qr[0]");
+        assert_eq!(format!("{q_reg}"), "qr[0]");
     }
 
     #[test]
     fn test_clbit_display() {
         let c = Clbit::new(ClbitId(0));
-        assert_eq!(format!("{}", c), "c0");
+        assert_eq!(format!("{c}"), "c0");
 
         let c_reg = Clbit::with_register(ClbitId(1), "cr", 0);
-        assert_eq!(format!("{}", c_reg), "cr[0]");
+        assert_eq!(format!("{c_reg}"), "cr[0]");
     }
 }

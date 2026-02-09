@@ -9,7 +9,7 @@
 //! - **BB84**: Prepare-and-measure QKD with optional eavesdropper
 //! - **BBM92**: Entanglement-based QKD with optional eavesdropper
 //! - **PCCM Attack**: Phase Covariant Cloning Machine (parameterized)
-//! - **QEC-QKD**: BB84 with integrated [[4,2,2]] error detection
+//! - **QEC-QKD**: BB84 with integrated \[\[4,2,2\]\] error detection
 //!
 //! # Register Mapping
 //!
@@ -369,9 +369,9 @@ fn apply_pccm_parameterized(
 // QEC-Integrated QKD ([[4,2,2]] detection code)
 // ============================================================================
 
-/// Build a BB84 circuit with integrated [[4,2,2]] error detection.
+/// Build a BB84 circuit with integrated \[\[4,2,2\]\] error detection.
 ///
-/// The [[4,2,2]] code encodes 2 logical qubits into 4 physical qubits and
+/// The \[\[4,2,2\]\] code encodes 2 logical qubits into 4 physical qubits and
 /// can detect any single-qubit error. When integrated into QKD, the stabilizer
 /// measurements serve a dual purpose:
 ///

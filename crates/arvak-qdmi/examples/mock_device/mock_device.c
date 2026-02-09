@@ -151,8 +151,8 @@ static const int32_t SUPPORTED_FORMATS[] = {
 /* Duration scale factor: 1e-9 (raw values in nanoseconds) */
 static const double DURATION_SCALE_FACTOR = 1e-9;
 
-/* Device initialized flag */
-static int device_initialized = 0;
+/* Device initialization reference count (supports concurrent test loads) */
+static int device_init_refcount = 0;
 
 /* -----------------------------------------------------------------------
  * Session struct
@@ -216,12 +216,12 @@ static int write_property(
  * ======================================================================= */
 
 int MOCK_QDMI_device_initialize(void) {
-    device_initialized = 1;
+    device_init_refcount++;
     return QDMI_SUCCESS;
 }
 
 int MOCK_QDMI_device_finalize(void) {
-    device_initialized = 0;
+    if (device_init_refcount > 0) device_init_refcount--;
     return QDMI_SUCCESS;
 }
 
@@ -231,7 +231,7 @@ int MOCK_QDMI_device_finalize(void) {
 
 int MOCK_QDMI_device_session_alloc(void **session_out) {
     if (!session_out) return QDMI_ERROR_INVALIDARGUMENT;
-    if (!device_initialized) return QDMI_ERROR_BADSTATE;
+    if (device_init_refcount <= 0) return QDMI_ERROR_BADSTATE;
 
     MockSession *s = (MockSession*)calloc(1, sizeof(MockSession));
     if (!s) return QDMI_ERROR_OUTOFMEM;

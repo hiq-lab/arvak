@@ -63,9 +63,10 @@ pub enum IrError {
 }
 
 /// Helper function to format optional gate context.
+#[allow(clippy::ref_option)]
 fn format_gate_context(gate_name: &Option<String>) -> String {
     match gate_name {
-        Some(name) => format!(" (gate: {})", name),
+        Some(name) => format!(" (gate: {name})"),
         None => String::new(),
     }
 }
