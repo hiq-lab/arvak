@@ -484,11 +484,20 @@ async function compileCircuit() {
         const depthChange = stats.compiled_depth - stats.original_depth;
         const gateChange = stats.gates_after - stats.gates_before;
 
+        const timeStr = stats.compile_time_us < 1000
+            ? `${stats.compile_time_us}\u00B5s`
+            : `${(stats.compile_time_us / 1000).toFixed(2)}ms`;
+        const throughputStr = stats.throughput_gates_per_sec >= 1000000
+            ? `${(stats.throughput_gates_per_sec / 1000000).toFixed(1)}M gates/s`
+            : `${(stats.throughput_gates_per_sec / 1000).toFixed(0)}K gates/s`;
+
         document.getElementById('compile-stats').innerHTML = `
             <span><span class="label">Original Depth:</span> <span class="value">${stats.original_depth}</span></span>
             <span><span class="label">Compiled Depth:</span> <span class="value ${depthChange < 0 ? 'improved' : depthChange > 0 ? 'degraded' : ''}">${stats.compiled_depth} (${depthChange >= 0 ? '+' : ''}${depthChange})</span></span>
             <span><span class="label">Original Gates:</span> <span class="value">${stats.gates_before}</span></span>
             <span><span class="label">Compiled Gates:</span> <span class="value ${gateChange < 0 ? 'improved' : gateChange > 0 ? 'degraded' : ''}">${stats.gates_after} (${gateChange >= 0 ? '+' : ''}${gateChange})</span></span>
+            <span><span class="label">Compile Time:</span> <span class="value improved">${timeStr}</span></span>
+            <span><span class="label">Throughput:</span> <span class="value improved">${throughputStr}</span></span>
         `;
 
         // Render before/after circuits
@@ -1109,6 +1118,14 @@ function renderEvalReport(container, r) {
         r.compilation.ops_delta < 0 ? 'improved' : r.compilation.ops_delta > 0 ? 'degraded' : '',
         `${r.compilation.ops_delta >= 0 ? '+' : ''}${r.compilation.ops_delta}`);
     html += evalCard('Passes', r.compilation.num_passes);
+    const evalTimeStr = r.compilation.compile_time_us < 1000
+        ? `${r.compilation.compile_time_us}\u00B5s`
+        : `${(r.compilation.compile_time_us / 1000).toFixed(2)}ms`;
+    const evalThroughputStr = r.compilation.throughput_gates_per_sec >= 1000000
+        ? `${(r.compilation.throughput_gates_per_sec / 1000000).toFixed(1)}M gates/s`
+        : `${(r.compilation.throughput_gates_per_sec / 1000).toFixed(0)}K gates/s`;
+    html += evalCard('Compile Time', evalTimeStr, 'improved');
+    html += evalCard('Throughput', evalThroughputStr, 'improved');
     html += '</div>';
 
     // --- Contract Compliance ---
