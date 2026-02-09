@@ -57,3 +57,15 @@ path = "bin/demo_qi_nutshell.rs"
 [[bin]]
 name = "demo-all"
 path = "bin/demo_all.rs"
+
+[[bin]]
+name = "demo-speed-vqe"
+path = "bin/demo_speed_vqe.rs"
+
+[[bin]]
+name = "demo-speed-qml"
+path = "bin/demo_speed_qml.rs"
+
+[[bin]]
+name = "demo-speed-qaoa"
+path = "bin/demo_speed_qaoa.rs"
