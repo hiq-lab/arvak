@@ -208,7 +208,11 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
     }
 
     /// Encode a classical float as (`mantissa_bits`, `exponent_bits`).
-    #[allow(clippy::cast_possible_truncation, clippy::unreadable_literal, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::unreadable_literal,
+        clippy::cast_sign_loss
+    )]
     fn encode_float(&self, value: f64) -> TypeResult<(u64, u64)> {
         if value == 0.0 {
             return Ok((0, 0));

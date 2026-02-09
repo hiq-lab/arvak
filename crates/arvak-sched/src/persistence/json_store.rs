@@ -56,9 +56,7 @@ impl JsonStore {
     }
 
     fn result_path(&self, job_id: &ScheduledJobId) -> PathBuf {
-        self.base_dir
-            .join("results")
-            .join(format!("{job_id}.json"))
+        self.base_dir.join("results").join(format!("{job_id}.json"))
     }
 
     fn workflow_path(&self, workflow_id: &WorkflowId) -> PathBuf {

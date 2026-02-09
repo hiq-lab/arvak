@@ -50,8 +50,8 @@ pub async fn execute(
     // Build scheduler config
     let state_dir = default_state_dir()?;
     let db_path = state_dir.join("jobs.db");
-    let store = SqliteStore::new(&db_path)
-        .map_err(|e| anyhow::anyhow!("Failed to open job store: {e}"))?;
+    let store =
+        SqliteStore::new(&db_path).map_err(|e| anyhow::anyhow!("Failed to open job store: {e}"))?;
 
     let sched_config = match scheduler.to_lowercase().as_str() {
         "slurm" => {
@@ -128,9 +128,7 @@ pub async fn execute(
                 anyhow::bail!("IBM backend not available. Rebuild with --features ibm");
             }
             other => {
-                anyhow::bail!(
-                    "Unknown backend: '{other}'. Available: simulator, iqm, ibm"
-                );
+                anyhow::bail!("Unknown backend: '{other}'. Available: simulator, iqm, ibm");
             }
         };
 
@@ -147,8 +145,10 @@ pub async fn execute(
         _ => Priority::default(),
     };
 
-    let name = std::path::Path::new(input)
-        .file_stem().map_or_else(|| "circuit".to_string(), |s| s.to_string_lossy().to_string());
+    let name = std::path::Path::new(input).file_stem().map_or_else(
+        || "circuit".to_string(),
+        |s| s.to_string_lossy().to_string(),
+    );
 
     let job = ScheduledJob::new(&name, circuit_spec)
         .with_shots(shots)

@@ -101,9 +101,7 @@ pub async fn execute(
             anyhow::bail!("IBM backend not available. Rebuild with --features ibm");
         }
         other => {
-            anyhow::bail!(
-                "Unknown backend: '{other}'. Available: simulator, iqm, ibm"
-            );
+            anyhow::bail!("Unknown backend: '{other}'. Available: simulator, iqm, ibm");
         }
     };
 

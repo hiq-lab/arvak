@@ -97,7 +97,11 @@ impl IqmBackend {
         let target = config
             .extra
             .get("target")
-            .and_then(|v| v.as_str()).map_or_else(|| DEFAULT_BACKEND.to_string(), std::string::ToString::to_string);
+            .and_then(|v| v.as_str())
+            .map_or_else(
+                || DEFAULT_BACKEND.to_string(),
+                std::string::ToString::to_string,
+            );
 
         let client = IqmClient::new(endpoint, token)?;
 
@@ -119,7 +123,10 @@ impl IqmBackend {
     async fn fetch_backend_info(&self) -> IqmResult<BackendInfo> {
         // Check cache first
         {
-            let cache = self.backend_info.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let cache = self
+                .backend_info
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(info) = cache.as_ref() {
                 return Ok(info.clone());
             }
@@ -130,7 +137,10 @@ impl IqmBackend {
 
         // Cache it
         {
-            let mut cache = self.backend_info.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut cache = self
+                .backend_info
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             *cache = Some(info.clone());
         }
 
@@ -268,7 +278,10 @@ impl Backend for IqmBackend {
         // Cache job info
         let job = Job::new(job_id.clone(), shots).with_backend(&self.target);
         {
-            let mut jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self
+                .jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             jobs.insert(job_id.0.clone(), CachedJob { job, result: None });
         }
 
@@ -300,7 +313,10 @@ impl Backend for IqmBackend {
 
         // Update cache
         {
-            let mut jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self
+                .jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(cached) = jobs.get_mut(&job_id.0) {
                 cached.job = cached.job.clone().with_status(status.clone());
             }
@@ -313,7 +329,10 @@ impl Backend for IqmBackend {
     async fn result(&self, job_id: &JobId) -> HalResult<ExecutionResult> {
         // Check cache first
         {
-            let jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let jobs = self
+                .jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(cached) = jobs.get(&job_id.0) {
                 if let Some(ref result) = cached.result {
                     return Ok(result.clone());
@@ -369,7 +388,10 @@ impl Backend for IqmBackend {
 
         // Cache result
         {
-            let mut jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self
+                .jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(cached) = jobs.get_mut(&job_id.0) {
                 cached.result = Some(result.clone());
                 cached.job = cached.job.clone().with_status(JobStatus::Completed);
@@ -391,7 +413,10 @@ impl Backend for IqmBackend {
 
         // Update cache
         {
-            let mut jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self
+                .jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(cached) = jobs.get_mut(&job_id.0) {
                 cached.job = cached.job.clone().with_status(JobStatus::Cancelled);
             }

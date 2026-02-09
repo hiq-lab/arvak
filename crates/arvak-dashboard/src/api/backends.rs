@@ -24,9 +24,7 @@ pub async fn list_backends(
 
         summaries.push(BackendSummary {
             name: name.clone(),
-            is_simulator: capabilities
-                .as_ref()
-                .is_some_and(|c| c.is_simulator),
+            is_simulator: capabilities.as_ref().is_some_and(|c| c.is_simulator),
             num_qubits: capabilities.as_ref().map_or(0, |c| c.num_qubits),
             available,
             native_gates: capabilities

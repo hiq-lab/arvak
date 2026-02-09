@@ -196,7 +196,8 @@ async fn run_vqe(args: &Args) -> Result<VqeRunResult> {
 
     // Get best results from optimizer
     let best_params = optimizer
-        .best_params().map_or_else(|| parameters.clone(), <[f64]>::to_vec);
+        .best_params()
+        .map_or_else(|| parameters.clone(), <[f64]>::to_vec);
     let best_energy = optimizer.best_cost();
 
     info!("");

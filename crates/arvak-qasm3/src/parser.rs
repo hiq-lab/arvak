@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use arvak_ir::{Circuit, ClbitId, ParameterExpression, QubitId};
 
-use crate::ast::{Program, Statement, Range, BitRef, GateCall, QubitRef, Expression, BinOp};
+use crate::ast::{BinOp, BitRef, Expression, GateCall, Program, QubitRef, Range, Statement};
 use crate::error::{ParseError, ParseResult};
 use crate::lexer::{SpannedToken, Token, tokenize};
 

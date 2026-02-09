@@ -149,7 +149,10 @@ impl Backend for SimulatorBackend {
 
         // Store job
         {
-            let mut jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self
+                .jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             jobs.insert(job_id.0.clone(), sim_job);
         }
 
@@ -160,7 +163,10 @@ impl Backend for SimulatorBackend {
 
         // Update job with result
         {
-            let mut jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self
+                .jobs
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(sim_job) = jobs.get_mut(&job_id.0) {
                 sim_job.result = Some(result);
                 sim_job.job = sim_job.job.clone().with_status(JobStatus::Completed);
@@ -171,21 +177,30 @@ impl Backend for SimulatorBackend {
     }
 
     async fn status(&self, job_id: &JobId) -> HalResult<JobStatus> {
-        let jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let jobs = self
+            .jobs
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         jobs.get(&job_id.0)
             .map(|j| j.job.status.clone())
             .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))
     }
 
     async fn result(&self, job_id: &JobId) -> HalResult<ExecutionResult> {
-        let jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let jobs = self
+            .jobs
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         jobs.get(&job_id.0)
             .and_then(|j| j.result.clone())
             .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))
     }
 
     async fn cancel(&self, job_id: &JobId) -> HalResult<()> {
-        let mut jobs = self.jobs.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut jobs = self
+            .jobs
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(sim_job) = jobs.get_mut(&job_id.0) {
             sim_job.job = sim_job.job.clone().with_status(JobStatus::Cancelled);
             Ok(())

@@ -35,7 +35,10 @@ fn main() {
         .status()
         .expect("failed to invoke C compiler");
 
-    assert!(status.success(), "failed to compile mock QDMI device: {status}");
+    assert!(
+        status.success(),
+        "failed to compile mock QDMI device: {status}"
+    );
 
     // Tell cargo where to find the compiled mock device.
     println!(

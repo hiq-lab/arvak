@@ -513,7 +513,9 @@ fn query_operation_props(
 /// parse the array of `QDMI_Program_Format` (`c_int`) values and map them to
 /// `CircuitFormat`. Otherwise we fall back to `[OpenQasm3]`.
 fn query_supported_formats(session: &DeviceSession<'_>) -> Vec<CircuitFormat> {
-    if let Ok(buf) = session.raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS) {
+    if let Ok(buf) =
+        session.raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS)
+    {
         let int_size = std::mem::size_of::<i32>();
         if buf.len() % int_size != 0 || buf.is_empty() {
             log::warn!(
@@ -539,9 +541,7 @@ fn query_supported_formats(session: &DeviceSession<'_>) -> Vec<CircuitFormat> {
             formats
         }
     } else {
-        log::debug!(
-            "device does not report supported program formats; defaulting to OpenQASM 3"
-        );
+        log::debug!("device does not report supported program formats; defaulting to OpenQASM 3");
         vec![CircuitFormat::OpenQasm3]
     }
 }

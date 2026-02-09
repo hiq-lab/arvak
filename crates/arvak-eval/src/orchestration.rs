@@ -437,7 +437,11 @@ impl OrchestrationAnalyzer {
             assigned.insert(qn, group);
         }
 
-        let max_parallel = parallel_groups.iter().map(std::vec::Vec::len).max().unwrap_or(0);
+        let max_parallel = parallel_groups
+            .iter()
+            .map(std::vec::Vec::len)
+            .max()
+            .unwrap_or(0);
         let parallelism_ratio = if total_quantum > 0 {
             max_parallel as f64 / total_quantum as f64
         } else {
