@@ -109,7 +109,7 @@ impl IbmBackend {
         Ok(info)
     }
 
-    /// Convert circuit to OpenQASM 3.0 string.
+    /// Convert circuit to `OpenQASM` 3.0 string.
     fn circuit_to_qasm(circuit: &Circuit) -> IbmResult<String> {
         emit(circuit).map_err(|e| IbmError::CircuitError(e.to_string()))
     }
@@ -154,7 +154,7 @@ fn hex_to_binary(hex: &str) -> String {
 
     // Parse as integer and format as binary
     if let Ok(value) = u64::from_str_radix(hex, 16) {
-        format!("{:b}", value)
+        format!("{value:b}")
     } else {
         // If not hex, assume it's already binary
         hex.to_string()
@@ -163,7 +163,7 @@ fn hex_to_binary(hex: &str) -> String {
 
 #[async_trait]
 impl Backend for IbmBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ibm"
     }
 
@@ -261,9 +261,7 @@ impl Backend for IbmBackend {
             "COMPLETED" => JobStatus::Completed,
             "FAILED" | "ERROR" => {
                 let msg = status
-                    .error
-                    .map(|e| e.message)
-                    .unwrap_or_else(|| "Unknown error".to_string());
+                    .error.map_or_else(|| "Unknown error".to_string(), |e| e.message);
                 JobStatus::Failed(msg)
             }
             "CANCELLED" => JobStatus::Cancelled,
@@ -284,9 +282,7 @@ impl Backend for IbmBackend {
         if !status.is_completed() {
             if status.is_failed() {
                 let msg = status
-                    .error
-                    .map(|e| e.message)
-                    .unwrap_or_else(|| "Job failed".to_string());
+                    .error.map_or_else(|| "Job failed".to_string(), |e| e.message);
                 return Err(HalError::JobFailed(msg));
             }
             if status.is_cancelled() {

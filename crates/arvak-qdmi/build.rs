@@ -35,9 +35,7 @@ fn main() {
         .status()
         .expect("failed to invoke C compiler");
 
-    if !status.success() {
-        panic!("failed to compile mock QDMI device: {}", status);
-    }
+    assert!(status.success(), "failed to compile mock QDMI device: {status}");
 
     // Tell cargo where to find the compiled mock device.
     println!(
@@ -46,5 +44,5 @@ fn main() {
     );
 
     // Re-run if the mock device source changes.
-    println!("cargo:rerun-if-changed={}", mock_src);
+    println!("cargo:rerun-if-changed={mock_src}");
 }

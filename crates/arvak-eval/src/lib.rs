@@ -6,7 +6,7 @@
 //!
 //! # Overview
 //!
-//! The evaluator operates on OpenQASM 3.0 circuits and produces structured
+//! The evaluator operates on `OpenQASM` 3.0 circuits and produces structured
 //! reports covering:
 //!
 //! - **Input Analysis**: Parsing, validation, and content hashing
@@ -150,7 +150,7 @@ impl Evaluator {
         Self { config }
     }
 
-    /// Evaluate an OpenQASM 3.0 source string.
+    /// Evaluate an `OpenQASM` 3.0 source string.
     pub fn evaluate(&self, qasm_source: &str, cli_args: &[String]) -> EvalResult<EvalReport> {
         info!("Starting evaluation with profile '{}'", self.config.profile);
 
@@ -317,7 +317,7 @@ impl Evaluator {
         Ok(report)
     }
 
-    /// Evaluate an OpenQASM 3.0 file by path.
+    /// Evaluate an `OpenQASM` 3.0 file by path.
     pub fn evaluate_file(
         &self,
         path: &std::path::Path,
@@ -333,14 +333,14 @@ impl Evaluator {
 mod tests {
     use super::*;
 
-    const BELL_QASM: &str = r#"
+    const BELL_QASM: &str = r"
 OPENQASM 3.0;
 qubit[2] q;
 bit[2] c;
 h q[0];
 cx q[0], q[1];
 c = measure q;
-"#;
+";
 
     #[test]
     fn test_evaluator_basic() {

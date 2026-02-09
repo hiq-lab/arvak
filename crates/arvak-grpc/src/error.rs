@@ -58,10 +58,10 @@ impl From<Error> for Status {
             Error::InvalidCircuit(msg) => Status::invalid_argument(msg),
             Error::JobNotCompleted(msg) => Status::failed_precondition(msg),
             Error::JobFailed(msg) => Status::aborted(msg),
-            Error::Backend(e) => Status::internal(format!("Backend error: {}", e)),
-            Error::QasmParse(msg) => Status::invalid_argument(format!("QASM parse error: {}", msg)),
-            Error::JsonParse(e) => Status::invalid_argument(format!("JSON parse error: {}", e)),
-            Error::StorageError(msg) => Status::internal(format!("Storage error: {}", msg)),
+            Error::Backend(e) => Status::internal(format!("Backend error: {e}")),
+            Error::QasmParse(msg) => Status::invalid_argument(format!("QASM parse error: {msg}")),
+            Error::JsonParse(e) => Status::invalid_argument(format!("JSON parse error: {e}")),
+            Error::StorageError(msg) => Status::internal(format!("Storage error: {msg}")),
             Error::Internal(msg) => Status::internal(msg),
         }
     }

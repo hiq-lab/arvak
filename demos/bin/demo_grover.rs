@@ -74,10 +74,10 @@ fn main() {
         print_section("Generated QASM3");
         match emit(&circuit) {
             Ok(qasm) => {
-                println!("{}", qasm);
+                println!("{qasm}");
             }
             Err(e) => {
-                eprintln!("Error generating QASM: {}", e);
+                eprintln!("Error generating QASM: {e}");
             }
         }
     }
@@ -92,19 +92,19 @@ fn main() {
     println!("  Classical complexity: O(N) = O({})", 1 << args.qubits);
     println!(
         "  Quantum complexity:   O(sqrt(N)) = O({:.1})",
-        ((1 << args.qubits) as f64).sqrt()
+        f64::from(1 << args.qubits).sqrt()
     );
     println!();
     println!("  The algorithm:");
     println!("  1. Prepares uniform superposition over all states");
-    println!("  2. Applies {} Grover iterations:", iterations);
+    println!("  2. Applies {iterations} Grover iterations:");
     println!("     - Oracle: Flips the phase of the marked state");
     println!("     - Diffusion: Amplifies the amplitude of marked state");
     println!("  3. Measures to obtain the marked state with high probability");
 
     print_section("Expected Results");
     let success_prob = (((2 * iterations + 1) as f64 * std::f64::consts::PI
-        / (4.0 * ((1 << args.qubits) as f64).sqrt()))
+        / (4.0 * f64::from(1 << args.qubits).sqrt()))
     .sin())
     .powi(2);
     print_result(

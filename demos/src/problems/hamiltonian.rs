@@ -45,7 +45,7 @@ impl std::fmt::Display for Pauli {
 pub struct PauliTerm {
     /// The coefficient of this term.
     pub coefficient: f64,
-    /// The non-identity Pauli operators, as (qubit_index, pauli).
+    /// The non-identity Pauli operators, as (`qubit_index`, pauli).
     /// Empty means identity on all qubits.
     pub operators: Vec<(usize, Pauli)>,
 }
@@ -125,7 +125,7 @@ impl std::fmt::Display for PauliTerm {
                 if i > 0 {
                     write!(f, " ")?;
                 }
-                write!(f, "{}[{}]", pauli, qubit)?;
+                write!(f, "{pauli}[{qubit}]")?;
             }
         }
         Ok(())
@@ -164,10 +164,9 @@ impl PauliHamiltonian {
     pub fn num_qubits(&self) -> usize {
         self.terms
             .iter()
-            .filter_map(|t| t.max_qubit())
+            .filter_map(PauliTerm::max_qubit)
             .max()
-            .map(|m| m + 1)
-            .unwrap_or(0)
+            .map_or(0, |m| m + 1)
     }
 
     /// Get the identity coefficient (if any).
@@ -194,7 +193,7 @@ impl std::fmt::Display for PauliHamiltonian {
             self.num_qubits()
         )?;
         for term in &self.terms {
-            writeln!(f, "  {}", term)?;
+            writeln!(f, "  {term}")?;
         }
         Ok(())
     }

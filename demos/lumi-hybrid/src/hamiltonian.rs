@@ -80,7 +80,7 @@ impl H2Hamiltonian {
         let coupling = self.g4 + self.g5;
 
         // Eigenvalues: (e_01 + e_10)/2 ± sqrt((e_01 - e_10)²/4 + coupling²)
-        let avg = (e_01 + e_10) / 2.0;
+        let avg = f64::midpoint(e_01, e_10);
         let diff = (e_01 - e_10) / 2.0;
         let discriminant = (diff * diff + coupling * coupling).sqrt();
 
@@ -119,8 +119,8 @@ impl H2Hamiltonian {
             let bits: Vec<char> = bitstring.chars().collect();
 
             // Parse bits (rightmost = qubit 0)
-            let bit0 = bits.last().map(|&c| c == '1').unwrap_or(false);
-            let bit1 = bits.first().map(|&c| c == '1').unwrap_or(false);
+            let bit0 = bits.last().is_some_and(|&c| c == '1');
+            let bit1 = bits.first().is_some_and(|&c| c == '1');
 
             // Z eigenvalue: |0⟩ → +1, |1⟩ → -1
             let z0 = if bit0 { -1.0 } else { 1.0 };
@@ -288,8 +288,8 @@ mod tests {
         // H2 ground state at equilibrium should be negative
         // Exact value depends on basis set and qubit mapping used
         // STO-3G/Jordan-Wigner typically gives ~ -1.1 to -1.4 Ha
-        assert!(e < -1.0, "Ground state energy {} should be < -1.0 Ha", e);
-        assert!(e > -1.5, "Ground state energy {} should be > -1.5 Ha", e);
+        assert!(e < -1.0, "Ground state energy {e} should be < -1.0 Ha");
+        assert!(e > -1.5, "Ground state energy {e} should be > -1.5 Ha");
     }
 
     #[test]

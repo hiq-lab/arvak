@@ -8,7 +8,7 @@ use crate::pbs::adapter::{PbsJobInfo, PbsResourcesUsed, PbsState};
 /// qsub output format varies by PBS implementation:
 /// - PBS Pro: "12345.pbs-server"
 /// - Torque: "12345.server.domain.com"
-/// - OpenPBS: "12345.hostname"
+/// - `OpenPBS`: "12345.hostname"
 pub fn parse_qsub_output(output: &str) -> SchedResult<String> {
     let trimmed = output.trim();
 
@@ -29,7 +29,7 @@ pub fn parse_qsub_output(output: &str) -> SchedResult<String> {
 
     Err(SchedError::PbsCommandError {
         command: "qsub".to_string(),
-        message: format!("Unexpected output format: {}", trimmed),
+        message: format!("Unexpected output format: {trimmed}"),
     })
 }
 
@@ -53,7 +53,7 @@ pub fn parse_qstat_full_output(output: &str) -> SchedResult<Option<PbsJobInfo>> 
 
     let mut job_id = String::new();
     let mut name = String::new();
-    let mut state = PbsState::Unknown("".to_string());
+    let mut state = PbsState::Unknown(String::new());
     let mut queue = None;
     let mut exit_status = None;
     let mut resources_used = PbsResourcesUsed::default();
@@ -157,7 +157,7 @@ pub fn parse_qstat_brief_output(output: &str) -> SchedResult<Option<PbsJobInfo>>
     Ok(None)
 }
 
-/// Parse PBS state string to PbsState enum.
+/// Parse PBS state string to `PbsState` enum.
 pub fn parse_pbs_state(state: &str) -> PbsState {
     match state.to_uppercase().as_str() {
         "Q" | "QUEUED" => PbsState::Queued,
@@ -226,7 +226,7 @@ pub fn parse_tracejob_output(output: &str) -> SchedResult<Option<PbsJobInfo>> {
 
     let mut job_id = String::new();
     let mut name = String::new();
-    let mut state = PbsState::Unknown("".to_string());
+    let mut state = PbsState::Unknown(String::new());
     let mut queue = None;
     let mut exit_status = None;
 
@@ -329,14 +329,14 @@ mod tests {
 
     #[test]
     fn test_parse_qstat_full_output() {
-        let output = r#"Job Id: 12345.pbs-server
+        let output = r"Job Id: 12345.pbs-server
     Job_Name = my_quantum_job
     job_state = R
     queue = quantum
     resources_used.walltime = 00:05:23
     resources_used.cput = 00:04:50
     resources_used.mem = 2048kb
-"#;
+";
         let info = parse_qstat_full_output(output).unwrap().unwrap();
         assert_eq!(info.job_id, "12345.pbs-server");
         assert_eq!(info.name, "my_quantum_job");
@@ -351,12 +351,12 @@ mod tests {
 
     #[test]
     fn test_parse_qstat_full_output_completed() {
-        let output = r#"Job Id: 12345.pbs-server
+        let output = r"Job Id: 12345.pbs-server
     Job_Name = completed_job
     job_state = C
     queue = batch
     Exit_status = 0
-"#;
+";
         let info = parse_qstat_full_output(output).unwrap().unwrap();
         assert!(matches!(info.state, PbsState::Completed));
         assert_eq!(info.exit_status, Some(0));
@@ -371,10 +371,10 @@ mod tests {
 
     #[test]
     fn test_parse_qstat_brief_output() {
-        let output = r#"Job id            Name             User              Time Use S Queue
+        let output = r"Job id            Name             User              Time Use S Queue
 ----------------  ---------------- ----------------  -------- - -----
 12345.pbs-server  my_job           testuser          00:05:23 R batch
-"#;
+";
         let info = parse_qstat_brief_output(output).unwrap().unwrap();
         assert_eq!(info.job_id, "12345.pbs-server");
         assert_eq!(info.name, "my_job");

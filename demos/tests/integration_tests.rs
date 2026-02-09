@@ -27,11 +27,10 @@ fn test_all_exact_energies() {
     let molecules = ["h2", "lih", "beh2", "h2o"];
     for molecule in &molecules {
         let energy = exact_ground_state_energy(molecule);
-        assert!(energy.is_some(), "Missing exact energy for {}", molecule);
+        assert!(energy.is_some(), "Missing exact energy for {molecule}");
         assert!(
             energy.unwrap() < 0.0,
-            "Energy for {} should be negative",
-            molecule
+            "Energy for {molecule} should be negative"
         );
     }
 }
@@ -60,8 +59,7 @@ fn test_vqe_parameter_counts() {
             let actual = num_parameters("two_local", n_qubits, reps);
             assert_eq!(
                 actual, expected,
-                "Wrong param count for {} qubits, {} reps",
-                n_qubits, reps
+                "Wrong param count for {n_qubits} qubits, {reps} reps"
             );
         }
     }
@@ -159,9 +157,7 @@ fn test_vqe_energy_convergence_trend() {
     let last = history.last().unwrap();
     assert!(
         last <= first,
-        "Energy should decrease: first={}, last={}",
-        first,
-        last
+        "Energy should decrease: first={first}, last={last}"
     );
 }
 
@@ -258,7 +254,7 @@ fn test_measurement_mitigator() {
 
     // Fidelity should be high
     let fidelity = mitigator.average_fidelity();
-    assert!(fidelity > 0.85, "Average fidelity {} too low", fidelity);
+    assert!(fidelity > 0.85, "Average fidelity {fidelity} too low");
 
     // Test mitigation of noisy distribution
     // True state is |00>, but noise gives some probability to other states

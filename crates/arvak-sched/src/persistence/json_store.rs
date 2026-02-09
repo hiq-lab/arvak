@@ -52,19 +52,19 @@ impl JsonStore {
     }
 
     fn job_path(&self, job_id: &ScheduledJobId) -> PathBuf {
-        self.base_dir.join("jobs").join(format!("{}.json", job_id))
+        self.base_dir.join("jobs").join(format!("{job_id}.json"))
     }
 
     fn result_path(&self, job_id: &ScheduledJobId) -> PathBuf {
         self.base_dir
             .join("results")
-            .join(format!("{}.json", job_id))
+            .join(format!("{job_id}.json"))
     }
 
     fn workflow_path(&self, workflow_id: &WorkflowId) -> PathBuf {
         self.base_dir
             .join("workflows")
-            .join(format!("{}.json", workflow_id))
+            .join(format!("{workflow_id}.json"))
     }
 
     async fn load_all_jobs(&self) -> SchedResult<()> {

@@ -39,7 +39,7 @@ impl IbmClient {
         let mut headers = header::HeaderMap::new();
         headers.insert(
             header::AUTHORIZATION,
-            header::HeaderValue::from_str(&format!("Bearer {}", token))
+            header::HeaderValue::from_str(&format!("Bearer {token}"))
                 .map_err(|_| IbmError::InvalidToken)?,
         );
         headers.insert(
@@ -218,7 +218,7 @@ struct SamplerJobRequest {
 /// Sampler primitive parameters.
 #[derive(Debug, Serialize)]
 struct SamplerParams {
-    /// OpenQASM 3.0 circuits.
+    /// `OpenQASM` 3.0 circuits.
     circuits: Vec<String>,
     /// Number of shots.
     #[serde(skip_serializing_if = "Option::is_none")]

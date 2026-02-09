@@ -32,8 +32,7 @@ fn get_uptime_seconds() -> u64 {
     START_TIME
         .get()
         .and_then(|start| SystemTime::now().duration_since(*start).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+        .map_or(0, |d| d.as_secs())
 }
 
 /// Shared state for health check handlers.

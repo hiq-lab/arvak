@@ -33,12 +33,12 @@ pub async fn execute_login(provider: &str, project: Option<&str>) -> Result<()> 
             OidcConfig::lrz(project_id)
         }
         other => {
-            anyhow::bail!("Unknown provider: '{}'. Available: csc (LUMI), lrz", other);
+            anyhow::bail!("Unknown provider: '{other}'. Available: csc (LUMI), lrz");
         }
     };
 
     let auth =
-        OidcAuth::new(config).map_err(|e| anyhow::anyhow!("Failed to initialize auth: {}", e))?;
+        OidcAuth::new(config).map_err(|e| anyhow::anyhow!("Failed to initialize auth: {e}"))?;
 
     println!("  Starting device code flow...");
     println!("  A browser window will open for authentication.\n");
@@ -46,15 +46,13 @@ pub async fn execute_login(provider: &str, project: Option<&str>) -> Result<()> 
     let token = auth
         .device_code_flow()
         .await
-        .map_err(|e| anyhow::anyhow!("Authentication failed: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Authentication failed: {e}"))?;
 
     println!("\n{} Authentication successful!", style("✓").green().bold());
     println!(
         "  Token expires: {}",
         style(
-            chrono::DateTime::from_timestamp(token.expires_at as i64, 0)
-                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
-                .unwrap_or_else(|| "unknown".to_string())
+            chrono::DateTime::from_timestamp(token.expires_at as i64, 0).map_or_else(|| "unknown".to_string(), |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
         )
         .yellow()
     );

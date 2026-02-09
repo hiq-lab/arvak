@@ -16,8 +16,8 @@ use arvak_ir::qubit::QubitId;
 /// # Arguments
 /// * `n_qubits` - Number of qubits
 /// * `depth` - Number of repeated layers
-/// * `data` - Input feature values (length = n_qubits * depth)
-/// * `weights` - Trainable parameters (length = n_qubits * depth)
+/// * `data` - Input feature values (length = `n_qubits` * depth)
+/// * `weights` - Trainable parameters (length = `n_qubits` * depth)
 ///
 /// # Returns
 /// A parameterized classifier circuit.

@@ -1,6 +1,6 @@
 //! Authentication module for HPC quantum backends.
 //!
-//! This module provides OIDC (OpenID Connect) authentication support for
+//! This module provides OIDC (`OpenID` Connect) authentication support for
 //! accessing quantum computers at HPC sites like LUMI (Finland) and LRZ (Germany).
 //!
 //! # Example
@@ -240,7 +240,7 @@ impl OidcAuth {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
-            .map_err(|e| HalError::Auth(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| HalError::Auth(format!("Failed to create HTTP client: {e}")))?;
 
         let auth = Self {
             config,
@@ -320,20 +320,19 @@ impl OidcAuth {
             .form(&params)
             .send()
             .await
-            .map_err(|e| HalError::Auth(format!("Device authorization request failed: {}", e)))?;
+            .map_err(|e| HalError::Auth(format!("Device authorization request failed: {e}")))?;
 
         if !response.status().is_success() {
             let error = response.text().await.unwrap_or_default();
             return Err(HalError::Auth(format!(
-                "Device authorization failed: {}",
-                error
+                "Device authorization failed: {error}"
             )));
         }
 
         let device_auth: DeviceAuthResponse = response
             .json()
             .await
-            .map_err(|e| HalError::Auth(format!("Failed to parse device auth response: {}", e)))?;
+            .map_err(|e| HalError::Auth(format!("Failed to parse device auth response: {e}")))?;
 
         // Display instructions to user
         println!("\n╔════════════════════════════════════════════════════════════╗");
@@ -343,7 +342,7 @@ impl OidcAuth {
         println!("║  Please visit the following URL to authenticate:           ║");
         println!("║                                                            ║");
         if let Some(ref complete_uri) = device_auth.verification_uri_complete {
-            println!("║  {}  ║", complete_uri);
+            println!("║  {complete_uri}  ║");
         } else {
             println!("║  {}  ║", device_auth.verification_uri);
             println!("║                                                            ║");
@@ -382,11 +381,9 @@ impl OidcAuth {
                 Err(PollError::Pending) => {
                     print!(".");
                     std::io::Write::flush(&mut std::io::stdout()).ok();
-                    continue;
                 }
                 Err(PollError::SlowDown) => {
                     tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
                 }
                 Err(PollError::Error(msg)) => {
                     return Err(HalError::Auth(msg));
@@ -413,17 +410,17 @@ impl OidcAuth {
             .form(&params)
             .send()
             .await
-            .map_err(|e| HalError::Auth(format!("Token refresh request failed: {}", e)))?;
+            .map_err(|e| HalError::Auth(format!("Token refresh request failed: {e}")))?;
 
         if !response.status().is_success() {
             let error = response.text().await.unwrap_or_default();
-            return Err(HalError::Auth(format!("Token refresh failed: {}", error)));
+            return Err(HalError::Auth(format!("Token refresh failed: {error}")));
         }
 
         let token_response: TokenResponse = response
             .json()
             .await
-            .map_err(|e| HalError::Auth(format!("Failed to parse token response: {}", e)))?;
+            .map_err(|e| HalError::Auth(format!("Failed to parse token response: {e}")))?;
 
         self.token_response_to_cached(token_response)
     }
@@ -442,13 +439,13 @@ impl OidcAuth {
             .form(&params)
             .send()
             .await
-            .map_err(|e| PollError::Error(format!("Token poll failed: {}", e)))?;
+            .map_err(|e| PollError::Error(format!("Token poll failed: {e}")))?;
 
         if response.status().is_success() {
             let token_response: TokenResponse = response
                 .json()
                 .await
-                .map_err(|e| PollError::Error(format!("Failed to parse token: {}", e)))?;
+                .map_err(|e| PollError::Error(format!("Failed to parse token: {e}")))?;
 
             return self
                 .token_response_to_cached(token_response)
@@ -463,13 +460,13 @@ impl OidcAuth {
             Err(PollError::SlowDown)
         } else {
             Err(PollError::Error(format!(
-                "Token poll failed: {}",
-                error_body
+                "Token poll failed: {error_body}"
             )))
         }
     }
 
     /// Convert token response to cached token.
+    #[allow(clippy::unused_self, clippy::unnecessary_wraps)]
     fn token_response_to_cached(&self, response: TokenResponse) -> HalResult<CachedToken> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -507,26 +504,26 @@ impl OidcAuth {
         if let Some(ref path) = self.config.token_cache_path {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {
-                    HalError::Auth(format!("Failed to create cache directory: {}", e))
+                    HalError::Auth(format!("Failed to create cache directory: {e}"))
                 })?;
             }
 
             let json = serde_json::to_string_pretty(token)
-                .map_err(|e| HalError::Auth(format!("Failed to serialize token: {}", e)))?;
+                .map_err(|e| HalError::Auth(format!("Failed to serialize token: {e}")))?;
 
             std::fs::write(path, json)
-                .map_err(|e| HalError::Auth(format!("Failed to write token cache: {}", e)))?;
+                .map_err(|e| HalError::Auth(format!("Failed to write token cache: {e}")))?;
 
             // Set restrictive permissions on Unix
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
                 let mut perms = std::fs::metadata(path)
-                    .map_err(|e| HalError::Auth(format!("Failed to get file metadata: {}", e)))?
+                    .map_err(|e| HalError::Auth(format!("Failed to get file metadata: {e}")))?
                     .permissions();
                 perms.set_mode(0o600);
                 std::fs::set_permissions(path, perms)
-                    .map_err(|e| HalError::Auth(format!("Failed to set permissions: {}", e)))?;
+                    .map_err(|e| HalError::Auth(format!("Failed to set permissions: {e}")))?;
             }
         }
 
@@ -566,7 +563,7 @@ impl OidcAuth {
         if let Some(ref path) = self.config.token_cache_path {
             if path.exists() {
                 std::fs::remove_file(path)
-                    .map_err(|e| HalError::Auth(format!("Failed to remove token cache: {}", e)))?;
+                    .map_err(|e| HalError::Auth(format!("Failed to remove token cache: {e}")))?;
             }
         }
 
@@ -617,12 +614,12 @@ impl EnvTokenProvider {
         }
     }
 
-    /// Create provider for IQM_TOKEN.
+    /// Create provider for `IQM_TOKEN`.
     pub fn iqm() -> Self {
         Self::new("IQM_TOKEN")
     }
 
-    /// Create provider for IBM_QUANTUM_TOKEN.
+    /// Create provider for `IBM_QUANTUM_TOKEN`.
     pub fn ibm() -> Self {
         Self::new("IBM_QUANTUM_TOKEN")
     }

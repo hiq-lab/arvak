@@ -4,7 +4,7 @@
 //! These tests only run when the `DDSIM_QDMI_DEVICE_PATH` environment
 //! variable points to a compiled `libmqt_ddsim_qdmi_device.so`.
 //!
-//! In CI, this is built by the nightly `ddsim-compat` job using the CMake
+//! In CI, this is built by the nightly `ddsim-compat` job using the `CMake`
 //! shim at `ci/ddsim_shim/`. Locally, you can build the `.so` yourself:
 //!
 //! ```bash
@@ -69,9 +69,9 @@ fn test_ddsim_load() {
 #[test]
 fn test_ddsim_device_debug() {
     let device = require_ddsim!();
-    let debug = format!("{:?}", device);
-    assert!(debug.contains("MQT_DDSIM"), "debug = {}", debug);
-    assert!(debug.contains("supports_jobs: true"), "debug = {}", debug);
+    let debug = format!("{device:?}");
+    assert!(debug.contains("MQT_DDSIM"), "debug = {debug}");
+    assert!(debug.contains("supports_jobs: true"), "debug = {debug}");
 }
 
 // ---------------------------------------------------------------------------
@@ -100,8 +100,7 @@ fn test_ddsim_device_name() {
     // MQT DDSIM reports its name as something containing "DDSIM"
     assert!(
         name.to_ascii_uppercase().contains("DDSIM"),
-        "expected device name to contain 'DDSIM', got '{}'",
-        name
+        "expected device name to contain 'DDSIM', got '{name}'"
     );
 }
 
@@ -113,9 +112,9 @@ fn test_ddsim_num_qubits() {
         .query_device_usize(ffi::QDMI_DEVICE_PROPERTY_QUBITSNUM)
         .unwrap();
     // DDSIM supports many qubits (typically 128+ based on dd::Qubit max)
-    assert!(n > 0, "expected non-zero qubits, got {}", n);
+    assert!(n > 0, "expected non-zero qubits, got {n}");
     // Should be significantly more than a toy device
-    assert!(n >= 10, "expected at least 10 qubits, got {}", n);
+    assert!(n >= 10, "expected at least 10 qubits, got {n}");
 }
 
 #[test]
@@ -195,15 +194,13 @@ fn test_ddsim_full_capabilities() {
     // H gate should be present
     assert!(
         op_names.iter().any(|n| n == "h"),
-        "H gate not found in operations: {:?}",
-        op_names
+        "H gate not found in operations: {op_names:?}"
     );
 
     // CX (CNOT) gate should be present
     assert!(
         op_names.iter().any(|n| n == "cx"),
-        "CX gate not found in operations: {:?}",
-        op_names
+        "CX gate not found in operations: {op_names:?}"
     );
 
     // DDSIM is a simulator — coupling map may be empty (all-to-all implied)
@@ -299,25 +296,21 @@ fn test_ddsim_bell_state_qasm2() {
     let total: usize = counts.iter().sum();
     assert_eq!(
         total, 1024,
-        "total counts should be 1024, got {} (counts = {:?})",
-        total, counts
+        "total counts should be 1024, got {total} (counts = {counts:?})"
     );
 
     // Bell state |Phi+> = (|00> + |11>) / sqrt(2)
     // We expect exactly 2 histogram entries (00 and 11)
     assert_eq!(
         num_entries, 2,
-        "Bell state should produce 2 outcomes, got {} (counts = {:?})",
-        num_entries, counts
+        "Bell state should produce 2 outcomes, got {num_entries} (counts = {counts:?})"
     );
 
     // Each outcome should have a significant number of counts
     for (i, &c) in counts.iter().enumerate() {
         assert!(
             c > 100,
-            "entry {} has only {} counts; expected ~512 for Bell state",
-            i,
-            c
+            "entry {i} has only {c} counts; expected ~512 for Bell state"
         );
     }
 
@@ -375,8 +368,7 @@ fn test_ddsim_bell_state_qasm3() {
     assert_eq!(
         status,
         ffi::QDMI_JOB_STATUS_DONE,
-        "expected DONE, got {}",
-        status
+        "expected DONE, got {status}"
     );
 
     // Verify total counts
@@ -398,12 +390,10 @@ fn test_ddsim_bell_state_qasm3() {
 
     assert_eq!(
         total, 512,
-        "total counts for QASM3 submission should be 512, got {}",
-        total
+        "total counts for QASM3 submission should be 512, got {total}"
     );
     assert_eq!(
         num_entries, 2,
-        "Bell state via QASM3 should produce 2 outcomes, got {}",
-        num_entries
+        "Bell state via QASM3 should produce 2 outcomes, got {num_entries}"
     );
 }

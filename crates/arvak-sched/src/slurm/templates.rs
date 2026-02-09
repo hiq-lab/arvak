@@ -33,7 +33,7 @@ pub fn generate_batch_script(
     script.push_str(&format!("#SBATCH --partition={}\n", config.partition));
 
     if let Some(ref account) = config.account {
-        script.push_str(&format!("#SBATCH --account={}\n", account));
+        script.push_str(&format!("#SBATCH --account={account}\n"));
     }
 
     script.push_str(&format!(
@@ -49,7 +49,7 @@ pub fn generate_batch_script(
     // Optional QOS based on priority
     if let Some(ref qos_mapping) = config.priority_qos_mapping {
         if let Some(qos) = qos_mapping.get(&job.priority.value()) {
-            script.push_str(&format!("#SBATCH --qos={}\n", qos));
+            script.push_str(&format!("#SBATCH --qos={qos}\n"));
         }
     }
 
@@ -62,7 +62,7 @@ pub fn generate_batch_script(
     if !config.modules.is_empty() {
         script.push_str("# Load required modules\n");
         for module in &config.modules {
-            script.push_str(&format!("module load {}\n", module));
+            script.push_str(&format!("module load {module}\n"));
         }
         script.push('\n');
     }
@@ -84,7 +84,7 @@ pub fn generate_batch_script(
     script.push_str("# Execute quantum job\n");
 
     let backend_flag = if let Some(ref backend) = job.matched_backend {
-        format!("--backend {}", backend)
+        format!("--backend {backend}")
     } else {
         String::new()
     };
@@ -133,7 +133,7 @@ pub fn generate_batch_script_multi(
     script.push_str(&format!("#SBATCH --partition={}\n", config.partition));
 
     if let Some(ref account) = config.account {
-        script.push_str(&format!("#SBATCH --account={}\n", account));
+        script.push_str(&format!("#SBATCH --account={account}\n"));
     }
 
     // Scale time based on number of circuits
@@ -154,7 +154,7 @@ pub fn generate_batch_script_multi(
     if !config.modules.is_empty() {
         script.push_str("# Load required modules\n");
         for module in &config.modules {
-            script.push_str(&format!("module load {}\n", module));
+            script.push_str(&format!("module load {module}\n"));
         }
         script.push('\n');
     }
@@ -179,13 +179,13 @@ pub fn generate_batch_script_multi(
     script.push_str("FAILED=0\n\n");
 
     let backend_flag = if let Some(ref backend) = job.matched_backend {
-        format!("--backend {}", backend)
+        format!("--backend {backend}")
     } else {
         String::new()
     };
 
     for (i, circuit_file) in circuit_files.iter().enumerate() {
-        let result_file = result_dir.join(format!("result_{}.json", i));
+        let result_file = result_dir.join(format!("result_{i}.json"));
         script.push_str(&format!(
             "echo \"Running circuit {} of {}\"\n",
             i + 1,
@@ -238,9 +238,9 @@ fn format_time(minutes: u32) -> String {
     if hours >= 24 {
         let days = hours / 24;
         let remaining_hours = hours % 24;
-        format!("{}-{:02}:{:02}:00", days, remaining_hours, mins)
+        format!("{days}-{remaining_hours:02}:{mins:02}:00")
     } else {
-        format!("{:02}:{:02}:00", hours, mins)
+        format!("{hours:02}:{mins:02}:00")
     }
 }
 

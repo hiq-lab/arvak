@@ -4,7 +4,7 @@
 //! It reads job specifications from a file and writes results back.
 //!
 //! Usage in SLURM:
-//!   srun --partition=q_fiqci quantum_worker --job job_spec.json --output result.json
+//!   srun --`partition=q_fiqci` `quantum_worker` --job `job_spec.json` --output result.json
 
 use anyhow::Result;
 use clap::Parser;
@@ -139,7 +139,7 @@ async fn execute_job(job: &QuantumJob, backend_override: Option<&str>) -> Quantu
                 execution_time_ms: start.elapsed().as_millis() as u64,
                 backend: backend_name.to_string(),
                 status: "error".to_string(),
-                error: Some(format!("Failed to parse circuit: {}", e)),
+                error: Some(format!("Failed to parse circuit: {e}")),
             };
         }
     };
@@ -148,7 +148,7 @@ async fn execute_job(job: &QuantumJob, backend_override: Option<&str>) -> Quantu
     let result = match backend_name {
         "sim" => execute_on_simulator(&circuit, job.shots).await,
         "iqm" | "lumi" => execute_on_iqm(&circuit, job.shots).await,
-        _ => Err(anyhow::anyhow!("Unknown backend: {}", backend_name)),
+        _ => Err(anyhow::anyhow!("Unknown backend: {backend_name}")),
     };
 
     match result {

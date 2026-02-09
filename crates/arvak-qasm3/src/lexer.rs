@@ -1,8 +1,8 @@
-//! Lexer for OpenQASM 3.
+//! Lexer for `OpenQASM` 3.
 
 use logos::Logos;
 
-/// Tokens for OpenQASM 3.
+/// Tokens for `OpenQASM` 3.
 #[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\r\n]+")]
 #[logos(skip r"//[^\n]*")]
@@ -268,10 +268,10 @@ impl std::fmt::Display for Token {
             Token::Euler => write!(f, "euler"),
             Token::True => write!(f, "true"),
             Token::False => write!(f, "false"),
-            Token::FloatLiteral(v) => write!(f, "{}", v),
-            Token::IntLiteral(v) => write!(f, "{}", v),
-            Token::StringLiteral(s) => write!(f, "\"{}\"", s),
-            Token::Identifier(s) => write!(f, "{}", s),
+            Token::FloatLiteral(v) => write!(f, "{v}"),
+            Token::IntLiteral(v) => write!(f, "{v}"),
+            Token::StringLiteral(s) => write!(f, "\"{s}\""),
+            Token::Identifier(s) => write!(f, "{s}"),
             Token::Plus => write!(f, "+"),
             Token::Minus => write!(f, "-"),
             Token::Star => write!(f, "*"),
@@ -329,12 +329,9 @@ pub fn tokenize(source: &str) -> Vec<Result<SpannedToken, (std::ops::Range<usize
 
     while let Some(result) = lexer.next() {
         let span = lexer.span();
-        match result {
-            Ok(token) => tokens.push(Ok(SpannedToken { token, span })),
-            Err(_) => {
-                let slice = &source[span.clone()];
-                tokens.push(Err((span, format!("Invalid token: '{}'", slice))));
-            }
+        if let Ok(token) = result { tokens.push(Ok(SpannedToken { token, span })) } else {
+            let slice = &source[span.clone()];
+            tokens.push(Err((span, format!("Invalid token: '{slice}'"))));
         }
     }
 
@@ -409,13 +406,13 @@ mod tests {
 
     #[test]
     fn test_comments() {
-        let source = r#"
+        let source = r"
             // This is a comment
             qubit q;
             /* Multi-line
                comment */
             bit c;
-        "#;
+        ";
         let tokens: Vec<_> = tokenize(source)
             .into_iter()
             .filter_map(Result::ok)

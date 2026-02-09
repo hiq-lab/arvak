@@ -19,14 +19,14 @@ pub fn parse_sbatch_output(output: &str) -> SchedResult<String> {
 
     Err(SchedError::SlurmCommandError {
         command: "sbatch".to_string(),
-        message: format!("Unexpected output format: {}", trimmed),
+        message: format!("Unexpected output format: {trimmed}"),
     })
 }
 
 /// Parse squeue output to extract job information.
 ///
 /// Expected format (from `squeue -j <id> -o "%i|%j|%T|%r|%S"`):
-/// JOBID|NAME|STATE|REASON|START_TIME
+/// `JOBID|NAME|STATE|REASON|START_TIME`
 /// 12345|job_name|RUNNING|None|2024-01-15T10:30:00
 pub fn parse_squeue_output(output: &str) -> SchedResult<Option<SlurmJobInfo>> {
     let lines: Vec<&str> = output.lines().collect();
@@ -45,7 +45,7 @@ pub fn parse_squeue_output(output: &str) -> SchedResult<Option<SlurmJobInfo>> {
     if parts.len() < 4 {
         return Err(SchedError::SlurmCommandError {
             command: "squeue".to_string(),
-            message: format!("Unexpected output format: {}", data_line),
+            message: format!("Unexpected output format: {data_line}"),
         });
     }
 
@@ -71,7 +71,7 @@ pub fn parse_squeue_output(output: &str) -> SchedResult<Option<SlurmJobInfo>> {
 ///
 /// Expected format (from `sacct -j <id> -o JobID,JobName,State,ExitCode -P`):
 /// JobID|JobName|State|ExitCode
-/// 12345|job_name|COMPLETED|0:0
+/// `12345|job_name|COMPLETED|0:0`
 /// 12345.batch|batch|COMPLETED|0:0
 pub fn parse_sacct_output(output: &str) -> SchedResult<Option<SlurmJobInfo>> {
     let lines: Vec<&str> = output.lines().collect();
@@ -127,7 +127,7 @@ fn parse_slurm_state(state: &str) -> SlurmState {
     }
 }
 
-/// Parse exit code from SLURM format "exit_code:signal".
+/// Parse exit code from SLURM format "`exit_code:signal`".
 fn parse_exit_code(code: &str) -> Option<i32> {
     let parts: Vec<&str> = code.split(':').collect();
     parts.first().and_then(|s| s.parse().ok())

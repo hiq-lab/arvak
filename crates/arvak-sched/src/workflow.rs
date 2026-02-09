@@ -172,7 +172,7 @@ impl Workflow {
     pub fn get_job_mut(&mut self, job_id: &ScheduledJobId) -> Option<&mut ScheduledJob> {
         self.job_index
             .get(job_id)
-            .cloned()
+            .copied()
             .and_then(|idx| self.dag.node_weight_mut(idx))
             .map(|node| &mut node.job)
     }
@@ -231,8 +231,7 @@ impl Workflow {
                         .all(|edge| {
                             self.dag
                                 .node_weight(edge.source())
-                                .map(|n| n.completed)
-                                .unwrap_or(false)
+                                .is_some_and(|n| n.completed)
                         });
 
                 if deps_satisfied {
@@ -288,8 +287,7 @@ impl Workflow {
             .filter(|idx| {
                 self.dag
                     .node_weight(*idx)
-                    .map(|n| n.completed)
-                    .unwrap_or(false)
+                    .is_some_and(|n| n.completed)
             })
             .count()
     }
@@ -301,8 +299,7 @@ impl Workflow {
             .filter(|idx| {
                 self.dag
                     .node_weight(*idx)
-                    .map(|n| n.failed)
-                    .unwrap_or(false)
+                    .is_some_and(|n| n.failed)
             })
             .count()
     }
@@ -312,8 +309,7 @@ impl Workflow {
         self.dag.node_indices().all(|idx| {
             self.dag
                 .node_weight(idx)
-                .map(|n| n.completed || n.failed)
-                .unwrap_or(true)
+                .is_none_or(|n| n.completed || n.failed)
         })
     }
 
@@ -360,8 +356,7 @@ impl Workflow {
         } else if self.dag.node_indices().any(|idx| {
             self.dag
                 .node_weight(idx)
-                .map(|n| n.job.status.is_running())
-                .unwrap_or(false)
+                .is_some_and(|n| n.job.status.is_running())
         }) {
             self.status = WorkflowStatus::Running;
         }

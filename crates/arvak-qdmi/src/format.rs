@@ -6,9 +6,9 @@ use crate::ffi;
 /// Circuit serialization formats that a QDMI device may accept.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CircuitFormat {
-    /// OpenQASM 2.0
+    /// `OpenQASM` 2.0
     OpenQasm2,
-    /// OpenQASM 3.0
+    /// `OpenQASM` 3.0
     OpenQasm3,
     /// QIR (Quantum Intermediate Representation)
     Qir,
@@ -92,7 +92,7 @@ pub fn negotiate_format(
     }
     // Otherwise pick by our preference ranking.
     let mut ranked: Vec<_> = supported.to_vec();
-    ranked.sort_by_key(|f| f.preference_rank());
+    ranked.sort_by_key(CircuitFormat::preference_rank);
     ranked.into_iter().next()
 }
 

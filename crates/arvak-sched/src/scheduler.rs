@@ -43,10 +43,10 @@ pub struct SchedulerConfig {
     /// Type of batch scheduler to use.
     pub scheduler_type: BatchSchedulerType,
 
-    /// SLURM configuration (used when scheduler_type is Slurm).
+    /// SLURM configuration (used when `scheduler_type` is Slurm).
     pub slurm: SlurmConfig,
 
-    /// PBS configuration (used when scheduler_type is Pbs).
+    /// PBS configuration (used when `scheduler_type` is Pbs).
     pub pbs: PbsConfig,
 
     /// Status polling interval in seconds.
@@ -549,18 +549,15 @@ impl Scheduler for HpcScheduler {
             if status.is_terminal() {
                 if status.is_success() {
                     return self.result(job_id).await;
-                } else {
-                    return Err(SchedError::JobNotFound(format!(
-                        "Job {} failed or was cancelled: {:?}",
-                        job_id, status
-                    )));
                 }
+                return Err(SchedError::JobNotFound(format!(
+                    "Job {job_id} failed or was cancelled: {status:?}"
+                )));
             }
 
             if start.elapsed() > max_wait {
                 return Err(SchedError::Timeout(format!(
-                    "Timeout waiting for job {}",
-                    job_id
+                    "Timeout waiting for job {job_id}"
                 )));
             }
 
@@ -572,7 +569,7 @@ impl Scheduler for HpcScheduler {
         self.store
             .load_result(job_id)
             .await?
-            .ok_or_else(|| SchedError::JobNotFound(format!("No result for job {}", job_id)))
+            .ok_or_else(|| SchedError::JobNotFound(format!("No result for job {job_id}")))
     }
 
     async fn list_jobs(&self, filter: JobFilter) -> SchedResult<Vec<ScheduledJob>> {
@@ -626,7 +623,7 @@ impl Scheduler for HpcScheduler {
                 return match status {
                     WorkflowStatus::Completed => Ok(()),
                     WorkflowStatus::Failed { reason } => {
-                        Err(SchedError::Internal(format!("Workflow failed: {}", reason)))
+                        Err(SchedError::Internal(format!("Workflow failed: {reason}")))
                     }
                     WorkflowStatus::Cancelled => {
                         Err(SchedError::Cancelled(workflow_id.to_string()))
@@ -637,8 +634,7 @@ impl Scheduler for HpcScheduler {
 
             if start.elapsed() > max_wait {
                 return Err(SchedError::Timeout(format!(
-                    "Timeout waiting for workflow {}",
-                    workflow_id
+                    "Timeout waiting for workflow {workflow_id}"
                 )));
             }
 

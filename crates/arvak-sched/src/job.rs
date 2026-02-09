@@ -215,10 +215,10 @@ impl std::fmt::Display for ScheduledJobStatus {
             ScheduledJobStatus::Pending => write!(f, "Pending"),
             ScheduledJobStatus::WaitingOnDependencies => write!(f, "Waiting on dependencies"),
             ScheduledJobStatus::SlurmQueued { slurm_job_id } => {
-                write!(f, "SLURM queued ({})", slurm_job_id)
+                write!(f, "SLURM queued ({slurm_job_id})")
             }
             ScheduledJobStatus::SlurmRunning { slurm_job_id } => {
-                write!(f, "SLURM running ({})", slurm_job_id)
+                write!(f, "SLURM running ({slurm_job_id})")
             }
             ScheduledJobStatus::QuantumSubmitted {
                 slurm_job_id,
@@ -250,7 +250,7 @@ impl std::fmt::Display for ScheduledJobStatus {
                     slurm_job_id, quantum_job_id.0
                 )
             }
-            ScheduledJobStatus::Failed { reason, .. } => write!(f, "Failed: {}", reason),
+            ScheduledJobStatus::Failed { reason, .. } => write!(f, "Failed: {reason}"),
             ScheduledJobStatus::Cancelled => write!(f, "Cancelled"),
         }
     }

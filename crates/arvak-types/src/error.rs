@@ -22,7 +22,7 @@ pub enum TypeError {
     #[error("Arithmetic underflow")]
     Underflow,
 
-    /// Invalid exponent range for QuantumFloat.
+    /// Invalid exponent range for `QuantumFloat`.
     #[error("Invalid exponent range: [{min}, {max}]")]
     InvalidExponentRange { min: i32, max: i32 },
 

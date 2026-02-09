@@ -45,7 +45,7 @@ pub fn grover_circuit(n_qubits: usize, marked_state: usize, iterations: usize) -
 /// the optimal number of iterations is approximately π/4 * sqrt(N).
 pub fn optimal_iterations(n_qubits: usize) -> usize {
     let n = 1 << n_qubits; // 2^n
-    let optimal = (PI / 4.0 * (n as f64).sqrt()).round() as usize;
+    let optimal = (PI / 4.0 * f64::from(n).sqrt()).round() as usize;
     optimal.max(1)
 }
 
@@ -120,14 +120,14 @@ fn apply_multi_controlled_z_recursive(circuit: &mut Circuit, n_qubits: usize) {
         // 4 qubits: use controlled phase rotation approach for demo
         // This is a simplified approximation
         for i in 0..3 {
-            let angle = PI / (1 << (3 - i)) as f64;
+            let angle = PI / f64::from(1 << (3 - i));
             circuit.cp(angle, QubitId(i as u32), target).unwrap();
         }
     } else {
         // For larger circuits, apply controlled phase rotation
         // This is an approximation for demo purposes
         for i in 0..n_qubits - 1 {
-            let angle = PI / (1 << (n_qubits - 1 - i)) as f64;
+            let angle = PI / f64::from(1 << (n_qubits - 1 - i));
             circuit.cp(angle, QubitId(i as u32), target).unwrap();
         }
     }

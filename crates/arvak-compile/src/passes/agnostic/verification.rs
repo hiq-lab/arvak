@@ -41,7 +41,7 @@ pub struct VerificationResult {
 pub struct MeasurementBarrierVerification;
 
 impl Pass for MeasurementBarrierVerification {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "measurement_barrier_verification"
     }
 
@@ -49,6 +49,7 @@ impl Pass for MeasurementBarrierVerification {
         PassKind::Analysis
     }
 
+    #[allow(clippy::unused_self, clippy::unnecessary_wraps)]
     fn run(&self, dag: &mut CircuitDag, properties: &mut PropertySet) -> CompileResult<()> {
         // Build per-qubit operation ordering from topological sort.
         // For each qubit, collect the ordered list of (position, instruction_kind).
@@ -113,7 +114,7 @@ impl Pass for MeasurementBarrierVerification {
         // Walk the DAG edges for each qubit wire and confirm that the topological
         // position of each node is monotonically increasing along the wire.
         let graph = dag.graph();
-        for &qubit in dag.qubits().collect::<Vec<_>>().iter() {
+        for &qubit in &dag.qubits().collect::<Vec<_>>() {
             let wire = arvak_ir::WireId::Qubit(qubit);
 
             // Find the input node for this qubit

@@ -18,6 +18,7 @@ struct Emitter {
     indent: usize,
 }
 
+#[allow(clippy::unused_self, clippy::unnecessary_wraps)]
 impl Emitter {
     fn new() -> Self {
         Self {
@@ -34,13 +35,13 @@ impl Emitter {
         // Qubit declarations
         let num_qubits = circuit.num_qubits();
         if num_qubits > 0 {
-            self.writeln(&format!("qubit[{}] q;", num_qubits));
+            self.writeln(&format!("qubit[{num_qubits}] q;"));
         }
 
         // Classical bit declarations
         let num_clbits = circuit.num_clbits();
         if num_clbits > 0 {
-            self.writeln(&format!("bit[{}] c;", num_clbits));
+            self.writeln(&format!("bit[{num_clbits}] c;"));
         }
 
         if num_qubits > 0 || num_clbits > 0 {
@@ -63,9 +64,9 @@ impl Emitter {
                 let qubits = self.emit_qubits(&instruction.qubits);
 
                 if params.is_empty() {
-                    self.writeln(&format!("{} {};", name, qubits));
+                    self.writeln(&format!("{name} {qubits};"));
                 } else {
-                    self.writeln(&format!("{}({}) {};", name, params, qubits));
+                    self.writeln(&format!("{name}({params}) {qubits};"));
                 }
             }
 
@@ -74,7 +75,7 @@ impl Emitter {
                 let clbits = self.emit_clbits(&instruction.clbits);
 
                 if instruction.qubits.len() == 1 {
-                    self.writeln(&format!("{} = measure {};", clbits, qubits));
+                    self.writeln(&format!("{clbits} = measure {qubits};"));
                 } else {
                     // Broadcast measurement
                     for (q, c) in instruction.qubits.iter().zip(instruction.clbits.iter()) {
@@ -85,7 +86,7 @@ impl Emitter {
 
             InstructionKind::Reset => {
                 let qubits = self.emit_qubits(&instruction.qubits);
-                self.writeln(&format!("reset {};", qubits));
+                self.writeln(&format!("reset {qubits};"));
             }
 
             InstructionKind::Barrier => {
@@ -93,28 +94,27 @@ impl Emitter {
                 if qubits.is_empty() {
                     self.writeln("barrier;");
                 } else {
-                    self.writeln(&format!("barrier {};", qubits));
+                    self.writeln(&format!("barrier {qubits};"));
                 }
             }
 
             InstructionKind::Delay { duration } => {
                 let qubits = self.emit_qubits(&instruction.qubits);
-                self.writeln(&format!("delay[{}] {};", duration, qubits));
+                self.writeln(&format!("delay[{duration}] {qubits};"));
             }
 
             InstructionKind::Shuttle { from_zone, to_zone } => {
                 // Shuttle is a neutral-atom specific instruction; emit as pragma
                 let qubits = self.emit_qubits(&instruction.qubits);
                 self.writeln(&format!(
-                    "// @pragma shuttle({}, {}) {};",
-                    from_zone, to_zone, qubits
+                    "// @pragma shuttle({from_zone}, {to_zone}) {qubits};"
                 ));
             }
 
             InstructionKind::NoiseChannel { model, role } => {
                 // Noise channels have no QASM3 equivalent; emit as pragma comment
                 let qubits = self.emit_qubits(&instruction.qubits);
-                self.writeln(&format!("// @pragma noise_{}({}) {};", role, model, qubits));
+                self.writeln(&format!("// @pragma noise_{role}({model}) {qubits};"));
             }
         }
 
@@ -184,6 +184,7 @@ impl Emitter {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion, clippy::self_only_used_in_recursion)]
     fn emit_param(&self, param: &ParameterExpression) -> String {
         match param {
             ParameterExpression::Constant(v) => {
@@ -200,7 +201,7 @@ impl Emitter {
                 } else if (*v + pi / 4.0).abs() < 1e-10 {
                     "-pi/4".into()
                 } else {
-                    format!("{:.6}", v)
+                    format!("{v:.6}")
                 }
             }
             ParameterExpression::Symbol(name) => name.clone(),
@@ -277,12 +278,12 @@ mod tests {
 
     #[test]
     fn test_roundtrip() {
-        let original = r#"OPENQASM 3.0;
+        let original = r"OPENQASM 3.0;
 qubit[2] q;
 bit[2] c;
 h q[0];
 cx q[0], q[1];
-"#;
+";
 
         let circuit = crate::parse(original).unwrap();
         let emitted = emit(&circuit).unwrap();
@@ -296,7 +297,7 @@ cx q[0], q[1];
     #[test]
     fn test_roundtrip_missing_gates() {
         // Test all 7 gates that were previously missing from the parser
-        let source = r#"OPENQASM 3.0;
+        let source = r"OPENQASM 3.0;
 qubit[2] q;
 sxdg q[0];
 ch q[0], q[1];
@@ -305,7 +306,7 @@ cry(pi/4) q[0], q[1];
 rxx(pi/4) q[0], q[1];
 ryy(pi/4) q[0], q[1];
 rzz(pi/4) q[0], q[1];
-"#;
+";
 
         let circuit = crate::parse(source).unwrap();
         let emitted = emit(&circuit).unwrap();

@@ -24,7 +24,7 @@ pub struct QaoaResult {
     pub iterations: usize,
     /// Number of circuit evaluations.
     pub circuit_evaluations: usize,
-    /// Approximation ratio (best_cut / max_cut).
+    /// Approximation ratio (`best_cut` / `max_cut`).
     pub approximation_ratio: f64,
     /// Energy history during optimization.
     pub energy_history: Vec<f64>,

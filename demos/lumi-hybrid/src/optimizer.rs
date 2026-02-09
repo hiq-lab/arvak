@@ -206,12 +206,12 @@ impl NelderMeadOptimizer {
         let cost_spread = self
             .simplex_costs
             .iter()
-            .cloned()
+            .copied()
             .fold(f64::NEG_INFINITY, f64::max)
             - self
                 .simplex_costs
                 .iter()
-                .cloned()
+                .copied()
                 .fold(f64::INFINITY, f64::min);
 
         if cost_spread < self.tolerance {
@@ -696,7 +696,7 @@ impl Optimizer for SpsaOptimizer {
                 self.current_params = self.project(&self.current_params);
 
                 // Check convergence
-                let avg_cost = (self.cost_plus + cost_minus) / 2.0;
+                let avg_cost = f64::midpoint(self.cost_plus, cost_minus);
                 if (avg_cost - self.prev_cost).abs() < self.tolerance {
                     self.converged = true;
                 }

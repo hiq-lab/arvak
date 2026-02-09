@@ -10,7 +10,7 @@ use tracing::{error, info, instrument, warn};
 use crate::config::ResourceLimits;
 use crate::error::{Error, Result};
 use crate::metrics::Metrics;
-use crate::proto::*;
+use crate::proto::{CircuitPayload, circuit_payload, JobState, arvak_service_server, JobStatusUpdate, ResultChunk, BatchJobResult, SubmitJobRequest, SubmitJobResponse, SubmitBatchRequest, SubmitBatchResponse, GetJobStatusRequest, GetJobStatusResponse, Job, WatchJobRequest, StreamResultsRequest, BatchJobSubmission, batch_job_result, JobResult, GetJobResultRequest, GetJobResultResponse, CancelJobRequest, CancelJobResponse, ListBackendsRequest, ListBackendsResponse, BackendInfo, GetBackendInfoRequest, GetBackendInfoResponse};
 use crate::resource_manager::ResourceManager;
 use crate::server::{BackendRegistry, JobStore};
 
@@ -145,7 +145,7 @@ impl ArvakServiceImpl {
                     }
                 }
                 Err(e) => {
-                    let error_msg = format!("Backend wait failed: {}", e);
+                    let error_msg = format!("Backend wait failed: {e}");
                     metrics.record_job_failed(&backend_id, "backend_wait_error");
                     let _ = job_store
                         .update_status(&job_id, JobStatus::Failed(error_msg))
@@ -156,7 +156,7 @@ impl ArvakServiceImpl {
                 }
             },
             Err(e) => {
-                let error_msg = format!("Backend submit failed: {}", e);
+                let error_msg = format!("Backend submit failed: {e}");
                 metrics.record_job_failed(&backend_id, "backend_submit_error");
                 let _ = job_store
                     .update_status(&job_id, JobStatus::Failed(error_msg))
@@ -168,7 +168,7 @@ impl ArvakServiceImpl {
         }
     }
 
-    /// Convert HAL JobStatus to protobuf JobState.
+    /// Convert HAL `JobStatus` to protobuf `JobState`.
     fn to_proto_state(status: &JobStatus) -> JobState {
         match status {
             JobStatus::Queued => JobState::Queued,
@@ -247,7 +247,7 @@ impl ArvakServiceImpl {
                             }
                         }
                         Err(e) => {
-                            let error_msg = format!("Backend wait failed: {}", e);
+                            let error_msg = format!("Backend wait failed: {e}");
                             warn!(error = %e, "Backend wait failed");
                             metrics.record_job_failed(&backend_id, "backend_wait_error");
                             if let Err(e) = job_store
@@ -263,7 +263,7 @@ impl ArvakServiceImpl {
                     }
                 }
                 Err(e) => {
-                    let error_msg = format!("Backend submit failed: {}", e);
+                    let error_msg = format!("Backend submit failed: {e}");
                     warn!(error = %e, "Backend submit failed");
                     metrics.record_job_failed(&backend_id, "backend_submit_error");
                     if let Err(e) = job_store
@@ -435,8 +435,8 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             job_id: job.id.0,
             state: Self::to_proto_state(&job.status) as i32,
             submitted_at: job.submitted_at.timestamp(),
-            started_at: job.started_at.map(|t| t.timestamp()).unwrap_or(0),
-            completed_at: job.completed_at.map(|t| t.timestamp()).unwrap_or(0),
+            started_at: job.started_at.map_or(0, |t| t.timestamp()),
+            completed_at: job.completed_at.map_or(0, |t| t.timestamp()),
             backend_id: job.backend_id,
             shots: job.shots,
             error_message,
@@ -499,7 +499,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                     }
                     Err(e) => {
                         let _ = tx
-                            .send(Err(Status::internal(format!("Failed to get job: {}", e))))
+                            .send(Err(Status::internal(format!("Failed to get job: {e}"))))
                             .await;
                         break;
                     }
@@ -604,8 +604,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                         job_id: String::new(),
                                         client_request_id,
                                         result: Some(batch_job_result::Result::Error(format!(
-                                            "Circuit parsing failed: {}",
-                                            e
+                                            "Circuit parsing failed: {e}"
                                         ))),
                                     }))
                                     .await;
@@ -622,8 +621,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                         job_id: String::new(),
                                         client_request_id,
                                         result: Some(batch_job_result::Result::Error(format!(
-                                            "Backend not found: {}",
-                                            e
+                                            "Backend not found: {e}"
                                         ))),
                                     }))
                                     .await;
@@ -704,8 +702,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                         job_id: String::new(),
                                         client_request_id,
                                         result: Some(batch_job_result::Result::Error(format!(
-                                            "Job creation failed: {}",
-                                            e
+                                            "Job creation failed: {e}"
                                         ))),
                                     }))
                                     .await;
@@ -714,7 +711,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                     }
                     Err(e) => {
                         let _ = tx
-                            .send(Err(Status::internal(format!("Stream error: {}", e))))
+                            .send(Err(Status::internal(format!("Stream error: {e}"))))
                             .await;
                         break;
                     }
@@ -809,7 +806,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             let caps = backend
                 .capabilities()
                 .await
-                .map_err(|e| Status::internal(format!("Failed to get capabilities: {}", e)))?;
+                .map_err(|e| Status::internal(format!("Failed to get capabilities: {e}")))?;
 
             let is_available = backend.is_available().await.unwrap_or(false);
 
@@ -845,7 +842,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         let caps = backend
             .capabilities()
             .await
-            .map_err(|e| Status::internal(format!("Failed to get capabilities: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to get capabilities: {e}")))?;
 
         let is_available = backend.is_available().await.unwrap_or(false);
 

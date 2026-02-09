@@ -19,7 +19,7 @@ use crate::property::PropertySet;
 pub struct BasisTranslation;
 
 impl Pass for BasisTranslation {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "BasisTranslation"
     }
 
@@ -68,13 +68,13 @@ fn is_in_basis(gate: &Gate, basis: &crate::property::BasisGates) -> bool {
 }
 
 /// Translate a gate instruction to the target basis.
+#[allow(clippy::similar_names, clippy::cast_possible_truncation, clippy::no_effect_underscore_binding)]
 fn translate_gate(
     instruction: &Instruction,
     basis: &crate::property::BasisGates,
 ) -> CompileResult<Vec<Instruction>> {
-    let gate = match &instruction.kind {
-        InstructionKind::Gate(g) => g,
-        _ => return Ok(vec![instruction.clone()]),
+    let InstructionKind::Gate(gate) = &instruction.kind else {
+        return Ok(vec![instruction.clone()]);
     };
 
     let _qubit = instruction.qubits[0];
@@ -210,7 +210,7 @@ fn translate_to_iqm(
 
         // Other gates - return error for now
         other => {
-            return Err(CompileError::GateNotInBasis(format!("{:?}", other)));
+            return Err(CompileError::GateNotInBasis(format!("{other:?}")));
         }
     })
 }
@@ -297,7 +297,7 @@ fn translate_to_ibm(
 
         // Other gates
         other => {
-            return Err(CompileError::GateNotInBasis(format!("{:?}", other)));
+            return Err(CompileError::GateNotInBasis(format!("{other:?}")));
         }
     })
 }

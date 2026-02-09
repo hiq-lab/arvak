@@ -424,8 +424,7 @@ mod tests {
         let e_00 = expectation_value(&h2, &state_00);
         assert!(
             (e_00 - (-0.33)).abs() < 0.01,
-            "Expected -0.33 for |00>, got {}",
-            e_00
+            "Expected -0.33 for |00>, got {e_00}"
         );
 
         // For |11⟩: Z0=-1, Z1=-1, Z0Z1=+1
@@ -439,8 +438,7 @@ mod tests {
         let e_11 = expectation_value(&h2, &state_11);
         assert!(
             (e_11 - (-0.33)).abs() < 0.01,
-            "Expected -0.33 for |11>, got {}",
-            e_11
+            "Expected -0.33 for |11>, got {e_11}"
         );
 
         // For the Bell state (|00⟩ + |11⟩)/√2:
@@ -456,8 +454,7 @@ mod tests {
         let e_bell_00_11 = expectation_value(&h2, &bell_00_11);
         assert!(
             (e_bell_00_11 - (-0.33)).abs() < 0.1,
-            "Expected ~-0.33 for (|00⟩+|11⟩)/√2, got {}",
-            e_bell_00_11
+            "Expected ~-0.33 for (|00⟩+|11⟩)/√2, got {e_bell_00_11}"
         );
 
         // The (|01⟩+|10⟩)/√2 state has both XX and YY = +1
@@ -473,8 +470,7 @@ mod tests {
         let e_bell_01_10 = expectation_value(&h2, &bell_01_10);
         assert!(
             (e_bell_01_10 - 0.05).abs() < 0.1,
-            "Expected ~0.05 for (|01⟩+|10⟩)/√2, got {}",
-            e_bell_01_10
+            "Expected ~0.05 for (|01⟩+|10⟩)/√2, got {e_bell_01_10}"
         );
     }
 
@@ -491,8 +487,7 @@ mod tests {
         let prob_00 = state[0].norm_sqr();
         assert!(
             prob_00 > 0.99,
-            "Expected |00⟩ state for zero params, got P(00)={}",
-            prob_00
+            "Expected |00⟩ state for zero params, got P(00)={prob_00}"
         );
 
         // Test with PI rotations
@@ -507,11 +502,10 @@ mod tests {
         }
 
         // Check that state is normalized
-        let total_prob: f64 = state_pi.iter().map(|a| a.norm_sqr()).sum();
+        let total_prob: f64 = state_pi.iter().map(num_complex::Complex::norm_sqr).sum();
         assert!(
             (total_prob - 1.0).abs() < 1e-6,
-            "State not normalized: {}",
-            total_prob
+            "State not normalized: {total_prob}"
         );
     }
 
@@ -527,11 +521,10 @@ mod tests {
         let state_zero = simulate_statevector(&circuit_zero, 2);
         let e_zero = expectation_value(&h2, &state_zero);
 
-        println!("Energy with zero params (should be ~-0.33): {}", e_zero);
+        println!("Energy with zero params (should be ~-0.33): {e_zero}");
         assert!(
             (e_zero - (-0.33)).abs() < 0.05,
-            "Expected ~-0.33 for zero params, got {}",
-            e_zero
+            "Expected ~-0.33 for zero params, got {e_zero}"
         );
 
         // Test with PI rotations (should give |11⟩ and E ≈ -0.33)
@@ -540,11 +533,10 @@ mod tests {
         let state_pi = simulate_statevector(&circuit_pi, 2);
         let e_pi = expectation_value(&h2, &state_pi);
 
-        println!("Energy with PI params (should be ~-0.33): {}", e_pi);
+        println!("Energy with PI params (should be ~-0.33): {e_pi}");
         assert!(
             (e_pi - (-0.33)).abs() < 0.05,
-            "Expected ~-0.33 for PI params, got {}",
-            e_pi
+            "Expected ~-0.33 for PI params, got {e_pi}"
         );
     }
 
@@ -579,8 +571,8 @@ mod tests {
             );
         }
 
-        let norm: f64 = state.iter().map(|a| a.norm_sqr()).sum();
-        println!("Norm: {}", norm);
+        let norm: f64 = state.iter().map(num_complex::Complex::norm_sqr).sum();
+        println!("Norm: {norm}");
 
         // Manually compute each term's contribution
         for term in &h2.terms {
@@ -600,7 +592,7 @@ mod tests {
         }
 
         let energy = expectation_value(&h2, &state);
-        println!("Total energy: {}", energy);
+        println!("Total energy: {energy}");
 
         // Verify: sum of probabilities times Hamiltonian eigenvalues
         // The state has mostly |01⟩ and |00⟩
@@ -652,56 +644,55 @@ mod tests {
         let e_11 = g0 + -g1 + -g2 + g3 * 1.0;
 
         println!("Diagonal elements:");
-        println!("  H[00,00] = {:.4}", e_00);
-        println!("  H[01,01] = {:.4}", e_01);
-        println!("  H[10,10] = {:.4}", e_10);
-        println!("  H[11,11] = {:.4}", e_11);
+        println!("  H[00,00] = {e_00:.4}");
+        println!("  H[01,01] = {e_01:.4}");
+        println!("  H[10,10] = {e_10:.4}");
+        println!("  H[11,11] = {e_11:.4}");
 
         // Off-diagonal: X0X1 + Y0Y1 = 2 * g4
         let off_diag = 2.0 * g4;
-        println!("Off-diagonal (X0X1+Y0Y1): {:.4}", off_diag);
+        println!("Off-diagonal (X0X1+Y0Y1): {off_diag:.4}");
 
         // Block 1 (|00⟩, |11⟩) eigenvalues:
         let a1: f64 = e_00;
         let b1: f64 = e_11;
         let c1: f64 = off_diag;
-        let avg1 = (a1 + b1) / 2.0;
+        let avg1 = f64::midpoint(a1, b1);
         let diff1 = ((a1 - b1).powi(2) / 4.0 + c1.powi(2)).sqrt();
         let lambda1_minus = avg1 - diff1;
         let lambda1_plus = avg1 + diff1;
 
         println!("\nBlock 1 (|00⟩, |11⟩) eigenvalues:");
-        println!("  λ- = {:.4}", lambda1_minus);
-        println!("  λ+ = {:.4}", lambda1_plus);
+        println!("  λ- = {lambda1_minus:.4}");
+        println!("  λ+ = {lambda1_plus:.4}");
 
         // Block 2 (|01⟩, |10⟩) eigenvalues:
         let a2: f64 = e_01;
         let b2: f64 = e_10;
         let c2: f64 = off_diag;
-        let avg2 = (a2 + b2) / 2.0;
+        let avg2 = f64::midpoint(a2, b2);
         let diff2 = ((a2 - b2).powi(2) / 4.0 + c2.powi(2)).sqrt();
         let lambda2_minus = avg2 - diff2;
         let lambda2_plus = avg2 + diff2;
 
         println!("Block 2 (|01⟩, |10⟩) eigenvalues:");
-        println!("  λ- = {:.4}", lambda2_minus);
-        println!("  λ+ = {:.4}", lambda2_plus);
+        println!("  λ- = {lambda2_minus:.4}");
+        println!("  λ+ = {lambda2_plus:.4}");
 
         let ground_state = lambda1_minus.min(lambda2_minus);
-        println!("\nGround state energy: {:.4} Hartree", ground_state);
+        println!("\nGround state energy: {ground_state:.4} Hartree");
 
         // Verify the eigenvalue spectrum
         let eigenvalues = vec![lambda1_minus, lambda1_plus, lambda2_minus, lambda2_plus];
         let mut sorted = eigenvalues.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        println!("Eigenvalue spectrum: {:?}", sorted);
+        println!("Eigenvalue spectrum: {sorted:?}");
 
         // For a model Hamiltonian, we accept any reasonable ground state
         // The key is that VQE should find this minimum
         assert!(
             ground_state < 0.0,
-            "Ground state should be negative, got {}",
-            ground_state
+            "Ground state should be negative, got {ground_state}"
         );
     }
 

@@ -30,6 +30,7 @@ pub struct QubitRegister {
 
 impl QubitRegister {
     /// Create a new register with freshly allocated qubits.
+    #[allow(clippy::cast_possible_truncation)]
     pub fn new(circuit: &mut Circuit, size: usize) -> Self {
         let start = circuit.num_qubits();
 

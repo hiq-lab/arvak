@@ -3,12 +3,12 @@
 //! This example starts both the gRPC server and HTTP health/metrics server,
 //! then shows how to query the health endpoints.
 //!
-//! Run with: cargo run --example health_metrics
+//! Run with: cargo run --example `health_metrics`
 //!
 //! Then in another terminal:
-//! - curl http://localhost:9090/health
-//! - curl http://localhost:9090/health/ready
-//! - curl http://localhost:9090/metrics
+//! - curl <http://localhost:9090/health>
+//! - curl <http://localhost:9090/health/ready>
+//! - curl <http://localhost:9090/metrics>
 
 use arvak_grpc::proto::arvak_service_server::ArvakServiceServer;
 use arvak_grpc::server::backend_registry::create_default_registry;
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize backend availability metrics
     for backend_id in backends.list() {
         metrics.set_backend_available(&backend_id, true);
-        println!("Registered backend: {}", backend_id);
+        println!("Registered backend: {backend_id}");
     }
 
     // Create health state
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start gRPC server on port 50051
     let grpc_addr = "0.0.0.0:50051".parse()?;
-    println!("\ngRPC server started on {}", grpc_addr);
+    println!("\ngRPC server started on {grpc_addr}");
 
     println!("\n=== Server Running ===");
     println!("Try these commands in another terminal:");
@@ -69,12 +69,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::select! {
         result = grpc_server => {
             if let Err(e) = result {
-                eprintln!("gRPC server error: {}", e);
+                eprintln!("gRPC server error: {e}");
             }
         }
         result = health_server => {
             if let Err(e) = result {
-                eprintln!("Health server error: {:?}", e);
+                eprintln!("Health server error: {e:?}");
             }
         }
         _ = tokio::signal::ctrl_c() => {

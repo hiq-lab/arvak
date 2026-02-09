@@ -99,7 +99,7 @@ lazy_static! {
 /// Metrics aggregator for the Arvak gRPC service.
 ///
 /// This struct provides convenience methods for recording various metrics.
-/// The actual metrics are stored in global static variables (lazy_static).
+/// The actual metrics are stored in global static variables (`lazy_static`).
 #[derive(Clone)]
 pub struct Metrics;
 

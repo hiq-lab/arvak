@@ -181,7 +181,7 @@ impl MeasurementMitigator {
         for (prepared, measured_counts) in calibration_counts {
             let total: u32 = measured_counts.values().sum();
             for (measured, &count) in measured_counts {
-                calibration_matrix[*prepared][*measured] = count as f64 / total as f64;
+                calibration_matrix[*prepared][*measured] = f64::from(count) / f64::from(total);
             }
         }
 

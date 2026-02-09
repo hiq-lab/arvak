@@ -66,7 +66,7 @@ pub async fn execute(
         // Default: replace extension with _compiled.qasm
         let p = Path::new(input);
         let stem = p.file_stem().unwrap_or_default().to_string_lossy();
-        Box::leak(format!("{}_compiled.qasm", stem).into_boxed_str())
+        Box::leak(format!("{stem}_compiled.qasm").into_boxed_str())
     });
 
     save_circuit(&compiled, output_path)?;
@@ -84,14 +84,14 @@ fn save_circuit(circuit: &Circuit, path: &str) -> Result<()> {
         .unwrap_or("qasm");
 
     let content = match ext.to_lowercase().as_str() {
-        "qasm" | "qasm3" => emit(circuit).map_err(|e| anyhow::anyhow!("Emit error: {}", e))?,
+        "qasm" | "qasm3" => emit(circuit).map_err(|e| anyhow::anyhow!("Emit error: {e}"))?,
         "json" => {
             anyhow::bail!("JSON format not yet supported")
         }
-        _ => emit(circuit).map_err(|e| anyhow::anyhow!("Emit error: {}", e))?,
+        _ => emit(circuit).map_err(|e| anyhow::anyhow!("Emit error: {e}"))?,
     };
 
-    fs::write(path, content).with_context(|| format!("Failed to write file: {}", path))?;
+    fs::write(path, content).with_context(|| format!("Failed to write file: {path}"))?;
 
     Ok(())
 }

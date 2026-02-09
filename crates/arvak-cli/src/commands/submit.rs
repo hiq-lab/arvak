@@ -45,13 +45,13 @@ pub async fn execute(
     );
 
     let circuit_spec = CircuitSpec::from_circuit(&circuit)
-        .map_err(|e| anyhow::anyhow!("Failed to create circuit spec: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create circuit spec: {e}"))?;
 
     // Build scheduler config
     let state_dir = default_state_dir()?;
     let db_path = state_dir.join("jobs.db");
     let store = SqliteStore::new(&db_path)
-        .map_err(|e| anyhow::anyhow!("Failed to open job store: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to open job store: {e}"))?;
 
     let sched_config = match scheduler.to_lowercase().as_str() {
         "slurm" => {
@@ -97,7 +97,7 @@ pub async fn execute(
             SchedulerConfig::with_pbs(pbs)
         }
         other => {
-            anyhow::bail!("Unknown scheduler: '{}'. Available: slurm, pbs", other);
+            anyhow::bail!("Unknown scheduler: '{other}'. Available: slurm, pbs");
         }
     };
 
@@ -129,8 +129,7 @@ pub async fn execute(
             }
             other => {
                 anyhow::bail!(
-                    "Unknown backend: '{}'. Available: simulator, iqm, ibm",
-                    other
+                    "Unknown backend: '{other}'. Available: simulator, iqm, ibm"
                 );
             }
         };
@@ -138,10 +137,10 @@ pub async fn execute(
     // Create HPC scheduler
     let hpc = HpcScheduler::new(sched_config, vec![backend_impl], Arc::new(store))
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to create scheduler: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create scheduler: {e}"))?;
 
     // Build job
-    let job_priority = match priority.map(|p| p.to_lowercase()).as_deref() {
+    let job_priority = match priority.map(str::to_lowercase).as_deref() {
         Some("low") => Priority::low(),
         Some("high") => Priority::high(),
         Some("critical") => Priority::critical(),
@@ -149,9 +148,7 @@ pub async fn execute(
     };
 
     let name = std::path::Path::new(input)
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| "circuit".to_string());
+        .file_stem().map_or_else(|| "circuit".to_string(), |s| s.to_string_lossy().to_string());
 
     let job = ScheduledJob::new(&name, circuit_spec)
         .with_shots(shots)
@@ -161,7 +158,7 @@ pub async fn execute(
     let job_id = hpc
         .submit(job)
         .await
-        .map_err(|e| anyhow::anyhow!("Submit failed: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Submit failed: {e}"))?;
 
     println!(
         "{} Job submitted: {}",
@@ -175,7 +172,7 @@ pub async fn execute(
         let result = hpc
             .wait(&job_id)
             .await
-            .map_err(|e| anyhow::anyhow!("Wait failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Wait failed: {e}"))?;
         print_results(&result);
     } else {
         println!(

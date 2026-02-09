@@ -384,6 +384,7 @@ fn query_operations(session: &DeviceSession<'_>) -> Result<Vec<OperationId>> {
 }
 
 /// Query per-site physical properties, gracefully handling unsupported ones.
+#[allow(clippy::cast_precision_loss)]
 fn query_site_properties(
     session: &DeviceSession<'_>,
     site: SiteId,
@@ -413,7 +414,7 @@ fn query_site_properties(
         Ok(buf) => std::ffi::CStr::from_bytes_until_nul(&buf)
             .ok()
             .and_then(|c| c.to_str().ok())
-            .map(|s| s.to_string()),
+            .map(std::string::ToString::to_string),
         Err(_) => None,
     };
 
@@ -426,6 +427,7 @@ fn query_site_properties(
 }
 
 /// Query per-operation properties.
+#[allow(clippy::cast_precision_loss)]
 fn query_operation_props(
     session: &DeviceSession<'_>,
     op: OperationId,
@@ -444,7 +446,7 @@ fn query_operation_props(
             Ok(buf) => std::ffi::CStr::from_bytes_until_nul(&buf)
                 .ok()
                 .and_then(|c| c.to_str().ok())
-                .map(|s| s.to_string()),
+                .map(std::string::ToString::to_string),
             Err(_) => None,
         }
     };
@@ -508,42 +510,39 @@ fn query_operation_props(
 /// Query supported circuit formats from the device.
 ///
 /// If the device reports `QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS`, we
-/// parse the array of `QDMI_Program_Format` (c_int) values and map them to
+/// parse the array of `QDMI_Program_Format` (`c_int`) values and map them to
 /// `CircuitFormat`. Otherwise we fall back to `[OpenQasm3]`.
 fn query_supported_formats(session: &DeviceSession<'_>) -> Vec<CircuitFormat> {
-    match session.raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS) {
-        Ok(buf) => {
-            let int_size = std::mem::size_of::<i32>();
-            if buf.len() % int_size != 0 || buf.is_empty() {
-                log::warn!(
-                    "supported program formats buffer has unexpected size {}; falling back",
-                    buf.len()
-                );
-                return vec![CircuitFormat::OpenQasm3];
-            }
-            let count = buf.len() / int_size;
-            let formats: Vec<CircuitFormat> = (0..count)
-                .filter_map(|i| {
-                    let offset = i * int_size;
-                    let fmt_code =
-                        i32::from_ne_bytes(buf[offset..offset + int_size].try_into().unwrap());
-                    CircuitFormat::from_qdmi_format(fmt_code)
-                })
-                .collect();
-            if formats.is_empty() {
-                log::warn!("device reported formats but none are supported by Arvak; falling back");
-                vec![CircuitFormat::OpenQasm3]
-            } else {
-                log::debug!("device supports formats: {:?}", formats);
-                formats
-            }
-        }
-        Err(_) => {
-            log::debug!(
-                "device does not report supported program formats; defaulting to OpenQASM 3"
+    if let Ok(buf) = session.raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS) {
+        let int_size = std::mem::size_of::<i32>();
+        if buf.len() % int_size != 0 || buf.is_empty() {
+            log::warn!(
+                "supported program formats buffer has unexpected size {}; falling back",
+                buf.len()
             );
-            vec![CircuitFormat::OpenQasm3]
+            return vec![CircuitFormat::OpenQasm3];
         }
+        let count = buf.len() / int_size;
+        let formats: Vec<CircuitFormat> = (0..count)
+            .filter_map(|i| {
+                let offset = i * int_size;
+                let fmt_code =
+                    i32::from_ne_bytes(buf[offset..offset + int_size].try_into().unwrap());
+                CircuitFormat::from_qdmi_format(fmt_code)
+            })
+            .collect();
+        if formats.is_empty() {
+            log::warn!("device reported formats but none are supported by Arvak; falling back");
+            vec![CircuitFormat::OpenQasm3]
+        } else {
+            log::debug!("device supports formats: {formats:?}");
+            formats
+        }
+    } else {
+        log::debug!(
+            "device does not report supported program formats; defaulting to OpenQASM 3"
+        );
+        vec![CircuitFormat::OpenQasm3]
     }
 }
 

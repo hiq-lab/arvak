@@ -6,9 +6,9 @@
 use arvak_ir::Circuit;
 use arvak_ir::qubit::QubitId;
 
-/// Generate a TwoLocal ansatz circuit.
+/// Generate a `TwoLocal` ansatz circuit.
 ///
-/// The TwoLocal ansatz alternates between:
+/// The `TwoLocal` ansatz alternates between:
 /// - Rotation layers (Ry rotations on each qubit)
 /// - Entanglement layers (CZ gates between adjacent qubits)
 ///
@@ -21,7 +21,7 @@ use arvak_ir::qubit::QubitId;
 /// A parameterized circuit ready for execution.
 ///
 /// # Parameters needed
-/// Total parameters = n_qubits * (reps + 1)
+/// Total parameters = `n_qubits` * (reps + 1)
 pub fn two_local_ansatz(n_qubits: usize, reps: usize, params: &[f64]) -> Circuit {
     let expected_params = n_qubits * (reps + 1);
     assert!(
@@ -65,7 +65,7 @@ pub fn two_local_ansatz(n_qubits: usize, reps: usize, params: &[f64]) -> Circuit
 /// which is hardware-efficient for superconducting qubit systems.
 ///
 /// # Parameters needed
-/// Total parameters = 2 * n_qubits * (reps + 1)
+/// Total parameters = 2 * `n_qubits` * (reps + 1)
 pub fn hardware_efficient_ansatz(n_qubits: usize, reps: usize, params: &[f64]) -> Circuit {
     let expected_params = 2 * n_qubits * (reps + 1);
     assert!(
@@ -113,7 +113,7 @@ pub fn hardware_efficient_ansatz(n_qubits: usize, reps: usize, params: &[f64]) -
 /// Useful for testing and as a baseline.
 ///
 /// # Parameters needed
-/// Total parameters = n_qubits
+/// Total parameters = `n_qubits`
 pub fn ry_ansatz(n_qubits: usize, params: &[f64]) -> Circuit {
     assert!(
         params.len() >= n_qubits,
@@ -138,7 +138,7 @@ pub fn ry_ansatz(n_qubits: usize, params: &[f64]) -> Circuit {
 /// This is a simplified version for demo purposes.
 ///
 /// # Parameters needed
-/// Depends on number of excitations (approximately n_qubits^2)
+/// Depends on number of excitations (approximately `n_qubits^2`)
 pub fn uccsd_like_ansatz(n_qubits: usize, params: &[f64]) -> Circuit {
     // Simplified UCCSD-like structure
     // Real UCCSD would require Trotterization of cluster operators
@@ -193,7 +193,7 @@ pub fn num_parameters(ansatz: &str, n_qubits: usize, reps: usize) -> usize {
         "hardware_efficient" => 2 * n_qubits * (reps + 1),
         "ry" => n_qubits,
         "uccsd_like" => 3 * n_qubits - 1,
-        _ => panic!("Unknown ansatz: {}", ansatz),
+        _ => panic!("Unknown ansatz: {ansatz}"),
     }
 }
 

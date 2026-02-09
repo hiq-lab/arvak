@@ -5,12 +5,12 @@ use arvak_grpc::server::ArvakServiceImpl;
 use tonic::Request;
 use tonic::transport::Server;
 
-const TEST_QASM: &str = r#"
+const TEST_QASM: &str = r"
 OPENQASM 3.0;
 qubit[2] q;
 h q[0];
 cx q[0], q[1];
-"#;
+";
 
 /// Start a test server on a random port and return the address.
 async fn start_test_server() -> String {
@@ -31,7 +31,7 @@ async fn start_test_server() -> String {
     // Give the server time to start
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    format!("http://{}", addr)
+    format!("http://{addr}")
 }
 
 #[tokio::test]

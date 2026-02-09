@@ -159,7 +159,7 @@ async fn run_vqe(args: &Args) -> Result<VqeRunResult> {
     loop {
         // Evaluate energy at current parameters
         let energy = evaluate_energy(&args.backend, &hamiltonian, &parameters, args.shots).await?;
-        total_shots += args.shots as u64;
+        total_shots += u64::from(args.shots);
 
         // Log progress
         let error = (energy - exact_energy).abs();
@@ -196,9 +196,7 @@ async fn run_vqe(args: &Args) -> Result<VqeRunResult> {
 
     // Get best results from optimizer
     let best_params = optimizer
-        .best_params()
-        .map(|p| p.to_vec())
-        .unwrap_or_else(|| parameters.clone());
+        .best_params().map_or_else(|| parameters.clone(), <[f64]>::to_vec);
     let best_energy = optimizer.best_cost();
 
     info!("");
@@ -233,7 +231,7 @@ async fn run_bond_scan(args: &Args) -> Result<()> {
     info!("Running bond distance scan from 0.3 to 2.5 Å");
     info!("");
 
-    let distances: Vec<f64> = (3..=25).map(|i| i as f64 * 0.1).collect();
+    let distances: Vec<f64> = (3..=25).map(|i| f64::from(i) * 0.1).collect();
     let mut results = Vec::new();
 
     for (idx, &distance) in distances.iter().enumerate() {
@@ -320,8 +318,7 @@ async fn evaluate_energy(
         }
         _ => {
             anyhow::bail!(
-                "Unknown backend: {}. Use 'sim', 'sim-shots', 'iqm', or 'lumi'",
-                backend_name
+                "Unknown backend: {backend_name}. Use 'sim', 'sim-shots', 'iqm', or 'lumi'"
             );
         }
     }

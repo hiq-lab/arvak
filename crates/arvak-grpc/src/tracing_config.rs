@@ -30,7 +30,7 @@ pub struct TracingConfig {
     pub format: TracingFormat,
     /// Service name for tracing.
     pub service_name: String,
-    /// OpenTelemetry OTLP endpoint (e.g., "http://localhost:4317").
+    /// OpenTelemetry OTLP endpoint (e.g., "<http://localhost:4317>").
     /// If None, OpenTelemetry export is disabled.
     pub otlp_endpoint: Option<String>,
 }
@@ -73,11 +73,10 @@ impl TracingConfig {
         let log_level = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
 
         let format = std::env::var("ARVAK_LOG_FORMAT")
-            .map(|f| match f.as_str() {
+            .map_or(TracingFormat::Console, |f| match f.as_str() {
                 "json" => TracingFormat::Json,
                 _ => TracingFormat::Console,
-            })
-            .unwrap_or(TracingFormat::Console);
+            });
 
         let service_name =
             std::env::var("ARVAK_SERVICE_NAME").unwrap_or_else(|_| "arvak-grpc".to_string());

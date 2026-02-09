@@ -189,6 +189,7 @@ impl Unitary2x2 {
     }
 
     /// Multiply this matrix by another: self * other.
+    #[allow(clippy::many_single_char_names)]
     pub fn mul(&self, other: &Self) -> Self {
         let [a, b, c, d] = self.data;
         let [e, f, g, h] = other.data;
@@ -227,10 +228,11 @@ impl Unitary2x2 {
         det.arg() / 2.0
     }
 
-    /// Decompose into RZ(alpha) * RY(beta) * RZ(gamma) * global_phase.
+    /// Decompose into RZ(alpha) * RY(beta) * RZ(gamma) * `global_phase`.
     ///
-    /// Returns (alpha, beta, gamma, global_phase).
+    /// Returns (alpha, beta, gamma, `global_phase`).
     /// This is the ZYZ Euler decomposition.
+    #[allow(clippy::no_effect_underscore_binding)]
     pub fn zyz_decomposition(&self) -> (f64, f64, f64, f64) {
         let [a, b, c, d] = self.data;
 
@@ -285,13 +287,13 @@ impl Unitary2x2 {
         let alpha_plus_gamma = -2.0 * a.arg();
         let alpha_minus_gamma = 2.0 * c.arg();
 
-        let alpha = (alpha_plus_gamma + alpha_minus_gamma) / 2.0;
+        let alpha = f64::midpoint(alpha_plus_gamma, alpha_minus_gamma);
         let gamma = (alpha_plus_gamma - alpha_minus_gamma) / 2.0;
 
         (alpha, beta, gamma, global_phase)
     }
 
-    /// Normalize angles to [-π, π].
+    /// Normalize angles to [-pi, pi].
     pub fn normalize_angle(mut angle: f64) -> f64 {
         while angle > PI {
             angle -= 2.0 * PI;
@@ -312,6 +314,7 @@ impl Default for Unitary2x2 {
 impl std::ops::Mul for Unitary2x2 {
     type Output = Self;
 
+    #[allow(clippy::needless_pass_by_value)]
     fn mul(self, rhs: Self) -> Self::Output {
         Unitary2x2::mul(&self, &rhs)
     }
@@ -388,10 +391,7 @@ mod tests {
             let got = reconstructed.data[i] * global;
             assert!(
                 (expected - got).norm() < 1e-6,
-                "Mismatch at {}: expected {:?}, got {:?}",
-                i,
-                expected,
-                got
+                "Mismatch at {i}: expected {expected:?}, got {got:?}"
             );
         }
     }
@@ -409,10 +409,7 @@ mod tests {
             let got = reconstructed.data[i] * global;
             assert!(
                 (expected - got).norm() < 1e-6,
-                "Mismatch at {}: expected {:?}, got {:?}",
-                i,
-                expected,
-                got
+                "Mismatch at {i}: expected {expected:?}, got {got:?}"
             );
         }
     }

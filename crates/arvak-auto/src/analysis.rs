@@ -161,15 +161,14 @@ pub fn find_reversible_ops(circuit: &Circuit) -> Vec<usize> {
                 // Barriers and delays don't need reversal
                 reversible.push(idx);
             }
-            InstructionKind::Measure | InstructionKind::Reset => {
-                // Non-reversible operations
+            InstructionKind::Measure
+            | InstructionKind::Reset
+            | InstructionKind::NoiseChannel { .. } => {
+                // Non-reversible operations / non-unitary annotations
             }
             InstructionKind::Shuttle { .. } => {
                 // Shuttling is reversible (swap zones)
                 reversible.push(idx);
-            }
-            InstructionKind::NoiseChannel { .. } => {
-                // Noise channels are non-unitary annotations, not reversible
             }
         }
     }

@@ -1,4 +1,4 @@
-//! PropertySet and related types for pass communication.
+//! `PropertySet` and related types for pass communication.
 //!
 //! This module provides the [`PropertySet`] type, which enables compilation passes
 //! to share data with each other. It contains both standard properties (layout,
@@ -31,7 +31,7 @@
 //! assert!(props.basis_gates.as_ref().unwrap().contains("prx"));
 //! ```
 //!
-//! ## Using the PassManager with PropertySet
+//! ## Using the `PassManager` with `PropertySet`
 //!
 //! ```
 //! use arvak_compile::{PassManagerBuilder, CouplingMap, BasisGates};
@@ -303,7 +303,7 @@ impl BasisGates {
     /// Create a new basis gates set.
     pub fn new(gates: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self {
-            gates: gates.into_iter().map(|g| g.into()).collect(),
+            gates: gates.into_iter().map(std::convert::Into::into).collect(),
         }
     }
 
@@ -530,6 +530,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::items_after_statements)]
     fn test_property_set_custom() {
         let mut props = PropertySet::new();
 

@@ -26,12 +26,12 @@ fn main() {
     print_section("Problem Setup");
     print_result("Task", "4-class quantum classifier");
     print_result("Qubits", n_qubits);
-    print_result("Circuit depth", format!("{} layers", depth));
+    print_result("Circuit depth", format!("{depth} layers"));
     print_result("Trainable parameters", n_params);
     print_result("Training steps", format_count(training_steps));
     print_result(
         "Circuits per step",
-        format!("{} (parameter-shift gradient)", circuits_per_step),
+        format!("{circuits_per_step} (parameter-shift gradient)"),
     );
     print_result("Total circuits", format_count(total_circuits));
     print_result("Target", "IQM (CZ + PRX)");
@@ -53,7 +53,7 @@ fn main() {
         circuits.push(qml_classifier(n_qubits, depth, &data, &weights));
     }
     let gen_time = gen_start.elapsed();
-    print_result("Generation time", format!("{:.2?}", gen_time));
+    print_result("Generation time", format!("{gen_time:.2?}"));
 
     let sample_gates = circuits[0].dag().num_ops();
     print_result("Gates per circuit", sample_gates);
@@ -71,8 +71,8 @@ fn main() {
 
     println!();
     println!(
-        "  {:<8}{:<12}{:<16}{}",
-        "Level", "Total", "Per-Circuit", "Gates/s"
+        "  {:<8}{:<12}{:<16}Gates/s",
+        "Level", "Total", "Per-Circuit"
     );
     println!(
         "  {:<8}{:<12}{:<16}{}",
@@ -102,7 +102,7 @@ fn main() {
     );
     print_result(
         "Arvak speedup",
-        format!("{:.0}x (O0) / {:.0}x (O2)", speedup_o0, speedup_o2),
+        format!("{speedup_o0:.0}x (O0) / {speedup_o2:.0}x (O2)"),
     );
 
     print_section("Why This Matters");
@@ -120,8 +120,7 @@ fn main() {
     );
     println!("  compiling — before any quantum hardware is touched.");
     println!(
-        "  Arvak compiles the entire training run in {:.2?}.",
-        time_o2
+        "  Arvak compiles the entire training run in {time_o2:.2?}."
     );
 
     println!();
@@ -163,7 +162,7 @@ fn format_count(n: usize) -> String {
     } else if n >= 1_000 {
         format!("{},{:03}", n / 1_000, n % 1_000)
     } else {
-        format!("{}", n)
+        format!("{n}")
     }
 }
 
@@ -176,7 +175,7 @@ fn format_duration_us(nanos: f64) -> String {
     if us >= 1000.0 {
         format!("{:.1}ms", us / 1000.0)
     } else {
-        format!("{:.0}us", us)
+        format!("{us:.0}us")
     }
 }
 
@@ -186,6 +185,6 @@ fn format_rate(per_sec: f64) -> String {
     } else if per_sec >= 1_000.0 {
         format!("{:.0}K", per_sec / 1_000.0)
     } else {
-        format!("{:.0}", per_sec)
+        format!("{per_sec:.0}")
     }
 }
