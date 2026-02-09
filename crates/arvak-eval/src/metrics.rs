@@ -1,11 +1,10 @@
 //! Metrics Aggregator: structural, compilation, orchestration, and emitter effect metrics.
 //!
-//! Combines data from input analysis, compilation observation, contract checking,
+//! Combines data from input analysis, compilation observation,
 //! orchestration analysis, and emitter compliance into unified evaluation metrics.
 
 use serde::{Deserialize, Serialize};
 
-use crate::contract::ContractReport;
 use crate::emitter::EmitterReport;
 use crate::input::InputAnalysis;
 use crate::observer::CompilationObserver;
@@ -27,19 +26,6 @@ pub struct CompilationEffect {
     pub two_qubit_delta: i64,
     /// Two-qubit gate ratio.
     pub two_qubit_ratio: f64,
-}
-
-/// QDMI compliance summary.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComplianceSummary {
-    /// Whether the circuit is fully compliant.
-    pub compliant: bool,
-    /// Fraction of safe operations.
-    pub safe_fraction: f64,
-    /// Fraction of conditional operations.
-    pub conditional_fraction: f64,
-    /// Fraction of violating operations.
-    pub violating_fraction: f64,
 }
 
 /// Orchestration effect metrics.
@@ -89,8 +75,6 @@ pub struct EmitterEffect {
 pub struct AggregatedMetrics {
     /// Compilation effect (None if no compilation was performed).
     pub compilation_effect: Option<CompilationEffect>,
-    /// QDMI compliance summary.
-    pub compliance: ComplianceSummary,
     /// Orchestration effect (None if --orchestration not used).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub orchestration_effect: Option<OrchestrationEffect>,
@@ -107,14 +91,11 @@ impl MetricsAggregator {
     pub fn aggregate(
         input: &InputAnalysis,
         observer: &CompilationObserver,
-        contract: &ContractReport,
     ) -> AggregatedMetrics {
         let compilation_effect = Self::compute_compilation_effect(input, observer);
-        let compliance = Self::compute_compliance(contract);
 
         AggregatedMetrics {
             compilation_effect,
-            compliance,
             orchestration_effect: None,
             emitter_effect: None,
         }
@@ -124,12 +105,10 @@ impl MetricsAggregator {
     pub fn aggregate_with_orchestration(
         input: &InputAnalysis,
         observer: &CompilationObserver,
-        contract: &ContractReport,
         orchestration: &OrchestrationReport,
         scheduler_fitness: Option<&SchedulerFitness>,
     ) -> AggregatedMetrics {
         let compilation_effect = Self::compute_compilation_effect(input, observer);
-        let compliance = Self::compute_compliance(contract);
         let orchestration_effect = Some(Self::compute_orchestration_effect(
             orchestration,
             scheduler_fitness,
@@ -137,7 +116,6 @@ impl MetricsAggregator {
 
         AggregatedMetrics {
             compilation_effect,
-            compliance,
             orchestration_effect,
             emitter_effect: None,
         }
@@ -147,19 +125,16 @@ impl MetricsAggregator {
     pub fn aggregate_full(
         input: &InputAnalysis,
         observer: &CompilationObserver,
-        contract: &ContractReport,
         orchestration: Option<(&OrchestrationReport, Option<&SchedulerFitness>)>,
         emitter: Option<&EmitterReport>,
     ) -> AggregatedMetrics {
         let compilation_effect = Self::compute_compilation_effect(input, observer);
-        let compliance = Self::compute_compliance(contract);
         let orchestration_effect =
             orchestration.map(|(orch, sched)| Self::compute_orchestration_effect(orch, sched));
         let emitter_effect = emitter.map(Self::compute_emitter_effect);
 
         AggregatedMetrics {
             compilation_effect,
-            compliance,
             orchestration_effect,
             emitter_effect,
         }
@@ -240,17 +215,6 @@ impl MetricsAggregator {
         })
     }
 
-    fn compute_compliance(contract: &ContractReport) -> ComplianceSummary {
-        let total = contract.safe_count + contract.conditional_count + contract.violating_count;
-        let total_f = total.max(1) as f64;
-
-        ComplianceSummary {
-            compliant: contract.compliant,
-            safe_fraction: contract.safe_count as f64 / total_f,
-            conditional_fraction: contract.conditional_count as f64 / total_f,
-            violating_fraction: contract.violating_count as f64 / total_f,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -273,21 +237,4 @@ mod tests {
         assert_eq!(effect.two_qubit_ratio, 1.0);
     }
 
-    #[test]
-    fn test_compliance_summary() {
-        let summary = ComplianceSummary {
-            compliant: true,
-            safe_fraction: 0.8,
-            conditional_fraction: 0.2,
-            violating_fraction: 0.0,
-        };
-
-        assert!(summary.compliant);
-        assert!(
-            (summary.safe_fraction + summary.conditional_fraction + summary.violating_fraction
-                - 1.0)
-                .abs()
-                < 1e-10
-        );
-    }
 }

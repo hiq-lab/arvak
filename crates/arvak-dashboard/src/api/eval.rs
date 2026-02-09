@@ -49,13 +49,6 @@ fn default_target_qubits() -> u32 {
     20
 }
 
-/// Compact contract gate summary for the dashboard.
-#[derive(Debug, Serialize)]
-pub struct ContractGateSummary {
-    pub gate: String,
-    pub tag: String,
-}
-
 /// Compact emitter gate summary for the dashboard.
 #[derive(Debug, Serialize)]
 pub struct EmitterGateSummary {
@@ -153,8 +146,6 @@ pub struct EvalResponse {
     pub input: InputView,
     /// Compilation deltas
     pub compilation: CompilationView,
-    /// QDMI contract
-    pub contract: ContractView,
     /// Orchestration (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub orchestration: Option<OrchestrationView>,
@@ -195,26 +186,12 @@ pub struct CompilationView {
     pub throughput_gates_per_sec: u64,
 }
 
-/// Contract summary.
-#[derive(Debug, Serialize)]
-pub struct ContractView {
-    pub target_name: String,
-    pub compliant: bool,
-    pub safe_count: usize,
-    pub conditional_count: usize,
-    pub violating_count: usize,
-    pub gates: Vec<ContractGateSummary>,
-}
-
 /// Aggregated metrics summary.
 #[derive(Debug, Serialize)]
 pub struct MetricsView {
     pub depth_ratio: Option<f64>,
     pub ops_ratio: Option<f64>,
     pub two_qubit_ratio: Option<f64>,
-    pub safe_fraction: f64,
-    pub conditional_fraction: f64,
-    pub violating_fraction: f64,
     pub scheduler_fitness: Option<f64>,
     pub native_coverage: Option<f64>,
     pub materializable_coverage: Option<f64>,
@@ -280,23 +257,6 @@ pub async fn evaluate(
             .map_or(0, |e| e.ops_delta),
         compile_time_us,
         throughput_gates_per_sec,
-    };
-
-    let contract = ContractView {
-        target_name: report.contract.target_name.clone(),
-        compliant: report.contract.compliant,
-        safe_count: report.contract.safe_count,
-        conditional_count: report.contract.conditional_count,
-        violating_count: report.contract.violating_count,
-        gates: report
-            .contract
-            .gate_summary
-            .iter()
-            .map(|(gate, tag)| ContractGateSummary {
-                gate: gate.clone(),
-                tag: tag.to_string(),
-            })
-            .collect(),
     };
 
     let orchestration = report.orchestration.as_ref().map(|orch| OrchestrationView {
@@ -395,9 +355,6 @@ pub async fn evaluate(
             .compilation_effect
             .as_ref()
             .map(|e| e.two_qubit_ratio),
-        safe_fraction: report.metrics.compliance.safe_fraction,
-        conditional_fraction: report.metrics.compliance.conditional_fraction,
-        violating_fraction: report.metrics.compliance.violating_fraction,
         scheduler_fitness: report
             .metrics
             .orchestration_effect
@@ -420,7 +377,6 @@ pub async fn evaluate(
         profile: report.profile,
         input,
         compilation,
-        contract,
         orchestration,
         scheduler,
         emitter,

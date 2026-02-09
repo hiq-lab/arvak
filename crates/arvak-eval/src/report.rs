@@ -6,7 +6,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::benchmark::BenchmarkCircuit;
-use crate::contract::ContractReport;
 use crate::emitter::EmitterReport;
 use crate::input::InputReport;
 use crate::metrics::AggregatedMetrics;
@@ -28,8 +27,6 @@ pub struct EvalReport {
     pub input: InputReport,
     /// Compilation observation results.
     pub compilation: CompilationReport,
-    /// QDMI contract compliance results.
-    pub contract: ContractReport,
     /// Aggregated metrics.
     pub metrics: AggregatedMetrics,
     /// Orchestration analysis (present when --orchestration is used).
