@@ -5,6 +5,26 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-10
+
+### Added
+- **Real simulator backends**: All 4 Python framework backends (Qiskit, Qrisp, Cirq, PennyLane) now use Arvak's built-in Rust statevector simulator via PyO3 instead of returning mock data
+- **`arvak.run_sim()` function**: New PyO3 binding exposing `SimulatorBackend::run_simulation()` directly to Python, with GIL release for concurrent execution
+- **PennyLane VQE demo notebook**: Notebook 05 rewritten as a full VQE workflow demonstrating Arvak's compilation speed advantage for molecular simulations
+- **PennyLane integration tests**: Complete test suite for PennyLane converter, ArvakDevice, and round-trip conversion
+- **Simulator validation tests**: Added quantum-correctness tests (Bell/GHZ state outcomes) across all 4 framework backend test suites
+- **`test_run_sim.py`**: Dedicated test suite for the core `run_sim` PyO3 binding (Bell state, GHZ, single-qubit, QASM circuits)
+- **End-to-end smoke test**: `scripts/smoke-test.sh` validates the entire stack (Python SDK, simulator, converters, gRPC, dashboard)
+
+### Changed
+- **Notebook naming**: All notebooks renamed from `hiq` to `arvak` prefix, all code/markdown cells updated
+- **Notebook template**: Fixed remaining `hiq`/`HIQ` references in framework template
+- **`generate_notebook.py`**: Fixed stale `python/hiq/` path reference
+
+### Removed
+- **Mock backends**: Removed all `_mock_results()` methods and `RuntimeWarning` mock notices from Python backends
+- **gRPC auth/rate-limit stubs**: Removed placeholder `AuthInterceptor` and `RateLimiter` (deploy behind nginx/Envoy with mTLS for production)
+
 ## [1.3.0] - 2026-02-07
 
 ### Added

@@ -10,9 +10,15 @@ description = "Python bindings for the Arvak quantum compilation platform"
 name = "arvak"
 crate-type = ["cdylib"]
 
+[features]
+default = ["simulator"]
+simulator = ["arvak-adapter-sim"]
+
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module"] }
 arvak-ir = { workspace = true }
 arvak-compile = { workspace = true }
 arvak-qasm3 = { workspace = true }
+arvak-hal = { workspace = true }
+arvak-adapter-sim = { workspace = true, optional = true }
 num-complex = { workspace = true }

@@ -2,10 +2,12 @@
 
 This module implements Qrisp's backend interface, allowing users to execute
 Arvak circuits through Qrisp's backend API.
+
+The backend calls Arvak's built-in Rust statevector simulator directly
+via PyO3, returning real simulation results.
 """
 
-from typing import List, Optional, Union, TYPE_CHECKING, Dict, Any
-import warnings
+from typing import List, Optional, Union, TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
     from qrisp import QuantumCircuit, QuantumSession
@@ -14,17 +16,20 @@ if TYPE_CHECKING:
 class ArvakBackendClient:
     """Arvak backend client for Qrisp.
 
-    This class implements Qrisp's backend client interface, allowing Qrisp
-    programs to execute on Arvak backends.
+    Executes Qrisp circuits on Arvak's built-in Rust statevector simulator.
+    Circuits are converted to OpenQASM, parsed in Rust, and simulated with
+    exact statevector simulation (up to ~20 qubits).
 
     Example:
         >>> from arvak.integrations.qrisp import ArvakBackendClient
-        >>> from qrisp import QuantumVariable
+        >>> from qrisp import QuantumCircuit
         >>> backend = ArvakBackendClient('sim')
-        >>> # Use with Qrisp QuantumSession
-        >>> qv = QuantumVariable(2)
-        >>> qv.h(0)
-        >>> qv.cx(0, 1)
+        >>> qc = QuantumCircuit(2)
+        >>> qc.h(0)
+        >>> qc.cx(0, 1)
+        >>> qc.measure_all()
+        >>> counts = backend.run(qc, shots=1000)
+        >>> print(counts)  # {'00': 512, '11': 488}
     """
 
     def __init__(self, backend_name: str = 'sim'):
@@ -35,11 +40,11 @@ class ArvakBackendClient:
         """
         self.backend_name = backend_name
         self.name = f'arvak_{backend_name}'
-        self.description = f'Arvak backend: {backend_name}'
+        self.description = f'Arvak Rust statevector simulator ({backend_name})'
 
     def run(self, circuit: Union['QuantumCircuit', 'QuantumSession'],
             shots: int = 1024, **options) -> Dict[str, int]:
-        """Run a Qrisp circuit on Arvak backend.
+        """Run a Qrisp circuit on Arvak's statevector simulator.
 
         Args:
             circuit: Qrisp QuantumCircuit or QuantumSession
@@ -47,54 +52,23 @@ class ArvakBackendClient:
             **options: Additional execution options
 
         Returns:
-            Dictionary of measurement counts
-
-        Note:
-            This is a mock implementation. For actual execution, use the Arvak CLI:
-            'arvak run circuit.qasm --backend sim --shots 1000'
+            Dictionary mapping bitstrings to measurement counts
         """
-        warnings.warn(
-            "Arvak backend execution through Qrisp is not yet fully implemented. "
-            "For now, please use Arvak CLI for execution: "
-            "'arvak run circuit.qasm --backend sim --shots 1000'. "
-            "This backend interface will return mock results.",
-            RuntimeWarning
-        )
-
-        # Convert to Arvak format
         from .converter import qrisp_to_arvak
         import arvak
 
         arvak_circuit = qrisp_to_arvak(circuit)
-
-        # Create mock results (would execute here in real implementation)
-        return self._mock_results(arvak_circuit, shots)
-
-    def _mock_results(self, circuit, shots: int) -> Dict[str, int]:
-        """Generate mock results for demonstration.
-
-        Args:
-            circuit: Arvak circuit
-            shots: Number of shots
-
-        Returns:
-            Dictionary of mock measurement counts
-        """
-        # Return mock Bell state results
-        return {
-            '00': shots // 2,
-            '11': shots // 2,
-        }
+        counts = arvak.run_sim(arvak_circuit, shots)
+        return counts
 
     def __repr__(self) -> str:
-        """String representation of the backend."""
         return f"<ArvakBackendClient('{self.name}')>"
 
 
 class ArvakProvider:
     """Arvak backend provider for Qrisp.
 
-    This provider allows Qrisp programs to discover and use Arvak backends.
+    Allows Qrisp programs to discover and use Arvak backends.
 
     Example:
         >>> from arvak.integrations.qrisp import ArvakProvider
@@ -103,7 +77,6 @@ class ArvakProvider:
     """
 
     def __init__(self):
-        """Initialize the Arvak provider."""
         self._backends = {}
 
     def get_backend(self, name: str = 'sim') -> ArvakBackendClient:
@@ -114,26 +87,13 @@ class ArvakProvider:
 
         Returns:
             ArvakBackendClient instance
-
-        Raises:
-            ValueError: If backend name is unknown
         """
         if name not in self._backends:
             self._backends[name] = ArvakBackendClient(name)
-
         return self._backends[name]
 
     def backends(self, name: Optional[str] = None, **filters) -> List[ArvakBackendClient]:
-        """Get list of available backends.
-
-        Args:
-            name: Optional backend name filter
-            **filters: Additional filters (currently unused)
-
-        Returns:
-            List of ArvakBackendClient instances
-        """
-        # Initialize default backends if not already done
+        """Get list of available backends."""
         if not self._backends:
             self._backends = {
                 'sim': ArvakBackendClient('sim'),
@@ -146,5 +106,4 @@ class ArvakProvider:
         return list(self._backends.values())
 
     def __repr__(self) -> str:
-        """String representation of the provider."""
         return f"<ArvakProvider(backends={list(self._backends.keys())})>"
