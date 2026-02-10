@@ -1,6 +1,6 @@
 //! Parser for `OpenQASM` 3.
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use arvak_ir::{Circuit, ClbitId, ParameterExpression, QubitId};
 
@@ -683,9 +683,9 @@ fn lower_to_circuit(program: &Program) -> ParseResult<Circuit> {
 /// Lowers AST to Circuit.
 struct Lowerer {
     /// Qubit registers: name -> (`start_id`, size).
-    qregs: HashMap<String, (u32, u32)>,
+    qregs: FxHashMap<String, (u32, u32)>,
     /// Classical bit registers: name -> (`start_id`, size).
-    cregs: HashMap<String, (u32, u32)>,
+    cregs: FxHashMap<String, (u32, u32)>,
     /// Next qubit ID.
     next_qubit: u32,
     /// Next clbit ID.
@@ -701,8 +701,8 @@ struct Lowerer {
 impl Lowerer {
     fn new() -> Self {
         Self {
-            qregs: HashMap::new(),
-            cregs: HashMap::new(),
+            qregs: FxHashMap::default(),
+            cregs: FxHashMap::default(),
             next_qubit: 0,
             next_clbit: 0,
         }

@@ -83,19 +83,14 @@ impl Pass for NeutralAtomRouting {
         let num_qubits = dag.num_qubits() as u32;
         let zone_assignment = ZoneAssignment::new(num_qubits, self.zones);
 
-        // Collect two-qubit gates that span zones
-        let ops: Vec<_> = dag
+        // Collect only the qubit pairs for two-qubit gates (avoids cloning full instructions)
+        let two_qubit_ops: Vec<_> = dag
             .topological_ops()
-            .map(|(idx, inst)| (idx, inst.clone()))
+            .filter(|(_, inst)| inst.qubits.len() == 2)
+            .map(|(idx, inst)| (idx, inst.qubits[0], inst.qubits[1]))
             .collect();
 
-        for (_node_idx, instruction) in ops {
-            if instruction.qubits.len() != 2 {
-                continue;
-            }
-
-            let q0 = instruction.qubits[0];
-            let q1 = instruction.qubits[1];
+        for (_node_idx, q0, q1) in two_qubit_ops {
 
             let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
             let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;
