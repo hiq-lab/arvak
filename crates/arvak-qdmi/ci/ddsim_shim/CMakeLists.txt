@@ -23,7 +23,7 @@ project(arvak-ddsim-shim LANGUAGES C CXX)
 
 # Which mqt-core version to build against. Default: pinned release tag.
 # CI overrides this to "main" for the upstream-drift detection job.
-set(MQT_CORE_VERSION "v3.4.1" CACHE STRING "mqt-core git tag or branch")
+set(MQT_CORE_VERSION "v3.4.0" CACHE STRING "mqt-core git tag or branch")
 
 message(STATUS "Building DDSIM shim against mqt-core ${MQT_CORE_VERSION}")
 
