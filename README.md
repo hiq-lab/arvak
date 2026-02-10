@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.4.0)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.5.0)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.4.0 Released!** New `arvak-eval` crate: compiler & orchestration observability with QDMI contract checking, emitter compliance (IQM/IBM/CUDA-Q coverage + loss docs), benchmark workload loader (GHZ/QFT/Grover/Random), hybrid DAG analysis, and HPC scheduler fitness scoring. See [CHANGELOG.md](CHANGELOG.md).
+> **v1.5.0 Released!** Compilation speed demos (VQE/QML/QAOA throughput benchmarks), noise-as-infrastructure model, QI-Nutshell quantum communication protocols, QDMI v1.2.1 device interface rewrite, real simulator backends for all Python frameworks, and end-to-end smoke testing. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 
@@ -531,7 +531,9 @@ arvak/
 │   ├── arvak-adapter-ibm/  # IBM Quantum API adapter
 │   ├── arvak-adapter-cudaq/ # NVIDIA CUDA-Q adapter (GPU-accelerated)
 │   └── arvak-adapter-qdmi/ # QDMI (Munich Quantum Software Stack) adapter
-├── demos/               # Demo applications (Grover, VQE, QAOA)
+├── demos/               # Demo applications
+│   ├── bin/             # Grover, VQE, QAOA, QI-Nutshell, speed benchmarks
+│   ├── src/             # Shared circuits, problems, runners
 │   └── lumi-hybrid/     # LUMI quantum-HPC hybrid VQE demo
 └── examples/            # Example QASM circuits
 ```
@@ -717,13 +719,31 @@ arvak run --input circuit.qasm --backend iqm --shots 1000
 
 ```bash
 # Run all demos
-cargo run --bin demo_all
+cargo run --bin demo-all
 
 # Run specific algorithms
-cargo run --bin demo_grover   # Grover's search algorithm
-cargo run --bin demo_vqe      # Variational Quantum Eigensolver
-cargo run --bin demo_qaoa     # Quantum Approximate Optimization
+cargo run --bin demo-grover        # Grover's search algorithm
+cargo run --bin demo-vqe           # Variational Quantum Eigensolver
+cargo run --bin demo-qaoa          # Quantum Approximate Optimization
+cargo run --bin demo-qi-nutshell   # QKD protocol emulation (BB84, BBM92, PCCM)
 ```
+
+### Compilation Speed Benchmarks
+
+Demonstrate Arvak's microsecond-level compilation throughput in realistic algorithm loops:
+
+```bash
+# VQE: 5,000 circuits (500 iterations x 10 Hamiltonian terms)
+cargo run --bin demo-speed-vqe
+
+# QML: 20,000+ circuits (parameter-shift gradient, 1000 training steps)
+cargo run --bin demo-speed-qml
+
+# QAOA: sensor network optimization with depth sweep + grid search
+cargo run --bin demo-speed-qaoa
+```
+
+Each demo reports per-circuit compile times, gates/s throughput, and speedup vs. a 100ms/circuit baseline.
 
 ### LUMI Hybrid VQE Demo
 
@@ -861,7 +881,7 @@ fn main() -> anyhow::Result<()> {
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Circuit IR (`arvak-ir`) | ✅ Complete | DAG-based representation, shuttle instructions, integrity checks |
+| Circuit IR (`arvak-ir`) | ✅ Complete | DAG-based representation, shuttle instructions, integrity checks, noise model |
 | QASM3 Parser (`arvak-qasm3`) | ✅ Complete | Parse & emit, neutral-atom pragmas |
 | Compilation (`arvak-compile`) | ✅ Complete | Pass manager, layout, routing, optimization, measurement verification |
 | HAL (`arvak-hal`) | ✅ Complete | Backend trait, plugin system, registry, neutral-atom topology |
@@ -876,12 +896,12 @@ fn main() -> anyhow::Result<()> {
 | IQM Adapter (`arvak-adapter-iqm`) | ✅ Complete | Resonance API integration |
 | IBM Adapter (`arvak-adapter-ibm`) | ✅ Complete | Qiskit Runtime API |
 | **CUDA-Q Adapter** (`arvak-adapter-cudaq`) | ✅ Complete | **NVIDIA GPU-accelerated simulation** |
-| QDMI Adapter (`arvak-adapter-qdmi`) | ✅ Complete | Munich Quantum Software Stack FFI integration |
+| QDMI Adapter (`arvak-adapter-qdmi`) | ✅ Complete | QDMI v1.2.1 device interface, prefix-aware dlsym |
 | HPC Scheduler (`arvak-sched`) | ✅ Complete | SLURM & PBS, workflows, message broker, job routing |
 | Dashboard (`arvak-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
-| Python Bindings (`arvak-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations |
+| Python Bindings (`arvak-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations + real simulator |
 | **Framework Integrations** | ✅ Complete | **Qiskit, Qrisp, Cirq, PennyLane + 5 notebooks** |
-| Demos | ✅ Complete | Grover, VQE, QAOA examples |
+| Demos | ✅ Complete | Grover, VQE, QAOA, QI-Nutshell, speed benchmarks (VQE/QML/QAOA) |
 
 ## Testing
 
@@ -952,7 +972,17 @@ python tests/verify_integration_system.py
 - [x] 62 unit tests
 - [x] **v1.4.0 release**
 
-### Phase 8: Community & Ecosystem
+### Phase 8: Speed, Noise & Protocol Demos ✅ COMPLETE
+- [x] Compilation speed demos: VQE (5K circuits), QML (20K+), QAOA (6K+ with depth sweep)
+- [x] Noise-as-infrastructure model (`NoiseModel`, `NoiseChannel`) in `arvak-ir`
+- [x] QI-Nutshell demo: BB84, BBM92, PCCM quantum communication protocols
+- [x] QDMI v1.2.1 rewrite with native device interface and prefix-aware dlsym
+- [x] Real simulator backends for all Python frameworks (Qiskit, Qrisp, Cirq, PennyLane)
+- [x] End-to-end smoke test (`scripts/smoke-test.sh`)
+- [x] Compile-time metrics in dashboard
+- [x] **v1.5.0 release**
+
+### Phase 9: Community & Ecosystem
 - [ ] Error mitigation (ZNE, readout correction, Pauli twirling)
 - [ ] Pulse-level control for IQM/IBM
 - [ ] Advanced routing algorithms (SABRE improvements)

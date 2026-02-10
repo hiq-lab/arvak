@@ -5,6 +5,52 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-10
+
+### Added
+
+#### Compilation Speed Demos
+- **demo-speed-vqe**: VQE compilation throughput benchmark — 5,000 circuits (500 optimizer iterations x 10 Hamiltonian terms) compiled at O0 and O2, reports per-circuit time and speedup vs 100ms baseline
+- **demo-speed-qml**: QML training loop benchmark — 20,000+ circuits (parameter-shift gradient, 1000 steps) with parameterized quantum classifier circuits
+- **demo-speed-qaoa**: QAOA sensor network benchmark — 6,000+ circuits across three tactical scenarios (drone patrol, radar deconfliction, surveillance grid) with QAOA depth sweep and angle grid search
+- **QML circuit generator** (`demos/src/circuits/qml.rs`): Parameterized quantum classifier with data encoding (Rx) and variational (Ry+CZ) layers
+- **Sensor assignment problems** (`demos/src/problems/sensor_assignment.rs`): Predefined weighted graphs for QAOA sensor network scenarios
+
+#### Noise as Infrastructure
+- **NoiseModel**: First-class noise model in `arvak-ir` with per-gate and per-qubit noise channels
+- **NoiseChannel**: Depolarizing, amplitude damping, phase damping, bit-flip, phase-flip, and custom Kraus channels
+- Noise model propagated across the stack: QASM3 emitter, scheduler matcher, dashboard, adapters
+
+#### QI-Nutshell Demo
+- **demo-qi-nutshell**: Quantum communication protocol emulation from "Quantum Internet in a Nutshell" (Hilder et al.)
+- BB84, BBM92, PCCM protocols with QBER analysis and QEC error correction
+- Compile-time metrics showing Arvak's overhead for protocol circuits
+
+#### QDMI v1.2.1 Device Interface
+- **Complete QDMI rewrite** to match QDMI v1.2.1 device interface specification
+- Prefix-aware dlsym for multi-device shared libraries
+- Native C FFI session lifecycle (alloc, device query, job submit/wait)
+- Mock device integration tests with thread-safe atomic refcounting
+
+#### Python & Integration Improvements
+- **Real simulator backends**: All 4 Python framework backends (Qiskit, Qrisp, Cirq, PennyLane) now use Arvak's Rust statevector simulator via PyO3 instead of mock data
+- **`arvak.run_sim()`**: New PyO3 binding exposing `SimulatorBackend::run_simulation()` with GIL release
+- **PennyLane v0.44 support**: Updated converter and device for latest PennyLane QASM3 interface
+- **End-to-end smoke test**: `scripts/smoke-test.sh` validates the entire stack
+
+#### Dashboard
+- **Compile-time metrics**: Dashboard compilation tab now shows per-pass timing breakdown
+
+### Changed
+- **QDMI adapter**: Rewritten from scratch for v1.2.1 spec compliance (1,937 lines changed)
+- **Evaluator**: Removed QDMI contract checker module (superseded by native device interface validation)
+- **Notebook naming**: All notebooks renamed from `hiq` to `arvak` prefix
+
+### Fixed
+- PennyLane integration compatibility with v0.44 (QASM3 circuit conversion)
+- Thread safety in QDMI mock device (atomic refcount on macOS)
+- DDSIM shim compatibility with mqt-core v3.4.1
+
 ## [1.4.0] - 2026-02-10
 
 ### Added
@@ -521,6 +567,8 @@ If upgrading from development versions:
 
 ---
 
+[1.5.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.5.0
+[1.4.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.4.0
 [1.3.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.3.0
 [1.2.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.2.0
 [1.1.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.1.1
