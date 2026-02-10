@@ -219,6 +219,56 @@ class TestCirqSampler:
         assert len(histogram) > 0
 
 
+class TestCirqSimulatorResults:
+    """Tests that Cirq sampler returns correct quantum simulation results."""
+
+    def test_bell_state_outcomes(self, cirq_bell_circuit):
+        """Bell state should only produce 00 and 11 outcomes."""
+        integration = arvak.get_integration('cirq')
+        engine = integration.get_backend_provider()
+        sampler = engine.get_sampler()
+
+        result = sampler.run(cirq_bell_circuit, repetitions=1000)
+        histogram = result.histogram(key='result')
+
+        for outcome in histogram.keys():
+            # outcome is an integer: 0=00, 3=11
+            assert outcome in (0, 3), f"Unexpected outcome: {outcome} (binary: {outcome:02b})"
+
+    def test_bell_state_total_shots(self, cirq_bell_circuit):
+        """Bell state total counts should equal requested repetitions."""
+        integration = arvak.get_integration('cirq')
+        engine = integration.get_backend_provider()
+        sampler = engine.get_sampler()
+
+        result = sampler.run(cirq_bell_circuit, repetitions=500)
+        histogram = result.histogram(key='result')
+
+        total = sum(histogram.values())
+        assert total == 500, f"Expected 500 total shots, got {total}"
+
+    def test_ghz3_outcomes(self):
+        """GHZ-3 circuit should only produce 000 and 111."""
+        qubits = cirq.LineQubit.range(3)
+        circuit = cirq.Circuit(
+            cirq.H(qubits[0]),
+            cirq.CNOT(qubits[0], qubits[1]),
+            cirq.CNOT(qubits[1], qubits[2]),
+            cirq.measure(*qubits, key='result')
+        )
+
+        integration = arvak.get_integration('cirq')
+        engine = integration.get_backend_provider()
+        sampler = engine.get_sampler()
+
+        result = sampler.run(circuit, repetitions=1000)
+        histogram = result.histogram(key='result')
+
+        for outcome in histogram.keys():
+            # 0=000, 7=111
+            assert outcome in (0, 7), f"Unexpected outcome: {outcome} (binary: {outcome:03b})"
+
+
 class TestCirqRoundTrip:
     """Tests for round-trip conversion (Cirq -> Arvak -> Cirq)."""
 

@@ -56,8 +56,16 @@ impl SimulatorBackend {
     }
 
     /// Run simulation synchronously.
+    ///
+    /// This is the core simulation engine. It initialises a statevector in the
+    /// |0…0⟩ state, applies all gates in topological order, and samples a
+    /// measurement outcome for each shot. Returns a [`ExecutionResult`] with
+    /// the resulting histogram.
+    ///
+    /// The method is public so that the Python bindings can call it directly
+    /// without going through the async [`Backend`] trait.
     #[instrument(skip(self, circuit))]
-    fn run_simulation(&self, circuit: &Circuit, shots: u32) -> ExecutionResult {
+    pub fn run_simulation(&self, circuit: &Circuit, shots: u32) -> ExecutionResult {
         let start = Instant::now();
 
         let num_qubits = circuit.num_qubits();

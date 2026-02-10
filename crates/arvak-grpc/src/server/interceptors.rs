@@ -3,7 +3,9 @@
 //! This module provides interceptors for:
 //! - Request ID generation and propagation
 //! - Request/response logging
-//! - Authentication (future)
+//!
+//! For production authentication and rate limiting, deploy behind
+//! nginx or Envoy with mTLS. See DEPLOYMENT.md for details.
 
 use tonic::{Request, Status};
 use tracing::{info, warn};
@@ -100,62 +102,6 @@ impl tonic::service::Interceptor for LoggingInterceptor {
     }
 }
 
-/// Rate limit state for a client.
-///
-/// Tracks request counts and timing for rate limiting.
-/// Note: This is a simple in-memory implementation.
-/// For production, consider using a distributed rate limiter.
-pub struct RateLimiter {
-    // Future: implement proper rate limiting with token bucket or sliding window
-}
-
-impl Default for RateLimiter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RateLimiter {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    /// Check if a request should be allowed.
-    pub fn allow(&self, _client_ip: &str) -> bool {
-        // Future: implement rate limiting logic
-        true
-    }
-}
-
-/// Authentication interceptor (placeholder for future implementation).
-///
-/// This interceptor can be used to validate API keys, JWT tokens, or other
-/// authentication mechanisms.
-#[derive(Clone)]
-pub struct AuthInterceptor {
-    // Future: add authentication state
-}
-
-impl Default for AuthInterceptor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl AuthInterceptor {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl tonic::service::Interceptor for AuthInterceptor {
-    fn call(&mut self, request: Request<()>) -> Result<Request<()>, Status> {
-        // Future: implement authentication logic
-        // For now, just pass through
-        Ok(request)
-    }
-}
-
 /// Error interceptor for handling and logging errors.
 ///
 /// Logs errors with appropriate severity and adds structured error information.
@@ -207,9 +153,4 @@ mod tests {
         assert!(request_id.is_some());
     }
 
-    #[test]
-    fn test_rate_limiter() {
-        let limiter = RateLimiter::new();
-        assert!(limiter.allow("127.0.0.1"));
-    }
 }

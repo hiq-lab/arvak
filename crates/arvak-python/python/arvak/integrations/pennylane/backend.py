@@ -2,10 +2,13 @@
 
 This module implements PennyLane's Device interface, allowing users to execute
 PennyLane QNodes on Arvak backends.
+
+The device calls Arvak's built-in Rust statevector simulator directly
+via PyO3, returning real simulation results. Expectation values are
+computed from measurement samples.
 """
 
 from typing import List, Optional, Union, TYPE_CHECKING, Sequence
-import warnings
 import numpy as np
 
 if TYPE_CHECKING:
@@ -15,14 +18,17 @@ if TYPE_CHECKING:
 class ArvakDevice:
     """Arvak device implementing PennyLane's Device interface.
 
-    This device allows PennyLane programs to execute on Arvak backends using
-    PennyLane's standard device API.
+    Executes PennyLane circuits on Arvak's built-in Rust statevector
+    simulator. Circuits are converted to OpenQASM, simulated in Rust,
+    and expectation values are computed from measurement counts.
+
+    Supports circuits up to ~20 qubits (exact statevector simulation).
 
     Example:
         >>> import pennylane as qml
         >>> from arvak.integrations.pennylane import ArvakDevice
         >>>
-        >>> dev = ArvakDevice(wires=2, backend='sim')
+        >>> dev = ArvakDevice(wires=2, shots=1000, backend='sim')
         >>>
         >>> @qml.qnode(dev)
         >>> def circuit(x):
@@ -36,7 +42,7 @@ class ArvakDevice:
     name = "Arvak Device"
     short_name = "arvak.qpu"
     pennylane_requires = ">=0.32.0"
-    version = "0.1.0"
+    version = "1.0.0"
     author = "Arvak Team"
 
     operations = {
@@ -58,112 +64,143 @@ class ArvakDevice:
 
         Args:
             wires: Number of wires (qubits)
-            shots: Number of shots for sampling (None = exact expectation values)
+            shots: Number of shots for sampling (None defaults to 1024)
             backend: Arvak backend to use (default: 'sim')
         """
         self.num_wires = wires
-        self.shots = shots
+        self.shots = shots if shots is not None else 1024
         self.backend_name = backend
-        self._state = None
-        self._samples = None
+        self._counts = None
 
     @property
     def wires(self):
         """Return the number of wires."""
         return self.num_wires
 
-    def apply(self, operations, **kwargs):
-        """Apply quantum operations.
+    def _run_circuit(self, operations):
+        """Execute operations on the simulator and store counts.
 
         Args:
             operations: List of PennyLane operations
-            **kwargs: Additional arguments
         """
-        warnings.warn(
-            "Arvak device execution is not yet fully implemented. "
-            "For now, please use Arvak CLI for execution: "
-            "'arvak run circuit.qasm --backend sim --shots 1000'. "
-            "This device will return mock results.",
-            RuntimeWarning
-        )
-
-        # Convert operations to Arvak circuit
-        from .converter import _tape_to_qasm
+        from .converter import _tape_to_qasm, _operation_to_qasm
         import arvak
 
-        # Build a simple tape-like object
-        class MockTape:
-            def __init__(self, ops, wires):
-                self.operations = ops
-                self.measurements = []
-                self.wires = wires
+        # Build QASM from operations
+        num_qubits = self.num_wires
+        wire_map = {i: i for i in range(num_qubits)}
 
-        tape = MockTape(operations, range(self.num_wires))
+        lines = [
+            'OPENQASM 2.0;',
+            'include "qelib1.inc";',
+            f'qreg q[{num_qubits}];',
+            f'creg c[{num_qubits}];',
+        ]
 
-        # Convert to QASM
-        qasm_str = _tape_to_qasm(tape)
+        for op in operations:
+            qasm_line = _operation_to_qasm(op, wire_map)
+            if qasm_line:
+                lines.append(qasm_line)
 
-        # Import to Arvak
+        # Add measurements
+        for i in range(num_qubits):
+            lines.append(f'measure q[{i}] -> c[{i}];')
+
+        qasm_str = '\n'.join(lines)
+
+        # Simulate
         arvak_circuit = arvak.from_qasm(qasm_str)
+        self._counts = arvak.run_sim(arvak_circuit, self.shots)
 
-        # Store for later (mock implementation)
-        self._circuit = arvak_circuit
+    def _counts_to_samples(self):
+        """Convert measurement counts to a numpy sample array.
+
+        Returns:
+            np.ndarray of shape (shots, num_wires) with 0/1 values
+        """
+        if self._counts is None:
+            return np.zeros((self.shots, self.num_wires), dtype=int)
+
+        rows = []
+        for bitstring, count in self._counts.items():
+            bits = [int(b) for b in bitstring]
+            while len(bits) < self.num_wires:
+                bits.insert(0, 0)
+            for _ in range(count):
+                rows.append(bits[:self.num_wires])
+
+        return np.array(rows, dtype=int)
+
+    def apply(self, operations, **kwargs):
+        """Apply quantum operations and simulate.
+
+        Args:
+            operations: List of PennyLane operations
+        """
+        self._run_circuit(operations)
 
     def expval(self, observable, **kwargs):
         """Return the expectation value of an observable.
 
+        Computed from measurement samples using the observable's eigenvalues.
+
         Args:
             observable: PennyLane observable
-            **kwargs: Additional arguments
 
         Returns:
-            Expectation value (mock)
+            float: Expectation value
         """
-        # Return mock expectation value
-        # In real implementation, would execute circuit and compute expectation
-        return 0.0
+        samples = self._counts_to_samples()
+        wire = observable.wires[0] if hasattr(observable, 'wires') else 0
+
+        # For Pauli-Z: eigenvalues are +1 (|0⟩) and -1 (|1⟩)
+        wire_samples = samples[:, wire]
+        eigenvalues = 1.0 - 2.0 * wire_samples  # maps 0→+1, 1→-1
+        return float(np.mean(eigenvalues))
 
     def var(self, observable, **kwargs):
         """Return the variance of an observable.
 
         Args:
             observable: PennyLane observable
-            **kwargs: Additional arguments
 
         Returns:
-            Variance (mock)
+            float: Variance
         """
-        return 1.0
+        samples = self._counts_to_samples()
+        wire = observable.wires[0] if hasattr(observable, 'wires') else 0
+
+        wire_samples = samples[:, wire]
+        eigenvalues = 1.0 - 2.0 * wire_samples
+        return float(np.var(eigenvalues))
 
     def sample(self, observable, **kwargs):
         """Return samples of an observable.
 
         Args:
             observable: PennyLane observable
-            **kwargs: Additional arguments
 
         Returns:
-            Samples array (mock)
+            np.ndarray: Array of sample outcomes
         """
-        if self.shots is None:
-            raise ValueError("Number of shots must be specified for sampling")
+        samples = self._counts_to_samples()
+        wire = observable.wires[0] if hasattr(observable, 'wires') else 0
 
-        # Return mock samples
-        return np.random.choice([0, 1], size=self.shots)
+        wire_samples = samples[:, wire]
+        return 1.0 - 2.0 * wire_samples  # Pauli-Z eigenvalues
 
     def execute(self, circuit, **kwargs):
-        """Execute a quantum circuit.
+        """Execute a quantum circuit (tape).
 
         Args:
-            circuit: PennyLane quantum circuit (tape)
+            circuit: PennyLane quantum tape
             **kwargs: Additional arguments
 
         Returns:
-            Execution results
+            Execution results (single value or list)
         """
         self.apply(circuit.operations)
 
-        # Collect results based on measurements
         results = []
         for m in circuit.measurements:
             if m.return_type.name == "Expectation":
@@ -176,7 +213,6 @@ class ArvakDevice:
         return results if len(results) > 1 else results[0] if results else None
 
     def __repr__(self) -> str:
-        """String representation of the device."""
         return f"<ArvakDevice(wires={self.num_wires}, backend='{self.backend_name}', shots={self.shots})>"
 
 

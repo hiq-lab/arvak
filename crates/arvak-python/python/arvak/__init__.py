@@ -34,6 +34,8 @@ from arvak._native import (
     # QASM I/O
     from_qasm,
     to_qasm,
+    # Simulation
+    run_sim,
 )
 
 # Import integration registry
@@ -143,6 +145,8 @@ __all__ = [
     # QASM I/O
     "from_qasm",
     "to_qasm",
+    # Simulation
+    "run_sim",
     # Integration API
     "list_integrations",
     "integration_status",

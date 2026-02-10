@@ -318,3 +318,201 @@ async fn test_cancel_job() {
     // Either successfully canceled or already in terminal state
     assert!(cancel_result.success || cancel_result.message.contains("terminal state"));
 }
+
+// =============================================================================
+// Stress & Edge-Case Tests
+// =============================================================================
+
+#[tokio::test]
+async fn test_concurrent_100_jobs() {
+    let addr = start_test_server().await;
+
+    let mut handles = Vec::new();
+    for i in 0..100 {
+        let addr = addr.clone();
+        handles.push(tokio::spawn(async move {
+            let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+            // Submit
+            let response = client
+                .submit_job(Request::new(SubmitJobRequest {
+                    circuit: Some(CircuitPayload {
+                        format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
+                    }),
+                    backend_id: "simulator".to_string(),
+                    shots: 100,
+                }))
+                .await
+                .unwrap();
+
+            let job_id = response.into_inner().job_id;
+
+            // Poll until completed
+            for _ in 0..30 {
+                let response = client
+                    .get_job_status(Request::new(GetJobStatusRequest {
+                        job_id: job_id.clone(),
+                    }))
+                    .await
+                    .unwrap();
+
+                let job = response.into_inner().job.unwrap();
+                let state = JobState::try_from(job.state).unwrap();
+                if state == JobState::Completed {
+                    return (i, job_id, true);
+                }
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            }
+            (i, job_id, false)
+        }));
+    }
+
+    let mut completed_count = 0;
+    for handle in handles {
+        let (idx, _job_id, completed) = handle.await.unwrap();
+        assert!(completed, "Job {idx} did not complete within timeout");
+        completed_count += 1;
+    }
+    assert_eq!(completed_count, 100);
+}
+
+#[tokio::test]
+async fn test_malformed_qasm_variants() {
+    let addr = start_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    let malformed_variants = vec![
+        ("empty string", ""),
+        ("only whitespace", "   \n\t\n  "),
+        ("missing semicolons", "OPENQASM 3.0\nqubit[2] q\nh q[0]"),
+        ("invalid gate name", "OPENQASM 3.0;\nqubit[2] q;\nfoobar q[0];"),
+        ("unclosed block", "OPENQASM 3.0;\nqubit[2] q;\nif (true) { h q[0];"),
+        ("negative qubit index", "OPENQASM 3.0;\nqubit[2] q;\nh q[-1];"),
+        ("binary garbage", "\x00\x01\x02\x03\x04\x05"),
+    ];
+
+    for (name, qasm) in malformed_variants {
+        let result = client
+            .submit_job(Request::new(SubmitJobRequest {
+                circuit: Some(CircuitPayload {
+                    format: Some(circuit_payload::Format::Qasm3(qasm.to_string())),
+                }),
+                backend_id: "simulator".to_string(),
+                shots: 100,
+            }))
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Malformed QASM variant '{name}' should be rejected, but was accepted"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_missing_circuit_payload() {
+    let addr = start_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    // No circuit at all
+    let result = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: None,
+            backend_id: "simulator".to_string(),
+            shots: 1000,
+        }))
+        .await;
+
+    assert!(result.is_err());
+
+    // Empty circuit payload (no format)
+    let result = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: Some(CircuitPayload { format: None }),
+            backend_id: "simulator".to_string(),
+            shots: 1000,
+        }))
+        .await;
+
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_ir_json_format_returns_unimplemented() {
+    let addr = start_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    let result = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: Some(CircuitPayload {
+                format: Some(circuit_payload::Format::ArvakIrJson(
+                    r#"{"name":"test","qubits":2}"#.to_string(),
+                )),
+            }),
+            backend_id: "simulator".to_string(),
+            shots: 100,
+        }))
+        .await;
+
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    // Should return an error indicating IR JSON is not supported
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
+    assert!(
+        err.message().contains("not yet supported"),
+        "Error message should mention 'not yet supported', got: {}",
+        err.message()
+    );
+}
+
+#[tokio::test]
+async fn test_cancel_race_condition() {
+    let addr = start_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    // Submit and immediately try to cancel — the simulator is fast so this
+    // exercises the race between completion and cancellation.
+    let response = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: Some(CircuitPayload {
+                format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
+            }),
+            backend_id: "simulator".to_string(),
+            shots: 100,
+        }))
+        .await
+        .unwrap();
+
+    let job_id = response.into_inner().job_id;
+
+    // Immediately cancel
+    let cancel_response = client
+        .cancel_job(Request::new(CancelJobRequest {
+            job_id: job_id.clone(),
+        }))
+        .await
+        .unwrap();
+
+    let cancel_result = cancel_response.into_inner();
+    // Either successfully canceled or already completed — both are valid
+    assert!(
+        cancel_result.success || cancel_result.message.contains("terminal state"),
+        "Cancel should either succeed or report terminal state"
+    );
+
+    // Verify job is in a terminal state
+    let status_response = client
+        .get_job_status(Request::new(GetJobStatusRequest {
+            job_id: job_id.clone(),
+        }))
+        .await
+        .unwrap();
+
+    let job = status_response.into_inner().job.unwrap();
+    let state = JobState::try_from(job.state).unwrap();
+    assert!(
+        state == JobState::Completed || state == JobState::Canceled,
+        "Job should be in terminal state after cancel race, got: {:?}",
+        state
+    );
+}
