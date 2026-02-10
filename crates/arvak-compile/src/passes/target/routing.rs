@@ -34,20 +34,14 @@ impl Pass for BasicRouting {
             .as_mut()
             .ok_or(CompileError::MissingLayout)?;
 
-        // Collect operations that need routing
-        let ops: Vec<_> = dag
+        // Collect only the qubit pairs for two-qubit gates (avoids cloning full instructions)
+        let two_qubit_ops: Vec<_> = dag
             .topological_ops()
-            .map(|(idx, inst)| (idx, inst.clone()))
+            .filter(|(_, inst)| inst.qubits.len() == 2)
+            .map(|(idx, inst)| (idx, inst.qubits[0], inst.qubits[1]))
             .collect();
 
-        for (_node_idx, instruction) in ops {
-            // Only process two-qubit gates
-            if instruction.qubits.len() != 2 {
-                continue;
-            }
-
-            let q0 = instruction.qubits[0];
-            let q1 = instruction.qubits[1];
+        for (_node_idx, q0, q1) in two_qubit_ops {
 
             let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
             let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;
@@ -96,13 +90,14 @@ fn find_path(
     from: u32,
     to: u32,
 ) -> CompileResult<Vec<u32>> {
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::VecDeque;
+    use rustc_hash::FxHashMap;
 
     if from == to {
         return Ok(vec![from]);
     }
 
-    let mut visited = HashMap::new();
+    let mut visited = FxHashMap::default();
     let mut queue = VecDeque::new();
 
     visited.insert(from, None);

@@ -1,5 +1,8 @@
 //! Optimization passes.
 
+use std::f64::consts::PI;
+use std::sync::LazyLock;
+
 use arvak_ir::CircuitDag;
 use arvak_ir::dag::{DagNode, NodeIndex, WireId};
 use arvak_ir::gate::{GateKind, StandardGate};
@@ -10,7 +13,6 @@ use arvak_ir::qubit::QubitId;
 use petgraph::Direction;
 use petgraph::visit::EdgeRef;
 use rustc_hash::FxHashSet;
-use std::f64::consts::PI;
 
 use crate::error::CompileResult;
 use crate::pass::{Pass, PassKind};
@@ -61,19 +63,35 @@ impl Optimize1qGates {
     }
 
     /// Get the unitary matrix for a single-qubit gate.
+    ///
+    /// Constant gates (I, X, Y, Z, H, S, Sdg, T, Tdg, SX, SXdg) use
+    /// pre-computed cached matrices to avoid recomputing trig functions.
     fn gate_to_unitary(gate: &StandardGate) -> Option<Unitary2x2> {
+        // Pre-computed unitaries for constant gates (computed once, reused forever).
+        static U_I: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::identity);
+        static U_X: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::x);
+        static U_Y: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::y);
+        static U_Z: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::z);
+        static U_H: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::h);
+        static U_S: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::s);
+        static U_SDG: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::sdg);
+        static U_T: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::t);
+        static U_TDG: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::tdg);
+        static U_SX: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::sx);
+        static U_SXDG: LazyLock<Unitary2x2> = LazyLock::new(Unitary2x2::sxdg);
+
         match gate {
-            StandardGate::I => Some(Unitary2x2::identity()),
-            StandardGate::X => Some(Unitary2x2::x()),
-            StandardGate::Y => Some(Unitary2x2::y()),
-            StandardGate::Z => Some(Unitary2x2::z()),
-            StandardGate::H => Some(Unitary2x2::h()),
-            StandardGate::S => Some(Unitary2x2::s()),
-            StandardGate::Sdg => Some(Unitary2x2::sdg()),
-            StandardGate::T => Some(Unitary2x2::t()),
-            StandardGate::Tdg => Some(Unitary2x2::tdg()),
-            StandardGate::SX => Some(Unitary2x2::sx()),
-            StandardGate::SXdg => Some(Unitary2x2::sxdg()),
+            StandardGate::I => Some(*U_I),
+            StandardGate::X => Some(*U_X),
+            StandardGate::Y => Some(*U_Y),
+            StandardGate::Z => Some(*U_Z),
+            StandardGate::H => Some(*U_H),
+            StandardGate::S => Some(*U_S),
+            StandardGate::Sdg => Some(*U_SDG),
+            StandardGate::T => Some(*U_T),
+            StandardGate::Tdg => Some(*U_TDG),
+            StandardGate::SX => Some(*U_SX),
+            StandardGate::SXdg => Some(*U_SXDG),
             StandardGate::Rx(p) => p.as_f64().map(Unitary2x2::rx),
             StandardGate::Ry(p) => p.as_f64().map(Unitary2x2::ry),
             StandardGate::Rz(p) => p.as_f64().map(Unitary2x2::rz),
@@ -478,8 +496,10 @@ impl Pass for CancelCX {
     }
 
     fn run(&self, dag: &mut CircuitDag, _properties: &mut PropertySet) -> CompileResult<()> {
-        // Keep cancelling until no more pairs found
-        loop {
+        // Keep cancelling until no more pairs found.
+        // Bound iterations to avoid pathological cases.
+        const MAX_ITERATIONS: usize = 100;
+        for _ in 0..MAX_ITERATIONS {
             let pairs = self.find_cancellable_pairs(dag);
             if pairs.is_empty() {
                 break;
@@ -691,8 +711,10 @@ impl Pass for CommutativeCancellation {
     }
 
     fn run(&self, dag: &mut CircuitDag, _properties: &mut PropertySet) -> CompileResult<()> {
-        // Find and merge adjacent same-type rotations
-        loop {
+        // Find and merge adjacent same-type rotations.
+        // Bound iterations to avoid pathological cases.
+        const MAX_ITERATIONS: usize = 100;
+        for _ in 0..MAX_ITERATIONS {
             let merges = self.find_mergeable_rotations(dag);
             if merges.is_empty() {
                 break;

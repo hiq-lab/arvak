@@ -26,21 +26,25 @@ pub enum DagNode {
 
 impl DagNode {
     /// Check if this is an input node.
+    #[inline]
     pub fn is_input(&self) -> bool {
         matches!(self, DagNode::In(_))
     }
 
     /// Check if this is an output node.
+    #[inline]
     pub fn is_output(&self) -> bool {
         matches!(self, DagNode::Out(_))
     }
 
     /// Check if this is an operation node.
+    #[inline]
     pub fn is_op(&self) -> bool {
         matches!(self, DagNode::Op(_))
     }
 
     /// Get the instruction if this is an operation node.
+    #[inline]
     pub fn instruction(&self) -> Option<&Instruction> {
         match self {
             DagNode::Op(inst) => Some(inst),
@@ -49,6 +53,7 @@ impl DagNode {
     }
 
     /// Get mutable reference to the instruction.
+    #[inline]
     pub fn instruction_mut(&mut self) -> Option<&mut Instruction> {
         match self {
             DagNode::Op(inst) => Some(inst),
@@ -293,11 +298,13 @@ impl CircuitDag {
     }
 
     /// Get an instruction by node index.
+    #[inline]
     pub fn get_instruction(&self, node: NodeIndex) -> Option<&Instruction> {
         self.graph.node_weight(node).and_then(|n| n.instruction())
     }
 
     /// Get a mutable instruction by node index.
+    #[inline]
     pub fn get_instruction_mut(&mut self, node: NodeIndex) -> Option<&mut Instruction> {
         self.graph
             .node_weight_mut(node)
@@ -361,16 +368,19 @@ impl CircuitDag {
     }
 
     /// Get the number of qubits.
+    #[inline]
     pub fn num_qubits(&self) -> usize {
         self.qubit_inputs.len()
     }
 
     /// Get the number of classical bits.
+    #[inline]
     pub fn num_clbits(&self) -> usize {
         self.clbit_inputs.len()
     }
 
     /// Get the number of operations.
+    #[inline]
     pub fn num_ops(&self) -> usize {
         self.graph
             .node_indices()

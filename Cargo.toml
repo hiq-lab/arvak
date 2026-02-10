@@ -83,13 +83,31 @@ dirs = "5.0"
 # Dynamic loading
 libloading = "0.8"
 
+# Allocator
+mimalloc = { version = "0.1", default-features = false }
+
 # Testing
 proptest = "1.5"
 criterion = "0.5"
 
+# --- Dev profile: optimized for fast iteration ---
+[profile.dev]
+opt-level = 0
+debug = "line-tables-only"    # ~30% faster incremental builds vs full debug
+incremental = true
+
+# Optimize dependencies even in dev mode (faster runtime during testing)
+[profile.dev.package."*"]
+opt-level = 2
+
+# --- Release profile: optimized for maximum runtime performance ---
 [profile.release]
 lto = "thin"
 codegen-units = 1
+panic = "abort"               # smaller binaries, no unwind overhead
+strip = "symbols"             # smaller binaries for distribution
 
+# --- Bench profile ---
 [profile.bench]
 lto = "thin"
+debug = 2                     # full debug info for profiling
