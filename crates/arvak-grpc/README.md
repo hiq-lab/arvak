@@ -532,8 +532,6 @@ server:
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for the complete implementation plan.
-
 ### Phase 1-4: Complete ✅
 - ✅ Core gRPC API (7 unary + 3 streaming RPCs)
 - ✅ Python client library (sync + async with streaming)
