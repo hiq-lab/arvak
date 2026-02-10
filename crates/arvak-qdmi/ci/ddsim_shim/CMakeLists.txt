@@ -23,7 +23,7 @@ project(arvak-ddsim-shim LANGUAGES C CXX)
 
 # Which mqt-core version to build against. Default: pinned release tag.
 # CI overrides this to "main" for the upstream-drift detection job.
-set(MQT_CORE_VERSION "v3.4.0" CACHE STRING "mqt-core git tag or branch")
+set(MQT_CORE_VERSION "v3.4.1" CACHE STRING "mqt-core git tag or branch")
 
 message(STATUS "Building DDSIM shim against mqt-core ${MQT_CORE_VERSION}")
 
@@ -31,11 +31,26 @@ message(STATUS "Building DDSIM shim against mqt-core ${MQT_CORE_VERSION}")
 # because the static libraries end up linked into a shared library.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+include(FetchContent)
+
 # ---------------------------------------------------------------------------
-# Fetch mqt-core
+# Pre-fetch QDMI so generate_prefixed_qdmi_headers() is defined before
+# mqt-core's DD device CMakeLists needs it.  (Required since mqt-core v3.4.1
+# which reorganised the QDMI device builds to use prefixed headers.)
 # ---------------------------------------------------------------------------
 
-include(FetchContent)
+set(QDMI_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  qdmi
+  GIT_REPOSITORY https://github.com/Munich-Quantum-Software-Stack/qdmi.git
+  GIT_TAG        70b815615475598c6194096a29c1b2340dd54a6c   # QDMI 1.2.1
+)
+FetchContent_MakeAvailable(qdmi)
+
+# ---------------------------------------------------------------------------
+# Fetch mqt-core (reuses already-populated qdmi)
+# ---------------------------------------------------------------------------
+
 FetchContent_Declare(
   mqt-core
   GIT_REPOSITORY https://github.com/cda-tum/mqt-core.git
