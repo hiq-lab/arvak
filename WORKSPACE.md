@@ -90,4 +90,4 @@ Lives in `grpc-client/`. **Not** part of the Cargo workspace.
 
 ## Current Version
 
-All components are aligned at **v1.4.0** as of the `v1.4.0-pre-split` tag.
+All components are aligned at **v1.5.0** as of the `v1.5.0-pre-split` tag.
