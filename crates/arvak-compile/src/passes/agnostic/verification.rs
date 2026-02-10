@@ -53,7 +53,9 @@ impl Pass for MeasurementBarrierVerification {
     fn run(&self, dag: &mut CircuitDag, properties: &mut PropertySet) -> CompileResult<()> {
         // Build per-qubit operation ordering from topological sort.
         // For each qubit, collect the ordered list of (position, instruction_kind).
-        let mut qubit_ops: FxHashMap<QubitId, Vec<OpEntry>> = FxHashMap::default();
+        let num_qubits = dag.num_qubits();
+        let mut qubit_ops: FxHashMap<QubitId, Vec<OpEntry>> =
+            FxHashMap::with_capacity_and_hasher(num_qubits, Default::default());
 
         for (position, (_node_idx, inst)) in dag.topological_ops().enumerate() {
             for &qubit in &inst.qubits {
@@ -113,14 +115,24 @@ impl Pass for MeasurementBarrierVerification {
         // topological ordering is consistent with the wire ordering in the DAG.
         // Walk the DAG edges for each qubit wire and confirm that the topological
         // position of each node is monotonically increasing along the wire.
+        //
+        // Pre-build a position map once (O(V+E)) instead of doing O(n) linear
+        // search per node which was O(qubits * ops * total_ops).
+        let num_ops = dag.num_ops();
+        let topo_ops: Vec<_> = dag.topological_ops().collect();
+        let mut topo_position: FxHashMap<arvak_ir::dag::NodeIndex, usize> =
+            FxHashMap::with_capacity_and_hasher(num_ops, Default::default());
+        for (pos, &(idx, _)) in topo_ops.iter().enumerate() {
+            topo_position.insert(idx, pos);
+        }
+
         let graph = dag.graph();
-        for &qubit in &dag.qubits().collect::<Vec<_>>() {
+        let qubits: Vec<_> = dag.qubits().collect();
+        for &qubit in &qubits {
             let wire = arvak_ir::WireId::Qubit(qubit);
 
-            // Find the input node for this qubit
-            let input_node = graph
-                .node_indices()
-                .find(|&idx| matches!(&graph[idx], DagNode::In(w) if *w == wire));
+            // O(1) lookup via DAG qubit_inputs instead of scanning all node_indices.
+            let input_node = dag.qubit_input_node(qubit);
 
             if let Some(start) = input_node {
                 // Walk the wire from input to output, collecting topological positions
@@ -137,9 +149,8 @@ impl Pass for MeasurementBarrierVerification {
                     match next {
                         Some(next_node) => {
                             if let DagNode::Op(inst) = &graph[next_node] {
-                                // Find this node's topological position
-                                let topo_pos =
-                                    dag.topological_ops().position(|(idx, _)| idx == next_node);
+                                // Look up pre-computed topological position (O(1))
+                                let topo_pos = topo_position.get(&next_node).copied();
 
                                 if let (Some(prev), Some(curr)) = (prev_position, topo_pos) {
                                     if curr < prev {

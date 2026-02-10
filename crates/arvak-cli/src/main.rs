@@ -45,6 +45,9 @@
 //!       "Calm down HAL, Arvak's got Dave's back"
 //! ```
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use clap::{Parser, Subcommand};
 use console::style;
 use tracing_subscriber::EnvFilter;

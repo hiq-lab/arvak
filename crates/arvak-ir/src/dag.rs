@@ -26,21 +26,25 @@ pub enum DagNode {
 
 impl DagNode {
     /// Check if this is an input node.
+    #[inline]
     pub fn is_input(&self) -> bool {
         matches!(self, DagNode::In(_))
     }
 
     /// Check if this is an output node.
+    #[inline]
     pub fn is_output(&self) -> bool {
         matches!(self, DagNode::Out(_))
     }
 
     /// Check if this is an operation node.
+    #[inline]
     pub fn is_op(&self) -> bool {
         matches!(self, DagNode::Op(_))
     }
 
     /// Get the instruction if this is an operation node.
+    #[inline]
     pub fn instruction(&self) -> Option<&Instruction> {
         match self {
             DagNode::Op(inst) => Some(inst),
@@ -49,6 +53,7 @@ impl DagNode {
     }
 
     /// Get mutable reference to the instruction.
+    #[inline]
     pub fn instruction_mut(&mut self) -> Option<&mut Instruction> {
         match self {
             DagNode::Op(inst) => Some(inst),
@@ -106,6 +111,13 @@ pub enum CircuitLevel {
 /// - Edges represent wires (quantum or classical)
 /// - Each wire has exactly one input and one output node
 /// - Operations are connected to wires in topological order
+///
+/// ## Performance
+///
+/// The DAG maintains a `wire_front` index that maps each wire to the
+/// last node before the output node. This enables O(1) predecessor
+/// lookups in `apply()` instead of scanning all incoming edges of the
+/// output node (which was O(degree) per qubit).
 pub struct CircuitDag {
     /// The underlying graph.
     graph: DiGraph<DagNode, DagEdge, u32>,
@@ -117,6 +129,10 @@ pub struct CircuitDag {
     clbit_inputs: FxHashMap<ClbitId, NodeIndex>,
     /// Map from classical bit to its current output node.
     clbit_outputs: FxHashMap<ClbitId, NodeIndex>,
+    /// Wire front: maps each wire to the node just before the output node.
+    /// Updated on every `apply()` and `remove_op()` to enable O(1)
+    /// predecessor lookups instead of edge scanning.
+    wire_front: FxHashMap<WireId, NodeIndex>,
     /// Global phase of the circuit.
     global_phase: f64,
     /// Abstraction level of the circuit.
@@ -132,6 +148,7 @@ impl CircuitDag {
             qubit_outputs: FxHashMap::default(),
             clbit_inputs: FxHashMap::default(),
             clbit_outputs: FxHashMap::default(),
+            wire_front: FxHashMap::default(),
             global_phase: 0.0,
             level: CircuitLevel::Logical,
         }
@@ -142,17 +159,14 @@ impl CircuitDag {
         if self.qubit_inputs.contains_key(&qubit) {
             return;
         }
-        let in_node = self.graph.add_node(DagNode::In(WireId::Qubit(qubit)));
-        let out_node = self.graph.add_node(DagNode::Out(WireId::Qubit(qubit)));
-        self.graph.add_edge(
-            in_node,
-            out_node,
-            DagEdge {
-                wire: WireId::Qubit(qubit),
-            },
-        );
+        let wire = WireId::Qubit(qubit);
+        let in_node = self.graph.add_node(DagNode::In(wire));
+        let out_node = self.graph.add_node(DagNode::Out(wire));
+        self.graph.add_edge(in_node, out_node, DagEdge { wire });
         self.qubit_inputs.insert(qubit, in_node);
         self.qubit_outputs.insert(qubit, out_node);
+        // Wire front: initially the input node is the predecessor of the output.
+        self.wire_front.insert(wire, in_node);
     }
 
     /// Add a classical bit to the circuit.
@@ -160,17 +174,13 @@ impl CircuitDag {
         if self.clbit_inputs.contains_key(&clbit) {
             return;
         }
-        let in_node = self.graph.add_node(DagNode::In(WireId::Clbit(clbit)));
-        let out_node = self.graph.add_node(DagNode::Out(WireId::Clbit(clbit)));
-        self.graph.add_edge(
-            in_node,
-            out_node,
-            DagEdge {
-                wire: WireId::Clbit(clbit),
-            },
-        );
+        let wire = WireId::Clbit(clbit);
+        let in_node = self.graph.add_node(DagNode::In(wire));
+        let out_node = self.graph.add_node(DagNode::Out(wire));
+        self.graph.add_edge(in_node, out_node, DagEdge { wire });
         self.clbit_inputs.insert(clbit, in_node);
         self.clbit_outputs.insert(clbit, out_node);
+        self.wire_front.insert(wire, in_node);
     }
 
     /// Apply an instruction to the circuit.
@@ -229,45 +239,48 @@ impl CircuitDag {
         // Add the operation node
         let op_node = self.graph.add_node(DagNode::Op(instruction.clone()));
 
-        // Connect quantum wires
+        // Connect quantum wires — O(1) per qubit via wire_front index.
         for &qubit in &instruction.qubits {
             let out_node = self.qubit_outputs[&qubit];
             let wire = WireId::Qubit(qubit);
 
-            // Find the edge going into the output node
-            let incoming: Vec<_> = self
-                .graph
-                .edges_directed(out_node, Direction::Incoming)
-                .filter(|e| e.weight().wire == wire)
-                .map(|e| (e.source(), e.id()))
-                .collect();
+            // Look up the current front node (predecessor of output) in O(1).
+            let prev_node = self.wire_front[&wire];
 
-            if let Some((prev_node, edge_id)) = incoming.first() {
-                // Remove edge from prev to output
-                self.graph.remove_edge(*edge_id);
-                // Add edge from prev to op
-                self.graph.add_edge(*prev_node, op_node, DagEdge { wire });
-                // Add edge from op to output
+            // Find and remove the edge from prev to output on this wire.
+            let edge_id = self
+                .graph
+                .edges_directed(prev_node, Direction::Outgoing)
+                .find(|e| e.weight().wire == wire && e.target() == out_node)
+                .map(|e| e.id());
+
+            if let Some(eid) = edge_id {
+                self.graph.remove_edge(eid);
+                self.graph.add_edge(prev_node, op_node, DagEdge { wire });
                 self.graph.add_edge(op_node, out_node, DagEdge { wire });
+                // Update wire front: this op is now the predecessor of the output.
+                self.wire_front.insert(wire, op_node);
             }
         }
 
-        // Connect classical wires
+        // Connect classical wires — same O(1) approach.
         for &clbit in &instruction.clbits {
             let out_node = self.clbit_outputs[&clbit];
             let wire = WireId::Clbit(clbit);
 
-            let incoming: Vec<_> = self
-                .graph
-                .edges_directed(out_node, Direction::Incoming)
-                .filter(|e| e.weight().wire == wire)
-                .map(|e| (e.source(), e.id()))
-                .collect();
+            let prev_node = self.wire_front[&wire];
 
-            if let Some((prev_node, edge_id)) = incoming.first() {
-                self.graph.remove_edge(*edge_id);
-                self.graph.add_edge(*prev_node, op_node, DagEdge { wire });
+            let edge_id = self
+                .graph
+                .edges_directed(prev_node, Direction::Outgoing)
+                .find(|e| e.weight().wire == wire && e.target() == out_node)
+                .map(|e| e.id());
+
+            if let Some(eid) = edge_id {
+                self.graph.remove_edge(eid);
+                self.graph.add_edge(prev_node, op_node, DagEdge { wire });
                 self.graph.add_edge(op_node, out_node, DagEdge { wire });
+                self.wire_front.insert(wire, op_node);
             }
         }
 
@@ -293,11 +306,13 @@ impl CircuitDag {
     }
 
     /// Get an instruction by node index.
+    #[inline]
     pub fn get_instruction(&self, node: NodeIndex) -> Option<&Instruction> {
         self.graph.node_weight(node).and_then(|n| n.instruction())
     }
 
     /// Get a mutable instruction by node index.
+    #[inline]
     pub fn get_instruction_mut(&mut self, node: NodeIndex) -> Option<&mut Instruction> {
         self.graph
             .node_weight_mut(node)
@@ -334,11 +349,16 @@ impl CircuitDag {
         // Remove the node (this removes all its edges)
         self.graph.remove_node(node);
 
-        // Reconnect wires
+        // Reconnect wires and update wire_front where needed
         for (pred, wire) in &incoming {
             for (succ, succ_wire) in &outgoing {
                 if wire == succ_wire {
                     self.graph.add_edge(*pred, *succ, DagEdge { wire: *wire });
+                    // If the removed node was the wire front (i.e., the successor
+                    // is an output node), update wire_front to point to the predecessor.
+                    if self.wire_front.get(wire) == Some(&node) {
+                        self.wire_front.insert(*wire, *pred);
+                    }
                 }
             }
         }
@@ -361,27 +381,34 @@ impl CircuitDag {
     }
 
     /// Get the number of qubits.
+    #[inline]
     pub fn num_qubits(&self) -> usize {
         self.qubit_inputs.len()
     }
 
     /// Get the number of classical bits.
+    #[inline]
     pub fn num_clbits(&self) -> usize {
         self.clbit_inputs.len()
     }
 
     /// Get the number of operations.
+    ///
+    /// Computed as total nodes minus input and output nodes (2 per qubit + 2 per clbit).
+    #[inline]
     pub fn num_ops(&self) -> usize {
-        self.graph
-            .node_indices()
-            .filter(|&idx| matches!(self.graph[idx], DagNode::Op(_)))
-            .count()
+        let io_nodes = 2 * (self.qubit_inputs.len() + self.clbit_inputs.len());
+        self.graph.node_count().saturating_sub(io_nodes)
     }
 
     /// Calculate the circuit depth.
     pub fn depth(&self) -> usize {
-        // Calculate the longest path through the DAG
-        let mut depths: FxHashMap<NodeIndex, usize> = FxHashMap::default();
+        let node_count = self.graph.node_count();
+        // Pre-allocate with expected capacity
+        let mut depths: FxHashMap<NodeIndex, usize> =
+            FxHashMap::with_capacity_and_hasher(node_count, Default::default());
+
+        let mut max_depth = 0usize;
 
         for node in petgraph::algo::toposort(&self.graph, None).unwrap_or_default() {
             let max_pred_depth = self
@@ -397,15 +424,24 @@ impl CircuitDag {
                 max_pred_depth
             };
 
+            if node_depth > max_depth {
+                max_depth = node_depth;
+            }
             depths.insert(node, node_depth);
         }
 
-        depths.values().copied().max().unwrap_or(0)
+        max_depth
     }
 
     /// Iterate over qubits.
     pub fn qubits(&self) -> impl Iterator<Item = QubitId> + '_ {
         self.qubit_inputs.keys().copied()
+    }
+
+    /// Get the input node for a qubit (O(1) lookup).
+    #[inline]
+    pub fn qubit_input_node(&self, qubit: QubitId) -> Option<NodeIndex> {
+        self.qubit_inputs.get(&qubit).copied()
     }
 
     /// Iterate over classical bits.
@@ -562,19 +598,17 @@ impl CircuitDag {
             }
         }
 
-        // 6. Check all operation nodes are reachable from some In node
-        let reachable: FxHashMap<_, _> = petgraph::algo::toposort(&self.graph, None)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|idx| (idx, true))
-            .collect();
-
-        for idx in self.graph.node_indices() {
-            if matches!(self.graph[idx], DagNode::Op(_)) && !reachable.contains_key(&idx) {
-                return Err(IrError::InvalidDag(
-                    "Unreachable operation node found in DAG".into(),
-                ));
-            }
+        // 6. Check all operation nodes are reachable from some In node.
+        // A successful toposort already visits all nodes in the graph, so
+        // if it succeeds (which it does since we checked acyclicity above),
+        // all nodes are reachable. We only need to verify the sorted set
+        // covers every op node.
+        let topo_nodes = petgraph::algo::toposort(&self.graph, None).unwrap_or_default();
+        let node_count = self.graph.node_count();
+        if topo_nodes.len() != node_count {
+            return Err(IrError::InvalidDag(
+                "Unreachable operation node found in DAG".into(),
+            ));
         }
 
         Ok(())
@@ -595,6 +629,7 @@ impl Clone for CircuitDag {
             qubit_outputs: self.qubit_outputs.clone(),
             clbit_inputs: self.clbit_inputs.clone(),
             clbit_outputs: self.clbit_outputs.clone(),
+            wire_front: self.wire_front.clone(),
             global_phase: self.global_phase,
             level: self.level,
         }

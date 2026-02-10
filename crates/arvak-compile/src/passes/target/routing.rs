@@ -34,20 +34,14 @@ impl Pass for BasicRouting {
             .as_mut()
             .ok_or(CompileError::MissingLayout)?;
 
-        // Collect operations that need routing
-        let ops: Vec<_> = dag
+        // Collect only the qubit pairs for two-qubit gates (avoids cloning full instructions)
+        let two_qubit_ops: Vec<_> = dag
             .topological_ops()
-            .map(|(idx, inst)| (idx, inst.clone()))
+            .filter(|(_, inst)| inst.qubits.len() == 2)
+            .map(|(idx, inst)| (idx, inst.qubits[0], inst.qubits[1]))
             .collect();
 
-        for (_node_idx, instruction) in ops {
-            // Only process two-qubit gates
-            if instruction.qubits.len() != 2 {
-                continue;
-            }
-
-            let q0 = instruction.qubits[0];
-            let q1 = instruction.qubits[1];
+        for (_node_idx, q0, q1) in two_qubit_ops {
 
             let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
             let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;
@@ -57,9 +51,13 @@ impl Pass for BasicRouting {
                 continue;
             }
 
-            // Need to insert SWAPs to bring qubits together
-            // Use a simple greedy approach: find path and insert SWAPs
-            let path = find_path(coupling_map, p0, p1)?;
+            // Use precomputed shortest path (O(distance) reconstruction, no BFS).
+            let path = coupling_map.shortest_path(p0, p1).ok_or(
+                CompileError::RoutingFailed {
+                    qubit1: p0,
+                    qubit2: p1,
+                },
+            )?;
 
             // Insert SWAPs along the path (except the last edge which is the gate)
             for i in 0..path.len() - 2 {
@@ -90,19 +88,21 @@ impl Pass for BasicRouting {
     }
 }
 
-/// Find shortest path between two physical qubits.
+/// Find shortest path between two physical qubits (legacy BFS, kept for tests).
+#[cfg(test)]
 fn find_path(
     coupling_map: &crate::property::CouplingMap,
     from: u32,
     to: u32,
 ) -> CompileResult<Vec<u32>> {
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::VecDeque;
+    use rustc_hash::FxHashMap;
 
     if from == to {
         return Ok(vec![from]);
     }
 
-    let mut visited = HashMap::new();
+    let mut visited = FxHashMap::default();
     let mut queue = VecDeque::new();
 
     visited.insert(from, None);
@@ -182,13 +182,18 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path() {
+    fn test_shortest_path() {
         let coupling_map = CouplingMap::linear(5);
 
-        let path = find_path(&coupling_map, 0, 4).unwrap();
+        // Precomputed shortest path
+        let path = coupling_map.shortest_path(0, 4).unwrap();
         assert_eq!(path, vec![0, 1, 2, 3, 4]);
 
-        let path = find_path(&coupling_map, 2, 2).unwrap();
+        let path = coupling_map.shortest_path(2, 2).unwrap();
         assert_eq!(path, vec![2]);
+
+        // Legacy BFS fallback
+        let path = find_path(&coupling_map, 0, 4).unwrap();
+        assert_eq!(path, vec![0, 1, 2, 3, 4]);
     }
 }
