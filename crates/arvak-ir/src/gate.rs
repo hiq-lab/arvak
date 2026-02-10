@@ -91,6 +91,7 @@ pub enum StandardGate {
 
 impl StandardGate {
     /// Get the name of this gate.
+    #[inline]
     pub fn name(&self) -> &'static str {
         match self {
             StandardGate::I => "id",
@@ -129,6 +130,7 @@ impl StandardGate {
     }
 
     /// Get the number of qubits this gate operates on.
+    #[inline]
     pub fn num_qubits(&self) -> u32 {
         match self {
             StandardGate::I
@@ -225,6 +227,7 @@ pub enum GateKind {
 
 impl GateKind {
     /// Get the name of this gate.
+    #[inline]
     pub fn name(&self) -> &str {
         match self {
             GateKind::Standard(g) => g.name(),
@@ -233,6 +236,7 @@ impl GateKind {
     }
 
     /// Get the number of qubits.
+    #[inline]
     pub fn num_qubits(&self) -> u32 {
         match self {
             GateKind::Standard(g) => g.num_qubits(),

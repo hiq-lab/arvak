@@ -113,6 +113,15 @@ impl Pass for MeasurementBarrierVerification {
         // topological ordering is consistent with the wire ordering in the DAG.
         // Walk the DAG edges for each qubit wire and confirm that the topological
         // position of each node is monotonically increasing along the wire.
+        //
+        // Pre-build a position map once (O(V+E)) instead of doing O(n) linear
+        // search per node which was O(qubits * ops * total_ops).
+        let topo_position: FxHashMap<arvak_ir::dag::NodeIndex, usize> = dag
+            .topological_ops()
+            .enumerate()
+            .map(|(pos, (idx, _))| (idx, pos))
+            .collect();
+
         let graph = dag.graph();
         for &qubit in &dag.qubits().collect::<Vec<_>>() {
             let wire = arvak_ir::WireId::Qubit(qubit);
@@ -137,9 +146,8 @@ impl Pass for MeasurementBarrierVerification {
                     match next {
                         Some(next_node) => {
                             if let DagNode::Op(inst) = &graph[next_node] {
-                                // Find this node's topological position
-                                let topo_pos =
-                                    dag.topological_ops().position(|(idx, _)| idx == next_node);
+                                // Look up pre-computed topological position (O(1))
+                                let topo_pos = topo_position.get(&next_node).copied();
 
                                 if let (Some(prev), Some(curr)) = (prev_position, topo_pos) {
                                     if curr < prev {

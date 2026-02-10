@@ -41,11 +41,9 @@ impl PassManager {
             if pass.should_run(dag, properties) {
                 debug!("Running pass: {}", pass.name());
                 pass.run(dag, properties)?;
-                debug!(
-                    "Pass {} completed, circuit depth: {}",
-                    pass.name(),
-                    dag.depth()
-                );
+                // Avoid calling dag.depth() here — it performs a full topological
+                // sort (O(V+E)) on every pass and is only used for debug logging.
+                debug!("Pass {} completed, ops: {}", pass.name(), dag.num_ops());
             } else {
                 debug!("Skipping pass: {}", pass.name());
             }
