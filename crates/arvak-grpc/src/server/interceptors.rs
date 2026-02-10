@@ -152,5 +152,4 @@ mod tests {
         let request_id = request.extensions().get::<RequestId>();
         assert!(request_id.is_some());
     }
-
 }

@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.5.0)
+[![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.5.1)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.5.0 Released!** Compilation speed demos (VQE/QML/QAOA throughput benchmarks), noise-as-infrastructure model, QI-Nutshell quantum communication protocols, QDMI v1.2.1 device interface rewrite, real simulator backends for all Python frameworks, and end-to-end smoke testing. See [CHANGELOG.md](CHANGELOG.md).
+> **v1.5.1 Released!** Compiler performance optimizations — algorithmic improvements in DAG traversal, routing passes, and PropertySet lookups. Plus build tooling with `.cargo/config.toml` and Makefile. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 

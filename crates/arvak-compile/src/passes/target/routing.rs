@@ -42,7 +42,6 @@ impl Pass for BasicRouting {
             .collect();
 
         for (_node_idx, q0, q1) in two_qubit_ops {
-
             let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
             let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;
 
@@ -52,12 +51,12 @@ impl Pass for BasicRouting {
             }
 
             // Use precomputed shortest path (O(distance) reconstruction, no BFS).
-            let path = coupling_map.shortest_path(p0, p1).ok_or(
-                CompileError::RoutingFailed {
+            let path = coupling_map
+                .shortest_path(p0, p1)
+                .ok_or(CompileError::RoutingFailed {
                     qubit1: p0,
                     qubit2: p1,
-                },
-            )?;
+                })?;
 
             // Insert SWAPs along the path (except the last edge which is the gate)
             for i in 0..path.len() - 2 {
@@ -95,8 +94,8 @@ fn find_path(
     from: u32,
     to: u32,
 ) -> CompileResult<Vec<u32>> {
-    use std::collections::VecDeque;
     use rustc_hash::FxHashMap;
+    use std::collections::VecDeque;
 
     if from == to {
         return Ok(vec![from]);
