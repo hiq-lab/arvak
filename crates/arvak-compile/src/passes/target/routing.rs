@@ -51,9 +51,13 @@ impl Pass for BasicRouting {
                 continue;
             }
 
-            // Need to insert SWAPs to bring qubits together
-            // Use a simple greedy approach: find path and insert SWAPs
-            let path = find_path(coupling_map, p0, p1)?;
+            // Use precomputed shortest path (O(distance) reconstruction, no BFS).
+            let path = coupling_map.shortest_path(p0, p1).ok_or(
+                CompileError::RoutingFailed {
+                    qubit1: p0,
+                    qubit2: p1,
+                },
+            )?;
 
             // Insert SWAPs along the path (except the last edge which is the gate)
             for i in 0..path.len() - 2 {
@@ -84,7 +88,8 @@ impl Pass for BasicRouting {
     }
 }
 
-/// Find shortest path between two physical qubits.
+/// Find shortest path between two physical qubits (legacy BFS, kept for tests).
+#[cfg(test)]
 fn find_path(
     coupling_map: &crate::property::CouplingMap,
     from: u32,
@@ -177,13 +182,18 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path() {
+    fn test_shortest_path() {
         let coupling_map = CouplingMap::linear(5);
 
-        let path = find_path(&coupling_map, 0, 4).unwrap();
+        // Precomputed shortest path
+        let path = coupling_map.shortest_path(0, 4).unwrap();
         assert_eq!(path, vec![0, 1, 2, 3, 4]);
 
-        let path = find_path(&coupling_map, 2, 2).unwrap();
+        let path = coupling_map.shortest_path(2, 2).unwrap();
         assert_eq!(path, vec![2]);
+
+        // Legacy BFS fallback
+        let path = find_path(&coupling_map, 0, 4).unwrap();
+        assert_eq!(path, vec![0, 1, 2, 3, 4]);
     }
 }

@@ -1,7 +1,7 @@
 # Arvak build performance configuration
 #
 # Uncomment the section below to use the mold linker for faster linking.
-# Install: sudo apt install mold
+# Install: sudo apt install mold  (or: brew install mold)
 #
 # [target.x86_64-unknown-linux-gnu]
 # linker = "clang"
@@ -20,6 +20,7 @@
 # [profile.dev]
 # codegen-backend = "cranelift"
 
-# Uncomment for native CPU optimizations in release builds:
-# [target.x86_64-unknown-linux-gnu]
+# Uncomment for native CPU optimizations (SIMD, etc.) in all builds.
+# Only enable on machines where the binary will run on the same CPU.
+# [build]
 # rustflags = ["-C", "target-cpu=native"]
