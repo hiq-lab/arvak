@@ -70,7 +70,7 @@ def generate_notebook(framework_name: str, output_number: str = "0X"):
     print(f"3. Update package requirements in pyproject.toml:")
     print(f"   {framework_lower} = [\"{framework_lower}>=X.Y.Z\"]")
     print(f"4. Create the integration module:")
-    print(f"   mkdir -p python/hiq/integrations/{framework_lower}")
+    print(f"   mkdir -p python/arvak/integrations/{framework_lower}")
     print(f"5. Implement the FrameworkIntegration class")
 
 

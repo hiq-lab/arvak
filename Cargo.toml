@@ -29,6 +29,9 @@ arvak-dashboard = { path = "crates/arvak-dashboard" }
 arvak-bench = { path = "crates/arvak-bench" }
 arvak-eval = { path = "crates/arvak-eval" }
 
+# Adapter crates
+arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
+
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }
 async-trait = "0.1"

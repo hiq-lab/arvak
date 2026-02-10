@@ -441,10 +441,51 @@ else
             if [[ "$CHANGELOG_VER" == "$CARGO_VERSION" ]]; then
                 pass "CHANGELOG latest version: $CHANGELOG_VER (matches)"
             else
-                warn "CHANGELOG latest version: $CHANGELOG_VER (Cargo.toml is $CARGO_VERSION)"
+                fail "CHANGELOG latest version: $CHANGELOG_VER != Cargo.toml $CARGO_VERSION"
             fi
         fi
     fi
+fi
+
+# =============================================================================
+# 8. Notebook Code Cell Hygiene
+# =============================================================================
+echo ""
+echo "--- 8. Notebook Code Cell Hygiene ---"
+
+NOTEBOOK_HIQ_FAIL=0
+NOTEBOOK_DIR="crates/arvak-python/notebooks"
+
+if [[ -d "$NOTEBOOK_DIR" ]]; then
+    # Check for 'hiq.' in notebook code cells (excluding URLs like hiq-lab/HIQ)
+    for nb in "$NOTEBOOK_DIR"/*.ipynb; do
+        [[ -f "$nb" ]] || continue
+        # Extract code cell sources and look for hiq. references
+        hits=$(python3 -c "
+import json, sys
+with open('$nb') as f:
+    nb = json.load(f)
+for i, cell in enumerate(nb.get('cells', [])):
+    if cell.get('cell_type') == 'code':
+        src = ''.join(cell.get('source', []))
+        for line_no, line in enumerate(src.split('\n'), 1):
+            if 'hiq.' in line.lower() and 'hiq-lab' not in line and 'hiq_lab' not in line:
+                print(f'$(basename "$nb") cell {i} line {line_no}: {line.strip()}')
+" 2>/dev/null || true)
+        if [[ -n "$hits" ]]; then
+            while IFS= read -r line; do
+                [[ -z "$line" ]] && continue
+                fail "Notebook stale ref: $line"
+                NOTEBOOK_HIQ_FAIL=$((NOTEBOOK_HIQ_FAIL + 1))
+            done <<< "$hits"
+        fi
+    done
+
+    if [[ "$NOTEBOOK_HIQ_FAIL" -eq 0 ]]; then
+        pass "Notebook code cells: no 'hiq.' references found"
+    fi
+else
+    warn "Notebook directory $NOTEBOOK_DIR not found"
 fi
 
 # =============================================================================

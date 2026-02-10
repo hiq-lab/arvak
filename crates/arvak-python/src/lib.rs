@@ -25,6 +25,7 @@ mod compile;
 mod error;
 mod qasm;
 mod qubits;
+mod simulate;
 
 use pyo3::prelude::*;
 
@@ -36,7 +37,7 @@ use pyo3::prelude::*;
 /// - from_qasm, to_qasm: QASM3 parsing and emission
 /// - Layout, CouplingMap, BasisGates, PropertySet: Compilation types
 #[pymodule]
-fn arvak(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Core types
     m.add_class::<qubits::PyQubitId>()?;
     m.add_class::<qubits::PyClbitId>()?;
@@ -51,6 +52,9 @@ fn arvak(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // QASM I/O functions
     m.add_function(wrap_pyfunction!(qasm::from_qasm, m)?)?;
     m.add_function(wrap_pyfunction!(qasm::to_qasm, m)?)?;
+
+    // Simulation
+    m.add_function(wrap_pyfunction!(simulate::run_sim, m)?)?;
 
     Ok(())
 }

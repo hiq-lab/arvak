@@ -236,6 +236,49 @@ class TestQrispBackendProvider:
         assert isinstance(results, dict)
 
 
+class TestQrispSimulatorResults:
+    """Tests that Qrisp backend returns correct quantum simulation results."""
+
+    def test_bell_state_only_00_and_11(self, qrisp_bell_circuit):
+        """Bell state should only produce 00 and 11 outcomes."""
+        integration = arvak.get_integration('qrisp')
+        provider = integration.get_backend_provider()
+        backend = provider.get_backend('sim')
+
+        results = backend.run(qrisp_bell_circuit, shots=1000)
+
+        for bitstring in results.keys():
+            assert bitstring in ('00', '11'), f"Unexpected outcome: {bitstring}"
+
+    def test_bell_state_total_shots(self, qrisp_bell_circuit):
+        """Bell state total counts should equal requested shots."""
+        integration = arvak.get_integration('qrisp')
+        provider = integration.get_backend_provider()
+        backend = provider.get_backend('sim')
+
+        results = backend.run(qrisp_bell_circuit, shots=500)
+
+        total = sum(results.values())
+        assert total == 500, f"Expected 500 total shots, got {total}"
+
+    def test_ghz3_outcomes(self):
+        """GHZ-3 circuit should only produce 000 and 111."""
+        qc = QuantumCircuit(3)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.cx(1, 2)
+        qc.measure_all()
+
+        integration = arvak.get_integration('qrisp')
+        provider = integration.get_backend_provider()
+        backend = provider.get_backend('sim')
+
+        results = backend.run(qc, shots=1000)
+
+        for bitstring in results.keys():
+            assert bitstring in ('000', '111'), f"Unexpected outcome: {bitstring}"
+
+
 class TestQrispRoundTrip:
     """Tests for round-trip conversion (Qrisp -> Arvak -> Qrisp)."""
 
