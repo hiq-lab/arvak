@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "arvak"
-version = "1.5.0"
+version = "1.5.1"
 description = "Arvak - Rust-native quantum compilation and orchestration platform for HPC with CUDA-Q, neutral-atom, and dynamic plugin support. Developed by The HAL Contract."
 readme = "README.md"
 requires-python = ">=3.9"
