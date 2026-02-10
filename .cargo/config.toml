@@ -1,0 +1,26 @@
+# Arvak build performance configuration
+#
+# Uncomment the section below to use the mold linker for faster linking.
+# Install: sudo apt install mold  (or: brew install mold)
+#
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# Uncomment to use sccache for compilation caching:
+# Install: cargo install sccache
+# [build]
+# rustc-wrapper = "sccache"
+
+# Uncomment for nightly with Cranelift backend (~25% faster debug builds):
+# [unstable]
+# codegen-backend = true
+#
+# Then add to the dev profile in Cargo.toml:
+# [profile.dev]
+# codegen-backend = "cranelift"
+
+# Uncomment for native CPU optimizations (SIMD, etc.) in all builds.
+# Only enable on machines where the binary will run on the same CPU.
+# [build]
+# rustflags = ["-C", "target-cpu=native"]

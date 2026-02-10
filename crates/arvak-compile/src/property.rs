@@ -156,6 +156,12 @@ impl Layout {
 ///
 /// The coupling map defines which pairs of physical qubits can
 /// interact with two-qubit gates.
+///
+/// ## Performance
+///
+/// On construction, a distance matrix is precomputed using BFS from each
+/// node. This enables O(1) `distance()` lookups and O(distance) path
+/// reconstruction during routing, eliminating per-gate BFS.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CouplingMap {
     /// List of connected qubit pairs (bidirectional).
@@ -165,6 +171,15 @@ pub struct CouplingMap {
     /// Adjacency list for fast lookup.
     #[serde(skip)]
     adjacency: FxHashMap<u32, Vec<u32>>,
+    /// Precomputed all-pairs distance matrix. `dist_matrix[from][to]` is the
+    /// shortest-path distance, or `u32::MAX` if unreachable.
+    /// Computed lazily on first access or eagerly via `precompute_distances()`.
+    #[serde(skip)]
+    dist_matrix: Vec<Vec<u32>>,
+    /// Precomputed predecessor matrix for shortest-path reconstruction.
+    /// `pred_matrix[from][to]` is the next hop on the shortest path from→to.
+    #[serde(skip)]
+    pred_matrix: Vec<Vec<u32>>,
 }
 
 impl CouplingMap {
@@ -174,6 +189,8 @@ impl CouplingMap {
             edges: vec![],
             num_qubits,
             adjacency: FxHashMap::default(),
+            dist_matrix: vec![],
+            pred_matrix: vec![],
         }
     }
 
@@ -184,7 +201,35 @@ impl CouplingMap {
         self.adjacency.entry(q2).or_default().push(q1);
     }
 
+    /// Precompute all-pairs shortest paths using BFS from each node.
+    /// Called automatically by factory methods (linear, star, full, zoned).
+    fn precompute_distances(&mut self) {
+        let n = self.num_qubits as usize;
+        self.dist_matrix = vec![vec![u32::MAX; n]; n];
+        self.pred_matrix = vec![vec![u32::MAX; n]; n];
+
+        for src in 0..n {
+            self.dist_matrix[src][src] = 0;
+            let mut queue = std::collections::VecDeque::new();
+            queue.push_back(src as u32);
+
+            while let Some(current) = queue.pop_front() {
+                let cur = current as usize;
+                for &neighbor in self.adjacency.get(&current).into_iter().flatten() {
+                    let nb = neighbor as usize;
+                    if self.dist_matrix[src][nb] == u32::MAX {
+                        self.dist_matrix[src][nb] = self.dist_matrix[src][cur] + 1;
+                        // Predecessor on path from src to nb is current
+                        self.pred_matrix[src][nb] = current;
+                        queue.push_back(neighbor);
+                    }
+                }
+            }
+        }
+    }
+
     /// Check if two qubits are directly connected.
+    #[inline]
     pub fn is_connected(&self, q1: u32, q2: u32) -> bool {
         self.adjacency
             .get(&q1)
@@ -192,6 +237,7 @@ impl CouplingMap {
     }
 
     /// Get the number of physical qubits.
+    #[inline]
     pub fn num_qubits(&self) -> u32 {
         self.num_qubits
     }
@@ -216,6 +262,7 @@ impl CouplingMap {
         for i in 0..n.saturating_sub(1) {
             map.add_edge(i, i + 1);
         }
+        map.precompute_distances();
         map
     }
 
@@ -227,6 +274,7 @@ impl CouplingMap {
                 map.add_edge(i, j);
             }
         }
+        map.precompute_distances();
         map
     }
 
@@ -236,6 +284,7 @@ impl CouplingMap {
         for i in 1..n {
             map.add_edge(0, i);
         }
+        map.precompute_distances();
         map
     }
 
@@ -261,16 +310,60 @@ impl CouplingMap {
             }
         }
 
+        map.precompute_distances();
         map
     }
 
-    /// Calculate shortest path distance between two qubits.
+    /// O(1) shortest-path distance lookup using the precomputed matrix.
+    /// Falls back to BFS if the matrix has not been precomputed.
     pub fn distance(&self, from: u32, to: u32) -> Option<u32> {
         if from == to {
             return Some(0);
         }
 
-        // BFS
+        let (f, t) = (from as usize, to as usize);
+        if f < self.dist_matrix.len() && t < self.dist_matrix[f].len() {
+            let d = self.dist_matrix[f][t];
+            return if d == u32::MAX { None } else { Some(d) };
+        }
+
+        // Fallback BFS (for manually-constructed maps without precompute)
+        self.distance_bfs(from, to)
+    }
+
+    /// Reconstruct shortest path from→to using the predecessor matrix.
+    /// Returns `None` if no path exists.
+    pub fn shortest_path(&self, from: u32, to: u32) -> Option<Vec<u32>> {
+        if from == to {
+            return Some(vec![from]);
+        }
+
+        let (f, t) = (from as usize, to as usize);
+        if f >= self.pred_matrix.len() || t >= self.pred_matrix[f].len() {
+            return None;
+        }
+
+        if self.dist_matrix[f][t] == u32::MAX {
+            return None;
+        }
+
+        // Reconstruct from→to using predecessor chain
+        let mut path = vec![to];
+        let mut current = to;
+        while current != from {
+            let pred = self.pred_matrix[f][current as usize];
+            if pred == u32::MAX {
+                return None;
+            }
+            path.push(pred);
+            current = pred;
+        }
+        path.reverse();
+        Some(path)
+    }
+
+    /// BFS fallback for distance computation.
+    fn distance_bfs(&self, from: u32, to: u32) -> Option<u32> {
         let mut visited = FxHashMap::default();
         let mut queue = std::collections::VecDeque::new();
         queue.push_back((from, 0u32));
