@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import arvak
 
 
-def pennylane_to_arvak(qnode_or_tape) -> 'arvak.Circuit':
+def pennylane_to_arvak(qnode_or_tape, *args, **kwargs) -> 'arvak.Circuit':
     """Convert a PennyLane QNode or QuantumTape to Arvak Circuit.
 
     This function uses OpenQASM as an interchange format:
@@ -21,6 +21,8 @@ def pennylane_to_arvak(qnode_or_tape) -> 'arvak.Circuit':
 
     Args:
         qnode_or_tape: PennyLane QNode or QuantumTape instance
+        *args: Positional arguments to pass to the QNode (for parameterized circuits)
+        **kwargs: Keyword arguments to pass to the QNode
 
     Returns:
         Arvak Circuit instance
@@ -51,9 +53,13 @@ def pennylane_to_arvak(qnode_or_tape) -> 'arvak.Circuit':
 
     # Handle QNode - execute to get tape
     if isinstance(qnode_or_tape, qml.QNode):
-        # Construct the tape by executing the QNode
-        qnode_or_tape.construct([], {})
-        tape = qnode_or_tape.qtape
+        # Construct the tape by executing the QNode with provided arguments
+        qnode_or_tape.construct(list(args), kwargs)
+        # PennyLane >=0.44 uses _tape; older versions use qtape
+        if hasattr(qnode_or_tape, 'qtape'):
+            tape = qnode_or_tape.qtape
+        else:
+            tape = qnode_or_tape._tape
     else:
         tape = qnode_or_tape
 
@@ -122,26 +128,25 @@ def arvak_to_pennylane(circuit: 'arvak.Circuit', device_name: str = 'default.qub
 
 
 def _tape_to_qasm(tape) -> str:
-    """Convert PennyLane tape to QASM string.
+    """Convert PennyLane tape to OpenQASM 3.0 string.
 
     Args:
         tape: PennyLane QuantumTape
 
     Returns:
-        OpenQASM 2.0 string
+        OpenQASM 3.0 string compatible with Arvak's parser
     """
-    import pennylane as qml
-
     # Get number of wires
     wires = tape.wires
     num_wires = len(wires)
 
-    # Build QASM header
+    # Build QASM 3.0 header
     qasm_lines = [
-        "OPENQASM 2.0;",
-        'include "qelib1.inc";',
-        f"qreg q[{num_wires}];",
-        f"creg c[{num_wires}];"
+        "OPENQASM 3.0;",
+        "",
+        f"qubit[{num_wires}] q;",
+        f"bit[{num_wires}] c;",
+        ""
     ]
 
     # Wire mapping
@@ -152,13 +157,6 @@ def _tape_to_qasm(tape) -> str:
         qasm_op = _operation_to_qasm(op, wire_map)
         if qasm_op:
             qasm_lines.append(qasm_op)
-
-    # Add measurements if present
-    for m in tape.measurements:
-        if hasattr(m, 'wires'):
-            for wire in m.wires:
-                idx = wire_map.get(wire, wire)
-                qasm_lines.append(f"measure q[{idx}] -> c[{idx}];")
 
     return "\n".join(qasm_lines)
 
@@ -210,9 +208,9 @@ def _operation_to_qasm(op, wire_map: dict) -> str:
     elif name == "CNOT":
         return f"cx q[{wires[0]}],q[{wires[1]}];"
     elif name == "CZ":
-        return f"cz q[{wires[0]}],q[{wires[1]}];"
+        return f"cz q[{wires[0]}], q[{wires[1]}];"
     elif name == "SWAP":
-        return f"swap q[{wires[0]}],q[{wires[1]}];"
+        return f"swap q[{wires[0]}], q[{wires[1]}];"
 
     # Default: comment
     return f"// Unsupported operation: {name}"
@@ -233,7 +231,9 @@ def _apply_qasm_to_pennylane(qasm_str: str, num_wires: int):
         line = line.strip()
         if not line or line.startswith('//') or line.startswith('OPENQASM') or \
            line.startswith('include') or line.startswith('qreg') or \
-           line.startswith('creg') or line.startswith('measure'):
+           line.startswith('creg') or line.startswith('measure') or \
+           line.startswith('qubit') or line.startswith('bit') or \
+           re.match(r'\w+\[\d+\]\s*=\s*measure', line):
             continue
 
         # Parse operation
@@ -245,8 +245,10 @@ def _apply_qasm_to_pennylane(qasm_str: str, num_wires: int):
             qml.PauliY(wires=int(match.group(1)))
         elif match := re.match(r'z q\[(\d+)\];', line):
             qml.PauliZ(wires=int(match.group(1)))
-        elif match := re.match(r'cx q\[(\d+)\],q\[(\d+)\];', line):
+        elif match := re.match(r'cx q\[(\d+)\],\s*q\[(\d+)\];', line):
             qml.CNOT(wires=[int(match.group(1)), int(match.group(2))])
+        elif match := re.match(r'cz q\[(\d+)\],\s*q\[(\d+)\];', line):
+            qml.CZ(wires=[int(match.group(1)), int(match.group(2))])
         elif match := re.match(r'rx\(([\d.eE+-]+)\) q\[(\d+)\];', line):
             qml.RX(float(match.group(1)), wires=int(match.group(2)))
         elif match := re.match(r'ry\(([\d.eE+-]+)\) q\[(\d+)\];', line):
