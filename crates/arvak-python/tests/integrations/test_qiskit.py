@@ -124,6 +124,14 @@ class TestArvakToQiskit:
         qasm_str = arvak.to_qasm(arvak_bell_circuit)
         assert qasm_str is not None
 
+        # Inject stdgates.inc (Qiskit requires it for gate definitions)
+        if 'stdgates.inc' not in qasm_str:
+            qasm_str = qasm_str.replace(
+                'OPENQASM 3.0;',
+                'OPENQASM 3.0;\ninclude "stdgates.inc";',
+                1
+            )
+
         # Import to Qiskit
         qiskit_circuit = loads(qasm_str)
         assert qiskit_circuit is not None

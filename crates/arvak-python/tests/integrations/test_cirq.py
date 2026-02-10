@@ -88,12 +88,17 @@ class TestCirqToArvak:
 
     def test_cirq_to_arvak_via_qasm(self, cirq_bell_circuit):
         """Test converting Cirq circuit to Arvak via QASM."""
-        # Export to QASM
+        from arvak.integrations.cirq.converter import _qasm2_to_qasm3
+
+        # Export to QASM (Cirq produces QASM 2.0)
         qasm_str = cirq.qasm(cirq_bell_circuit)
         assert qasm_str is not None
 
+        # Up-convert to QASM 3.0 for Arvak
+        qasm3_str = _qasm2_to_qasm3(qasm_str)
+
         # Import to Arvak
-        arvak_circuit = arvak.from_qasm(qasm_str)
+        arvak_circuit = arvak.from_qasm(qasm3_str)
         assert arvak_circuit is not None
         assert arvak_circuit.num_qubits >= 2
 
@@ -144,12 +149,18 @@ class TestArvakToCirq:
 
     def test_arvak_to_cirq_via_qasm(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Cirq via QASM."""
-        # Export to QASM
+        from arvak.integrations.cirq.converter import _qasm3_to_qasm2
+        from cirq.contrib.qasm_import import circuit_from_qasm
+
+        # Export to QASM (Arvak produces QASM 3.0)
         qasm_str = arvak.to_qasm(arvak_bell_circuit)
         assert qasm_str is not None
 
+        # Down-convert to QASM 2.0 for Cirq
+        qasm2_str = _qasm3_to_qasm2(qasm_str)
+
         # Import to Cirq
-        cirq_circuit = cirq.circuits.qasm_input.circuit_from_qasm(qasm_str)
+        cirq_circuit = circuit_from_qasm(qasm2_str)
         assert cirq_circuit is not None
         assert len(cirq_circuit.all_qubits()) >= 2
 
