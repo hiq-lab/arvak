@@ -90,6 +90,11 @@ impl PyCircuit {
         self.inner.depth()
     }
 
+    /// Get the number of operations (gates + measurements) in the circuit.
+    fn size(&self) -> usize {
+        self.inner.dag().num_ops()
+    }
+
     /// Add a qubit to the circuit.
     ///
     /// Returns:

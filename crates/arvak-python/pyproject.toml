@@ -31,9 +31,9 @@ classifiers = [
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov"]
 # Framework integrations (optional)
-qiskit = ["qiskit>=1.0.0", "qiskit-aer>=0.13.0"]
+qiskit = ["qiskit>=1.0.0", "qiskit-aer>=0.13.0", "qiskit-qasm3-import>=0.5.0"]
 qrisp = ["qrisp>=0.4.0"]
-cirq = ["cirq>=1.0.0", "cirq-core>=1.0.0"]
+cirq = ["cirq>=1.0.0", "cirq-core>=1.0.0", "ply>=3.11"]
 pennylane = ["pennylane>=0.32.0"]
 # Notebook support
 notebook = ["jupyter>=1.0.0", "matplotlib>=3.5.0"]
