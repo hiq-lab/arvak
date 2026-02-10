@@ -28,4 +28,8 @@ __pycache__/
 # Sensitive / deployment
 *.key
 DEPLOY-*.md
-docs/qaoa-sensor-network-demo.md
+
+# Scratch / planning (use Arvak-Input/ for these)
+PLAN-*.md
+SCRATCH-*.md
+NOTES-*.md
