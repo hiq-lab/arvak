@@ -12,7 +12,7 @@ use arvak_ir::parameter::ParameterExpression;
 use arvak_ir::qubit::QubitId;
 use petgraph::Direction;
 use petgraph::visit::EdgeRef;
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::error::CompileResult;
 use crate::pass::{Pass, PassKind};
@@ -208,21 +208,30 @@ impl Optimize1qGates {
     }
 
     /// Find runs of consecutive 1q gates on each qubit.
+    ///
+    /// Computes the topological order once and indexes operations by qubit,
+    /// avoiding the previous O(num_qubits * V+E) pattern.
     #[allow(clippy::unused_self)]
     fn find_1q_runs(&self, dag: &CircuitDag) -> Vec<(QubitId, Vec<NodeIndex>)> {
+        // Compute topological order ONCE — previously this was called per-qubit.
+        let topo_ops: Vec<_> = dag.topological_ops().collect();
+
+        // Build per-qubit operation lists from the single topo pass.
+        let mut qubit_ops: FxHashMap<QubitId, Vec<(NodeIndex, &Instruction)>> =
+            FxHashMap::default();
+        for &(node_idx, inst) in &topo_ops {
+            for &qubit in &inst.qubits {
+                qubit_ops.entry(qubit).or_default().push((node_idx, inst));
+            }
+        }
+
         let mut runs = Vec::new();
         let mut visited: FxHashSet<NodeIndex> = FxHashSet::default();
 
-        // For each qubit, trace through and find maximal runs
-        for qubit in dag.qubits() {
+        for (qubit, ops) in &qubit_ops {
             let mut current_run: Vec<NodeIndex> = Vec::new();
 
-            for (node_idx, inst) in dag.topological_ops() {
-                // Only consider operations on this qubit
-                if !inst.qubits.contains(&qubit) {
-                    continue;
-                }
-
+            for &(node_idx, inst) in ops {
                 // Check if this is a single-qubit gate on exactly this qubit
                 if inst.qubits.len() == 1 && !visited.contains(&node_idx) {
                     if let InstructionKind::Gate(gate) = &inst.kind {
@@ -248,7 +257,7 @@ impl Optimize1qGates {
                         for &idx in &current_run {
                             visited.insert(idx);
                         }
-                        runs.push((qubit, std::mem::take(&mut current_run)));
+                        runs.push((*qubit, std::mem::take(&mut current_run)));
                     } else {
                         current_run.clear();
                     }
@@ -270,7 +279,7 @@ impl Optimize1qGates {
                     for &idx in &current_run {
                         visited.insert(idx);
                     }
-                    runs.push((qubit, std::mem::take(&mut current_run)));
+                    runs.push((*qubit, std::mem::take(&mut current_run)));
                 } else {
                     current_run.clear();
                 }
@@ -281,7 +290,7 @@ impl Optimize1qGates {
                 for &idx in &current_run {
                     visited.insert(idx);
                 }
-                runs.push((qubit, current_run));
+                runs.push((*qubit, current_run));
             }
         }
 

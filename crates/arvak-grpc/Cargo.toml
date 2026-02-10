@@ -16,8 +16,8 @@ tonic-reflection = "0.12"
 prost = "0.13"
 prost-types = "0.13"
 
-# Async runtime
-tokio = { workspace = true, features = ["full"] }
+# Async runtime — only the features this crate actually uses.
+tokio = { workspace = true, features = ["net", "signal", "io-util"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait = { workspace = true }
 futures = "0.3"
@@ -77,7 +77,7 @@ tonic-build = { version = "0.12", features = ["prost"] }
 prost-build = "0.13"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["full", "test-util"] }
+tokio = { workspace = true, features = ["test-util"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 async-stream = "0.3"
 
