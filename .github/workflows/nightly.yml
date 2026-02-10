@@ -400,12 +400,13 @@ jobs:
 
       - name: Build DDSIM shared library
         run: |
-          # Clean stale FetchContent state to avoid tag checkout conflicts
-          rm -rf build-ddsim/_deps
+          # Clean stale CMake and FetchContent state to avoid tag checkout conflicts
+          rm -rf build-ddsim/_deps build-ddsim/CMakeCache.txt
           cmake -S crates/arvak-qdmi/ci/ddsim_shim \
                 -B build-ddsim \
                 -G Ninja \
-                -DCMAKE_BUILD_TYPE=Release
+                -DCMAKE_BUILD_TYPE=Release \
+                -DMQT_CORE_VERSION=v3.4.1
           cmake --build build-ddsim --target mqt_ddsim_qdmi_shared
 
       - name: Locate DDSIM .so and verify symbols
