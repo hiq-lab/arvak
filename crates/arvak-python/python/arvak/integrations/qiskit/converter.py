@@ -89,6 +89,14 @@ def arvak_to_qiskit(circuit: 'arvak.Circuit') -> 'QuantumCircuit':
     # Export Arvak circuit to OpenQASM 3.0
     qasm_str = arvak.to_qasm(circuit)
 
+    # Inject 'include "stdgates.inc";' if not present (Qiskit requires it)
+    if 'stdgates.inc' not in qasm_str:
+        qasm_str = qasm_str.replace(
+            'OPENQASM 3.0;',
+            'OPENQASM 3.0;\ninclude "stdgates.inc";',
+            1
+        )
+
     # Import into Qiskit
     qiskit_circuit = qasm3.loads(qasm_str)
 

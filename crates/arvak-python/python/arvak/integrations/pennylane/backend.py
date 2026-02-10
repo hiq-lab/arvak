@@ -91,10 +91,9 @@ class ArvakDevice:
         wire_map = {i: i for i in range(num_qubits)}
 
         lines = [
-            'OPENQASM 2.0;',
-            'include "qelib1.inc";',
-            f'qreg q[{num_qubits}];',
-            f'creg c[{num_qubits}];',
+            'OPENQASM 3.0;',
+            f'qubit[{num_qubits}] q;',
+            f'bit[{num_qubits}] c;',
         ]
 
         for op in operations:
@@ -104,7 +103,7 @@ class ArvakDevice:
 
         # Add measurements
         for i in range(num_qubits):
-            lines.append(f'measure q[{i}] -> c[{i}];')
+            lines.append(f'c[{i}] = measure q[{i}];')
 
         qasm_str = '\n'.join(lines)
 
@@ -201,14 +200,21 @@ class ArvakDevice:
         """
         self.apply(circuit.operations)
 
+        import pennylane as qml
+
         results = []
         for m in circuit.measurements:
-            if m.return_type.name == "Expectation":
+            cls_name = type(m).__name__
+            if cls_name == 'ExpectationMP':
                 results.append(self.expval(m.obs))
-            elif m.return_type.name == "Variance":
+            elif cls_name == 'VarianceMP':
                 results.append(self.var(m.obs))
-            elif m.return_type.name == "Sample":
+            elif cls_name == 'SampleMP':
                 results.append(self.sample(m.obs))
+            elif cls_name == 'CountsMP':
+                results.append(self._counts or {})
+            else:
+                results.append(self.expval(m.obs))
 
         return results if len(results) > 1 else results[0] if results else None
 

@@ -27,17 +27,18 @@ def qrisp_bell_circuit():
     qc = QuantumCircuit(2)
     qc.h(0)
     qc.cx(0, 1)
-    qc.measure_all()
+    for qubit in qc.qubits:
+        qc.measure(qubit)
     return qc
 
 
 @pytest.fixture
 def qrisp_quantum_variable():
     """Create a QuantumVariable with simple operations."""
-    from qrisp import QuantumVariable, h
+    from qrisp import QuantumVariable, h, cx
     qv = QuantumVariable(2)
     h(qv[0])
-    qv.cx(0, 1)
+    cx(qv[0], qv[1])
     return qv
 
 
@@ -83,12 +84,17 @@ class TestQrispToArvak:
 
     def test_qrisp_to_arvak_via_qasm(self, qrisp_bell_circuit):
         """Test converting Qrisp circuit to Arvak via QASM."""
-        # Export to QASM
+        from arvak.integrations.cirq.converter import _qasm2_to_qasm3
+
+        # Export to QASM (Qrisp produces QASM 2.0)
         qasm_str = qrisp_bell_circuit.qasm()
         assert qasm_str is not None
 
+        # Up-convert to QASM 3.0 for Arvak
+        qasm3_str = _qasm2_to_qasm3(qasm_str)
+
         # Import to Arvak
-        arvak_circuit = arvak.from_qasm(qasm_str)
+        arvak_circuit = arvak.from_qasm(qasm3_str)
         assert arvak_circuit is not None
         assert arvak_circuit.num_qubits >= 2
 
@@ -106,7 +112,8 @@ class TestQrispToArvak:
         qc.h(0)
         qc.cx(0, 1)
         qc.cx(1, 2)
-        qc.measure_all()
+        for i in range(3):
+            qc.measure(qc.qubits[i])
 
         integration = arvak.get_integration('qrisp')
         arvak_circuit = integration.to_arvak(qc)
@@ -151,12 +158,17 @@ class TestArvakToQrisp:
 
     def test_arvak_to_qrisp_via_qasm(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Qrisp via QASM."""
-        # Export to QASM
+        from arvak.integrations.cirq.converter import _qasm3_to_qasm2
+
+        # Export to QASM (Arvak produces QASM 3.0)
         qasm_str = arvak.to_qasm(arvak_bell_circuit)
         assert qasm_str is not None
 
+        # Down-convert to QASM 2.0 for Qrisp
+        qasm2_str = _qasm3_to_qasm2(qasm_str)
+
         # Import to Qrisp
-        qrisp_circuit = QuantumCircuit.from_qasm_str(qasm_str)
+        qrisp_circuit = QuantumCircuit.from_qasm_str(qasm2_str)
         assert qrisp_circuit is not None
         assert qrisp_circuit.num_qubits() >= 2
 
@@ -267,7 +279,8 @@ class TestQrispSimulatorResults:
         qc.h(0)
         qc.cx(0, 1)
         qc.cx(1, 2)
-        qc.measure_all()
+        for i in range(3):
+            qc.measure(qc.qubits[i])
 
         integration = arvak.get_integration('qrisp')
         provider = integration.get_backend_provider()
