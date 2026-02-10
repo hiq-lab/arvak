@@ -80,7 +80,8 @@ impl ArvakServiceImpl {
                 Ok(circuit)
             }
             Some(circuit_payload::Format::ArvakIrJson(_json)) => Err(Error::InvalidCircuit(
-                "Arvak IR JSON format not yet supported. Use OpenQASM 3 format instead.".to_string(),
+                "Arvak IR JSON format not yet supported. Use OpenQASM 3 format instead."
+                    .to_string(),
             )),
             None => Err(Error::InvalidCircuit(
                 "No circuit format specified".to_string(),

@@ -88,10 +88,7 @@ pub struct MetricsAggregator;
 
 impl MetricsAggregator {
     /// Aggregate metrics from all evaluation modules.
-    pub fn aggregate(
-        input: &InputAnalysis,
-        observer: &CompilationObserver,
-    ) -> AggregatedMetrics {
+    pub fn aggregate(input: &InputAnalysis, observer: &CompilationObserver) -> AggregatedMetrics {
         let compilation_effect = Self::compute_compilation_effect(input, observer);
 
         AggregatedMetrics {
@@ -214,7 +211,6 @@ impl MetricsAggregator {
             },
         })
     }
-
 }
 
 #[cfg(test)]
@@ -236,5 +232,4 @@ mod tests {
         assert!(effect.ops_ratio < 1.0);
         assert_eq!(effect.two_qubit_ratio, 1.0);
     }
-
 }

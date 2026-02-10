@@ -385,9 +385,18 @@ async fn test_malformed_qasm_variants() {
         ("empty string", ""),
         ("only whitespace", "   \n\t\n  "),
         ("missing semicolons", "OPENQASM 3.0\nqubit[2] q\nh q[0]"),
-        ("invalid gate name", "OPENQASM 3.0;\nqubit[2] q;\nfoobar q[0];"),
-        ("unclosed block", "OPENQASM 3.0;\nqubit[2] q;\nif (true) { h q[0];"),
-        ("negative qubit index", "OPENQASM 3.0;\nqubit[2] q;\nh q[-1];"),
+        (
+            "invalid gate name",
+            "OPENQASM 3.0;\nqubit[2] q;\nfoobar q[0];",
+        ),
+        (
+            "unclosed block",
+            "OPENQASM 3.0;\nqubit[2] q;\nif (true) { h q[0];",
+        ),
+        (
+            "negative qubit index",
+            "OPENQASM 3.0;\nqubit[2] q;\nh q[-1];",
+        ),
         ("binary garbage", "\x00\x01\x02\x03\x04\x05"),
     ];
 

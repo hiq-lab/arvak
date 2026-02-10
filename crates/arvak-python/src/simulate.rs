@@ -34,9 +34,7 @@ use crate::circuit::PyCircuit;
 #[pyo3(signature = (circuit, shots=1024))]
 pub fn run_sim(circuit: &PyCircuit, shots: u32, py: Python<'_>) -> PyResult<Py<PyDict>> {
     if shots == 0 {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "shots must be > 0",
-        ));
+        return Err(pyo3::exceptions::PyValueError::new_err("shots must be > 0"));
     }
 
     #[cfg(feature = "simulator")]

@@ -91,7 +91,6 @@ impl Pass for NeutralAtomRouting {
             .collect();
 
         for (_node_idx, q0, q1) in two_qubit_ops {
-
             let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
             let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;
 

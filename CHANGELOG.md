@@ -5,6 +5,21 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-02-11
+
+### Changed
+
+#### Compiler Performance Optimizations
+- **DAG traversal**: Algorithmic improvements in `CircuitDag` for faster topological iteration and node lookup
+- **Routing passes**: Optimized swap insertion and neutral-atom routing with reduced overhead
+- **Optimization pass**: Improved gate cancellation and commutation analysis
+- **PropertySet**: Faster typed property lookups with reduced allocation
+- **Verification pass**: Streamlined measurement barrier verification
+- **Build tooling**: Added `.cargo/config.toml` (codegen/linker settings) and `Makefile` for common workflows
+- **CLI**: mimalloc global allocator for improved memory performance
+
+---
+
 ## [1.5.0] - 2026-02-10
 
 ### Added
@@ -567,6 +582,7 @@ If upgrading from development versions:
 
 ---
 
+[1.5.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.5.1
 [1.5.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.5.0
 [1.4.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.4.0
 [1.3.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.3.0
