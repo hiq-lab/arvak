@@ -152,13 +152,32 @@ def _tape_to_qasm(tape) -> str:
     # Wire mapping
     wire_map = {wire: idx for idx, wire in enumerate(sorted(wires))}
 
-    # Convert operations to QASM
+    # Convert operations to QASM, decomposing composite gates to primitives
     for op in tape.operations:
-        qasm_op = _operation_to_qasm(op, wire_map)
-        if qasm_op:
-            qasm_lines.append(qasm_op)
+        _op_to_qasm_lines(op, wire_map, qasm_lines)
 
     return "\n".join(qasm_lines)
+
+
+def _op_to_qasm_lines(op, wire_map: dict, qasm_lines: list):
+    """Convert a PennyLane operation to QASM line(s), decomposing if needed.
+
+    Composite operations (DoubleExcitation, SingleExcitation, AllSinglesDoubles,
+    etc.) are recursively decomposed to primitive gates that have direct QASM
+    representations.
+    """
+    qasm_op = _operation_to_qasm(op, wire_map)
+    if qasm_op and not qasm_op.startswith("// Unsupported"):
+        qasm_lines.append(qasm_op)
+    else:
+        # Try to decompose the composite operation
+        try:
+            decomp = op.decomposition()
+            for sub_op in decomp:
+                _op_to_qasm_lines(sub_op, wire_map, qasm_lines)
+        except Exception:
+            # If decomposition fails, emit as comment
+            qasm_lines.append(f"// Unsupported operation: {op.name}")
 
 
 def _operation_to_qasm(op, wire_map: dict) -> str:
@@ -176,6 +195,16 @@ def _operation_to_qasm(op, wire_map: dict) -> str:
 
     name = op.name
     wires = [wire_map.get(w, w) for w in op.wires]
+
+    # State preparation
+    if name == "BasisState":
+        import numpy as np
+        state = op.parameters[0]
+        lines = []
+        for i, bit in enumerate(state):
+            if int(bit) == 1:
+                lines.append(f"x q[{wires[i]}];")
+        return "\n".join(lines) if lines else None
 
     # Single-qubit gates
     if name == "Hadamard":
@@ -204,6 +233,11 @@ def _operation_to_qasm(op, wire_map: dict) -> str:
         angle = op.parameters[0]
         return f"rz({angle}) q[{wires[0]}];"
 
+    # Phase gate
+    elif name == "PhaseShift" and len(op.parameters) > 0:
+        angle = op.parameters[0]
+        return f"rz({angle}) q[{wires[0]}];"
+
     # Two-qubit gates
     elif name == "CNOT":
         return f"cx q[{wires[0]}],q[{wires[1]}];"
@@ -212,7 +246,7 @@ def _operation_to_qasm(op, wire_map: dict) -> str:
     elif name == "SWAP":
         return f"swap q[{wires[0]}], q[{wires[1]}];"
 
-    # Default: comment
+    # Default: unsupported (will be decomposed by caller)
     return f"// Unsupported operation: {name}"
 
 
