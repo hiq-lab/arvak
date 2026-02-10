@@ -27,6 +27,22 @@ This directory contains example notebooks demonstrating Arvak's capabilities and
   - Using Arvak compilation with Cirq
   - Grid qubit and line qubit support
 
+### Applications
+- **05_pennylane_integration.ipynb** - PennyLane VQE on H₂ (requires: `pip install arvak[pennylane]`)
+  - H₂ molecular Hamiltonian and UCCSD ansatz
+  - VQE optimization with chemical accuracy
+  - H₂ dissociation curve (15 bond distances)
+  - Compiler shootout: Arvak vs Qiskit/Cirq/Qrisp
+  - ArvakDevice as drop-in PennyLane backend
+
+- **06_computational_chemistry.ipynb** - Computational chemistry beyond H₂ (requires: `pip install arvak[chemistry,notebook]`)
+  - LiH Hamiltonian with active-space reduction (12 → 4 qubits)
+  - UCCSD VQE with chemical accuracy verification
+  - LiH dissociation curve (15 bond distances, 0.8–3.5 Å)
+  - H₂O Hamiltonian analysis (14 qubits, 1086 Pauli terms)
+  - Compilation scaling benchmark for real chemistry workloads
+  - Optional PySCF extended basis set comparison (6-31G)
+
 ## Installation
 
 ### Core Arvak (no integrations)
@@ -39,6 +55,11 @@ pip install jupyter matplotlib
 ### With Qiskit Integration
 ```bash
 pip install 'arvak[qiskit,notebook]'
+```
+
+### With Chemistry (PennyLane + PySCF)
+```bash
+pip install 'arvak[chemistry,notebook]'
 ```
 
 ### With All Integrations
