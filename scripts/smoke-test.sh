@@ -47,6 +47,10 @@ fi
 
 CARGO="${CARGO:-$HOME/.cargo/bin/cargo}"
 
+# Configurable service ports (used by sections 8 & 9)
+DASHBOARD_PORT="${ARVAK_DASHBOARD_PORT:-3000}"
+GRPC_HTTP_PORT="${ARVAK_GRPC_HTTP_PORT:-9090}"
+
 echo ""
 echo "${BOLD}=== Arvak Smoke Test ===${RESET}"
 echo ""
@@ -363,11 +367,11 @@ fi
 echo ""
 echo "--- 8. Output: gRPC Service ---"
 
-if curl -sf http://localhost:9090/health >/dev/null 2>&1; then
-    pass "gRPC health endpoint (localhost:9090)"
+if curl -sf "http://localhost:${GRPC_HTTP_PORT}/health" >/dev/null 2>&1; then
+    pass "gRPC health endpoint (localhost:${GRPC_HTTP_PORT})"
 
     # Submit a Bell state circuit via gRPC HTTP gateway
-    if curl -sf -X POST http://localhost:9090/v1/jobs \
+    if curl -sf -X POST "http://localhost:${GRPC_HTTP_PORT}/v1/jobs" \
         -H 'Content-Type: application/json' \
         -d '{"circuit":{"qasm":"OPENQASM 3.0;\nqubit[2] q;\nbit[2] c;\nh q[0];\ncx q[0], q[1];\nc[0] = measure q[0];\nc[1] = measure q[1];"},"backend":"sim","shots":100}' \
         -o /dev/null 2>/dev/null; then
@@ -376,7 +380,7 @@ if curl -sf http://localhost:9090/health >/dev/null 2>&1; then
         fail "gRPC job submission"
     fi
 else
-    skip "gRPC server not running on localhost:9090"
+    skip "gRPC server not running on localhost:${GRPC_HTTP_PORT}"
 fi
 
 # gRPC Rust unit + integration tests (always available)
@@ -392,10 +396,10 @@ fi
 echo ""
 echo "--- 9. Dashboard ---"
 
-if curl -sf http://localhost:3000/api/health >/dev/null 2>&1; then
-    pass "Dashboard health endpoint (localhost:3000)"
+if curl -sf "http://localhost:${DASHBOARD_PORT}/api/health" >/dev/null 2>&1; then
+    pass "Dashboard health endpoint (localhost:${DASHBOARD_PORT})"
 else
-    skip "Dashboard not running on localhost:3000"
+    skip "Dashboard not running on localhost:${DASHBOARD_PORT}"
 fi
 
 # =============================================================================
