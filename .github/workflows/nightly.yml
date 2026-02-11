@@ -558,7 +558,14 @@ jobs:
             exit 1
           fi
           scp -i ~/.ssh/vps_key "$WHEEL" root@arvak.io:/tmp/arvak-nightly.whl
-          ssh -i ~/.ssh/vps_key root@arvak.io "pip install --force-reinstall /tmp/arvak-nightly.whl || pip3 install --force-reinstall /tmp/arvak-nightly.whl"
+          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          # Use venv to avoid PEP 668 (Debian externally-managed-environment)
+          python3 -m venv /tmp/arvak-smoke-venv 2>/dev/null || python3 -m venv /tmp/arvak-smoke-venv --without-pip
+          /tmp/arvak-smoke-venv/bin/pip install --force-reinstall /tmp/arvak-nightly.whl 2>/dev/null \
+            || pip install --break-system-packages --force-reinstall /tmp/arvak-nightly.whl \
+            || pip3 install --break-system-packages --force-reinstall /tmp/arvak-nightly.whl
+          REMOTE_SCRIPT
 
       - name: Clone repo and build Docker image on VPS
         run: |
@@ -567,7 +574,7 @@ jobs:
           WORKDIR=$(mktemp -d /tmp/arvak-smoke-XXXXXX)
           echo "WORKDIR=$WORKDIR" > /tmp/arvak-smoke-env
           cd "$WORKDIR"
-          git clone --depth 1 https://github.com/${{ github.repository }}.git repo
+          git clone https://github.com/${{ github.repository }}.git repo
           cd repo
           git checkout ${{ github.sha }}
           docker build -t arvak-platform:nightly-test .
@@ -602,6 +609,10 @@ jobs:
           cd "$WORKDIR/repo"
           export ARVAK_DASHBOARD_PORT=3002
           export ARVAK_GRPC_HTTP_PORT=9092
+          # Activate venv if present (for arvak Python SDK tests)
+          if [[ -d /tmp/arvak-smoke-venv ]]; then
+            export PATH="/tmp/arvak-smoke-venv/bin:$PATH"
+          fi
           bash scripts/smoke-test.sh
           REMOTE_SCRIPT
 
@@ -620,8 +631,9 @@ jobs:
             rm -rf "$WORKDIR"
             rm -f /tmp/arvak-smoke-env
           fi
-          # Clean up wheel
+          # Clean up wheel and venv
           rm -f /tmp/arvak-nightly.whl
+          rm -rf /tmp/arvak-smoke-venv
           # Verify production containers are still running
           echo "--- Production container status ---"
           docker ps --filter name=arvak-dashboard --filter name=arvak-grpc --format "table {{.Names}}\t{{.Status}}"
