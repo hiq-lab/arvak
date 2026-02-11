@@ -577,6 +577,9 @@ jobs:
           git clone https://github.com/${{ github.repository }}.git repo
           cd repo
           git checkout ${{ github.sha }}
+          # Generate Cargo.lock (gitignored but required by Dockerfile)
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo generate-lockfile 2>/dev/null || true
           docker build -t arvak-platform:nightly-test .
           REMOTE_SCRIPT
 
