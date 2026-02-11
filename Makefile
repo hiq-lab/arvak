@@ -21,7 +21,7 @@ RUSTFLAGS_PGO_GEN := -Cprofile-generate=/tmp/arvak-pgo
 RUSTFLAGS_PGO_USE := -Cprofile-use=/tmp/arvak-pgo/merged.profdata
 LLVM_PROFDATA := $(shell rustup run stable bash -c 'ls $$(rustc --print sysroot)/lib/rustlib/*/bin/llvm-profdata 2>/dev/null | head -1')
 
-.PHONY: build release release-lto pgo test bench check clean fmt fmt-check preflight setup-tooling setup-hooks
+.PHONY: build release release-lto pgo test bench check clean fmt fmt-check preflight setup-tooling setup-hooks docker-validate
 
 build:
 	$(CARGO) build
@@ -101,3 +101,7 @@ setup-hooks:
 	@printf '#!/bin/sh\nmake fmt-check\n' > .git/hooks/pre-push
 	@chmod +x .git/hooks/pre-push
 	@echo "Installed .git/hooks/pre-push (runs make fmt-check)"
+
+docker-validate:
+	docker build --platform linux/amd64 -t arvak-platform:validate .
+	docker rmi arvak-platform:validate >/dev/null 2>&1 || true

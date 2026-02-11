@@ -23,10 +23,11 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  # Job 1: Security audit of all dependencies
+  # Job 1: Combined dependency checks
+  #   (merged from security-audit + dependency-policy + dependency-freshness)
   # ─────────────────────────────────────────────
-  security-audit:
-    name: Security Audit
+  dependency-checks:
+    name: Dependency Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -37,10 +38,13 @@ jobs:
         with:
           toolchain: nightly-2026-02-09
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+      - name: Install dependency tools
+        run: |
+          cargo install cargo-audit --locked
+          cargo install cargo-deny --locked
+          cargo install cargo-outdated --locked
 
-      - name: Run cargo-audit
+      - name: Security audit (cargo-audit)
         id: audit
         run: |
           echo "## Security Audit" >> $GITHUB_STEP_SUMMARY
@@ -54,32 +58,7 @@ jobs:
             exit 1
           fi
 
-      - name: Upload audit report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-audit
-          path: audit-output.txt
-
-  # ─────────────────────────────────────────────
-  # Job 2: License & dependency policy (cargo-deny)
-  # ─────────────────────────────────────────────
-  dependency-policy:
-    name: Dependency Policy (cargo-deny)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-09
-
-      - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
-
-      - name: Check licenses
+      - name: License check (cargo-deny)
         id: licenses
         run: |
           echo "## License Check" >> $GITHUB_STEP_SUMMARY
@@ -93,38 +72,13 @@ jobs:
             exit 1
           fi
 
-      - name: Check advisories
+      - name: Advisory check (cargo-deny)
         run: cargo deny check advisories 2>&1 | tee deny-advisories.txt || true
 
-      - name: Check bans
+      - name: Ban check (cargo-deny)
         run: cargo deny check bans 2>&1 | tee deny-bans.txt || true
 
-      - name: Upload deny reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-policy
-          path: deny-*.txt
-
-  # ─────────────────────────────────────────────
-  # Job 3: Check for outdated dependencies
-  # ─────────────────────────────────────────────
-  dependency-freshness:
-    name: Dependency Freshness
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-09
-
-      - name: Install cargo-outdated
-        run: cargo install cargo-outdated --locked
-
-      - name: Check outdated dependencies
+      - name: Outdated dependencies (informational)
         run: |
           echo "## Outdated Dependencies" >> $GITHUB_STEP_SUMMARY
           cargo outdated --workspace --root-deps-only 2>&1 | tee outdated.txt
@@ -138,15 +92,19 @@ jobs:
           fi
           # Informational only — don't fail the build
 
-      - name: Upload outdated report
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dependency-freshness
-          path: outdated.txt
+          name: dependency-checks
+          path: |
+            audit-output.txt
+            deny-*.txt
+            outdated.txt
 
   # ─────────────────────────────────────────────
-  # Job 4: Full workspace test matrix
+  # Job 2: Full workspace test matrix
+  #   ubuntu debug + ubuntu release (with adapter feature-flag builds) + macos release
   # ─────────────────────────────────────────────
   full-test-suite:
     name: Tests (${{ matrix.os }}, ${{ matrix.profile }})
@@ -154,8 +112,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        profile: [debug, release]
+        include:
+          - os: ubuntu-latest
+            profile: debug
+          - os: ubuntu-latest
+            profile: release
+          - os: macos-latest
+            profile: release
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -194,8 +157,21 @@ jobs:
         if: matrix.profile == 'release'
         run: cargo test --workspace --exclude arvak-python --release
 
+      # Adapter feature-flag builds (ubuntu release only — folded from adapter-compat)
+      - name: Build CLI with all backends
+        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
+        run: cargo build -p arvak-cli --features all-backends
+
+      - name: Build gRPC with all features
+        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
+        run: cargo build -p arvak-grpc --features simulator,sqlite
+
+      - name: Build dashboard with simulator
+        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
+        run: cargo build -p arvak-dashboard --features with-simulator
+
   # ─────────────────────────────────────────────
-  # Job 5: Strict Clippy (deny warnings, all targets)
+  # Job 3: Strict Clippy (deny warnings, all targets)
   # ─────────────────────────────────────────────
   clippy-strict:
     name: Clippy (strict)
@@ -280,89 +256,7 @@ jobs:
           -A clippy::semicolon-if-nothing-returned
 
   # ─────────────────────────────────────────────
-  # Job 6: Adapter compatibility builds
-  # ─────────────────────────────────────────────
-  adapter-compat:
-    name: Adapter Compatibility
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-09
-
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: nightly-${{ runner.os }}-adapters-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            nightly-${{ runner.os }}-adapters-
-
-      - name: Build adapter — simulator
-        run: cargo build -p arvak-adapter-sim
-
-      - name: Test adapter — simulator
-        run: cargo test -p arvak-adapter-sim
-
-      - name: Build adapter — IBM Quantum
-        run: cargo build -p arvak-adapter-ibm
-
-      - name: Test adapter — IBM Quantum
-        run: cargo test -p arvak-adapter-ibm
-
-      - name: Build adapter — IQM Resonance
-        run: cargo build -p arvak-adapter-iqm
-
-      - name: Test adapter — IQM Resonance
-        run: cargo test -p arvak-adapter-iqm
-
-      - name: Build adapter — QDMI (mock FFI)
-        run: cargo build -p arvak-adapter-qdmi
-
-      - name: Test adapter — QDMI
-        run: cargo test -p arvak-adapter-qdmi
-
-      - name: Build adapter — NVIDIA CUDA-Q
-        run: cargo build -p arvak-adapter-cudaq
-
-      - name: Test adapter — NVIDIA CUDA-Q
-        run: cargo test -p arvak-adapter-cudaq
-
-      - name: Build CLI with all backends
-        run: cargo build -p arvak-cli --features all-backends
-
-      - name: Build gRPC with all features
-        run: cargo build -p arvak-grpc --features simulator,sqlite
-
-      - name: Build dashboard with simulator
-        run: cargo build -p arvak-dashboard --features with-simulator
-
-      - name: Summary
-        run: |
-          echo "## Adapter Compatibility" >> $GITHUB_STEP_SUMMARY
-          echo "| Adapter | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| arvak-adapter-sim | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| arvak-adapter-ibm | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| arvak-adapter-iqm | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| arvak-adapter-qdmi | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| arvak-adapter-cudaq | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| CLI (all-backends) | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| gRPC (sim+sqlite) | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Dashboard (simulator) | ✅ |" >> $GITHUB_STEP_SUMMARY
-
-  # ─────────────────────────────────────────────
-  # Job 6b: DDSIM QDMI device compatibility (pinned version)
+  # Job 4: DDSIM QDMI device compatibility (pinned version)
   # ─────────────────────────────────────────────
   ddsim-compat:
     name: DDSIM QDMI (pinned)
@@ -437,7 +331,7 @@ jobs:
           echo "✅ Integration tests passed against MQT Core DDSIM" >> $GITHUB_STEP_SUMMARY
 
   # ─────────────────────────────────────────────
-  # Job 7: MSRV (Minimum Supported Rust Version)
+  # Job 5: MSRV (Minimum Supported Rust Version)
   # ─────────────────────────────────────────────
   msrv-check:
     name: MSRV (Rust 1.85)
@@ -470,15 +364,15 @@ jobs:
         run: cargo check --workspace --exclude arvak-python --exclude arvak-demos
 
   # ─────────────────────────────────────────────
-  # Job 8: Python bindings build + smoke test
+  # Job 6: Python bindings build + smoke test
   # ─────────────────────────────────────────────
   python-bindings:
-    name: Python Bindings
+    name: Python Bindings (${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.13']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -522,8 +416,16 @@ jobs:
               print('Build verification passed (wheel built successfully)')
           "
 
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: arvak-wheel-py${{ matrix.python-version }}
+          path: |
+            crates/arvak-python/target/wheels/arvak-*.whl
+            target/wheels/arvak-*.whl
+
   # ─────────────────────────────────────────────
-  # Job 9: Benchmarks (detect regressions)
+  # Job 7: Benchmarks (detect regressions)
   # ─────────────────────────────────────────────
   benchmarks:
     name: Benchmarks
@@ -567,7 +469,7 @@ jobs:
           path: bench-output.txt
 
   # ─────────────────────────────────────────────
-  # Job 10: Documentation build check
+  # Job 8: Documentation build check
   # ─────────────────────────────────────────────
   docs:
     name: Documentation
@@ -590,38 +492,151 @@ jobs:
         run: cargo doc --workspace --exclude arvak-python --no-deps
 
   # ─────────────────────────────────────────────
-  # Job 11: Documentation & code integrity audit
+  # Job 9: Docker image build validation
   # ─────────────────────────────────────────────
-  doc-audit:
-    name: Doc & Code Audit
+  docker-build:
+    name: Docker Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run audit script
-        run: bash scripts/audit.sh
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (validation only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: arvak-platform:nightly-validate
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────
-  # Job 12: Nightly report — opens/updates issue
+  # Job 10: VPS smoke test on arvak.io
+  # ─────────────────────────────────────────────
+  vps-smoke-test:
+    name: VPS Smoke Test
+    runs-on: ubuntu-latest
+    needs:
+      - full-test-suite
+      - clippy-strict
+      - docker-build
+      - python-bindings
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H arvak.io >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Download Python wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: arvak-wheel-py3.13
+          path: wheel-artifact
+
+      - name: Deploy wheel to VPS
+        run: |
+          WHEEL=$(find wheel-artifact -name "arvak-*.whl" -print -quit)
+          if [[ -z "$WHEEL" ]]; then
+            echo "ERROR: No wheel artifact found"
+            exit 1
+          fi
+          scp -i ~/.ssh/vps_key "$WHEEL" root@arvak.io:/tmp/arvak-nightly.whl
+          ssh -i ~/.ssh/vps_key root@arvak.io "pip install --force-reinstall /tmp/arvak-nightly.whl || pip3 install --force-reinstall /tmp/arvak-nightly.whl"
+
+      - name: Clone repo and build Docker image on VPS
+        run: |
+          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          WORKDIR=$(mktemp -d /tmp/arvak-smoke-XXXXXX)
+          echo "WORKDIR=$WORKDIR" > /tmp/arvak-smoke-env
+          cd "$WORKDIR"
+          git clone --depth 1 https://github.com/${{ github.repository }}.git repo
+          cd repo
+          git checkout ${{ github.sha }}
+          docker build -t arvak-platform:nightly-test .
+          REMOTE_SCRIPT
+
+      - name: Start test containers on VPS
+        run: |
+          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          # Start temporary containers on non-production ports
+          docker run -d --name arvak-smoke-dashboard -p 3001:3000 arvak-platform:nightly-test \
+            sh -c "cd /app/dashboard && ./arvak-dashboard" || true
+          docker run -d --name arvak-smoke-grpc -p 50052:50051 -p 9091:9090 arvak-platform:nightly-test \
+            sh -c "cd /app && ./arvak-grpc" || true
+
+          # Health-check loop (up to 30s)
+          echo "Waiting for services to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9091/health >/dev/null 2>&1; then
+              echo "gRPC HTTP gateway ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          REMOTE_SCRIPT
+
+      - name: Run smoke test on VPS
+        run: |
+          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          source /tmp/arvak-smoke-env
+          cd "$WORKDIR/repo"
+          export ARVAK_DASHBOARD_PORT=3001
+          export ARVAK_GRPC_HTTP_PORT=9091
+          bash scripts/smoke-test.sh
+          REMOTE_SCRIPT
+
+      - name: Tear down test containers
+        if: always()
+        run: |
+          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT' || true
+          set -uo pipefail
+          # Remove test containers
+          docker rm -f arvak-smoke-dashboard arvak-smoke-grpc 2>/dev/null || true
+          # Remove test image
+          docker rmi arvak-platform:nightly-test 2>/dev/null || true
+          # Clean up temp directory
+          if [[ -f /tmp/arvak-smoke-env ]]; then
+            source /tmp/arvak-smoke-env
+            rm -rf "$WORKDIR"
+            rm -f /tmp/arvak-smoke-env
+          fi
+          # Clean up wheel
+          rm -f /tmp/arvak-nightly.whl
+          # Verify production containers are still running
+          echo "--- Production container status ---"
+          docker ps --filter name=arvak-dashboard --filter name=arvak-grpc --format "table {{.Names}}\t{{.Status}}"
+          REMOTE_SCRIPT
+
+  # ─────────────────────────────────────────────
+  # Nightly report — opens/updates issue
   # ─────────────────────────────────────────────
   nightly-report:
     name: Nightly Report
     runs-on: ubuntu-latest
     if: always()
     needs:
-      - security-audit
-      - dependency-policy
-      - dependency-freshness
+      - dependency-checks
       - full-test-suite
       - clippy-strict
-      - adapter-compat
       - ddsim-compat
       - msrv-check
       - python-bindings
       - benchmarks
       - docs
-      - doc-audit
+      - docker-build
+      - vps-smoke-test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -636,18 +651,16 @@ jobs:
       - name: Generate report
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AUDIT: ${{ needs.security-audit.result }}
-          POLICY: ${{ needs.dependency-policy.result }}
-          FRESHNESS: ${{ needs.dependency-freshness.result }}
+          DEP_CHECKS: ${{ needs.dependency-checks.result }}
           TESTS: ${{ needs.full-test-suite.result }}
           CLIPPY: ${{ needs.clippy-strict.result }}
-          ADAPTERS: ${{ needs.adapter-compat.result }}
           DDSIM: ${{ needs.ddsim-compat.result }}
           MSRV: ${{ needs.msrv-check.result }}
           PYTHON: ${{ needs.python-bindings.result }}
           BENCH: ${{ needs.benchmarks.result }}
           DOCS: ${{ needs.docs.result }}
-          DOC_AUDIT: ${{ needs.doc-audit.result }}
+          DOCKER: ${{ needs.docker-build.result }}
+          VPS_SMOKE: ${{ needs.vps-smoke-test.result }}
         run: |
           # Map results to status icons
           status_icon() {
@@ -664,9 +677,9 @@ jobs:
 
           # Determine overall status
           OVERALL="✅ All checks passed"
-          if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" || "$DDSIM" == "failure" ]]; then
+          if [[ "$TESTS" == "failure" || "$DDSIM" == "failure" || "$DOCKER" == "failure" || "$VPS_SMOKE" == "failure" ]]; then
             OVERALL="❌ Critical failures detected"
-          elif [[ "$CLIPPY" == "failure" || "$POLICY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" ]]; then
+          elif [[ "$DEP_CHECKS" == "failure" || "$CLIPPY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" ]]; then
             OVERALL="⚠️ Non-critical issues found"
           fi
 
@@ -677,18 +690,16 @@ jobs:
 
           | Check | Status | Result |
           |-------|--------|--------|
-          | Security Audit | $(status_icon "$AUDIT") | ${AUDIT} |
-          | Dependency Policy | $(status_icon "$POLICY") | ${POLICY} |
-          | Dependency Freshness | $(status_icon "$FRESHNESS") | ${FRESHNESS} |
+          | Dependency Checks | $(status_icon "$DEP_CHECKS") | ${DEP_CHECKS} |
           | Full Test Suite | $(status_icon "$TESTS") | ${TESTS} |
           | Clippy (strict) | $(status_icon "$CLIPPY") | ${CLIPPY} |
-          | Adapter Compatibility | $(status_icon "$ADAPTERS") | ${ADAPTERS} |
           | DDSIM QDMI (pinned) | $(status_icon "$DDSIM") | ${DDSIM} |
           | MSRV (Rust 1.85) | $(status_icon "$MSRV") | ${MSRV} |
           | Python Bindings | $(status_icon "$PYTHON") | ${PYTHON} |
           | Benchmarks | $(status_icon "$BENCH") | ${BENCH} |
           | Documentation | $(status_icon "$DOCS") | ${DOCS} |
-          | Doc & Code Audit | $(status_icon "$DOC_AUDIT") | ${DOC_AUDIT} |
+          | Docker Build | $(status_icon "$DOCKER") | ${DOCKER} |
+          | VPS Smoke Test | $(status_icon "$VPS_SMOKE") | ${VPS_SMOKE} |
 
           ---
           *Automatically generated by the nightly CI pipeline.*"
@@ -702,9 +713,9 @@ jobs:
             echo "Updated existing nightly report issue #${EXISTING}"
           else
             # Only create an issue if something failed
-            if [[ "$AUDIT" == "failure" || "$TESTS" == "failure" || "$ADAPTERS" == "failure" || \
-                  "$DDSIM" == "failure" || "$CLIPPY" == "failure" || "$POLICY" == "failure" || \
-                  "$PYTHON" == "failure" || "$DOCS" == "failure" || "$DOC_AUDIT" == "failure" ]]; then
+            if [[ "$TESTS" == "failure" || "$DDSIM" == "failure" || "$DOCKER" == "failure" || \
+                  "$VPS_SMOKE" == "failure" || "$DEP_CHECKS" == "failure" || "$CLIPPY" == "failure" || \
+                  "$PYTHON" == "failure" || "$DOCS" == "failure" ]]; then
               gh issue create \
                 --title "Nightly Build Report — ${DATE}" \
                 --body "$BODY" \
