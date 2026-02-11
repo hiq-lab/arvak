@@ -537,6 +537,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
+
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
+
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -567,7 +575,7 @@ jobs:
           /tmp/arvak-smoke-venv/bin/pip install --force-reinstall "/tmp/${WHEEL_NAME}"
           REMOTE_SCRIPT
 
-      - name: Clone repo and build Docker image on VPS
+      - name: Clone repo on VPS
         run: |
           ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
           set -euo pipefail
@@ -577,9 +585,19 @@ jobs:
           git clone https://github.com/${{ github.repository }}.git repo
           cd repo
           git checkout ${{ github.sha }}
-          # Generate Cargo.lock (gitignored but required by Dockerfile)
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo generate-lockfile 2>/dev/null || true
+          REMOTE_SCRIPT
+
+      - name: SCP Cargo.lock to VPS
+        run: |
+          WORKDIR=$(ssh -i ~/.ssh/vps_key root@arvak.io "cat /tmp/arvak-smoke-env | grep WORKDIR | cut -d= -f2")
+          scp -i ~/.ssh/vps_key Cargo.lock "root@arvak.io:${WORKDIR}/repo/Cargo.lock"
+
+      - name: Build Docker image on VPS
+        run: |
+          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          source /tmp/arvak-smoke-env
+          cd "$WORKDIR/repo"
           docker build -t arvak-platform:nightly-test .
           REMOTE_SCRIPT
 
