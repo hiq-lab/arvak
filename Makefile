@@ -7,7 +7,10 @@
 #   make pgo            — PGO-optimized release build (~10-20% faster)
 #   make test           — run all tests
 #   make bench          — run benchmarks
-#   make check          — cargo check + clippy
+#   make check          — fmt-check + cargo check + clippy
+#   make fmt            — auto-format all code
+#   make fmt-check      — verify formatting (fails if unformatted)
+#   make preflight      — full pre-push gate (fmt + check + test)
 #   make clean          — clean build artifacts
 #
 # Prerequisites for PGO:
@@ -18,7 +21,7 @@ RUSTFLAGS_PGO_GEN := -Cprofile-generate=/tmp/arvak-pgo
 RUSTFLAGS_PGO_USE := -Cprofile-use=/tmp/arvak-pgo/merged.profdata
 LLVM_PROFDATA := $(shell rustup run stable bash -c 'ls $$(rustc --print sysroot)/lib/rustlib/*/bin/llvm-profdata 2>/dev/null | head -1')
 
-.PHONY: build release release-lto pgo test bench check clean setup-tooling
+.PHONY: build release release-lto pgo test bench check clean fmt fmt-check preflight setup-tooling setup-hooks
 
 build:
 	$(CARGO) build
@@ -56,9 +59,18 @@ test:
 bench:
 	$(CARGO) bench -p arvak-ir
 
-check:
+fmt:
+	$(CARGO) fmt --all
+
+fmt-check:
+	$(CARGO) fmt --all -- --check
+
+check: fmt-check
 	$(CARGO) check --workspace --exclude arvak-grpc
 	$(CARGO) clippy --workspace --exclude arvak-grpc -- -D warnings
+
+preflight: fmt-check check test
+	@echo "All checks passed — safe to push"
 
 clean:
 	$(CARGO) clean
@@ -66,6 +78,8 @@ clean:
 
 # Install recommended development tooling.
 setup-tooling:
+	@echo "Installing pinned toolchain from rust-toolchain.toml..."
+	rustup show active-toolchain || rustup install $$(grep channel rust-toolchain.toml | cut -d'"' -f2)
 	@echo "Installing mold linker..."
 	@which mold > /dev/null 2>&1 || (echo "  -> sudo apt install mold (or brew install mold)" && exit 1)
 	@echo "Installing sccache..."
@@ -79,3 +93,11 @@ setup-tooling:
 	@echo "  1. Uncomment the mold linker section"
 	@echo "  2. Uncomment the sccache wrapper section"
 	@echo "  3. Use 'cargo nextest run' instead of 'cargo test'"
+	@echo "  4. Run 'make setup-hooks' to install the pre-push hook"
+
+# Install a git pre-push hook that runs fmt-check before pushing.
+setup-hooks:
+	@mkdir -p .git/hooks
+	@printf '#!/bin/sh\nmake fmt-check\n' > .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
+	@echo "Installed .git/hooks/pre-push (runs make fmt-check)"

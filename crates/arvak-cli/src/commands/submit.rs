@@ -17,6 +17,7 @@ use arvak_sched::{
 use super::common::{default_state_dir, load_circuit, print_results};
 
 /// Execute the submit command.
+#[allow(clippy::too_many_arguments)]
 pub async fn execute(
     input: &str,
     backend: &str,

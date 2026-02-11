@@ -48,7 +48,28 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(qdmi)
 
 # ---------------------------------------------------------------------------
-# Fetch mqt-core (reuses already-populated qdmi)
+# Pre-fetch nlohmann_json and spdlog (required by mqt-core >= v3.4.1)
+# ---------------------------------------------------------------------------
+
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG        v3.11.3
+)
+set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(
+  spdlog
+  GIT_REPOSITORY https://github.com/gabime/spdlog.git
+  GIT_TAG        v1.15.1
+)
+set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(spdlog)
+
+# ---------------------------------------------------------------------------
+# Fetch mqt-core (reuses already-populated qdmi, nlohmann_json, spdlog)
 # ---------------------------------------------------------------------------
 
 FetchContent_Declare(

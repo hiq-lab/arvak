@@ -64,6 +64,7 @@ pub async fn execute_login(provider: &str, project: Option<&str>) -> Result<()> 
 }
 
 /// Execute the auth status subcommand.
+#[allow(clippy::type_complexity)]
 pub async fn execute_status(provider: Option<&str>) -> Result<()> {
     // Check each known provider for cached tokens
     let providers: Vec<(&str, fn(&str) -> OidcConfig)> = vec![
@@ -113,6 +114,7 @@ pub async fn execute_status(provider: Option<&str>) -> Result<()> {
 }
 
 /// Execute the auth logout subcommand.
+#[allow(clippy::type_complexity)]
 pub async fn execute_logout(provider: Option<&str>) -> Result<()> {
     let providers: Vec<(&str, fn(&str) -> OidcConfig)> = vec![
         ("CSC / LUMI", OidcConfig::lumi as fn(&str) -> OidcConfig),
