@@ -354,15 +354,11 @@ else
     skip "QDMI/DDSIM not available (set DDSIM_QDMI_DEVICE_PATH)"
 fi
 
-# QDMI mock backend (requires cargo)
-if command -v "$CARGO" >/dev/null 2>&1 || command -v cargo >/dev/null 2>&1; then
-    if $CARGO test -p arvak-adapter-qdmi -q 2>/dev/null; then
-        pass "QDMI mock backend (unit tests)"
-    else
-        fail "QDMI mock backend (unit tests)"
-    fi
+# QDMI mock backend (always available, no device needed)
+if $CARGO test -p arvak-adapter-qdmi -q 2>/dev/null; then
+    pass "QDMI mock backend (unit tests)"
 else
-    skip "QDMI mock backend (cargo not available)"
+    fail "QDMI mock backend (unit tests)"
 fi
 
 # =============================================================================
@@ -387,15 +383,11 @@ else
     skip "gRPC server not running on localhost:${GRPC_HTTP_PORT}"
 fi
 
-# gRPC Rust unit + integration tests (requires cargo)
-if command -v "$CARGO" >/dev/null 2>&1 || command -v cargo >/dev/null 2>&1; then
-    if $CARGO test -p arvak-grpc -q 2>/dev/null; then
-        pass "gRPC service tests (unit + integration)"
-    else
-        fail "gRPC service tests"
-    fi
+# gRPC Rust unit + integration tests (always available)
+if $CARGO test -p arvak-grpc -q 2>/dev/null; then
+    pass "gRPC service tests (unit + integration)"
 else
-    skip "gRPC service tests (cargo not available)"
+    fail "gRPC service tests"
 fi
 
 # =============================================================================
