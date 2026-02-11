@@ -8,6 +8,7 @@ use std::path::Path;
 use arvak_eval::{EvalConfig, Evaluator};
 
 /// Execute the eval command.
+#[allow(clippy::too_many_arguments)]
 pub async fn execute(
     input: &str,
     profile: &str,

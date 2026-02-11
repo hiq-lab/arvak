@@ -278,7 +278,7 @@ fn result_to_histogram(job_id: &str, result: &arvak_hal::ExecutionResult) -> Res
         .collect();
 
     // Sort by count descending
-    bars.sort_by(|a, b| b.count.cmp(&a.count));
+    bars.sort_by_key(|b| std::cmp::Reverse(b.count));
 
     let total_shots: u64 = bars.iter().map(|b| b.count).sum();
     let unique_outcomes = bars.len();
