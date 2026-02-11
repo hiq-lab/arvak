@@ -547,7 +547,7 @@ jobs:
       - name: Download Python wheel artifact
         uses: actions/download-artifact@v4
         with:
-          name: arvak-wheel-py3.13
+          name: arvak-wheel-py3.11
           path: wheel-artifact
 
       - name: Deploy wheel to VPS
