@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.1] - 2026-02-11
 
+### Added
+- **Computational chemistry notebook**: LiH and H₂O VQE with potential energy surface curves
+- **`Circuit.size()` Python binding**
+
 ### Changed
 
 #### Compiler Performance Optimizations
@@ -17,6 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Verification pass**: Streamlined measurement barrier verification
 - **Build tooling**: Added `.cargo/config.toml` (codegen/linker settings) and `Makefile` for common workflows
 - **CLI**: mimalloc global allocator for improved memory performance
+
+#### CI/CD
+- Nightly pipeline streamlined from 12 → 10 jobs (merged 3 dependency jobs, trimmed macOS/Python matrices, folded adapter-compat)
+- Docker build validation job with buildx and GHA layer cache
+- VPS smoke test: full-stack end-to-end test on arvak.io (Docker build, all framework integrations, cargo tests, dashboard health, audit)
+- Configurable smoke test ports via `ARVAK_DASHBOARD_PORT` / `ARVAK_GRPC_HTTP_PORT` env vars
+- **Makefile**: Added `docker-validate` target
+
+### Fixed
+- Python notebook bugs and missing pip dependencies
+- Qrisp `from_arvak` converter: known-skip for Qrisp 0.6.x / Qiskit 2.x `_bits` incompatibility
 
 ---
 
