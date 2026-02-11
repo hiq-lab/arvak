@@ -606,15 +606,15 @@ jobs:
           ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
           set -euo pipefail
           # Start temporary containers on non-production ports
-          docker run -d --name arvak-smoke-dashboard -p 3002:3000 arvak-platform:nightly-test \
+          docker run -d --name arvak-smoke-dashboard -p 13000:3000 arvak-platform:nightly-test \
             sh -c "cd /app/dashboard && ./arvak-dashboard" || true
-          docker run -d --name arvak-smoke-grpc -p 50052:50051 -p 9092:9090 arvak-platform:nightly-test \
+          docker run -d --name arvak-smoke-grpc -p 50052:50051 -p 19090:9090 arvak-platform:nightly-test \
             sh -c "cd /app && ./arvak-grpc" || true
 
           # Health-check loop (up to 30s)
           echo "Waiting for services to start..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:9092/health >/dev/null 2>&1; then
+            if curl -sf http://localhost:19090/health >/dev/null 2>&1; then
               echo "gRPC HTTP gateway ready after ${i}s"
               break
             fi
@@ -628,8 +628,8 @@ jobs:
           set -euo pipefail
           source /tmp/arvak-smoke-env
           cd "$WORKDIR/repo"
-          export ARVAK_DASHBOARD_PORT=3002
-          export ARVAK_GRPC_HTTP_PORT=9092
+          export ARVAK_DASHBOARD_PORT=13000
+          export ARVAK_GRPC_HTTP_PORT=19090
           # Activate venv if present (for arvak Python SDK tests)
           if [[ -d /tmp/arvak-smoke-venv ]]; then
             export PATH="/tmp/arvak-smoke-venv/bin:$PATH"
