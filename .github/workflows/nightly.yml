@@ -557,14 +557,14 @@ jobs:
             echo "ERROR: No wheel artifact found"
             exit 1
           fi
-          scp -i ~/.ssh/vps_key "$WHEEL" root@arvak.io:/tmp/arvak-nightly.whl
-          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          WHEEL_NAME=$(basename "$WHEEL")
+          scp -i ~/.ssh/vps_key "$WHEEL" "root@arvak.io:/tmp/${WHEEL_NAME}"
+          ssh -i ~/.ssh/vps_key root@arvak.io bash -s -- "$WHEEL_NAME" <<'REMOTE_SCRIPT'
           set -euo pipefail
+          WHEEL_NAME="$1"
           # Use venv to avoid PEP 668 (Debian externally-managed-environment)
-          python3 -m venv /tmp/arvak-smoke-venv 2>/dev/null || python3 -m venv /tmp/arvak-smoke-venv --without-pip
-          /tmp/arvak-smoke-venv/bin/pip install --force-reinstall /tmp/arvak-nightly.whl 2>/dev/null \
-            || pip install --break-system-packages --force-reinstall /tmp/arvak-nightly.whl \
-            || pip3 install --break-system-packages --force-reinstall /tmp/arvak-nightly.whl
+          python3 -m venv /tmp/arvak-smoke-venv
+          /tmp/arvak-smoke-venv/bin/pip install --force-reinstall "/tmp/${WHEEL_NAME}"
           REMOTE_SCRIPT
 
       - name: Clone repo and build Docker image on VPS
@@ -632,7 +632,7 @@ jobs:
             rm -f /tmp/arvak-smoke-env
           fi
           # Clean up wheel and venv
-          rm -f /tmp/arvak-nightly.whl
+          rm -f /tmp/arvak-*.whl
           rm -rf /tmp/arvak-smoke-venv
           # Verify production containers are still running
           echo "--- Production container status ---"
