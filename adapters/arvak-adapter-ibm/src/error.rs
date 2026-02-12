@@ -216,11 +216,8 @@ mod tests {
 
     #[test]
     fn test_backend_unavailable_to_hal() {
-        let hal: arvak_hal::HalError =
-            IbmError::BackendUnavailable("ibm_kyoto".into()).into();
-        assert!(
-            matches!(hal, arvak_hal::HalError::BackendUnavailable(msg) if msg == "ibm_kyoto")
-        );
+        let hal: arvak_hal::HalError = IbmError::BackendUnavailable("ibm_kyoto".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::BackendUnavailable(msg) if msg == "ibm_kyoto"));
     }
 
     #[test]
@@ -257,8 +254,7 @@ mod tests {
 
     #[test]
     fn test_invalid_parameter_to_hal_backend() {
-        let hal: arvak_hal::HalError =
-            IbmError::InvalidParameter("bad param".into()).into();
+        let hal: arvak_hal::HalError = IbmError::InvalidParameter("bad param".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
     }
 }
