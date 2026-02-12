@@ -39,6 +39,13 @@ tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 mimalloc = { workspace = true }
 
+[dev-dependencies]
+clap = { workspace = true }
+anyhow = { workspace = true }
+arvak-compile = { workspace = true }
+arvak-qasm3 = { path = "../arvak-qasm3" }
+tempfile = "3"
+
 [features]
 default = []
 iqm = ["dep:arvak-adapter-iqm"]

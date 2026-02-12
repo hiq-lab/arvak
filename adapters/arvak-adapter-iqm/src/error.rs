@@ -68,3 +68,144 @@ impl From<IqmError> for arvak_hal::HalError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- Display message tests --
+
+    #[test]
+    fn test_missing_token_display() {
+        let err = IqmError::MissingToken;
+        assert!(err.to_string().contains("IQM API token"));
+    }
+
+    #[test]
+    fn test_auth_failed_display() {
+        let err = IqmError::AuthFailed("token expired".into());
+        assert!(err.to_string().contains("token expired"));
+    }
+
+    #[test]
+    fn test_invalid_endpoint_display() {
+        let err = IqmError::InvalidEndpoint("not-a-url".into());
+        assert!(err.to_string().contains("not-a-url"));
+    }
+
+    #[test]
+    fn test_job_not_found_display() {
+        let err = IqmError::JobNotFound("job-42".into());
+        assert!(err.to_string().contains("job-42"));
+    }
+
+    #[test]
+    fn test_job_failed_display() {
+        let err = IqmError::JobFailed("calibration drift".into());
+        assert!(err.to_string().contains("calibration drift"));
+    }
+
+    #[test]
+    fn test_circuit_validation_display() {
+        let err = IqmError::CircuitValidation("unsupported gate".into());
+        assert!(err.to_string().contains("unsupported gate"));
+    }
+
+    #[test]
+    fn test_api_error_display() {
+        let err = IqmError::ApiError {
+            status: 503,
+            message: "Service unavailable".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("503"));
+        assert!(msg.contains("Service unavailable"));
+    }
+
+    #[test]
+    fn test_timeout_display() {
+        let err = IqmError::Timeout("job-99".into());
+        assert!(err.to_string().contains("job-99"));
+    }
+
+    #[test]
+    fn test_unsupported_display() {
+        let err = IqmError::Unsupported("mid-circuit measurement".into());
+        assert!(err.to_string().contains("mid-circuit measurement"));
+    }
+
+    #[test]
+    fn test_qasm_error_display() {
+        let err = IqmError::QasmError("emit failed".into());
+        assert!(err.to_string().contains("emit failed"));
+    }
+
+    // -- HalError conversion tests --
+
+    #[test]
+    fn test_job_not_found_to_hal() {
+        let hal: arvak_hal::HalError = IqmError::JobNotFound("j1".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::JobNotFound(id) if id == "j1"));
+    }
+
+    #[test]
+    fn test_job_failed_to_hal() {
+        let hal: arvak_hal::HalError = IqmError::JobFailed("err".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::JobFailed(msg) if msg == "err"));
+    }
+
+    #[test]
+    fn test_timeout_to_hal() {
+        let hal: arvak_hal::HalError = IqmError::Timeout("j42".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::Timeout(id) if id == "j42"));
+    }
+
+    #[test]
+    fn test_circuit_validation_to_hal() {
+        let hal: arvak_hal::HalError =
+            IqmError::CircuitValidation("bad gate".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::InvalidCircuit(msg) if msg == "bad gate"));
+    }
+
+    #[test]
+    fn test_missing_token_to_hal_backend() {
+        let hal: arvak_hal::HalError = IqmError::MissingToken.into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_auth_failed_to_hal_backend() {
+        let hal: arvak_hal::HalError = IqmError::AuthFailed("bad".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_api_error_to_hal_backend() {
+        let hal: arvak_hal::HalError = IqmError::ApiError {
+            status: 500,
+            message: "internal".into(),
+        }
+        .into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_invalid_endpoint_to_hal_backend() {
+        let hal: arvak_hal::HalError =
+            IqmError::InvalidEndpoint("bad".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_unsupported_to_hal_backend() {
+        let hal: arvak_hal::HalError =
+            IqmError::Unsupported("op".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_qasm_error_to_hal_backend() {
+        let hal: arvak_hal::HalError = IqmError::QasmError("fail".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+}

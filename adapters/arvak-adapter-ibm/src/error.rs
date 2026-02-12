@@ -92,3 +92,173 @@ impl From<IbmError> for arvak_hal::HalError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- Display message tests --
+
+    #[test]
+    fn test_missing_token_display() {
+        let err = IbmError::MissingToken;
+        assert!(err.to_string().contains("IBM_QUANTUM_TOKEN"));
+    }
+
+    #[test]
+    fn test_invalid_token_display() {
+        let err = IbmError::InvalidToken;
+        assert!(err.to_string().contains("Invalid"));
+    }
+
+    #[test]
+    fn test_api_error_display() {
+        let err = IbmError::ApiError {
+            code: Some("ERR_401".into()),
+            message: "Unauthorized".into(),
+        };
+        assert!(err.to_string().contains("Unauthorized"));
+    }
+
+    #[test]
+    fn test_api_error_no_code_display() {
+        let err = IbmError::ApiError {
+            code: None,
+            message: "Something went wrong".into(),
+        };
+        assert!(err.to_string().contains("Something went wrong"));
+    }
+
+    #[test]
+    fn test_job_not_found_display() {
+        let err = IbmError::JobNotFound("abc123".into());
+        assert!(err.to_string().contains("abc123"));
+    }
+
+    #[test]
+    fn test_job_failed_display() {
+        let err = IbmError::JobFailed("circuit too deep".into());
+        assert!(err.to_string().contains("circuit too deep"));
+    }
+
+    #[test]
+    fn test_job_cancelled_display() {
+        let err = IbmError::JobCancelled("user request".into());
+        assert!(err.to_string().contains("user request"));
+    }
+
+    #[test]
+    fn test_circuit_error_display() {
+        let err = IbmError::CircuitError("invalid gate".into());
+        assert!(err.to_string().contains("invalid gate"));
+    }
+
+    #[test]
+    fn test_backend_unavailable_display() {
+        let err = IbmError::BackendUnavailable("ibm_brisbane".into());
+        assert!(err.to_string().contains("ibm_brisbane"));
+    }
+
+    #[test]
+    fn test_timeout_display() {
+        let err = IbmError::Timeout;
+        assert!(err.to_string().contains("Timeout"));
+    }
+
+    #[test]
+    fn test_too_many_qubits_display() {
+        let err = IbmError::TooManyQubits {
+            required: 50,
+            available: 27,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("50"));
+        assert!(msg.contains("27"));
+    }
+
+    #[test]
+    fn test_invalid_parameter_display() {
+        let err = IbmError::InvalidParameter("shots must be positive".into());
+        assert!(err.to_string().contains("shots must be positive"));
+    }
+
+    // -- HalError conversion tests --
+
+    #[test]
+    fn test_missing_token_to_hal_auth_failed() {
+        let hal: arvak_hal::HalError = IbmError::MissingToken.into();
+        assert!(matches!(hal, arvak_hal::HalError::AuthenticationFailed(_)));
+    }
+
+    #[test]
+    fn test_invalid_token_to_hal_auth_failed() {
+        let hal: arvak_hal::HalError = IbmError::InvalidToken.into();
+        assert!(matches!(hal, arvak_hal::HalError::AuthenticationFailed(_)));
+    }
+
+    #[test]
+    fn test_job_not_found_to_hal() {
+        let hal: arvak_hal::HalError = IbmError::JobNotFound("j1".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::JobNotFound(id) if id == "j1"));
+    }
+
+    #[test]
+    fn test_job_failed_to_hal() {
+        let hal: arvak_hal::HalError = IbmError::JobFailed("boom".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::JobFailed(msg) if msg == "boom"));
+    }
+
+    #[test]
+    fn test_job_cancelled_to_hal() {
+        let hal: arvak_hal::HalError = IbmError::JobCancelled("user".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::JobCancelled));
+    }
+
+    #[test]
+    fn test_backend_unavailable_to_hal() {
+        let hal: arvak_hal::HalError =
+            IbmError::BackendUnavailable("ibm_kyoto".into()).into();
+        assert!(
+            matches!(hal, arvak_hal::HalError::BackendUnavailable(msg) if msg == "ibm_kyoto")
+        );
+    }
+
+    #[test]
+    fn test_timeout_to_hal() {
+        let hal: arvak_hal::HalError = IbmError::Timeout.into();
+        assert!(matches!(hal, arvak_hal::HalError::Timeout(_)));
+    }
+
+    #[test]
+    fn test_too_many_qubits_to_hal() {
+        let hal: arvak_hal::HalError = IbmError::TooManyQubits {
+            required: 50,
+            available: 27,
+        }
+        .into();
+        assert!(matches!(hal, arvak_hal::HalError::CircuitTooLarge(_)));
+    }
+
+    #[test]
+    fn test_circuit_error_to_hal_backend() {
+        let hal: arvak_hal::HalError = IbmError::CircuitError("bad".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_api_error_to_hal_backend() {
+        let hal: arvak_hal::HalError = IbmError::ApiError {
+            code: None,
+            message: "server error".into(),
+        }
+        .into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_invalid_parameter_to_hal_backend() {
+        let hal: arvak_hal::HalError =
+            IbmError::InvalidParameter("bad param".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+}
