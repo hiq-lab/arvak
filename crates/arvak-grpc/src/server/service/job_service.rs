@@ -1,316 +1,36 @@
-//! gRPC service implementation.
+//! Job-related gRPC RPC implementations.
 
-use arvak_hal::backend::Backend;
 use arvak_hal::job::{JobId, JobStatus};
-use arvak_ir::circuit::Circuit;
-use std::sync::Arc;
 use tonic::{Request, Response, Status};
-use tracing::{error, info, instrument, warn};
+use tracing::{info, instrument};
 
-use crate::config::ResourceLimits;
-use crate::error::{Error, Result};
-use crate::metrics::Metrics;
 use crate::proto::{
-    BackendInfo, BatchJobResult, BatchJobSubmission, CancelJobRequest, CancelJobResponse,
-    CircuitPayload, GetBackendInfoRequest, GetBackendInfoResponse, GetJobResultRequest,
-    GetJobResultResponse, GetJobStatusRequest, GetJobStatusResponse, Job, JobResult, JobState,
-    JobStatusUpdate, ListBackendsRequest, ListBackendsResponse, ResultChunk, StreamResultsRequest,
-    SubmitBatchRequest, SubmitBatchResponse, SubmitJobRequest, SubmitJobResponse, WatchJobRequest,
-    arvak_service_server, batch_job_result, circuit_payload,
+    BatchJobResult, BatchJobSubmission, CancelJobRequest, CancelJobResponse, GetJobResultRequest,
+    GetJobResultResponse, GetJobStatusRequest, GetJobStatusResponse, Job, JobResult,
+    JobStatusUpdate, ResultChunk, StreamResultsRequest, SubmitBatchRequest, SubmitBatchResponse,
+    SubmitJobRequest, SubmitJobResponse, WatchJobRequest, batch_job_result,
 };
-use crate::resource_manager::ResourceManager;
-use crate::server::{BackendRegistry, JobStore};
 
-/// Arvak gRPC service implementation.
-pub struct ArvakServiceImpl {
-    job_store: Arc<JobStore>,
-    backends: Arc<BackendRegistry>,
-    metrics: Metrics,
-    resources: Option<ResourceManager>,
-}
+use super::super::ArvakServiceImpl;
+use super::circuit_utils::parse_circuit_static;
+use super::job_execution::{execute_job_sync, spawn_job_execution, to_proto_state};
+
+// Type aliases for streaming types
+type WatchJobStream = std::pin::Pin<
+    Box<dyn tokio_stream::Stream<Item = std::result::Result<JobStatusUpdate, Status>> + Send>,
+>;
+
+type StreamResultsStream = std::pin::Pin<
+    Box<dyn tokio_stream::Stream<Item = std::result::Result<ResultChunk, Status>> + Send>,
+>;
+
+type SubmitBatchStreamStream = std::pin::Pin<
+    Box<dyn tokio_stream::Stream<Item = std::result::Result<BatchJobResult, Status>> + Send>,
+>;
 
 impl ArvakServiceImpl {
-    /// Create a new service with custom components.
-    pub fn with_components(job_store: JobStore, backends: BackendRegistry) -> Self {
-        let metrics = Metrics::new();
-
-        // Initialize backend availability metrics
-        for backend_id in backends.list() {
-            metrics.set_backend_available(&backend_id, true);
-        }
-
-        Self {
-            job_store: Arc::new(job_store),
-            backends: Arc::new(backends),
-            metrics,
-            resources: None,
-        }
-    }
-
-    /// Create a new service with custom components and resource limits.
-    pub fn with_limits(
-        job_store: JobStore,
-        backends: BackendRegistry,
-        limits: ResourceLimits,
-    ) -> Self {
-        let mut service = Self::with_components(job_store, backends);
-        service.resources = Some(ResourceManager::new(limits));
-        service
-    }
-
-    /// Create a new service with default components.
-    pub fn new() -> Self {
-        use crate::server::backend_registry::create_default_registry;
-        Self::with_components(JobStore::new(), create_default_registry())
-    }
-
-    /// Get a reference to the backend registry.
-    pub fn backends(&self) -> Arc<BackendRegistry> {
-        self.backends.clone()
-    }
-
-    /// Parse circuit from protobuf payload (static version for use in async contexts).
-    fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Circuit> {
-        let payload =
-            payload.ok_or_else(|| Error::InvalidCircuit("Missing circuit payload".to_string()))?;
-
-        match payload.format {
-            Some(circuit_payload::Format::Qasm3(qasm)) => {
-                let circuit = arvak_qasm3::parse(&qasm)?;
-                Ok(circuit)
-            }
-            Some(circuit_payload::Format::ArvakIrJson(_json)) => Err(Error::InvalidCircuit(
-                "Arvak IR JSON format not yet supported. Use OpenQASM 3 format instead."
-                    .to_string(),
-            )),
-            None => Err(Error::InvalidCircuit(
-                "No circuit format specified".to_string(),
-            )),
-        }
-    }
-
-    /// Parse circuit from protobuf payload.
-    fn parse_circuit(&self, payload: Option<CircuitPayload>) -> Result<Circuit> {
-        Self::parse_circuit_static(payload)
-    }
-
-    /// Execute a job synchronously (wait for completion).
-    async fn execute_job_sync(
-        job_store: Arc<JobStore>,
-        backend: Arc<dyn Backend>,
-        job_id: JobId,
-        metrics: Metrics,
-        resources: Option<ResourceManager>,
-    ) {
-        // Get job details
-        let job = match job_store.get_job(&job_id).await {
-            Ok(job) => job,
-            Err(e) => {
-                error!("Failed to get job: {}", e);
-                return;
-            }
-        };
-
-        let backend_id = job.backend_id.clone();
-        let submitted_at = job.submitted_at;
-
-        // Update to RUNNING
-        if let Err(e) = job_store.update_status(&job_id, JobStatus::Running).await {
-            error!("Failed to update job status to running: {}", e);
-            metrics.record_job_failed(&backend_id, "status_update_error");
-            if let Some(ref resources) = resources {
-                resources.job_cancelled_queued().await;
-            }
-            return;
-        }
-
-        metrics.record_job_started(&backend_id);
-        if let Some(ref resources) = resources {
-            resources.job_started().await;
-        }
-        let queue_time = chrono::Utc::now()
-            .signed_duration_since(submitted_at)
-            .num_milliseconds() as u64;
-        metrics.record_queue_time(&backend_id, queue_time);
-
-        // Execute on backend
-        let execution_start = chrono::Utc::now();
-        match backend.submit(&job.circuit, job.shots).await {
-            Ok(backend_job_id) => match backend.wait(&backend_job_id).await {
-                Ok(result) => {
-                    let duration = chrono::Utc::now()
-                        .signed_duration_since(execution_start)
-                        .num_milliseconds() as u64;
-
-                    if let Err(e) = job_store.store_result(&job_id, result).await {
-                        error!("Failed to store job result: {}", e);
-                        metrics.record_job_failed(&backend_id, "storage_error");
-                    } else {
-                        metrics.record_job_completed(&backend_id, duration);
-                    }
-                    if let Some(ref resources) = resources {
-                        resources.job_completed().await;
-                    }
-                }
-                Err(e) => {
-                    let error_msg = format!("Backend wait failed: {e}");
-                    metrics.record_job_failed(&backend_id, "backend_wait_error");
-                    let _ = job_store
-                        .update_status(&job_id, JobStatus::Failed(error_msg))
-                        .await;
-                    if let Some(ref resources) = resources {
-                        resources.job_completed().await;
-                    }
-                }
-            },
-            Err(e) => {
-                let error_msg = format!("Backend submit failed: {e}");
-                metrics.record_job_failed(&backend_id, "backend_submit_error");
-                let _ = job_store
-                    .update_status(&job_id, JobStatus::Failed(error_msg))
-                    .await;
-                if let Some(ref resources) = resources {
-                    resources.job_completed().await;
-                }
-            }
-        }
-    }
-
-    /// Convert HAL `JobStatus` to protobuf `JobState`.
-    fn to_proto_state(status: &JobStatus) -> JobState {
-        match status {
-            JobStatus::Queued => JobState::Queued,
-            JobStatus::Running => JobState::Running,
-            JobStatus::Completed => JobState::Completed,
-            JobStatus::Failed(_) => JobState::Failed,
-            JobStatus::Cancelled => JobState::Canceled,
-        }
-    }
-
-    /// Spawn async task to execute a job.
-    #[instrument(skip(job_store, backend, metrics, resources), fields(job_id = %job_id.0))]
-    fn spawn_job_execution(
-        job_store: Arc<JobStore>,
-        backend: Arc<dyn Backend>,
-        job_id: JobId,
-        metrics: Metrics,
-        resources: Option<ResourceManager>,
-    ) {
-        tokio::spawn(async move {
-            // Get job details to access backend_id and submission time
-            let job = match job_store.get_job(&job_id).await {
-                Ok(job) => job,
-                Err(e) => {
-                    error!("Failed to get job: {}", e);
-                    return;
-                }
-            };
-
-            let backend_id = job.backend_id.clone();
-            let submitted_at = job.submitted_at;
-
-            info!(backend_id = %backend_id, "Starting job execution");
-
-            // Update to RUNNING
-            if let Err(e) = job_store.update_status(&job_id, JobStatus::Running).await {
-                error!("Failed to update job status to running: {}", e);
-                metrics.record_job_failed(&backend_id, "status_update_error");
-                if let Some(ref resources) = resources {
-                    resources.job_cancelled_queued().await;
-                }
-                return;
-            }
-
-            // Record job started and queue time
-            metrics.record_job_started(&backend_id);
-            if let Some(ref resources) = resources {
-                resources.job_started().await;
-            }
-            let queue_time = chrono::Utc::now()
-                .signed_duration_since(submitted_at)
-                .num_milliseconds() as u64;
-            metrics.record_queue_time(&backend_id, queue_time);
-
-            // Execute on backend
-            let execution_start = chrono::Utc::now();
-            match backend.submit(&job.circuit, job.shots).await {
-                Ok(backend_job_id) => {
-                    // Wait for backend to complete
-                    match backend.wait(&backend_job_id).await {
-                        Ok(result) => {
-                            let duration = chrono::Utc::now()
-                                .signed_duration_since(execution_start)
-                                .num_milliseconds()
-                                as u64;
-
-                            if let Err(e) = job_store.store_result(&job_id, result).await {
-                                error!("Failed to store job result: {}", e);
-                                metrics.record_job_failed(&backend_id, "storage_error");
-                            } else {
-                                info!(duration_ms = duration, "Job completed successfully");
-                                metrics.record_job_completed(&backend_id, duration);
-                            }
-                            if let Some(ref resources) = resources {
-                                resources.job_completed().await;
-                            }
-                        }
-                        Err(e) => {
-                            let error_msg = format!("Backend wait failed: {e}");
-                            warn!(error = %e, "Backend wait failed");
-                            metrics.record_job_failed(&backend_id, "backend_wait_error");
-                            if let Err(e) = job_store
-                                .update_status(&job_id, JobStatus::Failed(error_msg))
-                                .await
-                            {
-                                error!("Failed to update job status to failed: {}", e);
-                            }
-                            if let Some(ref resources) = resources {
-                                resources.job_completed().await;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    let error_msg = format!("Backend submit failed: {e}");
-                    warn!(error = %e, "Backend submit failed");
-                    metrics.record_job_failed(&backend_id, "backend_submit_error");
-                    if let Err(e) = job_store
-                        .update_status(&job_id, JobStatus::Failed(error_msg))
-                        .await
-                    {
-                        error!("Failed to update job status to failed: {}", e);
-                    }
-                    if let Some(ref resources) = resources {
-                        resources.job_completed().await;
-                    }
-                }
-            }
-        });
-    }
-}
-
-impl Default for ArvakServiceImpl {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[tonic::async_trait]
-impl arvak_service_server::ArvakService for ArvakServiceImpl {
-    type WatchJobStream = std::pin::Pin<
-        Box<dyn tokio_stream::Stream<Item = std::result::Result<JobStatusUpdate, Status>> + Send>,
-    >;
-
-    type StreamResultsStream = std::pin::Pin<
-        Box<dyn tokio_stream::Stream<Item = std::result::Result<ResultChunk, Status>> + Send>,
-    >;
-
-    type SubmitBatchStreamStream = std::pin::Pin<
-        Box<dyn tokio_stream::Stream<Item = std::result::Result<BatchJobResult, Status>> + Send>,
-    >;
-
     #[instrument(skip(self, request), fields(backend_id, job_id))]
-    async fn submit_job(
+    pub(in crate::server) async fn submit_job_impl(
         &self,
         request: Request<SubmitJobRequest>,
     ) -> std::result::Result<Response<SubmitJobResponse>, Status> {
@@ -356,7 +76,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         }
 
         // Spawn async execution task (non-blocking)
-        Self::spawn_job_execution(
+        spawn_job_execution(
             self.job_store.clone(),
             backend,
             job_id.clone(),
@@ -372,7 +92,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         Ok(Response::new(SubmitJobResponse { job_id: job_id.0 }))
     }
 
-    async fn submit_batch(
+    pub(in crate::server) async fn submit_batch_impl(
         &self,
         request: Request<SubmitBatchRequest>,
     ) -> std::result::Result<Response<SubmitBatchResponse>, Status> {
@@ -399,7 +119,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
             // Record job submission metric
             self.metrics.record_job_submitted(&req.backend_id);
 
-            Self::spawn_job_execution(
+            spawn_job_execution(
                 self.job_store.clone(),
                 backend.clone(),
                 job_id.clone(),
@@ -418,7 +138,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
     }
 
     #[instrument(skip(self, request), fields(job_id))]
-    async fn get_job_status(
+    pub(in crate::server) async fn get_job_status_impl(
         &self,
         request: Request<GetJobStatusRequest>,
     ) -> std::result::Result<Response<GetJobStatusResponse>, Status> {
@@ -441,7 +161,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         let proto_job = Job {
             job_id: job.id.0,
-            state: Self::to_proto_state(&job.status) as i32,
+            state: to_proto_state(&job.status) as i32,
             submitted_at: job.submitted_at.timestamp(),
             started_at: job.started_at.map_or(0, |t| t.timestamp()),
             completed_at: job.completed_at.map_or(0, |t| t.timestamp()),
@@ -460,10 +180,10 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
     }
 
     #[instrument(skip(self, request), fields(job_id))]
-    async fn watch_job(
+    pub(in crate::server) async fn watch_job_impl(
         &self,
         request: Request<WatchJobRequest>,
-    ) -> std::result::Result<Response<Self::WatchJobStream>, Status> {
+    ) -> std::result::Result<Response<WatchJobStream>, Status> {
         let req = request.into_inner();
         let job_id = JobId::new(req.job_id.clone());
 
@@ -485,7 +205,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
                         let update = JobStatusUpdate {
                             job_id: job.id.0.clone(),
-                            state: Self::to_proto_state(&job.status) as i32,
+                            state: to_proto_state(&job.status) as i32,
                             timestamp: chrono::Utc::now().timestamp(),
                             error_message,
                         };
@@ -519,14 +239,14 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         });
 
         let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
-        Ok(Response::new(Box::pin(stream) as Self::WatchJobStream))
+        Ok(Response::new(Box::pin(stream) as WatchJobStream))
     }
 
     #[instrument(skip(self, request), fields(job_id))]
-    async fn stream_results(
+    pub(in crate::server) async fn stream_results_impl(
         &self,
         request: Request<StreamResultsRequest>,
-    ) -> std::result::Result<Response<Self::StreamResultsStream>, Status> {
+    ) -> std::result::Result<Response<StreamResultsStream>, Status> {
         let req = request.into_inner();
         let job_id = JobId::new(req.job_id.clone());
         let chunk_size = if req.chunk_size > 0 {
@@ -578,14 +298,14 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         });
 
         let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
-        Ok(Response::new(Box::pin(stream) as Self::StreamResultsStream))
+        Ok(Response::new(Box::pin(stream) as StreamResultsStream))
     }
 
     #[instrument(skip(self, request))]
-    async fn submit_batch_stream(
+    pub(in crate::server) async fn submit_batch_stream_impl(
         &self,
         request: Request<tonic::Streaming<BatchJobSubmission>>,
-    ) -> std::result::Result<Response<Self::SubmitBatchStreamStream>, Status> {
+    ) -> std::result::Result<Response<SubmitBatchStreamStream>, Status> {
         info!("Starting batch stream submission");
 
         let mut in_stream = request.into_inner();
@@ -604,7 +324,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                         let client_request_id = submission.client_request_id.clone();
 
                         // Parse circuit
-                        let circuit = match Self::parse_circuit_static(submission.circuit) {
+                        let circuit = match parse_circuit_static(submission.circuit) {
                             Ok(c) => c,
                             Err(e) => {
                                 let _ = tx
@@ -665,7 +385,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
                                 let _backend_id = submission.backend_id.clone();
 
                                 tokio::spawn(async move {
-                                    Self::execute_job_sync(
+                                    execute_job_sync(
                                         job_store_clone.clone(),
                                         backend_clone,
                                         job_id.clone(),
@@ -729,11 +449,11 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
 
         let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
         Ok(Response::new(
-            Box::pin(stream) as Self::SubmitBatchStreamStream
+            Box::pin(stream) as SubmitBatchStreamStream
         ))
     }
 
-    async fn get_job_result(
+    pub(in crate::server) async fn get_job_result_impl(
         &self,
         request: Request<GetJobResultRequest>,
     ) -> std::result::Result<Response<GetJobResultResponse>, Status> {
@@ -768,7 +488,7 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         }))
     }
 
-    async fn cancel_job(
+    pub(in crate::server) async fn cancel_job_impl(
         &self,
         request: Request<CancelJobRequest>,
     ) -> std::result::Result<Response<CancelJobResponse>, Status> {
@@ -798,81 +518,6 @@ impl arvak_service_server::ArvakService for ArvakServiceImpl {
         Ok(Response::new(CancelJobResponse {
             success: true,
             message: "Job cancelled successfully".to_string(),
-        }))
-    }
-
-    async fn list_backends(
-        &self,
-        _request: Request<ListBackendsRequest>,
-    ) -> std::result::Result<Response<ListBackendsResponse>, Status> {
-        let backend_ids = self.backends.list();
-        let mut backends = Vec::new();
-
-        for id in backend_ids {
-            let backend = self.backends.get(&id).map_err(Status::from)?;
-
-            let caps = backend
-                .capabilities()
-                .await
-                .map_err(|e| Status::internal(format!("Failed to get capabilities: {e}")))?;
-
-            let is_available = backend.is_available().await.unwrap_or(false);
-
-            let topology_json =
-                serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());
-
-            let mut supported_gates = caps.gate_set.single_qubit.clone();
-            supported_gates.extend(caps.gate_set.two_qubit.clone());
-
-            backends.push(BackendInfo {
-                backend_id: id.clone(),
-                name: caps.name.clone(),
-                is_available,
-                max_qubits: caps.num_qubits,
-                max_shots: caps.max_shots,
-                description: format!("{} ({} qubits)", backend.name(), caps.num_qubits),
-                supported_gates,
-                topology_json,
-            });
-        }
-
-        Ok(Response::new(ListBackendsResponse { backends }))
-    }
-
-    async fn get_backend_info(
-        &self,
-        request: Request<GetBackendInfoRequest>,
-    ) -> std::result::Result<Response<GetBackendInfoResponse>, Status> {
-        let req = request.into_inner();
-
-        let backend = self.backends.get(&req.backend_id).map_err(Status::from)?;
-
-        let caps = backend
-            .capabilities()
-            .await
-            .map_err(|e| Status::internal(format!("Failed to get capabilities: {e}")))?;
-
-        let is_available = backend.is_available().await.unwrap_or(false);
-
-        let topology_json =
-            serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());
-
-        let mut supported_gates = caps.gate_set.single_qubit.clone();
-        supported_gates.extend(caps.gate_set.two_qubit.clone());
-
-        let backend_info = BackendInfo {
-            backend_id: req.backend_id.clone(),
-            name: caps.name.clone(),
-            is_available,
-            max_qubits: caps.num_qubits,
-            max_shots: caps.max_shots,
-            description: format!("{} ({} qubits)", backend.name(), caps.num_qubits),
-            supported_gates,
-            topology_json,
-        };
-
-        Ok(Response::new(GetBackendInfoResponse {
-            backend: Some(backend_info),
         }))
     }
 }
