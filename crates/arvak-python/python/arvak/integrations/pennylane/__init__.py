@@ -27,7 +27,6 @@ Example:
     >>> result = circuit(0.5)
 """
 
-from typing import List
 from .._base import FrameworkIntegration
 
 
@@ -51,7 +50,7 @@ class PennyLaneIntegration(FrameworkIntegration):
         return "pennylane"
 
     @property
-    def required_packages(self) -> List[str]:
+    def required_packages(self) -> list[str]:
         """Required packages for this integration."""
         return ["pennylane>=0.32.0"]
 

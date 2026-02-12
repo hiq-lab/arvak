@@ -375,6 +375,309 @@ const circuitRenderer = {
 };
 
 // ============================================================================
+// Topology Renderer (D3.js)
+// ============================================================================
+
+const topologyRenderer = {
+    render(container, topology, options = {}) {
+        d3.select(container).selectAll('*').remove();
+
+        if (!topology || !topology.edges || topology.num_qubits === 0) {
+            d3.select(container)
+                .append('p')
+                .attr('class', 'placeholder')
+                .text('No topology data');
+            return;
+        }
+
+        const title = options.title || 'Device Topology';
+        d3.select(container).append('h4').text(title);
+
+        const n = topology.num_qubits;
+        const edges = topology.edges;
+        const mappedQubits = options.mappedQubits || {};  // { physical: logical }
+        const usedEdges = options.usedEdges || new Set();  // Set of "q1-q2" strings
+
+        const margin = 20;
+        const size = Math.min(container.clientWidth || 300, 400) - margin * 2;
+        const radius = size / 2 - 20;
+        const cx = size / 2 + margin;
+        const cy = size / 2 + margin;
+
+        const svg = d3.select(container)
+            .append('svg')
+            .attr('width', size + margin * 2)
+            .attr('height', size + margin * 2);
+
+        // Compute node positions based on topology kind
+        const positions = this.computePositions(topology.kind, n, cx, cy, radius);
+
+        // Draw edges
+        edges.forEach(([q1, q2]) => {
+            const p1 = positions[q1];
+            const p2 = positions[q2];
+            if (!p1 || !p2) return;
+
+            const edgeKey = `${Math.min(q1, q2)}-${Math.max(q1, q2)}`;
+            svg.append('line')
+                .attr('class', `topology-edge${usedEdges.has(edgeKey) ? ' used' : ''}`)
+                .attr('x1', p1.x).attr('y1', p1.y)
+                .attr('x2', p2.x).attr('y2', p2.y);
+        });
+
+        // Color scale for mapped qubits
+        const qubitColors = d3.scaleOrdinal(d3.schemeTableau10);
+
+        // Draw nodes
+        for (let i = 0; i < n; i++) {
+            const p = positions[i];
+            if (!p) continue;
+
+            const isMapped = i in mappedQubits;
+            const nodeColor = isMapped ? qubitColors(mappedQubits[i]) : null;
+
+            const circle = svg.append('circle')
+                .attr('class', `topology-node${isMapped ? ' mapped' : ''}`)
+                .attr('cx', p.x)
+                .attr('cy', p.y)
+                .attr('r', 14);
+
+            if (nodeColor) {
+                circle.attr('stroke', nodeColor);
+            }
+
+            svg.append('text')
+                .attr('class', 'topology-node-label')
+                .attr('x', p.x)
+                .attr('y', p.y)
+                .text(i);
+        }
+    },
+
+    computePositions(kind, n, cx, cy, radius) {
+        const positions = {};
+
+        if (kind === 'linear') {
+            // Horizontal chain
+            const spacing = (radius * 2) / Math.max(n - 1, 1);
+            const startX = cx - radius;
+            for (let i = 0; i < n; i++) {
+                positions[i] = { x: startX + i * spacing, y: cy };
+            }
+        } else if (kind === 'star') {
+            // Center node + radial
+            positions[0] = { x: cx, y: cy };
+            for (let i = 1; i < n; i++) {
+                const angle = ((i - 1) / (n - 1)) * 2 * Math.PI - Math.PI / 2;
+                positions[i] = {
+                    x: cx + radius * Math.cos(angle),
+                    y: cy + radius * Math.sin(angle),
+                };
+            }
+        } else if (kind === 'grid') {
+            const cols = Math.ceil(Math.sqrt(n));
+            const rows = Math.ceil(n / cols);
+            const spacingX = (radius * 2) / Math.max(cols - 1, 1);
+            const spacingY = (radius * 2) / Math.max(rows - 1, 1);
+            const startX = cx - radius;
+            const startY = cy - radius;
+            for (let i = 0; i < n; i++) {
+                const row = Math.floor(i / cols);
+                const col = i % cols;
+                positions[i] = { x: startX + col * spacingX, y: startY + row * spacingY };
+            }
+        } else {
+            // Fully connected / unknown → circular layout
+            for (let i = 0; i < n; i++) {
+                const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+                positions[i] = {
+                    x: cx + radius * Math.cos(angle),
+                    y: cy + radius * Math.sin(angle),
+                };
+            }
+        }
+
+        return positions;
+    },
+};
+
+// ============================================================================
+// ESP Chart Renderer (D3.js)
+// ============================================================================
+
+const espChartRenderer = {
+    render(container, espData) {
+        d3.select(container).selectAll('*').remove();
+
+        if (!espData || !espData.layer_esp || espData.layer_esp.length === 0) {
+            d3.select(container)
+                .append('p')
+                .attr('class', 'placeholder')
+                .text('No ESP data');
+            return;
+        }
+
+        // Title
+        d3.select(container).append('h4').text('Estimated Success Probability');
+
+        // ESP badge
+        const totalEsp = espData.total_esp;
+        const espPercent = (totalEsp * 100).toFixed(1);
+        let badgeClass = 'esp-badge';
+        if (totalEsp >= 0.9) badgeClass += ' high';
+        else if (totalEsp >= 0.5) badgeClass += ' medium';
+        else badgeClass += ' low';
+
+        d3.select(container).append('div')
+            .attr('class', badgeClass)
+            .text(`${espPercent}%`);
+
+        // Chart
+        const margin = { top: 10, right: 20, bottom: 40, left: 50 };
+        const width = Math.min(container.clientWidth || 500, 700) - margin.left - margin.right;
+        const height = 160 - margin.top - margin.bottom;
+
+        const svg = d3.select(container)
+            .append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom)
+            .append('g')
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const n = espData.layer_esp.length;
+
+        // X scale
+        const x = d3.scaleBand()
+            .domain(d3.range(n).map(String))
+            .range([0, width])
+            .padding(0.15);
+
+        // Y scale
+        const y = d3.scaleLinear()
+            .domain([0, 1])
+            .range([height, 0]);
+
+        // Per-layer ESP bars
+        svg.selectAll('.esp-bar')
+            .data(espData.layer_esp)
+            .enter()
+            .append('rect')
+            .attr('class', 'esp-bar')
+            .attr('x', (d, i) => x(String(i)))
+            .attr('y', d => y(d))
+            .attr('width', x.bandwidth())
+            .attr('height', d => height - y(d));
+
+        // Cumulative ESP line
+        const lineGen = d3.line()
+            .x((d, i) => x(String(i)) + x.bandwidth() / 2)
+            .y(d => y(d));
+
+        svg.append('path')
+            .datum(espData.cumulative_esp)
+            .attr('class', 'esp-line')
+            .attr('d', lineGen);
+
+        // Dots on cumulative line
+        svg.selectAll('.esp-dot')
+            .data(espData.cumulative_esp)
+            .enter()
+            .append('circle')
+            .attr('class', 'esp-dot')
+            .attr('cx', (d, i) => x(String(i)) + x.bandwidth() / 2)
+            .attr('cy', d => y(d))
+            .attr('r', 3);
+
+        // X axis
+        svg.append('g')
+            .attr('class', 'axis')
+            .attr('transform', `translate(0,${height})`)
+            .call(d3.axisBottom(x).tickValues(
+                n <= 20 ? d3.range(n).map(String) : d3.range(0, n, Math.ceil(n / 10)).map(String)
+            ));
+
+        // X label
+        svg.append('text')
+            .attr('class', 'axis-label')
+            .attr('x', width / 2)
+            .attr('y', height + margin.bottom - 5)
+            .style('text-anchor', 'middle')
+            .text('Layer');
+
+        // Y axis
+        svg.append('g')
+            .attr('class', 'axis')
+            .call(d3.axisLeft(y).ticks(4).tickFormat(d => `${(d * 100).toFixed(0)}%`));
+    },
+};
+
+// ============================================================================
+// Qubit Mapping Renderer (D3.js)
+// ============================================================================
+
+const mappingRenderer = {
+    render(container, mapping) {
+        d3.select(container).selectAll('*').remove();
+
+        if (!mapping || !mapping.mappings || mapping.mappings.length === 0) {
+            return;  // Don't show anything if no mapping
+        }
+
+        d3.select(container).append('h4').text('Qubit Map');
+
+        const entries = mapping.mappings;
+        const n = entries.length;
+        const rowHeight = 28;
+        const width = 130;
+        const height = n * rowHeight + 20;
+        const colLeft = 10;
+        const colRight = width - 10;
+
+        const colors = d3.scaleOrdinal(d3.schemeTableau10);
+
+        const svg = d3.select(container)
+            .append('svg')
+            .attr('width', width)
+            .attr('height', height);
+
+        entries.forEach((entry, i) => {
+            const yLeft = i * rowHeight + 20;
+            // Physical qubits may be in different order — find vertical position
+            const physIdx = entries.findIndex(e => e.physical === i);
+            const yRight = (physIdx >= 0 ? physIdx : i) * rowHeight + 20;
+
+            const color = colors(entry.logical);
+
+            // Curved connecting line
+            const midX = width / 2;
+            svg.append('path')
+                .attr('class', 'mapping-line')
+                .attr('d', `M ${colLeft + 25} ${yLeft} C ${midX} ${yLeft}, ${midX} ${yRight}, ${colRight - 25} ${yRight}`)
+                .attr('stroke', color);
+
+            // Left label (logical)
+            svg.append('text')
+                .attr('class', 'mapping-label')
+                .attr('x', colLeft)
+                .attr('y', yLeft)
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', color)
+                .text(`q[${entry.logical}]`);
+
+            // Right label (physical)
+            svg.append('text')
+                .attr('class', 'mapping-label')
+                .attr('x', colRight)
+                .attr('y', yRight)
+                .attr('text-anchor', 'end')
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', color)
+                .text(`p[${entry.physical}]`);
+        });
+    },
+};
+
+// ============================================================================
 // View Controllers
 // ============================================================================
 
@@ -504,6 +807,50 @@ async function compileCircuit() {
         circuitRenderer.render(document.getElementById('circuit-before'), result.before);
         circuitRenderer.render(document.getElementById('circuit-after'), result.after);
 
+        // Render qubit mapping
+        if (result.qubit_mapping) {
+            mappingRenderer.render(
+                document.getElementById('qubit-mapping-container'),
+                result.qubit_mapping
+            );
+        }
+
+        // Render ESP chart
+        if (result.esp) {
+            espChartRenderer.render(
+                document.getElementById('esp-chart-container'),
+                result.esp
+            );
+        }
+
+        // Render compile topology
+        if (result.topology && result.qubit_mapping) {
+            const mappedQubits = {};
+            result.qubit_mapping.mappings.forEach(m => {
+                mappedQubits[m.physical] = m.logical;
+            });
+
+            // Find used edges from 2-qubit gates in compiled circuit
+            const usedEdges = new Set();
+            if (result.after && result.after.layers) {
+                result.after.layers.forEach(layer => {
+                    layer.operations.forEach(op => {
+                        if (op.num_qubits >= 2 && op.qubits.length >= 2) {
+                            const q1 = Math.min(op.qubits[0], op.qubits[1]);
+                            const q2 = Math.max(op.qubits[0], op.qubits[1]);
+                            usedEdges.add(`${q1}-${q2}`);
+                        }
+                    });
+                });
+            }
+
+            topologyRenderer.render(
+                document.getElementById('compile-topology-container'),
+                result.topology,
+                { title: `${target.toUpperCase()} Topology`, mappedQubits, usedEdges }
+            );
+        }
+
         // Show compiled QASM
         document.getElementById('compiled-qasm').value = result.compiled_qasm;
 
@@ -533,6 +880,7 @@ async function loadBackends() {
         backends.forEach(backend => {
             const card = document.createElement('div');
             card.className = 'backend-card';
+            card.style.cursor = 'pointer';
             card.innerHTML = `
                 <h3>
                     ${backend.name}
@@ -550,6 +898,7 @@ async function loadBackends() {
                         : '<span class="tag">universal</span>'}
                 </div>
             `;
+            card.addEventListener('click', () => showBackendTopology(backend.name));
             grid.appendChild(card);
         });
 
@@ -557,6 +906,28 @@ async function loadBackends() {
         container.appendChild(grid);
     } catch (error) {
         showError(container, error.message);
+    }
+}
+
+async function showBackendTopology(name) {
+    const detailContainer = document.getElementById('backend-detail-container');
+    const topoContainer = document.getElementById('backend-topology-container');
+
+    try {
+        const details = await api.getBackend(name);
+        document.getElementById('backend-detail-name').textContent = `${name} — ${details.num_qubits} qubits`;
+        detailContainer.style.display = 'block';
+
+        if (details.topology) {
+            topologyRenderer.render(topoContainer, details.topology, {
+                title: `${details.topology.kind} topology`,
+            });
+        } else {
+            topoContainer.innerHTML = '<p class="placeholder">No topology information</p>';
+        }
+    } catch (error) {
+        detailContainer.style.display = 'block';
+        topoContainer.innerHTML = `<div class="error-message">${error.message}</div>`;
     }
 }
 

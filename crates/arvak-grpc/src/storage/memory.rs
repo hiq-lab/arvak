@@ -129,7 +129,7 @@ impl JobStorage for MemoryStorage {
             .collect();
 
         // Sort by submitted_at descending (most recent first)
-        results.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
+        results.sort_by_key(|j| std::cmp::Reverse(j.submitted_at));
 
         // Apply limit
         results.truncate(filter.limit);

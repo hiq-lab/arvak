@@ -7,11 +7,7 @@ The simulator backend calls Arvak's built-in Rust statevector simulator
 directly via PyO3, returning real simulation results.
 """
 
-from typing import List, Optional, Union, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from qiskit import QuantumCircuit
-    from qiskit.providers import BackendV2, JobV1, Options
+from typing import Optional, Union
 
 
 class ArvakProvider:
@@ -32,7 +28,7 @@ class ArvakProvider:
         """Initialize the Arvak provider."""
         self._backends = {}
 
-    def backends(self, name: Optional[str] = None, **filters) -> List['BackendV2']:
+    def backends(self, name: Optional[str] = None, **filters) -> list['BackendV2']:
         """Get list of available backends.
 
         Args:
@@ -104,16 +100,16 @@ class ArvakSimulatorBackend:
         return 20
 
     @property
-    def basis_gates(self) -> List[str]:
+    def basis_gates(self) -> list[str]:
         return ['id', 'h', 'x', 'y', 'z', 's', 't', 'sx',
                 'rx', 'ry', 'rz', 'cx', 'cy', 'cz', 'swap',
                 'ccx', 'measure']
 
     @property
-    def coupling_map(self) -> Optional[List[List[int]]]:
+    def coupling_map(self) -> Optional[list[list[int]]]:
         return None  # All-to-all connectivity
 
-    def run(self, circuits: Union['QuantumCircuit', List['QuantumCircuit']],
+    def run(self, circuits: Union['QuantumCircuit', list['QuantumCircuit']],
             shots: int = 1024, **options) -> 'ArvakJob':
         """Run circuits on Arvak's statevector simulator.
 
@@ -137,7 +133,7 @@ class ArvakSimulatorBackend:
             try:
                 from qiskit.qasm3 import dumps
                 qasm_str = dumps(qc)
-            except Exception:
+            except (ImportError, AttributeError):
                 from qiskit.qasm2 import dumps as dumps2
                 qasm_str = dumps2(qc)
 
@@ -163,7 +159,7 @@ class ArvakJob:
 
     def __init__(self, backend, counts, shots):
         self._backend = backend
-        self._counts = counts  # List[Dict[str, int]], one per circuit
+        self._counts = counts  # list[Dict[str, int]], one per circuit
         self._shots = shots
 
     def result(self) -> 'ArvakResult':
@@ -189,7 +185,7 @@ class ArvakResult:
 
     def __init__(self, backend_name, counts, shots):
         self.backend_name = backend_name
-        self._counts = counts  # List[Dict[str, int]]
+        self._counts = counts  # list[Dict[str, int]]
         self._shots = shots
 
     def get_counts(self, circuit=None):

@@ -7,10 +7,7 @@ The backend calls Arvak's built-in Rust statevector simulator directly
 via PyO3, returning real simulation results.
 """
 
-from typing import List, Optional, Union, TYPE_CHECKING, Dict
-
-if TYPE_CHECKING:
-    from qrisp import QuantumCircuit, QuantumSession
+from typing import Optional, Union
 
 
 class ArvakBackendClient:
@@ -43,7 +40,7 @@ class ArvakBackendClient:
         self.description = f'Arvak Rust statevector simulator ({backend_name})'
 
     def run(self, circuit: Union['QuantumCircuit', 'QuantumSession'],
-            shots: int = 1024, **options) -> Dict[str, int]:
+            shots: int = 1024, **options) -> dict[str, int]:
         """Run a Qrisp circuit on Arvak's statevector simulator.
 
         Args:
@@ -92,7 +89,7 @@ class ArvakProvider:
             self._backends[name] = ArvakBackendClient(name)
         return self._backends[name]
 
-    def backends(self, name: Optional[str] = None, **filters) -> List[ArvakBackendClient]:
+    def backends(self, name: Optional[str] = None, **filters) -> list[ArvakBackendClient]:
         """Get list of available backends."""
         if not self._backends:
             self._backends = {

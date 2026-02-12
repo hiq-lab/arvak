@@ -7,7 +7,6 @@ using OpenQASM 3.0 as an interchange format.
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from qiskit import QuantumCircuit
     import arvak
 
 

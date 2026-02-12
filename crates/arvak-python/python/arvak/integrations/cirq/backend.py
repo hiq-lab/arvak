@@ -7,7 +7,7 @@ The sampler calls Arvak's built-in Rust statevector simulator directly
 via PyO3, returning real simulation results.
 """
 
-from typing import List, Optional, Union, TYPE_CHECKING, Dict, Sequence
+from typing import Optional, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import cirq
@@ -131,7 +131,7 @@ class ArvakResult:
     stored as numpy arrays compatible with Cirq's Result interface.
     """
 
-    def __init__(self, params, measurements: Dict, repetitions: int):
+    def __init__(self, params, measurements: dict, repetitions: int):
         """Initialize the result.
 
         Args:
@@ -143,7 +143,7 @@ class ArvakResult:
         self.measurements = measurements
         self.repetitions = repetitions
 
-    def histogram(self, key: str = 'result') -> Dict[int, int]:
+    def histogram(self, key: str = 'result') -> dict[int, int]:
         """Get histogram of measurement outcomes.
 
         Args:
@@ -163,7 +163,7 @@ class ArvakResult:
 
         return {int(k, 2): v for k, v in counts.items()}
 
-    def multi_measurement_histogram(self, keys: Optional[List[str]] = None) -> Dict:
+    def multi_measurement_histogram(self, keys: Optional[list[str]] = None) -> dict:
         """Get histograms for multiple measurements."""
         if keys is None:
             keys = list(self.measurements.keys())
