@@ -8,7 +8,8 @@ use arvak_ir::Circuit;
 use axum::{Json, extract::State};
 
 use crate::dto::{
-    CircuitVisualization, CompilationStats, CompileRequest, CompileResponse, VisualizeRequest,
+    CircuitVisualization, CompilationStats, CompileRequest, CompileResponse, EspData, QubitMapEntry,
+    QubitMapping, TopologyView, VisualizeRequest,
 };
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -43,6 +44,13 @@ pub async fn compile(
     // Determine target coupling map and basis gates
     let (coupling_map, basis_gates) = get_target_config(&req.target, circuit.num_qubits())?;
 
+    // Build topology view before moving coupling_map into the pass manager
+    let topology = Some(TopologyView {
+        kind: topology_kind(&req.target),
+        edges: coupling_map.edges().to_vec(),
+        num_qubits: coupling_map.num_qubits(),
+    });
+
     // Build pass manager
     let (pm, mut props) = PassManagerBuilder::new()
         .with_optimization_level(req.optimization_level)
@@ -55,6 +63,19 @@ pub async fn compile(
     pm.run(&mut dag, &mut props)?;
     let compile_time = compile_start.elapsed();
 
+    // Extract qubit mapping from layout (set by layout pass)
+    let qubit_mapping = props.layout.as_ref().map(|layout| {
+        let mut mappings: Vec<QubitMapEntry> = layout
+            .iter()
+            .map(|(logical, physical)| QubitMapEntry {
+                logical: logical.0,
+                physical,
+            })
+            .collect();
+        mappings.sort_by_key(|e| e.logical);
+        QubitMapping { mappings }
+    });
+
     // Convert back to circuit
     let compiled = Circuit::from_dag(dag);
 
@@ -62,6 +83,9 @@ pub async fn compile(
     let after = CircuitVisualization::from_circuit(&compiled);
     let compiled_depth = compiled.depth();
     let gates_after = count_gates(&compiled);
+
+    // Compute ESP from compiled circuit layers
+    let esp = compute_esp(&after);
 
     // Compute throughput
     let compile_time_us = compile_time.as_micros() as u64;
@@ -86,6 +110,9 @@ pub async fn compile(
             compile_time_us,
             throughput_gates_per_sec,
         },
+        qubit_mapping,
+        esp,
+        topology,
     }))
 }
 
@@ -147,4 +174,55 @@ fn get_target_config(
 /// Count the number of gate operations in a circuit.
 fn count_gates(circuit: &Circuit) -> usize {
     circuit.dag().num_ops()
+}
+
+/// Determine the topology kind string for a target backend.
+fn topology_kind(target: &str) -> String {
+    match target.to_lowercase().as_str() {
+        "iqm" | "iqm5" | "iqm20" | "star" => "star".to_string(),
+        "ibm" | "ibm5" | "ibm27" | "linear" => "linear".to_string(),
+        "simulator" | "sim" => "fully_connected".to_string(),
+        _ => "unknown".to_string(),
+    }
+}
+
+/// Compute Estimated Success Probability from compiled circuit layers.
+///
+/// Uses a simple error model: 1-qubit gate fidelity = 0.999, 2-qubit gate fidelity = 0.99.
+/// Measurements and barriers do not contribute to error.
+fn compute_esp(circuit: &CircuitVisualization) -> Option<EspData> {
+    if circuit.layers.is_empty() {
+        return None;
+    }
+
+    const FIDELITY_1Q: f64 = 0.999;
+    const FIDELITY_2Q: f64 = 0.99;
+
+    let mut layer_esp = Vec::with_capacity(circuit.layers.len());
+    let mut cumulative_esp = Vec::with_capacity(circuit.layers.len());
+    let mut running = 1.0_f64;
+
+    for layer in &circuit.layers {
+        let mut layer_fidelity = 1.0_f64;
+        for op in &layer.operations {
+            if op.is_measurement || op.is_barrier {
+                continue;
+            }
+            let gate_fidelity = if op.num_qubits >= 2 {
+                FIDELITY_2Q
+            } else {
+                FIDELITY_1Q
+            };
+            layer_fidelity *= gate_fidelity;
+        }
+        layer_esp.push(layer_fidelity);
+        running *= layer_fidelity;
+        cumulative_esp.push(running);
+    }
+
+    Some(EspData {
+        layer_esp,
+        cumulative_esp,
+        total_esp: running,
+    })
 }

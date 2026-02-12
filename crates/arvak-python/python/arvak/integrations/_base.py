@@ -5,7 +5,7 @@ must implement to provide consistent conversion and execution capabilities.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import arvak
@@ -42,7 +42,7 @@ class FrameworkIntegration(ABC):
 
     @property
     @abstractmethod
-    def required_packages(self) -> List[str]:
+    def required_packages(self) -> list[str]:
         """List of required package names for this integration.
 
         Returns:
@@ -106,7 +106,7 @@ class FrameworkIntegration(ABC):
         """
         pass
 
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """Return integration metadata.
 
         Returns:

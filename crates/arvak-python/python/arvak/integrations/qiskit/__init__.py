@@ -22,7 +22,6 @@ Example:
     >>> result = job.result()
 """
 
-from typing import List
 from .._base import FrameworkIntegration
 
 
@@ -40,7 +39,7 @@ class QiskitIntegration(FrameworkIntegration):
         return "qiskit"
 
     @property
-    def required_packages(self) -> List[str]:
+    def required_packages(self) -> list[str]:
         """Required packages for this integration."""
         return ["qiskit>=1.0.0"]
 

@@ -79,10 +79,15 @@ c = measure q;</textarea>
                         <h3>Before Compilation</h3>
                         <div id="circuit-before"></div>
                     </div>
+                    <div id="qubit-mapping-container" class="mapping-panel"></div>
                     <div class="comparison-panel">
                         <h3>After Compilation</h3>
                         <div id="circuit-after"></div>
                     </div>
+                </div>
+                <div class="compile-insights">
+                    <div id="esp-chart-container" class="esp-panel"></div>
+                    <div id="compile-topology-container" class="topology-panel"></div>
                 </div>
                 <div class="input-group">
                     <label>Compiled QASM3:</label>
@@ -98,6 +103,10 @@ c = measure q;</textarea>
                 <button id="refresh-backends-btn">Refresh</button>
                 <div id="backends-container">
                     <p class="placeholder">Loading backends...</p>
+                </div>
+                <div id="backend-detail-container" style="display: none;">
+                    <h3 id="backend-detail-name"></h3>
+                    <div id="backend-topology-container" class="topology-panel"></div>
                 </div>
             </div>
         </section>

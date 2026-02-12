@@ -25,7 +25,6 @@ Example:
     >>> results = backend.run(qc, shots=1000)
 """
 
-from typing import List
 from .._base import FrameworkIntegration
 
 
@@ -49,7 +48,7 @@ class QrispIntegration(FrameworkIntegration):
         return "qrisp"
 
     @property
-    def required_packages(self) -> List[str]:
+    def required_packages(self) -> list[str]:
         """Required packages for this integration."""
         return ["qrisp>=0.4.0"]
 
