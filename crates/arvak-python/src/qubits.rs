@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 ///
 /// QubitId is a lightweight wrapper around a u32 index that identifies
 /// a specific qubit in a quantum circuit.
-#[pyclass(name = "QubitId")]
+#[pyclass(name = "QubitId", from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PyQubitId(pub u32);
 
@@ -67,7 +67,7 @@ impl From<arvak_ir::QubitId> for PyQubitId {
 ///
 /// ClbitId is a lightweight wrapper around a u32 index that identifies
 /// a specific classical bit in a quantum circuit.
-#[pyclass(name = "ClbitId")]
+#[pyclass(name = "ClbitId", from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PyClbitId(pub u32);
 
