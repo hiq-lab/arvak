@@ -469,7 +469,75 @@ jobs:
           path: bench-output.txt
 
   # ─────────────────────────────────────────────
-  # Job 8: Documentation build check
+  # Job 8: Test coverage metrics
+  # ─────────────────────────────────────────────
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
+          components: llvm-tools-preview
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-coverage-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-coverage-
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
+      - name: Generate coverage report
+        run: |
+          cargo llvm-cov --workspace --exclude arvak-python --exclude arvak-grpc \
+            --lcov --output-path lcov.info \
+            --html --output-dir coverage-html 2>&1 | tee coverage-output.txt
+
+          # Extract summary statistics
+          echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Parse coverage percentage from output
+          COVERAGE=$(grep -oP 'TOTAL.*?\K\d+\.\d+(?=%)' coverage-output.txt | tail -1 || echo "N/A")
+          echo "**Overall Coverage:** ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Add detailed breakdown
+          echo "### Coverage by Crate" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo llvm-cov --workspace --exclude arvak-python --exclude arvak-grpc --no-run --summary-only 2>&1 | grep -E "^(arvak|TOTAL)" >> $GITHUB_STEP_SUMMARY || echo "No coverage data" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            lcov.info
+            coverage-html/
+            coverage-output.txt
+
+      - name: Coverage summary
+        run: |
+          echo "Coverage report generated. View HTML report in artifacts."
+          # Future: Add codecov.io or coveralls.io upload here
+
+  # ─────────────────────────────────────────────
+  # Job 9: Documentation build check
   # ─────────────────────────────────────────────
   docs:
     name: Documentation
@@ -492,7 +560,7 @@ jobs:
         run: cargo doc --workspace --exclude arvak-python --no-deps
 
   # ─────────────────────────────────────────────
-  # Job 9: Docker image build validation
+  # Job 10: Docker image build validation
   # ─────────────────────────────────────────────
   docker-build:
     name: Docker Build
@@ -522,7 +590,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────
-  # Job 10: VPS smoke test on arvak.io
+  # Job 11: VPS smoke test on arvak.io
   # ─────────────────────────────────────────────
   vps-smoke-test:
     name: VPS Smoke Test
@@ -665,7 +733,7 @@ jobs:
           REMOTE_SCRIPT
 
   # ─────────────────────────────────────────────
-  # Nightly report — opens/updates issue
+  # Job 12: Nightly report — opens/updates issue
   # ─────────────────────────────────────────────
   nightly-report:
     name: Nightly Report
@@ -679,6 +747,7 @@ jobs:
       - msrv-check
       - python-bindings
       - benchmarks
+      - coverage
       - docs
       - docker-build
       - vps-smoke-test
@@ -703,6 +772,7 @@ jobs:
           MSRV: ${{ needs.msrv-check.result }}
           PYTHON: ${{ needs.python-bindings.result }}
           BENCH: ${{ needs.benchmarks.result }}
+          COVERAGE: ${{ needs.coverage.result }}
           DOCS: ${{ needs.docs.result }}
           DOCKER: ${{ needs.docker-build.result }}
           VPS_SMOKE: ${{ needs.vps-smoke-test.result }}
@@ -742,6 +812,7 @@ jobs:
           | MSRV (Rust 1.85) | $(status_icon "$MSRV") | ${MSRV} |
           | Python Bindings | $(status_icon "$PYTHON") | ${PYTHON} |
           | Benchmarks | $(status_icon "$BENCH") | ${BENCH} |
+          | Test Coverage | $(status_icon "$COVERAGE") | ${COVERAGE} |
           | Documentation | $(status_icon "$DOCS") | ${DOCS} |
           | Docker Build | $(status_icon "$DOCKER") | ${DOCKER} |
           | VPS Smoke Test | $(status_icon "$VPS_SMOKE") | ${VPS_SMOKE} |
