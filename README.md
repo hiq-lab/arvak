@@ -638,6 +638,23 @@ arvak eval --input examples/bell.qasm --target simulator --benchmark ghz --bench
 
 ## Building from Source
 
+### Prerequisites
+
+- **Rust 1.85+** (install via [rustup](https://rustup.rs/))
+- **Protocol Buffers compiler** (required for gRPC):
+  ```bash
+  # Linux (Debian/Ubuntu)
+  sudo apt-get install protobuf-compiler
+
+  # macOS
+  brew install protobuf
+
+  # Verify installation
+  protoc --version  # should show libprotoc 3.x or later
+  ```
+
+### Build Steps
+
 ```bash
 # Clone repository
 git clone https://github.com/hiq-lab/arvak.git
