@@ -574,9 +574,6 @@ jobs:
         with:
           toolchain: nightly-2026-02-09
 
-      - name: Generate Cargo.lock
-        run: cargo generate-lockfile
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -609,9 +606,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2026-02-09
-
-      - name: Generate Cargo.lock
-        run: cargo generate-lockfile
 
       - name: Set up SSH
         run: |
@@ -653,11 +647,6 @@ jobs:
           cd repo
           git checkout ${{ github.sha }}
           REMOTE_SCRIPT
-
-      - name: SCP Cargo.lock to VPS
-        run: |
-          WORKDIR=$(ssh -i ~/.ssh/vps_key root@arvak.io "cat /tmp/arvak-smoke-env | grep WORKDIR | cut -d= -f2")
-          scp -i ~/.ssh/vps_key Cargo.lock "root@arvak.io:${WORKDIR}/repo/Cargo.lock"
 
       - name: Build Docker image on VPS
         run: |
