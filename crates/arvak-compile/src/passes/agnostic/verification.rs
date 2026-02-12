@@ -215,8 +215,8 @@ mod tests {
     use super::*;
     use arvak_ir::{Circuit, ClbitId, QubitId};
 
-    fn run_verification(circuit: &Circuit) -> CompileResult<VerificationResult> {
-        let mut dag = circuit.clone().into_dag();
+    fn run_verification(circuit: Circuit) -> CompileResult<VerificationResult> {
+        let mut dag = circuit.into_dag();
         let mut props = PropertySet::new();
         let pass = MeasurementBarrierVerification;
         pass.run(&mut dag, &mut props)?;
@@ -231,7 +231,7 @@ mod tests {
         circuit.measure(QubitId(0), ClbitId(0)).unwrap();
         circuit.measure(QubitId(1), ClbitId(1)).unwrap();
 
-        let result = run_verification(&circuit).unwrap();
+        let result = run_verification(circuit).unwrap();
         assert!(result.passed);
         assert_eq!(result.qubits_checked, 2);
         assert_eq!(result.measurements_found, 2);
@@ -245,7 +245,7 @@ mod tests {
         circuit.reset(QubitId(0)).unwrap();
         circuit.h(QubitId(0)).unwrap();
 
-        let result = run_verification(&circuit).unwrap();
+        let result = run_verification(circuit).unwrap();
         assert!(result.passed);
         assert_eq!(result.measurements_found, 1);
     }
@@ -259,14 +259,14 @@ mod tests {
         circuit.measure(QubitId(0), ClbitId(0)).unwrap();
         circuit.measure(QubitId(1), ClbitId(1)).unwrap();
 
-        let result = run_verification(&circuit).unwrap();
+        let result = run_verification(circuit).unwrap();
         assert!(result.passed);
     }
 
     #[test]
     fn test_empty_circuit() {
         let circuit = Circuit::with_size("test", 2, 0);
-        let result = run_verification(&circuit).unwrap();
+        let result = run_verification(circuit).unwrap();
         assert!(result.passed);
         assert_eq!(result.measurements_found, 0);
     }
