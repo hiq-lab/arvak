@@ -33,24 +33,26 @@ impl Pass for BasisTranslation {
             .as_ref()
             .ok_or(CompileError::MissingBasisGates)?;
 
-        // Collect nodes that need translation
+        // Collect node indices that need translation (avoid cloning instructions)
         let nodes_to_translate: Vec<_> = dag
             .topological_ops()
             .filter_map(|(idx, inst)| {
                 if let Some(gate) = inst.as_gate() {
                     if !is_in_basis(gate, basis_gates) {
-                        return Some((idx, inst.clone()));
+                        return Some(idx);
                     }
                 }
                 None
             })
             .collect();
 
-        // Translate each gate
-        for (node_idx, instruction) in nodes_to_translate {
-            let replacement = translate_gate(&instruction, basis_gates)?;
-            if !replacement.is_empty() {
-                dag.substitute_node(node_idx, replacement)?;
+        // Translate each gate (re-fetch instruction to avoid clone)
+        for node_idx in nodes_to_translate {
+            if let Some(instruction) = dag.get_instruction(node_idx) {
+                let replacement = translate_gate(instruction, basis_gates)?;
+                if !replacement.is_empty() {
+                    dag.substitute_node(node_idx, replacement)?;
+                }
             }
         }
 
@@ -172,13 +174,14 @@ fn translate_to_iqm(
         // CX = H · CZ · H (on target)
         StandardGate::CX => {
             let q1 = qubits[1];
-            // H on target
+            // H on target (decompose once)
             let h_gates = translate_to_iqm(&StandardGate::H, &[q1])?;
-            let mut result = h_gates.clone();
+            let mut result = Vec::with_capacity(h_gates.len() * 2 + 1);
+            result.extend_from_slice(&h_gates);
             // CZ
             result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
-            // H on target
-            result.extend(h_gates);
+            // H on target (reuse decomposition)
+            result.extend_from_slice(&h_gates);
             result
         }
 
@@ -201,14 +204,14 @@ fn translate_to_iqm(
             let h1 = translate_to_iqm(&StandardGate::H, &[q1])?;
             let cz = Instruction::two_qubit_gate(StandardGate::CZ, q0, q1);
 
-            let mut result = vec![];
-            result.push(cz.clone());
-            result.extend(h0.clone());
-            result.extend(h1.clone());
-            result.push(cz.clone());
-            result.extend(h0.clone());
-            result.extend(h1.clone());
+            let mut result = Vec::with_capacity(h0.len() * 2 + h1.len() * 2 + 3);
             result.push(cz);
+            result.extend_from_slice(&h0);
+            result.extend_from_slice(&h1);
+            result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
+            result.extend_from_slice(&h0);
+            result.extend_from_slice(&h1);
+            result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
             result
         }
 
