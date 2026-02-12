@@ -8,7 +8,7 @@ use crate::qubits::PyQubitId;
 ///
 /// The layout defines how logical qubits in a circuit map to physical
 /// qubits on the target hardware.
-#[pyclass(name = "Layout")]
+#[pyclass(name = "Layout", from_py_object)]
 #[derive(Clone)]
 pub struct PyLayout {
     pub(crate) inner: arvak_compile::Layout,
@@ -93,7 +93,7 @@ impl PyLayout {
 ///
 /// The coupling map defines which pairs of physical qubits can
 /// interact with two-qubit gates.
-#[pyclass(name = "CouplingMap")]
+#[pyclass(name = "CouplingMap", from_py_object)]
 #[derive(Clone)]
 pub struct PyCouplingMap {
     pub(crate) inner: arvak_compile::CouplingMap,
@@ -174,7 +174,7 @@ impl PyCouplingMap {
 ///
 /// The basis gates define the native gate set that the target
 /// hardware supports.
-#[pyclass(name = "BasisGates")]
+#[pyclass(name = "BasisGates", from_py_object)]
 #[derive(Clone)]
 pub struct PyBasisGates {
     pub(crate) inner: arvak_compile::BasisGates,
