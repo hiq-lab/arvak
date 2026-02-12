@@ -134,11 +134,7 @@ mod circuit_loading {
     fn test_load_circuit_from_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.qasm");
-        fs::write(
-            &path,
-            "OPENQASM 3.0; qubit[2] q; h q[0]; cx q[0], q[1];",
-        )
-        .unwrap();
+        fs::write(&path, "OPENQASM 3.0; qubit[2] q; h q[0]; cx q[0], q[1];").unwrap();
 
         let source = fs::read_to_string(&path).unwrap();
         let circuit = parse(&source).unwrap();
@@ -260,8 +256,7 @@ mod clap_parsing {
 
     #[test]
     fn test_parse_compile_minimal() {
-        let cli =
-            TestCli::try_parse_from(["arvak", "compile", "-i", "circuit.qasm"]).unwrap();
+        let cli = TestCli::try_parse_from(["arvak", "compile", "-i", "circuit.qasm"]).unwrap();
         match cli.command {
             TestCommands::Compile {
                 input,
@@ -375,8 +370,7 @@ mod clap_parsing {
 
     #[test]
     fn test_parse_submit_minimal() {
-        let cli =
-            TestCli::try_parse_from(["arvak", "submit", "-i", "circuit.qasm"]).unwrap();
+        let cli = TestCli::try_parse_from(["arvak", "submit", "-i", "circuit.qasm"]).unwrap();
         match cli.command {
             TestCommands::Submit {
                 scheduler, wait, ..
@@ -433,18 +427,12 @@ mod clap_parsing {
 
     #[test]
     fn test_parse_status_with_job_id() {
-        let cli = TestCli::try_parse_from([
-            "arvak",
-            "status",
-            "550e8400-e29b-41d4-a716-446655440000",
-        ])
-        .unwrap();
+        let cli =
+            TestCli::try_parse_from(["arvak", "status", "550e8400-e29b-41d4-a716-446655440000"])
+                .unwrap();
         match cli.command {
             TestCommands::Status { job_id, all } => {
-                assert_eq!(
-                    job_id.unwrap(),
-                    "550e8400-e29b-41d4-a716-446655440000"
-                );
+                assert_eq!(job_id.unwrap(), "550e8400-e29b-41d4-a716-446655440000");
                 assert!(!all);
             }
             _ => panic!("Expected Status command"),
@@ -467,12 +455,9 @@ mod clap_parsing {
 
     #[test]
     fn test_parse_result_default_format() {
-        let cli = TestCli::try_parse_from([
-            "arvak",
-            "result",
-            "550e8400-e29b-41d4-a716-446655440000",
-        ])
-        .unwrap();
+        let cli =
+            TestCli::try_parse_from(["arvak", "result", "550e8400-e29b-41d4-a716-446655440000"])
+                .unwrap();
         match cli.command {
             TestCommands::Result { format, .. } => {
                 assert_eq!(format, "table");
@@ -538,8 +523,7 @@ mod clap_parsing {
 
     #[test]
     fn test_parse_auth_status() {
-        let cli =
-            TestCli::try_parse_from(["arvak", "auth", "status"]).unwrap();
+        let cli = TestCli::try_parse_from(["arvak", "auth", "status"]).unwrap();
         match cli.command {
             TestCommands::Auth {
                 action: TestAuthAction::Status { provider },
@@ -552,8 +536,7 @@ mod clap_parsing {
 
     #[test]
     fn test_parse_auth_logout() {
-        let cli = TestCli::try_parse_from(["arvak", "auth", "logout", "-p", "lrz"])
-            .unwrap();
+        let cli = TestCli::try_parse_from(["arvak", "auth", "logout", "-p", "lrz"]).unwrap();
         match cli.command {
             TestCommands::Auth {
                 action: TestAuthAction::Logout { provider },
@@ -568,12 +551,9 @@ mod clap_parsing {
 
     #[test]
     fn test_parse_wait_default_timeout() {
-        let cli = TestCli::try_parse_from([
-            "arvak",
-            "wait",
-            "550e8400-e29b-41d4-a716-446655440000",
-        ])
-        .unwrap();
+        let cli =
+            TestCli::try_parse_from(["arvak", "wait", "550e8400-e29b-41d4-a716-446655440000"])
+                .unwrap();
         match cli.command {
             TestCommands::Wait { timeout, .. } => {
                 assert_eq!(timeout, 86400);

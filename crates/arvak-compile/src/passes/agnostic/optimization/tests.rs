@@ -2,8 +2,8 @@
 
 use std::f64::consts::PI;
 
-use arvak_ir::qubit::QubitId;
 use arvak_ir::Circuit;
+use arvak_ir::qubit::QubitId;
 
 use crate::pass::Pass;
 use crate::property::PropertySet;

@@ -448,9 +448,7 @@ impl ArvakServiceImpl {
         });
 
         let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
-        Ok(Response::new(
-            Box::pin(stream) as SubmitBatchStreamStream
-        ))
+        Ok(Response::new(Box::pin(stream) as SubmitBatchStreamStream))
     }
 
     pub(in crate::server) async fn get_job_result_impl(

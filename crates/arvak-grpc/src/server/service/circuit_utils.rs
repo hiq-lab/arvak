@@ -1,9 +1,9 @@
 //! Circuit parsing utilities shared across gRPC service modules.
 
-use arvak_ir::circuit::Circuit;
+use crate::error::Error;
 use crate::error::Result;
 use crate::proto::{CircuitPayload, circuit_payload};
-use crate::error::Error;
+use arvak_ir::circuit::Circuit;
 
 /// Parse circuit from protobuf payload (static version for use in async contexts).
 pub(super) fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Circuit> {
@@ -16,8 +16,7 @@ pub(super) fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Ci
             Ok(circuit)
         }
         Some(circuit_payload::Format::ArvakIrJson(_json)) => Err(Error::InvalidCircuit(
-            "Arvak IR JSON format not yet supported. Use OpenQASM 3 format instead."
-                .to_string(),
+            "Arvak IR JSON format not yet supported. Use OpenQASM 3 format instead.".to_string(),
         )),
         None => Err(Error::InvalidCircuit(
             "No circuit format specified".to_string(),

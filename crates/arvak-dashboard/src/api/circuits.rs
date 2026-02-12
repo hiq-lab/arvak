@@ -8,8 +8,8 @@ use arvak_ir::Circuit;
 use axum::{Json, extract::State};
 
 use crate::dto::{
-    CircuitVisualization, CompilationStats, CompileRequest, CompileResponse, EspData, QubitMapEntry,
-    QubitMapping, TopologyView, VisualizeRequest,
+    CircuitVisualization, CompilationStats, CompileRequest, CompileResponse, EspData,
+    QubitMapEntry, QubitMapping, TopologyView, VisualizeRequest,
 };
 use crate::error::ApiError;
 use crate::state::AppState;
