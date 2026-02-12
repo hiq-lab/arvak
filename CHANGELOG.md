@@ -5,6 +5,44 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-02-12
+
+### Changed
+
+#### Code Structure Improvements (Phase 4)
+- **QASM3 parser modularization**: Split `parser.rs` (1285 LOC) into focused modules:
+  - `parser/mod.rs` - Public API and core utilities (262 LOC)
+  - `parser/expression.rs` - Expression parsing with precedence climbing (162 LOC)
+  - `parser/statement.rs` - Statement parsing for all QASM3 constructs (349 LOC)
+  - `parser/lowering.rs` - AST-to-Circuit transformation (539 LOC)
+- **Optimization pass modularization**: Split `optimization.rs` (914 LOC) into focused modules:
+  - `optimization/mod.rs` - Module exports and shared constants (13 LOC)
+  - `optimization/optimize_1q.rs` - Single-qubit gate optimization (380 LOC)
+  - `optimization/cancel.rs` - CX and commutative cancellation (388 LOC)
+  - `optimization/tests.rs` - All optimization tests (168 LOC)
+- **gRPC service modularization**: Split `service.rs` into focused modules:
+  - `service/mod.rs` - Service orchestration
+  - `service/backend_service.rs` - Backend management
+  - `service/job_service.rs` - Job execution
+  - `service/job_execution.rs` - Job processing
+  - `service/circuit_utils.rs` - Circuit utilities
+- **Hot-path clone reduction**: Optimized compilation performance by removing unnecessary clones:
+  - `optimize_1q.rs`: Removed 2 clones using `zip()` with `into_iter()`
+  - `translation.rs`: Reduced from 18 to 10 clones using `extend_from_slice()` (remaining 10 are cheap Arc-based `ParameterExpression` clones)
+
+#### Python Bindings
+- **PyO3 upgrade**: Updated from 0.23 to 0.28 for improved compatibility:
+  - Better arm64 macOS support
+  - Python 3.13 compatibility improvements
+  - Updated API: `allow_threads` → `detach` for GIL management
+  - Fixed deprecation warnings with `from_py_object` on all `#[pyclass]` types
+
+### Fixed
+- Python bindings compatibility with PyO3 0.28 API changes
+- CI/nightly build for Python bindings on arm64 macOS
+
+---
+
 ## [1.5.1] - 2026-02-11
 
 ### Added
