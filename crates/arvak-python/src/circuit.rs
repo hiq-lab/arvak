@@ -43,7 +43,7 @@ fn to_clbit_id(obj: &Bound<'_, PyAny>) -> PyResult<arvak_ir::ClbitId> {
 ///     >>> qc.h(0).cx(0, 1).measure_all()
 ///     >>> print(qc.depth())
 ///     2
-#[pyclass(name = "Circuit")]
+#[pyclass(name = "Circuit", from_py_object)]
 pub struct PyCircuit {
     pub(crate) inner: arvak_ir::Circuit,
 }
