@@ -12,6 +12,7 @@ use crate::qubit::{Clbit, ClbitId, Qubit, QubitId};
 ///
 /// This provides a high-level API for building quantum circuits,
 /// with convenient methods for common gates and operations.
+#[derive(Debug)]
 pub struct Circuit {
     /// Name of the circuit.
     name: String,
