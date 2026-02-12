@@ -75,6 +75,33 @@ pub struct OperationView {
     pub num_qubits: usize,
 }
 
+/// A single logical-to-physical qubit mapping entry.
+#[derive(Debug, Serialize)]
+pub struct QubitMapEntry {
+    /// Logical qubit index.
+    pub logical: u32,
+    /// Physical qubit index.
+    pub physical: u32,
+}
+
+/// Qubit mapping from logical to physical qubits.
+#[derive(Debug, Serialize)]
+pub struct QubitMapping {
+    /// Individual qubit mappings.
+    pub mappings: Vec<QubitMapEntry>,
+}
+
+/// Estimated Success Probability data.
+#[derive(Debug, Serialize)]
+pub struct EspData {
+    /// ESP at each circuit layer.
+    pub layer_esp: Vec<f64>,
+    /// Cumulative (running product) ESP.
+    pub cumulative_esp: Vec<f64>,
+    /// Final total ESP.
+    pub total_esp: f64,
+}
+
 /// Response from compile endpoint.
 #[derive(Debug, Serialize)]
 pub struct CompileResponse {
@@ -86,6 +113,15 @@ pub struct CompileResponse {
     pub compiled_qasm: String,
     /// Compilation statistics.
     pub stats: CompilationStats,
+    /// Qubit mapping from logical to physical (if layout was applied).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qubit_mapping: Option<QubitMapping>,
+    /// Estimated success probability data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub esp: Option<EspData>,
+    /// Target device topology.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topology: Option<TopologyView>,
 }
 
 /// Compilation statistics.

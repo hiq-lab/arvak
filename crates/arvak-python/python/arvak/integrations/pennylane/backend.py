@@ -8,11 +8,8 @@ via PyO3, returning real simulation results. Expectation values are
 computed from measurement samples.
 """
 
-from typing import List, Optional, Union, TYPE_CHECKING, Sequence
+from typing import Optional
 import numpy as np
-
-if TYPE_CHECKING:
-    import pennylane as qml
 
 
 class ArvakDevice:
@@ -83,7 +80,7 @@ class ArvakDevice:
         Args:
             operations: List of PennyLane operations
         """
-        from .converter import _tape_to_qasm, _operation_to_qasm
+        from .converter import _operation_to_qasm
         import arvak
 
         # Build QASM from operations

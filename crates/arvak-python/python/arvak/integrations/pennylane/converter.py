@@ -4,10 +4,9 @@ This module provides functions to convert between PennyLane and Arvak circuit fo
 using OpenQASM as an interchange format.
 """
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import pennylane as qml
     import arvak
 
 
@@ -74,7 +73,7 @@ def pennylane_to_arvak(qnode_or_tape, *args, **kwargs) -> 'arvak.Circuit':
     return arvak_circuit
 
 
-def arvak_to_pennylane(circuit: 'arvak.Circuit', device_name: str = 'default.qubit') -> Callable:
+def arvak_to_pennylane(circuit: 'arvak.Circuit', device_name: str = 'default.qubit'):
     """Convert Arvak Circuit to PennyLane QNode.
 
     This function uses OpenQASM as an interchange format:
@@ -175,8 +174,8 @@ def _op_to_qasm_lines(op, wire_map: dict, qasm_lines: list):
             decomp = op.decomposition()
             for sub_op in decomp:
                 _op_to_qasm_lines(sub_op, wire_map, qasm_lines)
-        except Exception:
-            # If decomposition fails, emit as comment
+        except (NotImplementedError, AttributeError, TypeError):
+            # If decomposition is unsupported or fails, emit as comment
             qasm_lines.append(f"// Unsupported operation: {op.name}")
 
 
@@ -190,15 +189,11 @@ def _operation_to_qasm(op, wire_map: dict) -> str:
     Returns:
         QASM string for the operation
     """
-    import pennylane as qml
-    import numpy as np
-
     name = op.name
     wires = [wire_map.get(w, w) for w in op.wires]
 
     # State preparation
     if name == "BasisState":
-        import numpy as np
         state = op.parameters[0]
         lines = []
         for i, bit in enumerate(state):

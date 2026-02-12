@@ -104,31 +104,25 @@ def get_integration(framework: str):
     return integration
 
 
-# Convenience properties for checking integration availability
-@property
-def QISKIT_AVAILABLE():
+# Convenience functions for checking integration availability
+def QISKIT_AVAILABLE() -> bool:
     """Check if Qiskit integration is available."""
     return IntegrationRegistry.list_available().get('qiskit', False)
 
 
-@property
-def QRISP_AVAILABLE():
+def QRISP_AVAILABLE() -> bool:
     """Check if Qrisp integration is available."""
     return IntegrationRegistry.list_available().get('qrisp', False)
 
 
-@property
-def CIRQ_AVAILABLE():
+def CIRQ_AVAILABLE() -> bool:
     """Check if Cirq integration is available."""
     return IntegrationRegistry.list_available().get('cirq', False)
 
 
-# Note: Properties need to be accessed as functions in Python
-# e.g., arvak.QISKIT_AVAILABLE() instead of arvak.QISKIT_AVAILABLE
-# So we provide both property and direct boolean access
-def _check_availability(framework: str) -> bool:
-    """Internal helper to check framework availability."""
-    return IntegrationRegistry.list_available().get(framework, False)
+def PENNYLANE_AVAILABLE() -> bool:
+    """Check if PennyLane integration is available."""
+    return IntegrationRegistry.list_available().get('pennylane', False)
 
 
 # Export public API

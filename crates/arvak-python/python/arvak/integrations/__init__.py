@@ -20,7 +20,7 @@ Adding new integrations:
     4. The integration will be auto-discovered on import
 """
 
-from typing import Dict, Optional, Any
+from typing import Any, Optional
 from ._base import FrameworkIntegration
 
 __all__ = ['FrameworkIntegration', 'IntegrationRegistry']
@@ -33,7 +33,7 @@ class IntegrationRegistry:
     methods to query their status and retrieve them by name.
     """
 
-    _integrations: Dict[str, FrameworkIntegration] = {}
+    _integrations: dict[str, FrameworkIntegration] = {}
 
     @classmethod
     def register(cls, integration: FrameworkIntegration) -> None:
@@ -57,7 +57,7 @@ class IntegrationRegistry:
         return cls._integrations.get(name)
 
     @classmethod
-    def list_available(cls) -> Dict[str, bool]:
+    def list_available(cls) -> dict[str, bool]:
         """List all integrations and their availability status.
 
         Returns:
@@ -69,7 +69,7 @@ class IntegrationRegistry:
         }
 
     @classmethod
-    def status(cls) -> Dict[str, Any]:
+    def status(cls) -> dict[str, Any]:
         """Get detailed status of all integrations.
 
         Returns:
@@ -113,8 +113,8 @@ def _discover_integrations() -> None:
             # Integration not available (missing dependencies)
             # This is expected and not an error
             pass
-        except Exception as e:
-            # Other errors might indicate a problem with the integration
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # Non-import errors indicate a problem with the integration module
             import warnings
             warnings.warn(
                 f"Failed to load integration '{name}': {e}",

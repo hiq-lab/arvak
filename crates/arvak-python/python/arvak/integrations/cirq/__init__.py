@@ -29,7 +29,6 @@ Example:
     >>> result = sampler.run(circuit, repetitions=1000)
 """
 
-from typing import List
 from .._base import FrameworkIntegration
 
 
@@ -53,7 +52,7 @@ class CirqIntegration(FrameworkIntegration):
         return "cirq"
 
     @property
-    def required_packages(self) -> List[str]:
+    def required_packages(self) -> list[str]:
         """Required packages for this integration."""
         return ["cirq>=1.0.0", "cirq-core>=1.0.0"]
 
