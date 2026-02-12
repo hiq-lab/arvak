@@ -80,6 +80,8 @@ clean:
 setup-tooling:
 	@echo "Installing pinned toolchain from rust-toolchain.toml..."
 	rustup show active-toolchain || rustup install $$(grep channel rust-toolchain.toml | cut -d'"' -f2)
+	@echo "Checking for protoc (required for gRPC)..."
+	@which protoc > /dev/null 2>&1 || (echo "  -> sudo apt install protobuf-compiler (or brew install protobuf)" && exit 1)
 	@echo "Installing mold linker..."
 	@which mold > /dev/null 2>&1 || (echo "  -> sudo apt install mold (or brew install mold)" && exit 1)
 	@echo "Installing sccache..."
