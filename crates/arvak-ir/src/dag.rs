@@ -118,6 +118,7 @@ pub enum CircuitLevel {
 /// last node before the output node. This enables O(1) predecessor
 /// lookups in `apply()` instead of scanning all incoming edges of the
 /// output node (which was O(degree) per qubit).
+#[derive(Debug)]
 pub struct CircuitDag {
     /// The underlying graph.
     graph: DiGraph<DagNode, DagEdge, u32>,
