@@ -13,11 +13,11 @@ use crate::config::ResourceLimits;
 use crate::error::Result;
 use crate::metrics::Metrics;
 use crate::proto::{
-    BatchJobResult, BatchJobSubmission, CancelJobRequest, CancelJobResponse,
-    CircuitPayload, GetBackendInfoRequest, GetBackendInfoResponse, GetJobResultRequest,
-    GetJobResultResponse, GetJobStatusRequest, GetJobStatusResponse,
-    JobStatusUpdate, ListBackendsRequest, ListBackendsResponse, ResultChunk, StreamResultsRequest,
-    SubmitBatchRequest, SubmitBatchResponse, SubmitJobRequest, SubmitJobResponse, WatchJobRequest,
+    BatchJobResult, BatchJobSubmission, CancelJobRequest, CancelJobResponse, CircuitPayload,
+    GetBackendInfoRequest, GetBackendInfoResponse, GetJobResultRequest, GetJobResultResponse,
+    GetJobStatusRequest, GetJobStatusResponse, JobStatusUpdate, ListBackendsRequest,
+    ListBackendsResponse, ResultChunk, StreamResultsRequest, SubmitBatchRequest,
+    SubmitBatchResponse, SubmitJobRequest, SubmitJobResponse, WatchJobRequest,
     arvak_service_server,
 };
 use crate::resource_manager::ResourceManager;

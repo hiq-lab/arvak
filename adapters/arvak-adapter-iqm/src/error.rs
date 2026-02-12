@@ -162,8 +162,7 @@ mod tests {
 
     #[test]
     fn test_circuit_validation_to_hal() {
-        let hal: arvak_hal::HalError =
-            IqmError::CircuitValidation("bad gate".into()).into();
+        let hal: arvak_hal::HalError = IqmError::CircuitValidation("bad gate".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::InvalidCircuit(msg) if msg == "bad gate"));
     }
 
@@ -191,15 +190,13 @@ mod tests {
 
     #[test]
     fn test_invalid_endpoint_to_hal_backend() {
-        let hal: arvak_hal::HalError =
-            IqmError::InvalidEndpoint("bad".into()).into();
+        let hal: arvak_hal::HalError = IqmError::InvalidEndpoint("bad".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
     }
 
     #[test]
     fn test_unsupported_to_hal_backend() {
-        let hal: arvak_hal::HalError =
-            IqmError::Unsupported("op".into()).into();
+        let hal: arvak_hal::HalError = IqmError::Unsupported("op".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
     }
 

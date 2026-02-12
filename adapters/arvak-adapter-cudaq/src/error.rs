@@ -120,11 +120,8 @@ mod tests {
 
     #[test]
     fn test_unavailable_to_hal() {
-        let hal: arvak_hal::HalError =
-            CudaqError::Unavailable("target_x".into()).into();
-        assert!(
-            matches!(hal, arvak_hal::HalError::BackendUnavailable(msg) if msg == "target_x")
-        );
+        let hal: arvak_hal::HalError = CudaqError::Unavailable("target_x".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::BackendUnavailable(msg) if msg == "target_x"));
     }
 
     #[test]
@@ -139,15 +136,13 @@ mod tests {
 
     #[test]
     fn test_qasm_conversion_to_hal_backend() {
-        let hal: arvak_hal::HalError =
-            CudaqError::QasmConversion("bad".into()).into();
+        let hal: arvak_hal::HalError = CudaqError::QasmConversion("bad".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
     }
 
     #[test]
     fn test_deserialize_to_hal_backend() {
-        let hal: arvak_hal::HalError =
-            CudaqError::Deserialize("bad json".into()).into();
+        let hal: arvak_hal::HalError = CudaqError::Deserialize("bad json".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
     }
 }

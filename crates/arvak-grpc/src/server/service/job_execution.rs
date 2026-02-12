@@ -156,8 +156,7 @@ pub(super) fn spawn_job_execution(
                     Ok(result) => {
                         let duration = chrono::Utc::now()
                             .signed_duration_since(execution_start)
-                            .num_milliseconds()
-                            as u64;
+                            .num_milliseconds() as u64;
 
                         if let Err(e) = job_store.store_result(&job_id, result).await {
                             error!("Failed to store job result: {}", e);
