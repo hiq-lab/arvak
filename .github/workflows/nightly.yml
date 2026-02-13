@@ -46,7 +46,7 @@ jobs:
             ~/.cargo/bin/cargo-audit
             ~/.cargo/bin/cargo-deny
             ~/.cargo/bin/cargo-outdated
-          key: cargo-tools-${{ runner.os }}-audit-0.22.1-deny-0.16.2-outdated-0.15.0
+          key: cargo-tools-${{ runner.os }}-audit-0.22.1-deny-0.16.2-outdated-0.17.0
 
       - name: Install dependency tools
         run: |
@@ -57,7 +57,7 @@ jobs:
             cargo install cargo-deny --version 0.16.2 --locked
           fi
           if ! command -v cargo-outdated &> /dev/null; then
-            cargo install cargo-outdated --version 0.15.0 --locked
+            cargo install cargo-outdated --version 0.17.0 --locked
           fi
           echo "Installed tool versions:"
           cargo-audit --version
