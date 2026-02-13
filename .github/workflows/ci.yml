@@ -14,6 +14,7 @@ jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,6 +48,7 @@ jobs:
   fmt:
     name: Formatting
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,6 +65,7 @@ jobs:
   clippy:
     name: Clippy Lints
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -93,6 +96,7 @@ jobs:
   build:
     name: Build
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -133,6 +137,7 @@ jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -151,6 +156,7 @@ jobs:
   python-bindings:
     name: Python Bindings
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -177,6 +183,7 @@ jobs:
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -186,8 +193,29 @@ jobs:
         with:
           toolchain: nightly-2026-02-09
 
+      - name: Cache cargo-audit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-0.20.0-${{ runner.os }}
+
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: |
+          if ! command -v cargo-audit &> /dev/null; then
+            cargo install cargo-audit --version 0.20.0 --locked
+          fi
+          cargo-audit --version
 
       - name: Run security audit
-        run: cargo audit || true  # Don't fail on advisories for now
+        id: audit
+        continue-on-error: true
+        run: |
+          cargo audit 2>&1 | tee audit-output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "⚠️ Security audit found issues (exit code: $EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat audit-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          exit $EXIT_CODE

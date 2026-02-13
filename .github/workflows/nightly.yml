@@ -29,6 +29,7 @@ jobs:
   dependency-checks:
     name: Dependency Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,11 +39,30 @@ jobs:
         with:
           toolchain: nightly-2026-02-09
 
+      - name: Cache cargo tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+            ~/.cargo/bin/cargo-deny
+            ~/.cargo/bin/cargo-outdated
+          key: cargo-tools-${{ runner.os }}-audit-0.20.0-deny-0.16.2-outdated-0.15.0
+
       - name: Install dependency tools
         run: |
-          cargo install cargo-audit --locked
-          cargo install cargo-deny --locked
-          cargo install cargo-outdated --locked
+          if ! command -v cargo-audit &> /dev/null; then
+            cargo install cargo-audit --version 0.20.0 --locked
+          fi
+          if ! command -v cargo-deny &> /dev/null; then
+            cargo install cargo-deny --version 0.16.2 --locked
+          fi
+          if ! command -v cargo-outdated &> /dev/null; then
+            cargo install cargo-outdated --version 0.15.0 --locked
+          fi
+          echo "Installed tool versions:"
+          cargo-audit --version
+          cargo-deny --version
+          cargo-outdated --version
 
       - name: Security audit (cargo-audit)
         id: audit
@@ -73,10 +93,30 @@ jobs:
           fi
 
       - name: Advisory check (cargo-deny)
-        run: cargo deny check advisories 2>&1 | tee deny-advisories.txt || true
+        id: advisories
+        continue-on-error: true
+        run: |
+          cargo deny check advisories 2>&1 | tee deny-advisories.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "⚠️ Advisory check found issues" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 deny-advisories.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          exit $EXIT_CODE
 
       - name: Ban check (cargo-deny)
-        run: cargo deny check bans 2>&1 | tee deny-bans.txt || true
+        run: |
+          cargo deny check bans 2>&1 | tee deny-bans.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ Ban check found prohibited dependencies" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 deny-bans.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
       - name: Outdated dependencies (informational)
         run: |
@@ -109,6 +149,7 @@ jobs:
   full-test-suite:
     name: Tests (${{ matrix.os }}, ${{ matrix.profile }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -176,6 +217,7 @@ jobs:
   clippy-strict:
     name: Clippy (strict)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -261,6 +303,7 @@ jobs:
   ddsim-compat:
     name: DDSIM QDMI (pinned)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -296,12 +339,34 @@ jobs:
         run: |
           # Clean stale CMake and FetchContent state to avoid tag checkout conflicts
           rm -rf build-ddsim/_deps build-ddsim/CMakeCache.txt
-          cmake -S crates/arvak-qdmi/ci/ddsim_shim \
-                -B build-ddsim \
-                -G Ninja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DMQT_CORE_VERSION=v3.4.1
-          cmake --build build-ddsim --target mqt_ddsim_qdmi_shared
+
+          # Retry logic for network-dependent build
+          SUCCESS=0
+          for attempt in 1 2 3; do
+            echo "Build attempt $attempt of 3..."
+
+            if cmake -S crates/arvak-qdmi/ci/ddsim_shim \
+                     -B build-ddsim \
+                     -G Ninja \
+                     -DCMAKE_BUILD_TYPE=Release \
+                     -DMQT_CORE_VERSION=v3.4.1 && \
+               cmake --build build-ddsim --target mqt_ddsim_qdmi_shared; then
+              echo "Build succeeded on attempt $attempt"
+              SUCCESS=1
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "Build failed on attempt $attempt, cleaning and retrying in 5s..."
+              rm -rf build-ddsim
+              sleep 5
+            fi
+          done
+
+          if [ $SUCCESS -eq 0 ]; then
+            echo "ERROR: Build failed after 3 attempts"
+            exit 1
+          fi
 
       - name: Locate DDSIM .so and verify symbols
         id: ddsim
@@ -337,6 +402,7 @@ jobs:
     name: MSRV (Rust 1.85)
     if: ${{ !inputs.skip_msrv }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -369,6 +435,7 @@ jobs:
   python-bindings:
     name: Python Bindings (${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -430,6 +497,7 @@ jobs:
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -474,6 +542,7 @@ jobs:
   coverage:
     name: Test Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -542,6 +611,7 @@ jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -565,6 +635,7 @@ jobs:
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -597,7 +668,7 @@ jobs:
       - clippy-strict
       - docker-build
       - python-bindings
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -612,7 +683,40 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
           chmod 600 ~/.ssh/vps_key
-          ssh-keyscan -H arvak.io >> ~/.ssh/known_hosts 2>/dev/null
+
+          # Retry ssh-keyscan with timeout
+          for attempt in 1 2 3; do
+            if timeout 10 ssh-keyscan -H arvak.io >> ~/.ssh/known_hosts 2>/dev/null; then
+              echo "SSH keyscan succeeded on attempt $attempt"
+              break
+            fi
+            echo "SSH keyscan failed on attempt $attempt, retrying..."
+            sleep 2
+          done
+
+          # Create SSH helper function for retries
+          cat > ~/.ssh/ssh_retry.sh << 'EOFSCRIPT'
+          #!/bin/bash
+          MAX_ATTEMPTS=3
+          TIMEOUT=30
+
+          for attempt in 1 2 3; do
+            if timeout "$TIMEOUT" ssh -i ~/.ssh/vps_key \
+                   -o ConnectTimeout=10 \
+                   -o StrictHostKeyChecking=accept-new \
+                   -o BatchMode=yes \
+                   root@arvak.io "$@"; then
+              exit 0
+            fi
+            if [ $attempt -lt 3 ]; then
+              echo "SSH attempt $attempt failed, retrying in 5s..."
+              sleep 5
+            fi
+          done
+          echo "ERROR: SSH failed after $MAX_ATTEMPTS attempts"
+          exit 1
+          EOFSCRIPT
+          chmod +x ~/.ssh/ssh_retry.sh
 
       - name: Download Python wheel artifact
         uses: actions/download-artifact@v4
@@ -625,11 +729,30 @@ jobs:
           WHEEL=$(find wheel-artifact -name "arvak-*.whl" -print -quit)
           if [[ -z "$WHEEL" ]]; then
             echo "ERROR: No wheel artifact found"
+            ls -la wheel-artifact/
             exit 1
           fi
           WHEEL_NAME=$(basename "$WHEEL")
-          scp -i ~/.ssh/vps_key "$WHEEL" "root@arvak.io:/tmp/${WHEEL_NAME}"
-          ssh -i ~/.ssh/vps_key root@arvak.io bash -s -- "$WHEEL_NAME" <<'REMOTE_SCRIPT'
+
+          # SCP with retry
+          for attempt in 1 2 3; do
+            if timeout 60 scp -i ~/.ssh/vps_key \
+                   -o ConnectTimeout=10 \
+                   -o StrictHostKeyChecking=accept-new \
+                   "$WHEEL" "root@arvak.io:/tmp/${WHEEL_NAME}"; then
+              echo "SCP succeeded on attempt $attempt"
+              break
+            fi
+            if [ $attempt -lt 3 ]; then
+              echo "SCP failed on attempt $attempt, retrying..."
+              sleep 5
+            else
+              echo "ERROR: SCP failed after 3 attempts"
+              exit 1
+            fi
+          done
+
+          ~/.ssh/ssh_retry.sh bash -s -- "$WHEEL_NAME" <<'REMOTE_SCRIPT'
           set -euo pipefail
           WHEEL_NAME="$1"
           # Install into existing arvak-python venv (has Qiskit, Cirq, PennyLane, Qrisp)
@@ -638,9 +761,12 @@ jobs:
 
       - name: Clone repo on VPS
         run: |
-          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          ~/.ssh/ssh_retry.sh bash <<'REMOTE_SCRIPT'
           set -euo pipefail
-          WORKDIR=$(mktemp -d /tmp/arvak-smoke-XXXXXX)
+          # Use unique directory per run to avoid conflicts
+          WORKDIR="/tmp/arvak-smoke-${{ github.run_id }}-${{ github.run_attempt }}"
+          rm -rf "$WORKDIR"
+          mkdir -p "$WORKDIR"
           echo "WORKDIR=$WORKDIR" > /tmp/arvak-smoke-env
           cd "$WORKDIR"
           git clone https://github.com/${{ github.repository }}.git repo
@@ -649,8 +775,9 @@ jobs:
           REMOTE_SCRIPT
 
       - name: Build Docker image on VPS
+        timeout-minutes: 15
         run: |
-          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          ~/.ssh/ssh_retry.sh bash <<'REMOTE_SCRIPT'
           set -euo pipefail
           source /tmp/arvak-smoke-env
           cd "$WORKDIR/repo"
@@ -658,37 +785,48 @@ jobs:
           REMOTE_SCRIPT
 
       - name: Start test containers on VPS
+        timeout-minutes: 3
         run: |
-          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          ~/.ssh/ssh_retry.sh bash <<'REMOTE_SCRIPT'
           set -euo pipefail
           # Start temporary containers on non-production ports
           docker run -d --name arvak-smoke-dashboard \
             -p 13000:3000 \
             -e ARVAK_BIND=0.0.0.0:3000 \
             arvak-platform:nightly-test \
-            arvak-dashboard || true
+            arvak-dashboard
+
           docker run -d --name arvak-smoke-grpc \
             -p 50052:50051 -p 19090:9090 \
             -e ARVAK_GRPC_ADDRESS=0.0.0.0:50051 \
             -e ARVAK_HTTP_ADDRESS=0.0.0.0:9090 \
             -e RUST_LOG=arvak=info \
             arvak-platform:nightly-test \
-            arvak-grpc-server || true
+            arvak-grpc-server
 
-          # Health-check loop (up to 30s)
+          # Health-check with exponential backoff (up to 60s)
           echo "Waiting for services to start..."
-          for i in $(seq 1 30); do
+          elapsed=0
+          while [ $elapsed -lt 60 ]; do
             if curl -sf http://localhost:19090/health >/dev/null 2>&1; then
-              echo "gRPC HTTP gateway ready after ${i}s"
-              break
+              echo "gRPC HTTP gateway ready after ${elapsed}s"
+              exit 0
             fi
-            sleep 1
+            sleep_time=$((elapsed < 10 ? 1 : elapsed < 30 ? 2 : 5))
+            sleep $sleep_time
+            elapsed=$((elapsed + sleep_time))
+            echo "Still waiting... (${elapsed}s elapsed)"
           done
+
+          echo "ERROR: Service failed to start after 60s"
+          docker logs arvak-smoke-grpc --tail 50 || true
+          exit 1
           REMOTE_SCRIPT
 
       - name: Run smoke test on VPS
+        timeout-minutes: 5
         run: |
-          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT'
+          ~/.ssh/ssh_retry.sh bash <<'REMOTE_SCRIPT'
           set -euo pipefail
           source /tmp/arvak-smoke-env
           cd "$WORKDIR/repo"
@@ -701,17 +839,21 @@ jobs:
 
       - name: Tear down test containers
         if: always()
+        timeout-minutes: 3
         run: |
-          ssh -i ~/.ssh/vps_key root@arvak.io bash <<'REMOTE_SCRIPT' || true
+          # Use retry for cleanup but don't fail the workflow if cleanup fails
+          set +e
+          ~/.ssh/ssh_retry.sh bash <<'REMOTE_SCRIPT'
           set -uo pipefail
+          echo "Cleaning up test containers..."
           # Remove test containers
-          docker rm -f arvak-smoke-dashboard arvak-smoke-grpc 2>/dev/null || true
+          docker rm -f arvak-smoke-dashboard arvak-smoke-grpc 2>/dev/null || echo "No containers to remove"
           # Remove test image
-          docker rmi arvak-platform:nightly-test 2>/dev/null || true
+          docker rmi arvak-platform:nightly-test 2>/dev/null || echo "No image to remove"
           # Clean up temp directory
           if [[ -f /tmp/arvak-smoke-env ]]; then
             source /tmp/arvak-smoke-env
-            rm -rf "$WORKDIR"
+            rm -rf "$WORKDIR" || echo "Failed to remove $WORKDIR"
             rm -f /tmp/arvak-smoke-env
           fi
           # Clean up wheel
@@ -720,6 +862,11 @@ jobs:
           echo "--- Production container status ---"
           docker ps --filter name=arvak-dashboard --filter name=arvak-grpc --format "table {{.Names}}\t{{.Status}}"
           REMOTE_SCRIPT
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "WARNING: Cleanup had issues (exit code $EXIT_CODE) but continuing..."
+          fi
+          exit 0
 
   # ─────────────────────────────────────────────
   # Job 12: Nightly report — opens/updates issue
@@ -727,6 +874,7 @@ jobs:
   nightly-report:
     name: Nightly Report
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: always()
     needs:
       - dependency-checks
