@@ -5,6 +5,48 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-02-13
+
+### Security
+
+- **Shell injection prevention**: All user-controllable values in SLURM and PBS batch script templates are now sanitized against shell metacharacters
+- **CI security audit gate**: Removed `continue-on-error` from security audit step so vulnerabilities block the pipeline
+
+### Fixed
+
+#### Critical (37 fixes)
+- **DAG swap-remove correctness**: `remove_op` now handles petgraph's swap-remove semantics by remapping all internal index maps when the last node is swapped into a removed slot
+- **Optimization pass invalidation**: CX cancellation and 1Q optimization now process one merge per iteration and sort removals by descending index to prevent stale `NodeIndex` references
+- **Division-by-zero guards**: Parameter evaluation (`as_f64`, `simplify`) and QASM3 AST evaluation now return `None` when dividing by zero instead of producing `Inf`/`NaN`
+- **Statevector reset normalization**: Split into two passes (collapse then renormalize) to fix bug where norm was computed while amplitudes were being modified
+- **Overflow protection**: `heavy_output_probability` and `qv_result` use `checked_shl` instead of `1u64 << width`
+- **NaN/Inf infinite loop**: `normalize_angle` returns 0.0 for non-finite inputs
+
+#### High (62 fixes)
+- **Mutex/RwLock poison recovery**: Replaced `.expect("lock poisoned")` with `.unwrap_or_else(|e| e.into_inner())` or error propagation across arvak-hal (6 sites) and arvak-grpc (8 sites)
+- **Thread safety**: Python `MemoryCache` now wraps all methods with `threading.Lock`
+- **Adapter error mapping**: IQM `MissingToken`/`AuthFailed` now map to `HalError::AuthenticationFailed` instead of generic `Backend`
+- **IBM hex padding**: `hex_to_binary` zero-pads output; quasi-probability clamped with `.max(0.0)` before cast
+- **Noise model validation**: 6 new validated constructors that enforce `0.0 <= p <= 1.0`
+
+#### Medium (93 fixes)
+- **NaN-safe comparisons**: `partial_cmp().unwrap()` replaced with `.unwrap_or(Ordering::Equal)` across optimizers
+- **Symbolic parameter warnings**: All parameterized gates in statevector simulator log `tracing::warn!` when symbolic params can't resolve
+- **Qubit limit assertion**: Statevector simulator asserts `num_qubits <= 26` to prevent OOM
+- **Renamed misleading function**: `sha256_hex` → `content_fingerprint` (was not actually SHA-256)
+- **Version synchronization**: grpc-client setup.py and __init__.py aligned
+
+#### Low (71 fixes)
+- **Doc comment accuracy**: Updated quantum_int method docs explaining XOR-only limitation
+- **Debug assertions**: Added bounds checks to `max_value()`/`min_value()` for quantum integer types
+- **Dockerfile**: Pinned toolchain to `nightly-2026-02-09`
+- **Unhandled gate warning**: Statevector catch-all now logs unknown gates instead of silently ignoring
+
+### Changed
+
+- Template generation functions (`generate_batch_script`, `generate_batch_script_multi`) now return `SchedResult<String>` instead of `String`
+- `hashlib.md5` replaced with `hashlib.sha256` in DiskCache for FIPS compliance
+
 ## [1.5.2] - 2026-02-12
 
 ### Changed
