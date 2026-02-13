@@ -2,6 +2,7 @@
 
 import time
 import json
+import threading
 from pathlib import Path
 from typing import Optional, Dict, List, Union
 from collections import OrderedDict
@@ -44,6 +45,7 @@ class MemoryCache:
         """
         self.max_size = max_size
         self.ttl = ttl
+        self._lock = threading.Lock()
         self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
         self._hits = 0
         self._misses = 0
@@ -57,30 +59,31 @@ class MemoryCache:
         Returns:
             JobResult if found and not expired, None otherwise
         """
-        if job_id not in self._cache:
-            self._misses += 1
-            return None
-
-        entry = self._cache[job_id]
-
-        # Check TTL
-        if self.ttl is not None:
-            age = time.time() - entry.timestamp
-            if age > self.ttl:
-                # Expired, remove from cache
-                del self._cache[job_id]
+        with self._lock:
+            if job_id not in self._cache:
                 self._misses += 1
                 return None
 
-        # Update access metadata
-        entry.access_count += 1
-        entry.last_access = time.time()
+            entry = self._cache[job_id]
 
-        # Move to end (most recently used)
-        self._cache.move_to_end(job_id)
+            # Check TTL
+            if self.ttl is not None:
+                age = time.time() - entry.timestamp
+                if age > self.ttl:
+                    # Expired, remove from cache
+                    del self._cache[job_id]
+                    self._misses += 1
+                    return None
 
-        self._hits += 1
-        return entry.result
+            # Update access metadata
+            entry.access_count += 1
+            entry.last_access = time.time()
+
+            # Move to end (most recently used)
+            self._cache.move_to_end(job_id)
+
+            self._hits += 1
+            return entry.result
 
     def put(self, result: JobResult):
         """Put result in cache.
@@ -90,27 +93,28 @@ class MemoryCache:
         """
         job_id = result.job_id
 
-        # If already exists, update and move to end
-        if job_id in self._cache:
-            entry = self._cache[job_id]
-            entry.result = result
-            entry.timestamp = time.time()
-            entry.last_access = time.time()
-            self._cache.move_to_end(job_id)
-            return
+        with self._lock:
+            # If already exists, update and move to end
+            if job_id in self._cache:
+                entry = self._cache[job_id]
+                entry.result = result
+                entry.timestamp = time.time()
+                entry.last_access = time.time()
+                self._cache.move_to_end(job_id)
+                return
 
-        # Check size limit
-        if len(self._cache) >= self.max_size:
-            # Remove least recently used (first item)
-            self._cache.popitem(last=False)
+            # Check size limit
+            if len(self._cache) >= self.max_size:
+                # Remove least recently used (first item)
+                self._cache.popitem(last=False)
 
-        # Add new entry
-        entry = CacheEntry(
-            result=result,
-            timestamp=time.time(),
-            last_access=time.time(),
-        )
-        self._cache[job_id] = entry
+            # Add new entry
+            entry = CacheEntry(
+                result=result,
+                timestamp=time.time(),
+                last_access=time.time(),
+            )
+            self._cache[job_id] = entry
 
     def remove(self, job_id: str) -> bool:
         """Remove result from cache.
@@ -121,20 +125,23 @@ class MemoryCache:
         Returns:
             True if removed, False if not found
         """
-        if job_id in self._cache:
-            del self._cache[job_id]
-            return True
-        return False
+        with self._lock:
+            if job_id in self._cache:
+                del self._cache[job_id]
+                return True
+            return False
 
     def clear(self):
         """Clear all cached results."""
-        self._cache.clear()
-        self._hits = 0
-        self._misses = 0
+        with self._lock:
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
 
     def size(self) -> int:
         """Get current cache size."""
-        return len(self._cache)
+        with self._lock:
+            return len(self._cache)
 
     def stats(self) -> dict:
         """Get cache statistics.
@@ -142,16 +149,17 @@ class MemoryCache:
         Returns:
             Dictionary with hits, misses, hit_rate, size
         """
-        total = self._hits + self._misses
-        hit_rate = self._hits / total if total > 0 else 0.0
+        with self._lock:
+            total = self._hits + self._misses
+            hit_rate = self._hits / total if total > 0 else 0.0
 
-        return {
-            'hits': self._hits,
-            'misses': self._misses,
-            'hit_rate': hit_rate,
-            'size': len(self._cache),
-            'max_size': self.max_size,
-        }
+            return {
+                'hits': self._hits,
+                'misses': self._misses,
+                'hit_rate': hit_rate,
+                'size': len(self._cache),
+                'max_size': self.max_size,
+            }
 
     def evict_expired(self) -> int:
         """Remove all expired entries.
@@ -162,16 +170,17 @@ class MemoryCache:
         if self.ttl is None:
             return 0
 
-        current_time = time.time()
-        expired = [
-            job_id for job_id, entry in self._cache.items()
-            if current_time - entry.timestamp > self.ttl
-        ]
+        with self._lock:
+            current_time = time.time()
+            expired = [
+                job_id for job_id, entry in self._cache.items()
+                if current_time - entry.timestamp > self.ttl
+            ]
 
-        for job_id in expired:
-            del self._cache[job_id]
+            for job_id in expired:
+                del self._cache[job_id]
 
-        return len(expired)
+            return len(expired)
 
 
 class DiskCache:
@@ -224,7 +233,7 @@ class DiskCache:
         Uses hash prefix for better directory distribution.
         """
         # Use first 2 chars of hash as subdirectory
-        hash_prefix = hashlib.md5(job_id.encode()).hexdigest()[:2]
+        hash_prefix = hashlib.sha256(job_id.encode()).hexdigest()[:2]
         subdir = self.cache_dir / hash_prefix
         subdir.mkdir(exist_ok=True)
 

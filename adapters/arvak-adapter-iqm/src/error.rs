@@ -60,6 +60,10 @@ pub enum IqmError {
 impl From<IqmError> for arvak_hal::HalError {
     fn from(e: IqmError) -> Self {
         match e {
+            IqmError::MissingToken => arvak_hal::HalError::AuthenticationFailed(e.to_string()),
+            IqmError::AuthFailed(ref _msg) => {
+                arvak_hal::HalError::AuthenticationFailed(e.to_string())
+            }
             IqmError::JobNotFound(id) => arvak_hal::HalError::JobNotFound(id),
             IqmError::JobFailed(msg) => arvak_hal::HalError::JobFailed(msg),
             IqmError::Timeout(id) => arvak_hal::HalError::Timeout(id),
@@ -167,15 +171,15 @@ mod tests {
     }
 
     #[test]
-    fn test_missing_token_to_hal_backend() {
+    fn test_missing_token_to_hal_auth_failed() {
         let hal: arvak_hal::HalError = IqmError::MissingToken.into();
-        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+        assert!(matches!(hal, arvak_hal::HalError::AuthenticationFailed(_)));
     }
 
     #[test]
-    fn test_auth_failed_to_hal_backend() {
+    fn test_auth_failed_to_hal_auth_failed() {
         let hal: arvak_hal::HalError = IqmError::AuthFailed("bad".into()).into();
-        assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+        assert!(matches!(hal, arvak_hal::HalError::AuthenticationFailed(_)));
     }
 
     #[test]

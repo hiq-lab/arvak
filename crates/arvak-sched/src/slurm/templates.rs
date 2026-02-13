@@ -2,8 +2,28 @@
 
 use std::path::Path;
 
+use crate::error::{SchedError, SchedResult};
 use crate::job::ScheduledJob;
 use crate::slurm::adapter::SlurmConfig;
+
+/// Shell metacharacters that could enable injection attacks.
+const SHELL_METACHARACTERS: &[char] = &['$', '`', '"', '\'', ';', '|', '&', '(', ')', '<', '>'];
+
+/// Validate that a string value does not contain shell metacharacters or control characters.
+///
+/// Returns `Ok(())` if the value is safe for interpolation into a shell script,
+/// or `Err` if it contains characters that could enable shell injection.
+fn sanitize_shell_value(value: &str, field_name: &str) -> SchedResult<()> {
+    if value.contains(SHELL_METACHARACTERS)
+        || value.contains('\n')
+        || value.contains('\r')
+    {
+        return Err(SchedError::Internal(format!(
+            "Shell injection rejected: {field_name} contains disallowed characters"
+        )));
+    }
+    Ok(())
+}
 
 /// Generate a SLURM batch script for a quantum job.
 pub fn generate_batch_script(
@@ -11,7 +31,36 @@ pub fn generate_batch_script(
     config: &SlurmConfig,
     circuit_file: &Path,
     result_file: &Path,
-) -> String {
+) -> SchedResult<String> {
+    // Validate user-controllable values against shell injection
+    let work_dir_str = config.work_dir.display().to_string();
+    let arvak_binary_str = config.arvak_binary.display().to_string();
+    sanitize_shell_value(&config.partition, "partition")?;
+    sanitize_shell_value(&work_dir_str, "work_dir")?;
+    sanitize_shell_value(&arvak_binary_str, "arvak_binary")?;
+    if let Some(ref account) = config.account {
+        sanitize_shell_value(account, "account")?;
+    }
+    if let Some(ref backend) = job.matched_backend {
+        sanitize_shell_value(backend, "backend")?;
+    }
+    let circuit_file_str = circuit_file.display().to_string();
+    sanitize_shell_value(&circuit_file_str, "circuit_file")?;
+    let result_file_str = result_file.display().to_string();
+    sanitize_shell_value(&result_file_str, "result_file")?;
+    for module in &config.modules {
+        sanitize_shell_value(module, "module")?;
+    }
+    if let Some(ref venv) = config.python_venv {
+        let venv_str = venv.display().to_string();
+        sanitize_shell_value(&venv_str, "python_venv")?;
+    }
+    if let Some(ref qos_mapping) = config.priority_qos_mapping {
+        for qos in qos_mapping.values() {
+            sanitize_shell_value(qos, "qos")?;
+        }
+    }
+
     let mut script = String::new();
 
     // Shebang
@@ -102,7 +151,7 @@ pub fn generate_batch_script(
     script.push_str("\necho \"Job completed at: $(date)\"\n");
     script.push_str("echo \"Exit code: $?\"\n");
 
-    script
+    Ok(script)
 }
 
 /// Generate a batch script for multiple circuits (batch job).
@@ -111,7 +160,33 @@ pub fn generate_batch_script_multi(
     config: &SlurmConfig,
     circuit_files: &[&Path],
     result_dir: &Path,
-) -> String {
+) -> SchedResult<String> {
+    // Validate user-controllable values against shell injection
+    let work_dir_str = config.work_dir.display().to_string();
+    let arvak_binary_str = config.arvak_binary.display().to_string();
+    sanitize_shell_value(&config.partition, "partition")?;
+    sanitize_shell_value(&work_dir_str, "work_dir")?;
+    sanitize_shell_value(&arvak_binary_str, "arvak_binary")?;
+    if let Some(ref account) = config.account {
+        sanitize_shell_value(account, "account")?;
+    }
+    if let Some(ref backend) = job.matched_backend {
+        sanitize_shell_value(backend, "backend")?;
+    }
+    let result_dir_str = result_dir.display().to_string();
+    sanitize_shell_value(&result_dir_str, "result_dir")?;
+    for (i, cf) in circuit_files.iter().enumerate() {
+        let cf_str = cf.display().to_string();
+        sanitize_shell_value(&cf_str, &format!("circuit_file[{i}]"))?;
+    }
+    for module in &config.modules {
+        sanitize_shell_value(module, "module")?;
+    }
+    if let Some(ref venv) = config.python_venv {
+        let venv_str = venv.display().to_string();
+        sanitize_shell_value(&venv_str, "python_venv")?;
+    }
+
     let mut script = String::new();
 
     // Shebang
@@ -213,7 +288,7 @@ pub fn generate_batch_script_multi(
     script.push_str("echo \"Failed circuits: $FAILED\"\n");
     script.push_str("exit $FAILED\n");
 
-    script
+    Ok(script)
 }
 
 /// Sanitize a job name for SLURM.
@@ -276,7 +351,8 @@ mod tests {
             &config,
             Path::new("/scratch/circuit.qasm"),
             Path::new("/scratch/result.json"),
-        );
+        )
+        .unwrap();
 
         assert!(script.contains("#!/bin/bash"));
         assert!(script.contains("#SBATCH --job-name=test_job"));

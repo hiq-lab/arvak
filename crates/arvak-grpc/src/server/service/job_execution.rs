@@ -11,6 +11,9 @@ use crate::resource_manager::ResourceManager;
 use crate::server::JobStore;
 
 /// Execute a job synchronously (wait for completion).
+// TODO: Extract shared logic into a single async function — `execute_job_sync`
+// and `spawn_job_execution` duplicate the status-update / metrics / backend
+// submit-wait-store sequence almost identically.
 pub(super) async fn execute_job_sync(
     job_store: Arc<JobStore>,
     backend: Arc<dyn Backend>,

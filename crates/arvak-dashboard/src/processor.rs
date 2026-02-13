@@ -13,6 +13,7 @@ use crate::state::AppState;
 ///
 /// Polls the store for pending jobs every 5 seconds, executes them on a
 /// matched backend, and saves the results.
+// TODO: Accept a CancellationToken for graceful shutdown
 pub async fn run_job_processor(state: Arc<AppState>) {
     let mut interval = time::interval(Duration::from_secs(5));
 

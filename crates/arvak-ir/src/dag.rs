@@ -255,13 +255,16 @@ impl CircuitDag {
                 .find(|e| e.weight().wire == wire && e.target() == out_node)
                 .map(|e| e.id());
 
-            if let Some(eid) = edge_id {
-                self.graph.remove_edge(eid);
-                self.graph.add_edge(prev_node, op_node, DagEdge { wire });
-                self.graph.add_edge(op_node, out_node, DagEdge { wire });
-                // Update wire front: this op is now the predecessor of the output.
-                self.wire_front.insert(wire, op_node);
-            }
+            let eid = edge_id.ok_or_else(|| {
+                IrError::InvalidDag(format!(
+                    "Missing edge from predecessor to output for qubit wire {qubit:?}"
+                ))
+            })?;
+            self.graph.remove_edge(eid);
+            self.graph.add_edge(prev_node, op_node, DagEdge { wire });
+            self.graph.add_edge(op_node, out_node, DagEdge { wire });
+            // Update wire front: this op is now the predecessor of the output.
+            self.wire_front.insert(wire, op_node);
         }
 
         // Connect classical wires — same O(1) approach.
@@ -277,12 +280,15 @@ impl CircuitDag {
                 .find(|e| e.weight().wire == wire && e.target() == out_node)
                 .map(|e| e.id());
 
-            if let Some(eid) = edge_id {
-                self.graph.remove_edge(eid);
-                self.graph.add_edge(prev_node, op_node, DagEdge { wire });
-                self.graph.add_edge(op_node, out_node, DagEdge { wire });
-                self.wire_front.insert(wire, op_node);
-            }
+            let eid = edge_id.ok_or_else(|| {
+                IrError::InvalidDag(format!(
+                    "Missing edge from predecessor to output for classical wire {clbit:?}"
+                ))
+            })?;
+            self.graph.remove_edge(eid);
+            self.graph.add_edge(prev_node, op_node, DagEdge { wire });
+            self.graph.add_edge(op_node, out_node, DagEdge { wire });
+            self.wire_front.insert(wire, op_node);
         }
 
         Ok(op_node)
@@ -291,7 +297,7 @@ impl CircuitDag {
     /// Iterate over operations in topological order.
     pub fn topological_ops(&self) -> impl Iterator<Item = (NodeIndex, &Instruction)> {
         let sorted: Vec<_> = petgraph::algo::toposort(&self.graph, None)
-            .unwrap_or_default()
+            .expect("DAG must be acyclic — cycle detected in circuit graph")
             .into_iter()
             .filter_map(|idx| {
                 if let DagNode::Op(inst) = &self.graph[idx] {
@@ -347,19 +353,72 @@ impl CircuitDag {
             .map(|e| (e.target(), e.weight().wire))
             .collect();
 
-        // Remove the node (this removes all its edges)
+        // Record the last node index before removal. petgraph's `remove_node`
+        // swaps the removed node with the last node, so the last node's index
+        // changes to `node` after removal. We must update our index maps.
+        //
+        // WARNING: petgraph's `remove_node` swaps the removed node with the last
+        // node in the graph, invalidating the last node's `NodeIndex`. Callers must
+        // not hold stale `NodeIndex` references after calling `remove_op`. If you
+        // are removing multiple nodes, iterate in reverse topological order or
+        // re-fetch indices after each removal.
+        let last_idx = NodeIndex::new(self.graph.node_count() - 1);
+
+        // Before removal: update wire_front for wires that pass through the node
+        // being removed. Point them at the predecessor on that wire instead.
+        for (pred, wire) in &incoming {
+            if self.wire_front.get(wire) == Some(&node) {
+                self.wire_front.insert(*wire, *pred);
+            }
+        }
+
         self.graph.remove_node(node);
 
-        // Reconnect wires and update wire_front where needed
+        // Helper to remap indices after petgraph's swap-remove.
+        let fix = |idx: NodeIndex| -> NodeIndex {
+            if last_idx != node && idx == last_idx { node } else { idx }
+        };
+
+        // If the removed node was not the last node, petgraph swapped the last
+        // node into the removed node's slot. Update all maps referencing the old
+        // last index to point to `node` (its new index after the swap).
+        if last_idx != node {
+            for v in self.qubit_inputs.values_mut() {
+                if *v == last_idx {
+                    *v = node;
+                }
+            }
+            for v in self.qubit_outputs.values_mut() {
+                if *v == last_idx {
+                    *v = node;
+                }
+            }
+            for v in self.clbit_inputs.values_mut() {
+                if *v == last_idx {
+                    *v = node;
+                }
+            }
+            for v in self.clbit_outputs.values_mut() {
+                if *v == last_idx {
+                    *v = node;
+                }
+            }
+            for v in self.wire_front.values_mut() {
+                if *v == last_idx {
+                    *v = node;
+                }
+            }
+        }
+
+        // Reconnect wires: add edges from predecessor to successor for each wire.
+        // Predecessor/successor indices collected before removal may reference the
+        // last node, which has been swapped — apply the fix.
         for (pred, wire) in &incoming {
+            let pred = fix(*pred);
             for (succ, succ_wire) in &outgoing {
+                let succ = fix(*succ);
                 if wire == succ_wire {
-                    self.graph.add_edge(*pred, *succ, DagEdge { wire: *wire });
-                    // If the removed node was the wire front (i.e., the successor
-                    // is an output node), update wire_front to point to the predecessor.
-                    if self.wire_front.get(wire) == Some(&node) {
-                        self.wire_front.insert(*wire, *pred);
-                    }
+                    self.graph.add_edge(pred, succ, DagEdge { wire: *wire });
                 }
             }
         }
@@ -411,7 +470,9 @@ impl CircuitDag {
 
         let mut max_depth = 0usize;
 
-        for node in petgraph::algo::toposort(&self.graph, None).unwrap_or_default() {
+        for node in petgraph::algo::toposort(&self.graph, None)
+            .expect("DAG must be acyclic — cycle detected in circuit graph")
+        {
             let max_pred_depth = self
                 .graph
                 .edges_directed(node, Direction::Incoming)

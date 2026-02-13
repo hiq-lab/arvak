@@ -150,6 +150,7 @@ impl SchedulerContext {
     /// Estimate walltime for a circuit.
     fn estimate_walltime(
         circuit_depth: usize,
+        // TODO: Incorporate total_ops into walltime estimate
         _total_ops: usize,
         constraints: &SchedulerConstraints,
     ) -> WalltimeEstimate {

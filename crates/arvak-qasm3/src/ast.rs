@@ -249,7 +249,12 @@ impl Expression {
                     BinOp::Add => l + r,
                     BinOp::Sub => l - r,
                     BinOp::Mul => l * r,
-                    BinOp::Div => l / r,
+                    BinOp::Div => {
+                        if r == 0.0 {
+                            return None;
+                        }
+                        l / r
+                    }
                     BinOp::Pow => l.powf(r),
                     BinOp::Mod => l % r,
                     _ => return None,

@@ -220,6 +220,7 @@ impl HpcScheduler {
     }
 
     /// Start the background job processing loop.
+    // TODO: Accept a CancellationToken for graceful shutdown
     pub fn start_background_processor(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         let scheduler = self.clone();
         let poll_interval = Duration::from_secs(self.config.poll_interval_secs);
@@ -403,6 +404,9 @@ impl HpcScheduler {
     ) -> ScheduledJobStatus {
         let pbs_job_id = info.job_id.clone();
 
+        // Note: SlurmQueued/SlurmRunning variant names are a naming inconsistency --
+        // the enum variants are shared between SLURM and PBS but named after SLURM.
+        // The `slurm_job_id` field holds the PBS job ID in this context.
         match &info.state {
             PbsState::Queued | PbsState::Waiting | PbsState::Held => {
                 ScheduledJobStatus::SlurmQueued {

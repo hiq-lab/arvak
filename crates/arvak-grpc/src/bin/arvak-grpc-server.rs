@@ -167,9 +167,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Arvak gRPC server started successfully");
 
-    // Run gRPC server
+    // Run gRPC server.
+    // Duration::MAX effectively disables the timeout — the server runs until the
+    // shutdown future resolves.  This pattern exists so that the `match` below
+    // can uniformly handle both normal shutdown and a hypothetical future where
+    // an operator-configured global timeout is added.
     let result = tokio::time::timeout(
-        std::time::Duration::MAX, // No timeout on normal operation
+        std::time::Duration::MAX,
         server,
     )
     .await;

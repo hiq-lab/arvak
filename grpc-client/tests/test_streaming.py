@@ -14,7 +14,7 @@ from arvak_grpc import AsyncArvakClient, JobState
 from arvak_grpc import arvak_pb2
 
 # Enable asyncio mode for pytest
-pytestmark = pytest.mark.anyio
+pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture

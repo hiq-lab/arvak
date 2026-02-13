@@ -102,8 +102,19 @@ impl Default for SystemState {
     }
 }
 
-// SAFETY: The FFI pointers are only accessed through RwLock synchronization.
-// QDMI sessions are thread-safe per the QDMI specification.
+// SAFETY: `SystemState` contains raw pointers (`*mut QdmiSession`, `*mut QdmiDevice`,
+// `*mut QdmiJob`) which are not `Send`/`Sync` by default. We assert these traits are
+// safe because:
+//
+// 1. All access to these pointers is gated behind an `RwLock<SystemState>`, ensuring
+//    mutual exclusion for writes and shared access only for reads.
+// 2. The QDMI specification (v1.2.1, Section 4.2 "Thread Safety") guarantees that
+//    session handles are safe to use from any thread, provided that concurrent
+//    mutations are externally synchronized — which the `RwLock` provides.
+// 3. The pointers are opaque handles into the QDMI C library and are never
+//    dereferenced on the Rust side; all dereferences happen inside the FFI calls.
+// 4. The `Drop` implementation ensures pointers are freed exactly once under the
+//    write lock, preventing use-after-free across threads.
 #[cfg(feature = "system-qdmi")]
 unsafe impl Send for SystemState {}
 #[cfg(feature = "system-qdmi")]

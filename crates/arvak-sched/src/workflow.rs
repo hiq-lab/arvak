@@ -99,10 +99,12 @@ pub struct Workflow {
     pub completed_at: Option<DateTime<Utc>>,
 
     /// The DAG of jobs.
+    // Note: DAG is not persisted. Workflow dependencies must be reconstructed on deserialization.
     #[serde(skip)]
     dag: DiGraph<WorkflowNode, ()>,
 
     /// Mapping from job ID to node index.
+    // Note: Not persisted; must be reconstructed alongside `dag` on deserialization.
     #[serde(skip)]
     job_index: rustc_hash::FxHashMap<ScheduledJobId, NodeIndex>,
 }

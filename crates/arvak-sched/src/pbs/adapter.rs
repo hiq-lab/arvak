@@ -239,7 +239,7 @@ impl PbsAdapter {
                 .work_dir
                 .join("results")
                 .join(format!("{}.json", job.id));
-            templates::generate_pbs_script(job, &self.config, &circuit_files[0], &result_file)
+            templates::generate_pbs_script(job, &self.config, &circuit_files[0], &result_file)?
         } else {
             let result_dir = self
                 .config
@@ -250,7 +250,7 @@ impl PbsAdapter {
                 .iter()
                 .map(std::path::PathBuf::as_path)
                 .collect();
-            templates::generate_pbs_script_multi(job, &self.config, &circuit_refs, &result_dir)
+            templates::generate_pbs_script_multi(job, &self.config, &circuit_refs, &result_dir)?
         };
 
         // Write batch script

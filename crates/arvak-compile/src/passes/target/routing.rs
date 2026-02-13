@@ -41,6 +41,12 @@ impl Pass for BasicRouting {
             .map(|(idx, inst)| (idx, inst.qubits[0], inst.qubits[1]))
             .collect();
 
+        // Known limitation: SWAP gates are appended at the end of the DAG via
+        // `dag.apply()` rather than being inserted immediately before the target
+        // two-qubit gate. This means the SWAPs will appear after all existing
+        // operations in the topological order, which may not produce the optimal
+        // circuit ordering. Fixing this requires architectural changes to support
+        // positional insertion in the DAG.
         for (_node_idx, q0, q1) in two_qubit_ops {
             let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
             let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;

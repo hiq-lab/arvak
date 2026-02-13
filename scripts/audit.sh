@@ -493,7 +493,7 @@ fi
 # =============================================================================
 echo ""
 echo "==========================================="
-TOTAL=$((PASS_COUNT + FAIL_COUNT))
+TOTAL=$((PASS_COUNT + FAIL_COUNT + WARN_COUNT))
 printf "Summary: ${GREEN}%d passed${RESET}, ${RED}%d failed${RESET}, ${YELLOW}%d warnings${RESET} (%d total checks)\n" \
     "$PASS_COUNT" "$FAIL_COUNT" "$WARN_COUNT" "$TOTAL"
 

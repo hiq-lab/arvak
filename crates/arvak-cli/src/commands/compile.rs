@@ -66,6 +66,9 @@ pub async fn execute(
         // Default: replace extension with _compiled.qasm
         let p = Path::new(input);
         let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+        // Intentional leak: the CLI process exits shortly after, so this
+        // small allocation is never reclaimed. It lets us return a &str
+        // with 'static lifetime without an extra struct.
         Box::leak(format!("{stem}_compiled.qasm").into_boxed_str())
     });
 

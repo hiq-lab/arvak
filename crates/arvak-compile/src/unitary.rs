@@ -7,6 +7,8 @@ use num_complex::Complex64;
 use std::f64::consts::PI;
 
 /// Tolerance for floating point comparisons.
+/// Note: A duplicate EPSILON constant also exists in
+/// `crate::passes::agnostic::optimization::EPSILON` (same value).
 const EPSILON: f64 = 1e-10;
 
 /// A 2x2 unitary matrix in row-major order.
@@ -295,6 +297,9 @@ impl Unitary2x2 {
 
     /// Normalize angles to [-pi, pi].
     pub fn normalize_angle(mut angle: f64) -> f64 {
+        if angle.is_nan() || angle.is_infinite() {
+            return 0.0;
+        }
         while angle > PI {
             angle -= 2.0 * PI;
         }
