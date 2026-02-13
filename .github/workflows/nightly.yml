@@ -62,7 +62,7 @@ jobs:
           echo "Installed tool versions:"
           cargo-audit --version
           cargo-deny --version
-          cargo-outdated --version
+          cargo-outdated -V
 
       - name: Security audit (cargo-audit)
         id: audit
