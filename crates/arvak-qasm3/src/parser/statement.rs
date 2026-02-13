@@ -57,6 +57,7 @@ impl Parser {
         let size = if self.consume(&Token::LBracket) {
             let size = self.parse_int_literal()?;
             self.expect(Token::RBracket)?;
+            debug_assert!(size <= u32::MAX as u64);
             Some(size as u32)
         } else {
             None
@@ -75,6 +76,7 @@ impl Parser {
         let size = if self.consume(&Token::LBracket) {
             let size = self.parse_int_literal()?;
             self.expect(Token::RBracket)?;
+            debug_assert!(size <= u32::MAX as u64);
             Some(size as u32)
         } else {
             None

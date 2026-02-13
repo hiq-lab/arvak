@@ -344,7 +344,9 @@ impl OrchestrationAnalyzer {
             dist[node.index] = node.estimated_cost;
         }
 
-        // Relax edges in topological order (nodes are already ordered by index)
+        // Relax edges in topological order (nodes are already ordered by index).
+        // Assumption: node indices are contiguous 0..n, matching their position
+        // in the nodes vec. This is guaranteed by build_hybrid_dag.
         for edge in &dag.edges {
             let new_cost = dist[edge.from] + dag.nodes[edge.to].estimated_cost;
             if new_cost > dist[edge.to] {

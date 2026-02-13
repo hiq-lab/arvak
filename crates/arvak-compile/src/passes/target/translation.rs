@@ -83,6 +83,10 @@ fn translate_gate(
         return Ok(vec![instruction.clone()]);
     };
 
+    if instruction.qubits.is_empty() {
+        return Ok(vec![instruction.clone()]);
+    }
+
     let _qubit = instruction.qubits[0];
 
     // Check if it's IQM basis (PRX + CZ)

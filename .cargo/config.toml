@@ -1,3 +1,5 @@
+# Configuration options available but currently disabled. Uncomment as needed.
+#
 # Arvak build performance configuration
 #
 # Uncomment the section below to use the mold linker for faster linking.

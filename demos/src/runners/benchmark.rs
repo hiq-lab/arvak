@@ -246,6 +246,8 @@ pub fn benchmark_vqe(
         let _ = runner.run();
     }
 
+    assert!(config.benchmark_iterations > 0, "benchmark_iterations must be positive");
+
     // Benchmark
     let mut total_time = Duration::ZERO;
     let mut total_evals = 0;

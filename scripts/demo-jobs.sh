@@ -42,6 +42,7 @@ while true; do
     priority="${PRIORITIES[$idx]}"
     backend="${BACKENDS[$idx]}"
 
+    # Note: QASM strings must not contain unescaped double quotes or printf format specifiers
     if [ -n "$backend" ]; then
         payload=$(printf '{"name":"%s","qasm":"%s","shots":%d,"priority":%d,"backend":"%s"}' \
             "$name" "$qasm" "$shots" "$priority" "$backend")

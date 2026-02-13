@@ -17,6 +17,7 @@
 # Usage: bash scripts/smoke-test.sh
 # =============================================================================
 
+# Note: -e deliberately omitted — script uses per-check error handling
 set -uo pipefail
 
 # --- Colours (disabled when not a terminal) ----------------------------------

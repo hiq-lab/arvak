@@ -187,6 +187,11 @@ pub fn uccsd_like_ansatz(n_qubits: usize, params: &[f64]) -> Circuit {
 }
 
 /// Calculate the number of parameters needed for a given ansatz.
+///
+/// # Panics
+/// Panics if `ansatz` is not one of the known types: `"two_local"`,
+/// `"hardware_efficient"`, `"ry"`, or `"uccsd_like"`. This is intentional
+/// to catch configuration errors early.
 pub fn num_parameters(ansatz: &str, n_qubits: usize, reps: usize) -> usize {
     match ansatz {
         "two_local" => n_qubits * (reps + 1),

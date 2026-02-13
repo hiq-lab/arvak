@@ -33,7 +33,7 @@
 //! circuit.cx(QubitId(0), QubitId(1)).unwrap();
 //!
 //! // Add measurement
-//! circuit.measure_all();
+//! circuit.measure_all().unwrap();
 //!
 //! assert_eq!(circuit.num_qubits(), 2);
 //! assert!(circuit.depth() >= 2);  // H, CX, measure
