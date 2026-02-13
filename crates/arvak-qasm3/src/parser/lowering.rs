@@ -82,7 +82,10 @@ impl Lowerer {
                 let q_ids = self.resolve_qubits(qubits)?;
                 let c_ids = self.resolve_clbits(bits)?;
 
-                // If bits is empty, create matching bits
+                // If bits is empty, create matching bits.
+                // Assumption: qubit IDs map directly to classical bit IDs (i.e.,
+                // qubit N is measured into clbit N). This only holds when qubit
+                // and clbit registers are declared with matching sizes and order.
                 let c_ids = if c_ids.is_empty() {
                     q_ids.iter().map(|q| ClbitId(q.0)).collect()
                 } else {
@@ -133,7 +136,8 @@ impl Lowerer {
             }
 
             Statement::Assignment { .. } => {
-                // Classical assignments - skip for now
+                // Classical assignment skipped (not yet supported).
+                // TODO: Implement classical variable assignment lowering.
                 Ok(())
             }
 
@@ -155,7 +159,8 @@ impl Lowerer {
         match call.name.to_lowercase().as_str() {
             // Single-qubit gates
             "id" | "i" => {
-                // Identity - no-op
+                // Identity gates are intentionally dropped during lowering
+                // since they have no effect on circuit state.
                 Ok(())
             }
             "x" => {

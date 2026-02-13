@@ -10,7 +10,7 @@ use petgraph::Direction;
 use petgraph::visit::EdgeRef;
 use rustc_hash::FxHashSet;
 
-use crate::error::CompileResult;
+use crate::error::{CompileError, CompileResult};
 use crate::pass::{Pass, PassKind};
 use crate::property::PropertySet;
 use crate::unitary::Unitary2x2;
@@ -149,10 +149,21 @@ impl Pass for CancelCX {
                 break;
             }
 
-            // Remove pairs (in reverse order to maintain indices)
-            for (node1, node2) in pairs.into_iter().rev() {
-                let _ = dag.remove_op(node2);
-                let _ = dag.remove_op(node1);
+            // Collect all nodes to remove, then sort by descending node index.
+            // petgraph's remove_node uses swap-remove: when a node is removed,
+            // the last node in the graph is moved into the removed slot. By
+            // removing nodes with the highest index first, the swap target is
+            // always the node being removed itself (i.e., it IS the last node),
+            // so no index invalidation occurs for remaining lower-index nodes.
+            let mut to_remove: Vec<NodeIndex> = pairs
+                .into_iter()
+                .flat_map(|(n1, n2)| [n1, n2])
+                .collect();
+            to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+            to_remove.dedup();
+
+            for node in to_remove {
+                dag.remove_op(node).map_err(CompileError::Ir)?;
             }
         }
 
@@ -180,8 +191,8 @@ impl CommutativeCancellation {
 
     /// Check if two gates commute.
     ///
-    /// This is used for future enhancements where gates can be reordered
-    /// to enable additional cancellations.
+    /// TODO: This function is reserved for future commutative analysis where gates
+    /// can be reordered to enable additional cancellations. Currently unused.
     #[allow(dead_code, clippy::match_same_arms)]
     fn gates_commute(
         gate1: &StandardGate,
@@ -222,6 +233,7 @@ impl CommutativeCancellation {
     /// Check if a gate is diagonal (only affects phases, not populations).
     ///
     /// Used by `gates_commute` for determining commutation relationships.
+    /// TODO: Reserved for future commutative analysis. Currently unused.
     #[allow(dead_code)]
     fn is_diagonal(gate: &StandardGate) -> bool {
         matches!(
@@ -356,6 +368,10 @@ impl Pass for CommutativeCancellation {
 
     fn run(&self, dag: &mut CircuitDag, _properties: &mut PropertySet) -> CompileResult<()> {
         // Find and merge adjacent same-type rotations.
+        // Process one merge per iteration to avoid stale NodeIndex references.
+        // petgraph's remove_node uses swap-remove, which invalidates the last
+        // node's index. Processing one merge at a time and re-discovering
+        // ensures all NodeIndex values are fresh.
         // Bound iterations to avoid pathological cases.
         const MAX_ITERATIONS: usize = 100;
         for _ in 0..MAX_ITERATIONS {
@@ -364,21 +380,30 @@ impl Pass for CommutativeCancellation {
                 break;
             }
 
-            for (node1, node2, merged) in merges.into_iter().rev() {
-                // Remove second node
-                let _ = dag.remove_op(node2);
+            // Process only the first merge, then re-discover.
+            let (node1, node2, merged) = &merges[0];
 
-                match merged {
-                    Some(gate) => {
-                        // Replace first node with merged gate
-                        if let Some(inst) = dag.get_instruction_mut(node1) {
-                            *inst = Instruction::single_qubit_gate(gate, inst.qubits[0]);
-                        }
+            match merged {
+                Some(gate) => {
+                    // Replace first node with merged gate, then remove second.
+                    // Order matters: update node1 first while both indices are
+                    // still valid, then remove node2.
+                    let gate = gate.clone();
+                    if let Some(inst) = dag.get_instruction_mut(*node1) {
+                        *inst = Instruction::single_qubit_gate(gate, inst.qubits[0]);
                     }
-                    None => {
-                        // Gates cancel - remove both
-                        let _ = dag.remove_op(node1);
-                    }
+                    dag.remove_op(*node2).map_err(CompileError::Ir)?;
+                }
+                None => {
+                    // Gates cancel - remove both (higher index first to avoid
+                    // swap-remove invalidation).
+                    let (first, second) = if node1.index() > node2.index() {
+                        (*node1, *node2)
+                    } else {
+                        (*node2, *node1)
+                    };
+                    dag.remove_op(first).map_err(CompileError::Ir)?;
+                    dag.remove_op(second).map_err(CompileError::Ir)?;
                 }
             }
         }

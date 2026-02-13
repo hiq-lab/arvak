@@ -88,6 +88,9 @@ pub struct MetricsAggregator;
 
 impl MetricsAggregator {
     /// Aggregate metrics from all evaluation modules.
+    ///
+    /// Note: This method is part of the public API for external consumers
+    /// that only need compilation metrics without orchestration or emitter data.
     pub fn aggregate(input: &InputAnalysis, observer: &CompilationObserver) -> AggregatedMetrics {
         let compilation_effect = Self::compute_compilation_effect(input, observer);
 

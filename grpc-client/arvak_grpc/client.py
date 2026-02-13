@@ -46,6 +46,7 @@ class ArvakClient:
         """Initialize the Arvak client."""
         self.address = address
         self.timeout = timeout
+        # TODO: Add optional TLS support via grpc.secure_channel for production deployments
         self.channel = grpc.insecure_channel(address)
         self.stub = arvak_pb2_grpc.ArvakServiceStub(self.channel)
 

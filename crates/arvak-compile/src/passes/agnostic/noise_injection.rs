@@ -73,6 +73,11 @@ impl Pass for NoiseInjectionPass {
                 }
                 InstructionKind::Measure => {
                     for &qubit in &inst.qubits {
+                        // Note: This uses the logical qubit ID as the physical qubit
+                        // index into the readout error array. This assumes that logical
+                        // qubit IDs correspond to physical qubit indices, which is true
+                        // when this pass runs before layout/routing or when a trivial
+                        // layout (logical == physical) is in effect.
                         let qubit_idx = qubit.0 as usize;
                         if let Some(readout_err) = profile.qubit_readout_error(qubit_idx) {
                             if readout_err > 0.0 {

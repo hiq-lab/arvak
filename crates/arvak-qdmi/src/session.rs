@@ -117,6 +117,10 @@ impl<'dev> DeviceSession<'dev> {
     // -----------------------------------------------------------------------
 
     /// Query a device-level property. Returns the raw byte buffer.
+    ///
+    // SAFETY: Trusts QDMI library to return consistent sizes between queries.
+    // The two-phase (size probe, then data read) pattern has no overflow protection
+    // if the library returns a larger size on the second call than the first.
     pub fn raw_query_device_property(&self, prop: ffi::QdmiDeviceProperty) -> Result<Vec<u8>> {
         // Phase 1: size probe
         let mut size: usize = 0;

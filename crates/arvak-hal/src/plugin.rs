@@ -59,6 +59,14 @@ pub struct PluginInfo {
 /// Plugin shared libraries must export a function with this signature
 /// named `arvak_plugin_create`. The returned pointer is a Rust trait object,
 /// so this is Rust-to-Rust FFI only (not C-compatible).
+///
+// SAFETY: Passing Rust trait objects (fat pointers) across FFI boundaries is
+// undefined behaviour unless the host and plugin are compiled with the **same**
+// Rust compiler version, the **same** global allocator, and the **same**
+// optimisation / codegen settings.  `#[allow(improper_ctypes_definitions)]`
+// below is intentional but fragile -- it silences the lint that normally
+// guards against exactly this kind of ABI mismatch.  Any change to the
+// compiler toolchain on either side can silently break the vtable layout.
 #[cfg(feature = "dynamic-backends")]
 #[allow(improper_ctypes_definitions)]
 pub type PluginCreateFn = unsafe extern "C" fn() -> *mut dyn BackendPlugin;

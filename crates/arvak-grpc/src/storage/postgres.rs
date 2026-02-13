@@ -17,6 +17,8 @@ use tokio_postgres::{Client, NoTls};
 /// PostgreSQL storage backend with connection pooling.
 ///
 /// Designed for production deployments with multiple server instances.
+// TODO: Use a connection pool (deadpool-postgres) for concurrent operations.
+// The current single `Mutex<Client>` serializes all DB operations.
 #[derive(Clone)]
 pub struct PostgresStorage {
     client: std::sync::Arc<tokio::sync::Mutex<Client>>,
@@ -128,6 +130,7 @@ impl PostgresStorage {
     }
 
     /// Convert JobStatus to string for storage.
+    // TODO: Extract shared status conversion to storage/mod.rs (duplicated in sqlite.rs)
     fn status_to_string(status: &JobStatus) -> String {
         match status {
             JobStatus::Queued => "queued".to_string(),

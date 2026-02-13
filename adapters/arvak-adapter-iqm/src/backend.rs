@@ -164,6 +164,7 @@ impl IqmBackend {
                     .iter()
                     .map(|&b| if b != 0 { '1' } else { '0' })
                     .collect();
+                // Counts::insert accumulates: repeated bitstrings correctly increment the count.
                 counts.insert(bitstring, 1);
             }
         }
@@ -451,6 +452,7 @@ mod tests {
 
     #[test]
     fn test_measurements_to_counts() {
+        // TODO: Implement with mock IqmBackend
         // This would require IqmBackend instance, so we'll skip for now
         // Real tests would mock the API client
     }

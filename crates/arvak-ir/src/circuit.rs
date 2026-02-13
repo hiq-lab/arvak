@@ -478,7 +478,7 @@ impl Circuit {
             .take(qubits.len())
             .collect();
 
-        self.dag.apply(Instruction::measure_all(qubits, clbits))?;
+        self.dag.apply(Instruction::measure_all(qubits, clbits)?)?;
         Ok(self)
     }
 
@@ -576,6 +576,13 @@ impl Circuit {
     }
 
     /// Create a circuit from a DAG.
+    ///
+    /// Known limitations:
+    /// - The original circuit name is lost; the result is named "circuit".
+    /// - `next_qubit_id` / `next_clbit_id` are set to the count of qubits/clbits
+    ///   in the DAG, not the maximum QubitId/ClbitId + 1. This means that if the
+    ///   DAG has non-contiguous qubit IDs (e.g., 0, 2, 5), newly added qubits
+    ///   may collide with existing IDs.
     #[allow(clippy::cast_possible_truncation)]
     pub fn from_dag(dag: CircuitDag) -> Self {
         let num_qubits = dag.num_qubits() as u32;
@@ -666,7 +673,7 @@ impl Circuit {
             // Controlled rotations
             for j in (i + 1)..n {
                 let k = j - i;
-                let angle = PI / f64::from(1 << k);
+                let angle = PI / 2.0_f64.powi(k as i32);
                 circuit.cp(angle, QubitId(j), QubitId(i))?;
             }
         }

@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Rust nightly via rustup
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-    sh -s -- -y --default-toolchain nightly --profile minimal \
+    sh -s -- -y --default-toolchain nightly-2026-02-09 --profile minimal \
     && . /root/.cargo/env && rustc --version
 ENV PATH="/root/.cargo/bin:${PATH}"
 
