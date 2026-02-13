@@ -155,10 +155,8 @@ impl Pass for CancelCX {
             // removing nodes with the highest index first, the swap target is
             // always the node being removed itself (i.e., it IS the last node),
             // so no index invalidation occurs for remaining lower-index nodes.
-            let mut to_remove: Vec<NodeIndex> = pairs
-                .into_iter()
-                .flat_map(|(n1, n2)| [n1, n2])
-                .collect();
+            let mut to_remove: Vec<NodeIndex> =
+                pairs.into_iter().flat_map(|(n1, n2)| [n1, n2]).collect();
             to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
             to_remove.dedup();
 

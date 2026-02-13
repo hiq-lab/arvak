@@ -82,7 +82,10 @@ impl Optimizer for Cobyla {
         // Real COBYLA uses linear approximations with a trust region
         // This is a simplified version for demo purposes
 
-        assert!(!initial_params.is_empty(), "initial_params must not be empty");
+        assert!(
+            !initial_params.is_empty(),
+            "initial_params must not be empty"
+        );
 
         let n = initial_params.len();
         let x = initial_params.clone();
@@ -109,7 +112,11 @@ impl Optimizer for Cobyla {
         for _iteration in 0..self.maxiter {
             // Sort simplex by function value
             let mut indices: Vec<usize> = (0..=n).collect();
-            indices.sort_by(|&a, &b| f_simplex[a].partial_cmp(&f_simplex[b]).unwrap_or(std::cmp::Ordering::Equal));
+            indices.sort_by(|&a, &b| {
+                f_simplex[a]
+                    .partial_cmp(&f_simplex[b])
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
             // Best, second worst, and worst
             let best_idx = indices[0];

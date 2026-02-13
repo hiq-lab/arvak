@@ -14,10 +14,7 @@ const SHELL_METACHARACTERS: &[char] = &['$', '`', '"', '\'', ';', '|', '&', '(',
 /// Returns `Ok(())` if the value is safe for interpolation into a shell script,
 /// or `Err` if it contains characters that could enable shell injection.
 fn sanitize_shell_value(value: &str, field_name: &str) -> SchedResult<()> {
-    if value.contains(SHELL_METACHARACTERS)
-        || value.contains('\n')
-        || value.contains('\r')
-    {
+    if value.contains(SHELL_METACHARACTERS) || value.contains('\n') || value.contains('\r') {
         return Err(SchedError::Internal(format!(
             "Shell injection rejected: {field_name} contains disallowed characters"
         )));
