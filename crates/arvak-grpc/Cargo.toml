@@ -63,7 +63,7 @@ opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
 tracing-opentelemetry = "0.22"
 
 # Metrics
-prometheus = "0.13"
+prometheus = "0.14"
 lazy_static = "1.4"
 
 # HTTP server for health/metrics

@@ -250,10 +250,7 @@ impl OidcAuth {
 
         // Try to load cached token
         if let Some(token) = auth.load_cached_token() {
-            let mut cached = auth
-                .cached_token
-                .write()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut cached = auth.cached_token.write().unwrap_or_else(|e| e.into_inner());
             *cached = Some(token);
         }
 
@@ -491,10 +488,7 @@ impl OidcAuth {
     fn save_token(&self, token: &CachedToken) -> HalResult<()> {
         // Save to memory
         {
-            let mut cached = self
-                .cached_token
-                .write()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut cached = self.cached_token.write().unwrap_or_else(|e| e.into_inner());
             *cached = Some(token.clone());
         }
 
@@ -550,10 +544,7 @@ impl OidcAuth {
     pub fn logout(&self) -> HalResult<()> {
         // Clear memory cache
         {
-            let mut cached = self
-                .cached_token
-                .write()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut cached = self.cached_token.write().unwrap_or_else(|e| e.into_inner());
             *cached = None;
         }
 

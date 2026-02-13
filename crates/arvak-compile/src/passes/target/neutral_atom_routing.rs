@@ -37,7 +37,10 @@ impl ZoneAssignment {
 
     /// Get the zone that a physical qubit belongs to.
     pub fn zone_of(&self, qubit: u32) -> u32 {
-        debug_assert!(self.zones > 0, "ZoneAssignment::zone_of called with zones == 0");
+        debug_assert!(
+            self.zones > 0,
+            "ZoneAssignment::zone_of called with zones == 0"
+        );
         let z = qubit / self.qubits_per_zone;
         z.min(self.zones - 1)
     }
