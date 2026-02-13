@@ -2,8 +2,28 @@
 
 use std::path::Path;
 
+use crate::error::{SchedError, SchedResult};
 use crate::job::ScheduledJob;
 use crate::pbs::adapter::PbsConfig;
+
+/// Shell metacharacters that could enable injection attacks.
+const SHELL_METACHARACTERS: &[char] = &['$', '`', '"', '\'', ';', '|', '&', '(', ')', '<', '>'];
+
+/// Validate that a string value does not contain shell metacharacters or control characters.
+///
+/// Returns `Ok(())` if the value is safe for interpolation into a shell script,
+/// or `Err` if it contains characters that could enable shell injection.
+fn sanitize_shell_value(value: &str, field_name: &str) -> SchedResult<()> {
+    if value.contains(SHELL_METACHARACTERS)
+        || value.contains('\n')
+        || value.contains('\r')
+    {
+        return Err(SchedError::Internal(format!(
+            "Shell injection rejected: {field_name} contains disallowed characters"
+        )));
+    }
+    Ok(())
+}
 
 /// Generate a PBS batch script for a quantum job.
 pub fn generate_pbs_script(
@@ -11,7 +31,41 @@ pub fn generate_pbs_script(
     config: &PbsConfig,
     circuit_file: &Path,
     result_file: &Path,
-) -> String {
+) -> SchedResult<String> {
+    // Validate user-controllable values against shell injection
+    let work_dir_str = config.work_dir.display().to_string();
+    let arvak_binary_str = config.arvak_binary.display().to_string();
+    sanitize_shell_value(&config.queue, "queue")?;
+    sanitize_shell_value(&work_dir_str, "work_dir")?;
+    sanitize_shell_value(&arvak_binary_str, "arvak_binary")?;
+    sanitize_shell_value(&config.walltime, "walltime")?;
+    sanitize_shell_value(&config.memory, "memory")?;
+    if let Some(ref account) = config.account {
+        sanitize_shell_value(account, "account")?;
+    }
+    if let Some(ref backend) = job.matched_backend {
+        sanitize_shell_value(backend, "backend")?;
+    }
+    let circuit_file_str = circuit_file.display().to_string();
+    sanitize_shell_value(&circuit_file_str, "circuit_file")?;
+    let result_file_str = result_file.display().to_string();
+    sanitize_shell_value(&result_file_str, "result_file")?;
+    for module in &config.modules {
+        sanitize_shell_value(module, "module")?;
+    }
+    if let Some(ref venv) = config.python_venv {
+        let venv_str = venv.display().to_string();
+        sanitize_shell_value(&venv_str, "python_venv")?;
+    }
+    for directive in &config.extra_directives {
+        sanitize_shell_value(directive, "extra_directive")?;
+    }
+    if let Some(ref queue_mapping) = config.priority_queue_mapping {
+        for q in queue_mapping.values() {
+            sanitize_shell_value(q, "priority_queue")?;
+        }
+    }
+
     let mut script = String::new();
 
     // Shebang
@@ -117,7 +171,7 @@ pub fn generate_pbs_script(
     script.push_str("\necho \"Job completed at: $(date)\"\n");
     script.push_str("echo \"Exit code: $?\"\n");
 
-    script
+    Ok(script)
 }
 
 /// Generate a PBS batch script for multiple circuits (batch job).
@@ -126,7 +180,43 @@ pub fn generate_pbs_script_multi(
     config: &PbsConfig,
     circuit_files: &[&Path],
     result_dir: &Path,
-) -> String {
+) -> SchedResult<String> {
+    // Validate user-controllable values against shell injection
+    let work_dir_str = config.work_dir.display().to_string();
+    let arvak_binary_str = config.arvak_binary.display().to_string();
+    sanitize_shell_value(&config.queue, "queue")?;
+    sanitize_shell_value(&work_dir_str, "work_dir")?;
+    sanitize_shell_value(&arvak_binary_str, "arvak_binary")?;
+    sanitize_shell_value(&config.walltime, "walltime")?;
+    sanitize_shell_value(&config.memory, "memory")?;
+    if let Some(ref account) = config.account {
+        sanitize_shell_value(account, "account")?;
+    }
+    if let Some(ref backend) = job.matched_backend {
+        sanitize_shell_value(backend, "backend")?;
+    }
+    let result_dir_str = result_dir.display().to_string();
+    sanitize_shell_value(&result_dir_str, "result_dir")?;
+    for (i, cf) in circuit_files.iter().enumerate() {
+        let cf_str = cf.display().to_string();
+        sanitize_shell_value(&cf_str, &format!("circuit_file[{i}]"))?;
+    }
+    for module in &config.modules {
+        sanitize_shell_value(module, "module")?;
+    }
+    if let Some(ref venv) = config.python_venv {
+        let venv_str = venv.display().to_string();
+        sanitize_shell_value(&venv_str, "python_venv")?;
+    }
+    for directive in &config.extra_directives {
+        sanitize_shell_value(directive, "extra_directive")?;
+    }
+    if let Some(ref queue_mapping) = config.priority_queue_mapping {
+        for q in queue_mapping.values() {
+            sanitize_shell_value(q, "priority_queue")?;
+        }
+    }
+
     let mut script = String::new();
 
     // Shebang
@@ -245,7 +335,7 @@ pub fn generate_pbs_script_multi(
     script.push_str("echo \"Failed circuits: $FAILED\"\n");
     script.push_str("exit $FAILED\n");
 
-    script
+    Ok(script)
 }
 
 /// Sanitize a job name for PBS.
@@ -293,7 +383,35 @@ pub fn generate_pbs_array_script(
     config: &PbsConfig,
     circuit_files: &[&Path],
     result_dir: &Path,
-) -> String {
+) -> SchedResult<String> {
+    // Validate user-controllable values against shell injection
+    let work_dir_str = config.work_dir.display().to_string();
+    let arvak_binary_str = config.arvak_binary.display().to_string();
+    sanitize_shell_value(&config.queue, "queue")?;
+    sanitize_shell_value(&work_dir_str, "work_dir")?;
+    sanitize_shell_value(&arvak_binary_str, "arvak_binary")?;
+    sanitize_shell_value(&config.walltime, "walltime")?;
+    sanitize_shell_value(&config.memory, "memory")?;
+    if let Some(ref account) = config.account {
+        sanitize_shell_value(account, "account")?;
+    }
+    if let Some(ref backend) = job.matched_backend {
+        sanitize_shell_value(backend, "backend")?;
+    }
+    let result_dir_str = result_dir.display().to_string();
+    sanitize_shell_value(&result_dir_str, "result_dir")?;
+    for (i, cf) in circuit_files.iter().enumerate() {
+        let cf_str = cf.display().to_string();
+        sanitize_shell_value(&cf_str, &format!("circuit_file[{i}]"))?;
+    }
+    for module in &config.modules {
+        sanitize_shell_value(module, "module")?;
+    }
+    if let Some(ref venv) = config.python_venv {
+        let venv_str = venv.display().to_string();
+        sanitize_shell_value(&venv_str, "python_venv")?;
+    }
+
     let mut script = String::new();
 
     // Shebang
@@ -378,7 +496,7 @@ pub fn generate_pbs_array_script(
 
     script.push_str("echo \"Task $PBS_ARRAYID completed with exit code $?\"\n");
 
-    script
+    Ok(script)
 }
 
 #[cfg(test)]
@@ -416,7 +534,8 @@ mod tests {
             &config,
             Path::new("/scratch/circuit.qasm"),
             Path::new("/scratch/result.json"),
-        );
+        )
+        .unwrap();
 
         assert!(script.contains("#!/bin/bash"));
         assert!(script.contains("#PBS -N test_job"));
@@ -464,7 +583,8 @@ mod tests {
         ];
 
         let script =
-            generate_pbs_script_multi(&job, &config, &circuits, Path::new("/scratch/results"));
+            generate_pbs_script_multi(&job, &config, &circuits, Path::new("/scratch/results"))
+                .unwrap();
 
         assert!(script.contains("#PBS -N batch_job"));
         assert!(script.contains("#PBS -l walltime=03:00:00")); // Scaled 3x
@@ -484,7 +604,8 @@ mod tests {
         let circuits = vec![Path::new("/scratch/c1.qasm"), Path::new("/scratch/c2.qasm")];
 
         let script =
-            generate_pbs_array_script(&job, &config, &circuits, Path::new("/scratch/results"));
+            generate_pbs_array_script(&job, &config, &circuits, Path::new("/scratch/results"))
+                .unwrap();
 
         assert!(script.contains("#PBS -t 0-1")); // Array indices
         assert!(script.contains("CIRCUITS=("));

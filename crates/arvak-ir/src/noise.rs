@@ -75,6 +75,68 @@ pub enum NoiseModel {
 }
 
 impl NoiseModel {
+    /// Create a validated depolarizing noise model.
+    ///
+    /// Returns `Err` if `p` is not in `[0.0, 1.0]`.
+    pub fn new_depolarizing(p: f64) -> Result<Self, String> {
+        if !(0.0..=1.0).contains(&p) {
+            return Err(format!("Depolarizing probability p={p} not in [0.0, 1.0]"));
+        }
+        Ok(NoiseModel::Depolarizing { p })
+    }
+
+    /// Create a validated amplitude damping noise model.
+    ///
+    /// Returns `Err` if `gamma` is not in `[0.0, 1.0]`.
+    pub fn new_amplitude_damping(gamma: f64) -> Result<Self, String> {
+        if !(0.0..=1.0).contains(&gamma) {
+            return Err(format!(
+                "Amplitude damping gamma={gamma} not in [0.0, 1.0]"
+            ));
+        }
+        Ok(NoiseModel::AmplitudeDamping { gamma })
+    }
+
+    /// Create a validated phase damping noise model.
+    ///
+    /// Returns `Err` if `gamma` is not in `[0.0, 1.0]`.
+    pub fn new_phase_damping(gamma: f64) -> Result<Self, String> {
+        if !(0.0..=1.0).contains(&gamma) {
+            return Err(format!("Phase damping gamma={gamma} not in [0.0, 1.0]"));
+        }
+        Ok(NoiseModel::PhaseDamping { gamma })
+    }
+
+    /// Create a validated bit-flip noise model.
+    ///
+    /// Returns `Err` if `p` is not in `[0.0, 1.0]`.
+    pub fn new_bit_flip(p: f64) -> Result<Self, String> {
+        if !(0.0..=1.0).contains(&p) {
+            return Err(format!("Bit-flip probability p={p} not in [0.0, 1.0]"));
+        }
+        Ok(NoiseModel::BitFlip { p })
+    }
+
+    /// Create a validated phase-flip noise model.
+    ///
+    /// Returns `Err` if `p` is not in `[0.0, 1.0]`.
+    pub fn new_phase_flip(p: f64) -> Result<Self, String> {
+        if !(0.0..=1.0).contains(&p) {
+            return Err(format!("Phase-flip probability p={p} not in [0.0, 1.0]"));
+        }
+        Ok(NoiseModel::PhaseFlip { p })
+    }
+
+    /// Create a validated readout error noise model.
+    ///
+    /// Returns `Err` if `p` is not in `[0.0, 1.0]`.
+    pub fn new_readout_error(p: f64) -> Result<Self, String> {
+        if !(0.0..=1.0).contains(&p) {
+            return Err(format!("Readout error probability p={p} not in [0.0, 1.0]"));
+        }
+        Ok(NoiseModel::ReadoutError { p })
+    }
+
     /// Get a human-readable name for this noise model.
     pub fn name(&self) -> &str {
         match self {

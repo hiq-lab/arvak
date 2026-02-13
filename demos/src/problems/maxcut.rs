@@ -127,6 +127,7 @@ impl Graph {
 
     /// Find the maximum cut value by brute force (for small graphs).
     pub fn max_cut_brute_force(&self) -> (usize, f64) {
+        assert!(self.n_nodes <= 20, "Brute force limited to 20 nodes");
         let mut best_bitstring = 0;
         let mut best_value = 0.0;
 

@@ -327,7 +327,7 @@ class AsyncArvakClient:
             ArvakJobNotFoundError: If the job does not exist
             ArvakError: If the job fails
         """
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
 
         while True:
             job = await self.get_job_status(job_id)
@@ -343,7 +343,7 @@ class AsyncArvakClient:
                 raise ArvakError("Job was canceled")
 
             if max_wait is not None:
-                elapsed = asyncio.get_event_loop().time() - start_time
+                elapsed = asyncio.get_running_loop().time() - start_time
                 if elapsed >= max_wait:
                     raise TimeoutError(
                         f"Job did not complete within {max_wait} seconds"

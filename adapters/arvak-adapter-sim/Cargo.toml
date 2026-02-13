@@ -21,6 +21,8 @@ num-complex = { workspace = true }
 ndarray = { workspace = true }
 rustc-hash = { workspace = true }
 tracing = { workspace = true }
+# Note: rand is directly pinned because it is not a workspace dependency.
+# Consider adding rand to [workspace.dependencies] if other crates also need it.
 rand = "0.8"
 uuid = { workspace = true }
 

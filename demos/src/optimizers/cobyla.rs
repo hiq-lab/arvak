@@ -73,6 +73,7 @@ impl Cobyla {
 }
 
 impl Optimizer for Cobyla {
+    /// Note: Despite the module name, this implements a Nelder-Mead simplex algorithm, not COBYLA.
     fn minimize<F>(&self, mut objective: F, initial_params: Vec<f64>) -> OptimizationResult
     where
         F: FnMut(&[f64]) -> f64,
@@ -80,6 +81,8 @@ impl Optimizer for Cobyla {
         // Simplified COBYLA implementation using Nelder-Mead-like simplex method
         // Real COBYLA uses linear approximations with a trust region
         // This is a simplified version for demo purposes
+
+        assert!(!initial_params.is_empty(), "initial_params must not be empty");
 
         let n = initial_params.len();
         let x = initial_params.clone();
@@ -106,7 +109,7 @@ impl Optimizer for Cobyla {
         for _iteration in 0..self.maxiter {
             // Sort simplex by function value
             let mut indices: Vec<usize> = (0..=n).collect();
-            indices.sort_by(|&a, &b| f_simplex[a].partial_cmp(&f_simplex[b]).unwrap());
+            indices.sort_by(|&a, &b| f_simplex[a].partial_cmp(&f_simplex[b]).unwrap_or(std::cmp::Ordering::Equal));
 
             // Best, second worst, and worst
             let best_idx = indices[0];
@@ -221,7 +224,7 @@ impl Optimizer for Cobyla {
             let min_idx = f_simplex
                 .iter()
                 .enumerate()
-                .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(i, _)| i)
                 .unwrap();
 
@@ -235,7 +238,7 @@ impl Optimizer for Cobyla {
         let min_idx = f_simplex
             .iter()
             .enumerate()
-            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i)
             .unwrap();
 
@@ -303,6 +306,8 @@ impl Optimizer for Spsa {
         let mut f_x = objective(&x);
         let mut history = vec![f_x];
         let mut num_evaluations = 1;
+        let mut prev_best = f_x;
+        let mut converged = false;
 
         // Simple LCG for reproducible randomness
         let mut rand_state: u64 = 42;
@@ -345,6 +350,14 @@ impl Optimizer for Spsa {
             f_x = objective(&x);
             num_evaluations += 1;
             history.push(f_x);
+
+            // Basic convergence check: compare change in best cost
+            let best_cost_change = f_x - prev_best;
+            if best_cost_change.abs() < self.c * 1e-6 {
+                converged = true;
+                break;
+            }
+            prev_best = f_x;
         }
 
         OptimizationResult {
@@ -353,7 +366,7 @@ impl Optimizer for Spsa {
             num_evaluations,
             num_iterations: self.maxiter,
             history,
-            converged: true,
+            converged,
         }
     }
 }

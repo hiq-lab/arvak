@@ -32,7 +32,7 @@ pub struct VqeRunner {
     pub n_qubits: usize,
     /// Number of ansatz repetitions.
     pub reps: usize,
-    /// Number of measurement shots per evaluation.
+    /// Shot count (currently unused -- statevector simulation is used).
     pub shots: u32,
     /// Maximum optimization iterations.
     pub maxiter: usize,
@@ -179,9 +179,6 @@ fn apply_gate(
     use arvak_ir::gate::StandardGate;
     use num_complex::Complex64;
 
-    #[allow(unused_variables)]
-    let n = (state.len() as f64).log2() as usize;
-
     match gate {
         StandardGate::H => {
             let q = qubits[0];
@@ -290,9 +287,8 @@ fn apply_gate(
                 }
             }
         }
-        _ => {
-            // Other gates not implemented for this demo
-        }
+        // TODO: Log warning for unsupported gate types
+        _ => {}
     }
 }
 
@@ -683,10 +679,9 @@ mod tests {
         println!("\nGround state energy: {ground_state:.4} Hartree");
 
         // Verify the eigenvalue spectrum
-        let eigenvalues = vec![lambda1_minus, lambda1_plus, lambda2_minus, lambda2_plus];
-        let mut sorted = eigenvalues.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        println!("Eigenvalue spectrum: {sorted:?}");
+        let mut eigenvalues = vec![lambda1_minus, lambda1_plus, lambda2_minus, lambda2_plus];
+        eigenvalues.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        println!("Eigenvalue spectrum: {eigenvalues:?}");
 
         // For a model Hamiltonian, we accept any reasonable ground state
         // The key is that VQE should find this minimum

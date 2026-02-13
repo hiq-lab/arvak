@@ -493,6 +493,8 @@ impl Optimizer for NelderMeadOptimizer {
 /// A gradient-free stochastic optimizer that estimates gradients using
 /// only two function evaluations per iteration, regardless of dimension.
 /// Very efficient for noisy quantum cost functions.
+///
+/// Note: This is an alternative optimizer available for future use.
 #[allow(dead_code)]
 pub struct SpsaOptimizer {
     /// Number of parameters
@@ -599,6 +601,7 @@ impl SpsaOptimizer {
     }
 
     /// Generate random perturbation direction (Bernoulli ±1)
+    // TODO: Use proper Rademacher-distributed RNG for SPSA convergence guarantees
     fn generate_delta(&mut self) {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
@@ -723,7 +726,7 @@ impl Optimizer for SpsaOptimizer {
     }
 }
 
-// Keep CobylaOptimizer as an alias for NelderMead for backward compatibility
+/// Type alias for backward compatibility. Note: This is actually a Nelder-Mead optimizer, not COBYLA.
 pub type CobylaOptimizer = NelderMeadOptimizer;
 
 #[cfg(test)]

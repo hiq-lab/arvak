@@ -36,7 +36,7 @@ pub struct QaoaRunner {
     pub graph: Graph,
     /// Number of QAOA layers.
     pub p: usize,
-    /// Number of measurement shots per evaluation.
+    /// Shot count (currently unused -- statevector simulation is used).
     pub shots: u32,
     /// Maximum optimization iterations.
     pub maxiter: usize,
@@ -117,6 +117,7 @@ impl QaoaRunner {
 
     /// Run QAOA with multiple random restarts and return the best result.
     pub fn run_with_restarts(&self, n_restarts: usize) -> QaoaResult {
+        assert!(n_restarts >= 1, "n_restarts must be at least 1");
         let mut best_result: Option<QaoaResult> = None;
 
         for restart in 0..n_restarts {
@@ -247,7 +248,7 @@ fn sample_best_solution(graph: &Graph, gamma: &[f64], beta: &[f64]) -> (usize, f
             .max_by(
                 |(_, a): &(usize, &num_complex::Complex64),
                  (_, b): &(usize, &num_complex::Complex64)| {
-                    a.norm_sqr().partial_cmp(&b.norm_sqr()).unwrap()
+                    a.norm_sqr().partial_cmp(&b.norm_sqr()).unwrap_or(std::cmp::Ordering::Equal)
                 },
             )
             .unwrap();
@@ -364,6 +365,7 @@ fn apply_gate(
                 }
             }
         }
+        // TODO: Log warning for unsupported gate types
         _ => {}
     }
 }

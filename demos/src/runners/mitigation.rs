@@ -103,6 +103,11 @@ pub struct ZneResult {
 ///
 /// # Returns
 /// The extrapolated zero-noise value
+///
+/// # Panics
+/// The assertions below are intentional precondition checks:
+/// - `values` and `scale_factors` must have the same length.
+/// - At least 2 data points are required for extrapolation.
 pub fn zero_noise_extrapolation(values: &[f64], scale_factors: &[f64]) -> ZneResult {
     assert_eq!(values.len(), scale_factors.len());
     assert!(values.len() >= 2);
@@ -290,12 +295,14 @@ impl MeasurementMitigator {
 
     /// Get the readout fidelity for a specific state.
     pub fn readout_fidelity(&self, state: usize) -> f64 {
+        debug_assert!(state < (1 << self.n_qubits));
         self.calibration_matrix[state][state]
     }
 
     /// Get the average readout fidelity.
     pub fn average_fidelity(&self) -> f64 {
         let dim = 1 << self.n_qubits;
+        debug_assert!(dim <= self.calibration_matrix.len());
         (0..dim).map(|i| self.calibration_matrix[i][i]).sum::<f64>() / dim as f64
     }
 }

@@ -58,6 +58,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .merge(static_routes)
         .fallback(serve_index) // SPA fallback
         .layer(CompressionLayer::new())
+        // TODO: Make CORS configurable; restrict origins in production
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

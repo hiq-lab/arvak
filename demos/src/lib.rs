@@ -1,4 +1,4 @@
-// Demo code: allow unused items since these are reference implementations
+// Allow dead code: demo library exposes various algorithms that may not all be used in every binary
 #![allow(dead_code)]
 
 //! Arvak Demo Suite

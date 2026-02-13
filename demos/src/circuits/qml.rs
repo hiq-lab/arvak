@@ -22,6 +22,7 @@ use arvak_ir::qubit::QubitId;
 /// # Returns
 /// A parameterized classifier circuit.
 pub fn qml_classifier(n_qubits: usize, depth: usize, data: &[f64], weights: &[f64]) -> Circuit {
+    assert!(n_qubits >= 2, "QML classifier requires at least 2 qubits");
     let expected = n_qubits * depth;
     assert!(
         data.len() >= expected,

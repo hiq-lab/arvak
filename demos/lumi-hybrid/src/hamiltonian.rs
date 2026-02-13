@@ -250,6 +250,9 @@ fn interpolate_coefficients(r: f64) -> (f64, f64, f64, f64, f64, f64) {
 ///
 /// This is an approximation based on the expected state structure.
 /// A proper implementation would measure in X and Y bases.
+///
+/// Note: This approximation assumes positive superposition. For negative
+/// superposition (UCCSD), the sign should be negative. See ansatz.rs.
 fn estimate_xx_yy_from_correlations(counts: &Counts) -> f64 {
     let total = counts.total_shots() as f64;
     if total == 0.0 {

@@ -104,7 +104,8 @@ pub fn heavy_output_probability(
     // is the median of the Porter-Thomas distribution.
     // Approximately, heavy outputs are those that appear more than
     // 1/(2^width) times on average.
-    let median_threshold = 1.0 / (1u64 << width) as f64;
+    let denominator = 1u64.checked_shl(width).unwrap_or(u64::MAX);
+    let median_threshold = 1.0 / denominator as f64;
 
     // Count shots where the output is "heavy"
     // In a simplified model, we check if the normalized count exceeds the median
@@ -118,7 +119,7 @@ pub fn heavy_output_probability(
 
 /// Create a QV benchmark result for a given achieved volume.
 pub fn qv_result(achieved_width: u32, total_trials: u32) -> BenchmarkResult {
-    let qv = 1u64 << achieved_width;
+    let qv = 1u64.checked_shl(achieved_width).unwrap_or(u64::MAX);
     BenchmarkResult::new("quantum_volume", qv as f64, "QV")
         .with_metric("achieved_width", u64::from(achieved_width))
         .with_metric("total_trials", u64::from(total_trials))

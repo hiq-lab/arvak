@@ -33,6 +33,9 @@ struct ResourceState {
 }
 
 /// Rate limiting state for a single client.
+// Note: `requests` is an unbounded Vec<Instant> that grows with each request
+// within the retention window. For high-throughput clients, consider replacing
+// with a fixed-size ring buffer to bound memory usage.
 struct RateLimitState {
     /// Request timestamps within the current window
     requests: Vec<Instant>,

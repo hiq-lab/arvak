@@ -65,7 +65,13 @@ impl ParameterExpression {
             ParameterExpression::Add(a, b) => Some(a.as_f64()? + b.as_f64()?),
             ParameterExpression::Sub(a, b) => Some(a.as_f64()? - b.as_f64()?),
             ParameterExpression::Mul(a, b) => Some(a.as_f64()? * b.as_f64()?),
-            ParameterExpression::Div(a, b) => Some(a.as_f64()? / b.as_f64()?),
+            ParameterExpression::Div(a, b) => {
+                let divisor = b.as_f64()?;
+                if divisor == 0.0 {
+                    return None;
+                }
+                Some(a.as_f64()? / divisor)
+            }
         }
     }
 
@@ -162,7 +168,9 @@ impl ParameterExpression {
                 let a = a.simplify();
                 let b = b.simplify();
                 match (a.as_f64(), b.as_f64()) {
-                    (Some(av), Some(bv)) => ParameterExpression::Constant(av / bv),
+                    (Some(av), Some(bv)) if bv != 0.0 => {
+                        ParameterExpression::Constant(av / bv)
+                    }
                     _ => ParameterExpression::Div(Box::new(a), Box::new(b)),
                 }
             }

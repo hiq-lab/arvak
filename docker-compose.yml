@@ -1,3 +1,4 @@
+# Note: All services share the same Dockerfile. Docker BuildKit deduplicates builds.
 services:
   dashboard:
     build:

@@ -77,6 +77,7 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
         );
 
         // Exponent bias is 2^(E-1) - 1, like IEEE 754
+        debug_assert!(E >= 1 && E <= 31, "Exponent bit width must be 1..=31");
         let exponent_bias = (1i32 << (E - 1)) - 1;
 
         Self {
@@ -157,6 +158,10 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
     ///
     /// Assumes the float is currently in computational basis state.
     /// For a general reset, use measurements or reset gates.
+    ///
+    /// Note: This is currently a no-op because resetting to zero requires
+    /// knowing the current state of each qubit. A proper implementation
+    /// would use hardware reset operations or conditional X gates.
     pub fn set_zero(&self, circuit: &mut Circuit) -> TypeResult<()> {
         // This is a placeholder - proper zero requires knowing current state
         // In practice, you'd use reset operations
@@ -239,7 +244,7 @@ impl<const M: usize, const E: usize> QuantumFloat<M, E> {
         }
 
         // Scale mantissa to our bit width
-        let mantissa_bits = ieee_mantissa >> (52 - M).max(0);
+        let mantissa_bits = ieee_mantissa >> 52usize.saturating_sub(M);
 
         Ok((mantissa_bits, our_exp as u64))
     }

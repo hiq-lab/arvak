@@ -208,7 +208,6 @@ jobs:
 
       - name: Run security audit
         id: audit
-        continue-on-error: true
         run: |
           cargo audit 2>&1 | tee audit-output.txt
           EXIT_CODE=${PIPESTATUS[0]}

@@ -253,7 +253,7 @@ impl OidcAuth {
             let mut cached = auth
                 .cached_token
                 .write()
-                .expect("token cache lock poisoned");
+                .unwrap_or_else(|e| e.into_inner());
             *cached = Some(token);
         }
 
@@ -264,7 +264,7 @@ impl OidcAuth {
     pub async fn get_token(&self) -> HalResult<String> {
         // Check cached token
         {
-            let cached = self.cached_token.read().expect("token cache lock poisoned");
+            let cached = self.cached_token.read().unwrap_or_else(|e| e.into_inner());
             if let Some(ref token) = *cached {
                 if !token.expires_soon(self.config.refresh_buffer_secs) {
                     return Ok(token.access_token.clone());
@@ -293,7 +293,7 @@ impl OidcAuth {
 
     /// Check if we have a valid (non-expired) token.
     pub fn has_valid_token(&self) -> bool {
-        let cached = self.cached_token.read().expect("token cache lock poisoned");
+        let cached = self.cached_token.read().unwrap_or_else(|e| e.into_inner());
         if let Some(ref token) = *cached {
             !token.is_expired()
         } else {
@@ -483,7 +483,7 @@ impl OidcAuth {
 
     /// Get the refresh token from cache.
     fn get_refresh_token(&self) -> Option<String> {
-        let cached = self.cached_token.read().expect("token cache lock poisoned");
+        let cached = self.cached_token.read().unwrap_or_else(|e| e.into_inner());
         cached.as_ref().and_then(|t| t.refresh_token.clone())
     }
 
@@ -494,7 +494,7 @@ impl OidcAuth {
             let mut cached = self
                 .cached_token
                 .write()
-                .expect("token cache lock poisoned");
+                .unwrap_or_else(|e| e.into_inner());
             *cached = Some(token.clone());
         }
 
@@ -553,7 +553,7 @@ impl OidcAuth {
             let mut cached = self
                 .cached_token
                 .write()
-                .expect("token cache lock poisoned");
+                .unwrap_or_else(|e| e.into_inner());
             *cached = None;
         }
 

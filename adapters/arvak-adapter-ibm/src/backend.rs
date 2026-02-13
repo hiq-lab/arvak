@@ -133,8 +133,9 @@ impl IbmBackend {
                 if let Some(dist) = quasi_dists.first() {
                     for (bitstring, &prob) in dist {
                         let binary = hex_to_binary(bitstring);
-                        // Convert probability to approximate count
-                        let count = (prob * 1000.0).round() as u64;
+                        // TODO: Use actual shot count from job submission instead of hardcoded 1000.0
+                        // Clamp negative quasi-probabilities to zero before conversion.
+                        let count = (prob * 1000.0).max(0.0).round() as u64;
                         if count > 0 {
                             counts.insert(binary, count);
                         }
@@ -148,13 +149,20 @@ impl IbmBackend {
 }
 
 /// Convert hex string to binary string.
+///
+/// TODO: Leading zeros are lost because the number of qubits is not available here.
+/// Callers that need fixed-width bitstrings should pad the result, e.g.
+/// `format!("{:0>width$}", hex_to_binary(s), width = num_qubits)`.
 fn hex_to_binary(hex: &str) -> String {
     // Handle 0x prefix
     let hex = hex.strip_prefix("0x").unwrap_or(hex);
 
-    // Parse as integer and format as binary
+    // Parse as integer and format as binary.
+    // Note: this does not preserve leading zeros; the width of the original
+    // hex representation is used as a heuristic (4 bits per hex digit).
     if let Ok(value) = u64::from_str_radix(hex, 16) {
-        format!("{value:b}")
+        let width = hex.len() * 4;
+        format!("{value:0>width$b}", value = value, width = width)
     } else {
         // If not hex, assume it's already binary
         hex.to_string()
@@ -324,12 +332,12 @@ mod tests {
 
     #[test]
     fn test_hex_to_binary() {
-        assert_eq!(hex_to_binary("0x0"), "0");
-        assert_eq!(hex_to_binary("0x1"), "1");
-        assert_eq!(hex_to_binary("0x3"), "11");
+        assert_eq!(hex_to_binary("0x0"), "0000");
+        assert_eq!(hex_to_binary("0x1"), "0001");
+        assert_eq!(hex_to_binary("0x3"), "0011");
         assert_eq!(hex_to_binary("0xf"), "1111");
         assert_eq!(hex_to_binary("0xff"), "11111111");
-        assert_eq!(hex_to_binary("3"), "11");
+        assert_eq!(hex_to_binary("3"), "0011");
     }
 
     #[test]
@@ -365,8 +373,8 @@ mod tests {
         };
 
         let counts = IbmBackend::results_to_counts(&results);
-        assert_eq!(counts.get("0"), 500);
-        assert_eq!(counts.get("11"), 500);
+        assert_eq!(counts.get("0000"), 500);
+        assert_eq!(counts.get("0011"), 500);
         assert_eq!(counts.total_shots(), 1000);
     }
 }
