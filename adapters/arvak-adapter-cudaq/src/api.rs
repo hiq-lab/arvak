@@ -3,6 +3,7 @@
 //! Communicates with NVIDIA CUDA-Q cloud services for quantum circuit
 //! execution on GPU-accelerated simulators and hardware backends.
 
+// Allow dead code: API methods are conditionally used based on backend configuration.
 #![allow(dead_code)]
 
 use reqwest::{Client, StatusCode};

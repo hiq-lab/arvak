@@ -171,7 +171,7 @@ impl SlurmAdapter {
                 .work_dir
                 .join("results")
                 .join(format!("{}.json", job.id));
-            templates::generate_batch_script(job, &self.config, &circuit_files[0], &result_file)
+            templates::generate_batch_script(job, &self.config, &circuit_files[0], &result_file)?
         } else {
             let result_dir = self
                 .config
@@ -182,7 +182,7 @@ impl SlurmAdapter {
                 .iter()
                 .map(std::path::PathBuf::as_path)
                 .collect();
-            templates::generate_batch_script_multi(job, &self.config, &circuit_refs, &result_dir)
+            templates::generate_batch_script_multi(job, &self.config, &circuit_refs, &result_dir)?
         };
 
         // Write batch script

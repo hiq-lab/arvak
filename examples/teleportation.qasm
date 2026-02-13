@@ -22,6 +22,7 @@ h q[0];
 c[0] = measure q[0];
 c[1] = measure q[1];
 
+// Note: Classical conditional corrections (c_if) not shown — this demonstrates the Bell measurement portion only.
 // Classical corrections on Bob's qubit (q[2])
 // In real hardware, these would be classically controlled
 // Here we apply them unconditionally for demonstration

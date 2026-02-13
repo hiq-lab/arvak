@@ -9,7 +9,8 @@ use crate::register::QubitRegister;
 
 /// A quantum integer with configurable bit width.
 ///
-/// This represents an unsigned integer in two's complement representation.
+/// Quantum integer register with configurable signedness. When unsigned, uses
+/// standard binary representation; when signed, uses two's complement.
 /// The qubits are ordered from LSB (index 0) to MSB (index N-1).
 ///
 /// # Type Parameter
@@ -79,6 +80,7 @@ impl<const N: usize> QuantumInt<N> {
 
     /// Get the maximum representable value.
     pub fn max_value(&self) -> u64 {
+        debug_assert!(N >= 1 && N <= 63, "QuantumInt bit width must be 1..=63");
         if self.signed {
             (1u64 << (N - 1)) - 1
         } else {
@@ -88,6 +90,7 @@ impl<const N: usize> QuantumInt<N> {
 
     /// Get the minimum representable value.
     pub fn min_value(&self) -> i64 {
+        debug_assert!(N >= 1 && N <= 63, "QuantumInt bit width must be 1..=63");
         if self.signed { -(1i64 << (N - 1)) } else { 0 }
     }
 
@@ -173,7 +176,10 @@ impl<const N: usize> QuantumInt<N> {
 
     /// Increment this integer by 1.
     ///
-    /// Uses a ripple-carry adder structure.
+    /// Note: This delegates to `add_classical`, which performs bitwise XOR
+    /// (bit-flip) on individual bits, NOT arithmetic addition. Proper quantum
+    /// addition with carry propagation requires ancilla qubits and is not yet
+    /// implemented.
     pub fn increment(&self, circuit: &mut Circuit) -> TypeResult<()> {
         // Increment using cascading X and CX gates
         // Add 1: flip LSB, then cascade carries
@@ -181,6 +187,11 @@ impl<const N: usize> QuantumInt<N> {
     }
 
     /// Decrement this integer by 1.
+    ///
+    /// Note: This relies on `increment`, which performs bitwise XOR
+    /// (bit-flip) on individual bits, NOT arithmetic addition. Proper quantum
+    /// addition with carry propagation requires ancilla qubits and is not yet
+    /// implemented.
     pub fn decrement(&self, circuit: &mut Circuit) -> TypeResult<()> {
         // Decrement = add (2^N - 1) for unsigned
         // For simplicity, we flip all bits, increment, flip all bits
@@ -193,7 +204,9 @@ impl<const N: usize> QuantumInt<N> {
 
     /// Add a classical constant to this integer in-place.
     ///
-    /// Uses cascading X gates for the constant bits that are 1.
+    /// Note: This performs bitwise XOR (bit-flip) on individual bits, NOT
+    /// arithmetic addition. Proper quantum addition with carry propagation
+    /// requires ancilla qubits and is not yet implemented.
     pub fn add_classical(&self, value: u64, circuit: &mut Circuit) -> TypeResult<()> {
         // Simple implementation: for each bit of the constant that's 1,
         // we need to propagate a carry through.

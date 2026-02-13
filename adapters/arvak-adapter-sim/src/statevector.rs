@@ -16,6 +16,11 @@ pub struct Statevector {
 impl Statevector {
     /// Create a new statevector initialized to |0...0⟩.
     pub fn new(num_qubits: usize) -> Self {
+        assert!(
+            num_qubits <= 26,
+            "Statevector simulation limited to 26 qubits ({})",
+            num_qubits
+        );
         let size = 1 << num_qubits;
         let mut amplitudes = vec![Complex64::new(0.0, 0.0); size];
         amplitudes[0] = Complex64::new(1.0, 0.0);
@@ -60,8 +65,8 @@ impl Statevector {
                 self.apply_standard_gate(std_gate, qubits);
             }
             GateKind::Custom(_) => {
-                // Custom gates would need matrix multiplication
-                // For now, skip
+                // TODO: Custom gate simulation not yet supported — gate is silently skipped.
+                // Custom gates would need matrix multiplication.
             }
         }
     }
@@ -84,32 +89,44 @@ impl Statevector {
             StandardGate::Rx(theta) => {
                 if let Some(t) = theta.as_f64() {
                     self.apply_rx(qubits[0], t);
+                } else {
+                    tracing::warn!("Skipping Rx gate with unresolved symbolic parameter");
                 }
             }
             StandardGate::Ry(theta) => {
                 if let Some(t) = theta.as_f64() {
                     self.apply_ry(qubits[0], t);
+                } else {
+                    tracing::warn!("Skipping Ry gate with unresolved symbolic parameter");
                 }
             }
             StandardGate::Rz(theta) => {
                 if let Some(t) = theta.as_f64() {
                     self.apply_rz(qubits[0], t);
+                } else {
+                    tracing::warn!("Skipping Rz gate with unresolved symbolic parameter");
                 }
             }
             StandardGate::P(theta) => {
                 if let Some(t) = theta.as_f64() {
                     self.apply_phase(qubits[0], t);
+                } else {
+                    tracing::warn!("Skipping P gate with unresolved symbolic parameter");
                 }
             }
             StandardGate::U(theta, phi, lambda) => {
                 if let (Some(t), Some(p), Some(l)) = (theta.as_f64(), phi.as_f64(), lambda.as_f64())
                 {
                     self.apply_u(qubits[0], t, p, l);
+                } else {
+                    tracing::warn!("Skipping U gate with unresolved symbolic parameter");
                 }
             }
             StandardGate::PRX(theta, phi) => {
                 if let (Some(t), Some(p)) = (theta.as_f64(), phi.as_f64()) {
                     self.apply_prx(qubits[0], t, p);
+                } else {
+                    tracing::warn!("Skipping PRX gate with unresolved symbolic parameter");
                 }
             }
 
@@ -123,11 +140,15 @@ impl Statevector {
             StandardGate::CRz(theta) => {
                 if let Some(t) = theta.as_f64() {
                     self.apply_crz(qubits[0], qubits[1], t);
+                } else {
+                    tracing::warn!("Skipping CRz gate with unresolved symbolic parameter");
                 }
             }
             StandardGate::CP(theta) => {
                 if let Some(t) = theta.as_f64() {
                     self.apply_cp(qubits[0], qubits[1], t);
+                } else {
+                    tracing::warn!("Skipping CP gate with unresolved symbolic parameter");
                 }
             }
 
@@ -136,7 +157,7 @@ impl Statevector {
             StandardGate::CSwap => self.apply_cswap(qubits[0], qubits[1], qubits[2]),
 
             _ => {
-                // Other gates not yet implemented
+                tracing::warn!("Unhandled gate type in simulation: skipping");
             }
         }
     }
@@ -422,20 +443,25 @@ impl Statevector {
     }
 
     fn reset(&mut self, qubit: usize) {
-        // Simplified reset: project to |0⟩ and renormalize
+        // Simplified reset: project to |0⟩ and renormalize.
+        // Two-pass approach to avoid computing norm while modifying amplitudes.
         let mask = 1 << qubit;
-        let mut norm_sq = 0.0;
+
+        // Pass 1: Collapse |1⟩ into |0⟩ subspace and zero out |1⟩ amplitudes.
         for i in 0..(1 << self.num_qubits) {
             if i & mask != 0 {
                 let j = i & !mask;
-                // Store the value first to avoid borrow conflict
                 let val = self.amplitudes[i];
                 self.amplitudes[j] += val;
                 self.amplitudes[i] = Complex64::new(0.0, 0.0);
             }
-            norm_sq += self.amplitudes[i].norm_sqr();
         }
-        // Renormalize
+
+        // Pass 2: Compute norm from the (now settled) |0⟩ subspace and renormalize.
+        let mut norm_sq = 0.0;
+        for amp in self.amplitudes.iter() {
+            norm_sq += amp.norm_sqr();
+        }
         let norm = norm_sq.sqrt();
         if norm > 0.0 {
             for amp in &mut self.amplitudes {

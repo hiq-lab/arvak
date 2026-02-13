@@ -23,7 +23,7 @@ impl ReproducibilityInfo {
         Self {
             arvak_version: env!("CARGO_PKG_VERSION").to_string(),
             cli_args: cli_args.to_vec(),
-            schema_version: "0.1.0".into(),
+            schema_version: "0.3.0".into(),
             eval_version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
@@ -45,6 +45,6 @@ mod tests {
 
         assert!(!info.arvak_version.is_empty());
         assert_eq!(info.cli_args.len(), 4);
-        assert_eq!(info.schema_version, "0.1.0");
+        assert_eq!(info.schema_version, "0.3.0");
     }
 }

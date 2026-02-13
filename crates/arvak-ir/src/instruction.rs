@@ -83,15 +83,26 @@ impl Instruction {
     }
 
     /// Create a multi-qubit measurement instruction.
+    ///
+    /// Returns an error if the number of qubits and classical bits do not match.
     pub fn measure_all(
         qubits: impl IntoIterator<Item = QubitId>,
         clbits: impl IntoIterator<Item = ClbitId>,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::Measure,
-            qubits: qubits.into_iter().collect(),
-            clbits: clbits.into_iter().collect(),
+    ) -> crate::error::IrResult<Self> {
+        let qubits: Vec<_> = qubits.into_iter().collect();
+        let clbits: Vec<_> = clbits.into_iter().collect();
+        if qubits.len() != clbits.len() {
+            return Err(crate::error::IrError::InvalidDag(format!(
+                "measure_all: qubit count ({}) does not match clbit count ({})",
+                qubits.len(),
+                clbits.len(),
+            )));
         }
+        Ok(Self {
+            kind: InstructionKind::Measure,
+            qubits,
+            clbits,
+        })
     }
 
     /// Create a reset instruction.

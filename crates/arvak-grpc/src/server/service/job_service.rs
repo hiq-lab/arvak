@@ -382,7 +382,6 @@ impl ArvakServiceImpl {
                                 let backend_clone = backend.clone();
                                 let metrics_clone = metrics.clone();
                                 let resources_clone = resources.clone();
-                                let _backend_id = submission.backend_id.clone();
 
                                 tokio::spawn(async move {
                                     execute_job_sync(
@@ -486,6 +485,7 @@ impl ArvakServiceImpl {
         }))
     }
 
+    // TODO: Store AbortHandle when spawning job execution and abort on cancellation
     pub(in crate::server) async fn cancel_job_impl(
         &self,
         request: Request<CancelJobRequest>,

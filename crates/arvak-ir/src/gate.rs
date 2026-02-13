@@ -280,6 +280,15 @@ impl CustomGate {
     /// Add a unitary matrix to the gate.
     #[must_use]
     pub fn with_matrix(mut self, matrix: Vec<Complex64>) -> Self {
+        let dim = 1usize << self.num_qubits;
+        debug_assert_eq!(
+            matrix.len(),
+            dim * dim,
+            "Matrix length {} does not match expected {} for {}-qubit gate",
+            matrix.len(),
+            dim * dim,
+            self.num_qubits,
+        );
         self.matrix = Some(matrix);
         self
     }

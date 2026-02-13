@@ -182,8 +182,8 @@ impl Metrics {
     /// Get a snapshot of current metric values.
     pub fn snapshot(&self) -> MetricsSnapshot {
         MetricsSnapshot {
-            active_jobs: ACTIVE_JOBS.get() as u64,
-            queued_jobs: QUEUED_JOBS.get() as u64,
+            active_jobs: ACTIVE_JOBS.get().max(0.0) as u64,
+            queued_jobs: QUEUED_JOBS.get().max(0.0) as u64,
         }
     }
 }

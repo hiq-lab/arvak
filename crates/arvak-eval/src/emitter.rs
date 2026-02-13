@@ -169,6 +169,7 @@ impl EmitterAnalyzer {
     pub fn analyze(
         dag: &CircuitDag,
         emit_target: &EmitTarget,
+        // TODO: Use capabilities for hardware-specific emission analysis
         _capabilities: &Capabilities,
     ) -> EvalResult<EmitterReport> {
         let native_gates = emit_target.native_gates();
@@ -329,6 +330,8 @@ impl EmitterAnalyzer {
     }
 
     fn attempt_emission(dag: &CircuitDag) -> EmissionResult {
+        // NOTE: This clones the entire DAG to reconstruct a Circuit for emission.
+        // A future optimization could emit directly from the DAG representation.
         let circuit = Circuit::from_dag(dag.clone());
         match arvak_qasm3::emit(&circuit) {
             Ok(qasm3) => {

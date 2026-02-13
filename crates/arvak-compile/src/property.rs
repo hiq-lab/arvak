@@ -195,6 +195,10 @@ impl CouplingMap {
     }
 
     /// Add an edge between two qubits (bidirectional).
+    ///
+    /// Note: This does not check for duplicate edges. Adding the same edge
+    /// multiple times will result in duplicate entries in the adjacency list
+    /// and edge list.
     pub fn add_edge(&mut self, q1: u32, q2: u32) {
         self.edges.push((q1, q2));
         self.adjacency.entry(q1).or_default().push(q2);
@@ -401,6 +405,9 @@ impl BasisGates {
     }
 
     /// Check if a gate is in the basis.
+    ///
+    /// Note: This uses linear search over the gate list. For large basis gate
+    /// sets, consider using a `HashSet<String>` for O(1) lookups instead.
     pub fn contains(&self, gate: &str) -> bool {
         self.gates.iter().any(|g| g == gate)
     }
