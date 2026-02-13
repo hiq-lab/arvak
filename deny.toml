@@ -14,10 +14,9 @@ targets = [
 # Advisories — check for known vulnerabilities
 # ─────────────────────────────────────────────
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "warn"
-notice = "warn"
 # Ignore specific advisories if needed (add RUSTSEC IDs here):
 # ignore = ["RUSTSEC-2024-XXXX"]
 
@@ -25,7 +24,6 @@ notice = "warn"
 # Licenses — enforce allowed license list
 # ─────────────────────────────────────────────
 [licenses]
-unlicensed = "deny"
 confidence-threshold = 0.8
 allow = [
     "MIT",
@@ -40,12 +38,6 @@ allow = [
     "BSL-1.0",
     "OpenSSL",
     "MPL-2.0",
-]
-# Copyleft licenses that need review before accepting:
-deny = [
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-3.0",
 ]
 
 [[licenses.clarify]]
