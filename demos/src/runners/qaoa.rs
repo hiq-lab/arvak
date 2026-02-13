@@ -248,7 +248,9 @@ fn sample_best_solution(graph: &Graph, gamma: &[f64], beta: &[f64]) -> (usize, f
             .max_by(
                 |(_, a): &(usize, &num_complex::Complex64),
                  (_, b): &(usize, &num_complex::Complex64)| {
-                    a.norm_sqr().partial_cmp(&b.norm_sqr()).unwrap_or(std::cmp::Ordering::Equal)
+                    a.norm_sqr()
+                        .partial_cmp(&b.norm_sqr())
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 },
             )
             .unwrap();

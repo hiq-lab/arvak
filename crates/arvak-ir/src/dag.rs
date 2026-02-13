@@ -376,7 +376,11 @@ impl CircuitDag {
 
         // Helper to remap indices after petgraph's swap-remove.
         let fix = |idx: NodeIndex| -> NodeIndex {
-            if last_idx != node && idx == last_idx { node } else { idx }
+            if last_idx != node && idx == last_idx {
+                node
+            } else {
+                idx
+            }
         };
 
         // If the removed node was not the last node, petgraph swapped the last

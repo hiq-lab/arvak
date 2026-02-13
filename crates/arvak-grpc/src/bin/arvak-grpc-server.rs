@@ -172,11 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // shutdown future resolves.  This pattern exists so that the `match` below
     // can uniformly handle both normal shutdown and a hypothetical future where
     // an operator-configured global timeout is added.
-    let result = tokio::time::timeout(
-        std::time::Duration::MAX,
-        server,
-    )
-    .await;
+    let result = tokio::time::timeout(std::time::Duration::MAX, server).await;
 
     match result {
         Ok(Ok(())) => {

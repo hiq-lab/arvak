@@ -90,9 +90,7 @@ impl NoiseModel {
     /// Returns `Err` if `gamma` is not in `[0.0, 1.0]`.
     pub fn new_amplitude_damping(gamma: f64) -> Result<Self, String> {
         if !(0.0..=1.0).contains(&gamma) {
-            return Err(format!(
-                "Amplitude damping gamma={gamma} not in [0.0, 1.0]"
-            ));
+            return Err(format!("Amplitude damping gamma={gamma} not in [0.0, 1.0]"));
         }
         Ok(NoiseModel::AmplitudeDamping { gamma })
     }
