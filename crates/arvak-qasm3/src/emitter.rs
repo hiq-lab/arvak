@@ -15,6 +15,7 @@ pub fn emit(circuit: &Circuit) -> ParseResult<String> {
 /// QASM3 emitter.
 struct Emitter {
     output: String,
+    // TODO: Use indent field for nested structure formatting
     indent: usize,
 }
 

@@ -37,6 +37,7 @@ impl ZoneAssignment {
 
     /// Get the zone that a physical qubit belongs to.
     pub fn zone_of(&self, qubit: u32) -> u32 {
+        debug_assert!(self.zones > 0, "ZoneAssignment::zone_of called with zones == 0");
         let z = qubit / self.qubits_per_zone;
         z.min(self.zones - 1)
     }
@@ -90,6 +91,12 @@ impl Pass for NeutralAtomRouting {
             .map(|(idx, inst)| (idx, inst.qubits[0], inst.qubits[1]))
             .collect();
 
+        // Known limitation: Shuttle instructions are appended at the end of the DAG
+        // via `dag.apply()` rather than being inserted immediately before/after the
+        // target two-qubit gate. This means shuttles will appear after all existing
+        // operations in topological order, which may not produce the correct circuit
+        // ordering. Fixing this requires architectural changes to support positional
+        // insertion in the DAG.
         for (_node_idx, q0, q1) in two_qubit_ops {
             let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
             let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;

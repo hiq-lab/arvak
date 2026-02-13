@@ -318,6 +318,7 @@ impl std::fmt::Display for Token {
 #[derive(Debug, Clone)]
 pub struct SpannedToken {
     pub token: Token,
+    // Span is captured for future error reporting with source location.
     #[allow(dead_code)]
     pub span: std::ops::Range<usize>,
 }

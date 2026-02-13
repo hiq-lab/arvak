@@ -327,6 +327,9 @@ fn resolve_optional<T: Copy>(library: &Library, prefix: &str, base_name: &str) -
 /// to load are silently skipped (with a debug-level log message).
 ///
 /// The caller must supply a mapping from library filename (stem) to prefix.
+///
+/// Note: Returns an error on IO failure from `read_dir`. Individual library
+/// load failures are logged at debug level and skipped (not propagated).
 #[allow(clippy::implicit_hasher)]
 pub fn scan_directory(
     dir: &Path,

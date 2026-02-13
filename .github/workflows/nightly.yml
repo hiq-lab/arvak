@@ -94,6 +94,7 @@ jobs:
 
       - name: Advisory check (cargo-deny)
         id: advisories
+        # TODO: Remove continue-on-error once all advisories are resolved
         continue-on-error: true
         run: |
           cargo deny check advisories 2>&1 | tee deny-advisories.txt

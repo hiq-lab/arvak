@@ -49,6 +49,9 @@ impl Pass for MeasurementBarrierVerification {
         PassKind::Analysis
     }
 
+    // Note: This is an analysis pass (PassKind::Analysis) and must not modify the
+    // DAG. The `&mut` signature is required by the `Pass` trait interface, but
+    // implementations of analysis passes must treat the DAG as read-only.
     #[allow(clippy::unused_self, clippy::unnecessary_wraps)]
     fn run(&self, dag: &mut CircuitDag, properties: &mut PropertySet) -> CompileResult<()> {
         // Build per-qubit operation ordering from topological sort.

@@ -22,6 +22,7 @@ impl From<u32> for QubitId {
 impl From<usize> for QubitId {
     #[allow(clippy::cast_possible_truncation)]
     fn from(id: usize) -> Self {
+        debug_assert!(id <= u32::MAX as usize, "QubitId overflow: {id} exceeds u32::MAX");
         QubitId(id as u32)
     }
 }
@@ -45,6 +46,7 @@ impl From<u32> for ClbitId {
 impl From<usize> for ClbitId {
     #[allow(clippy::cast_possible_truncation)]
     fn from(id: usize) -> Self {
+        debug_assert!(id <= u32::MAX as usize, "ClbitId overflow: {id} exceeds u32::MAX");
         ClbitId(id as u32)
     }
 }

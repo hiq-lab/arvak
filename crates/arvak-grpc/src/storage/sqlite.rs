@@ -31,6 +31,11 @@ impl SqliteStorage {
     ///
     /// If the database file doesn't exist, it will be created.
     /// Schema migrations are applied automatically.
+    ///
+    /// **Important:** This constructor acquires a blocking `Mutex` to run
+    /// `init_schema()`. It must be called outside of an async runtime context
+    /// (e.g., before `tokio::main` starts, or inside `spawn_blocking`), otherwise
+    /// it will block the executor thread.
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let conn = Connection::open(path)?;
 
@@ -48,7 +53,7 @@ impl SqliteStorage {
 
     /// Initialize the database schema.
     fn init_schema(&self) -> Result<()> {
-        let conn = self.connection.lock().expect("database lock poisoned");
+        let conn = self.connection.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
         // Jobs table
         conn.execute(
@@ -116,6 +121,7 @@ impl SqliteStorage {
     }
 
     /// Convert JobStatus to string for storage.
+    // TODO: Extract shared status conversion to storage/mod.rs (duplicated in postgres.rs)
     fn status_to_string(status: &JobStatus) -> String {
         match status {
             JobStatus::Queued => "queued".to_string(),
@@ -151,7 +157,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().expect("database lock poisoned");
+            let conn = conn.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
             let circuit_json = Self::serialize_circuit(&job.circuit)?;
             let status_str = Self::status_to_string(&job.status);
@@ -190,7 +196,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().expect("database lock poisoned");
+            let conn = conn.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
             let result = conn
                 .query_row(
@@ -239,7 +245,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().expect("database lock poisoned");
+            let conn = conn.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
             let status_str = Self::status_to_string(&status);
             let error_msg = if let JobStatus::Failed(msg) = &status {
@@ -285,7 +291,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().expect("database lock poisoned");
+            let conn = conn.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
             // Serialize counts to JSON
             let counts_json = serde_json::to_string(&result.counts)
@@ -330,7 +336,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().expect("database lock poisoned");
+            let conn = conn.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
             conn.query_row(
                 "SELECT counts_json, shots, execution_time_ms, metadata_json
@@ -370,7 +376,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().expect("database lock poisoned");
+            let conn = conn.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
             // Build query based on filter
             let mut query = String::from(
@@ -447,7 +453,7 @@ impl JobStorage for SqliteStorage {
         let conn = self.connection.clone();
 
         task::spawn_blocking(move || {
-            let conn = conn.lock().expect("database lock poisoned");
+            let conn = conn.lock().map_err(|_| Error::StorageError("database lock poisoned".into()))?;
 
             // Foreign key constraint will cascade delete to job_results
             conn.execute("DELETE FROM jobs WHERE job_id = ?1", params![job_id.0])?;

@@ -40,8 +40,10 @@ impl Parser {
             return Ok(Expression::Neg(Box::new(expr)));
         }
         if self.consume(&Token::Not) {
+            // TODO: Logical NOT (!) has different semantics than arithmetic negation (-).
+            // This is a known simplification.
             let expr = self.parse_unary_expr()?;
-            return Ok(Expression::Neg(Box::new(expr))); // Simplified
+            return Ok(Expression::Neg(Box::new(expr)));
         }
         self.parse_primary_expr()
     }
@@ -56,6 +58,8 @@ impl Parser {
         match token {
             Token::IntLiteral(v) => {
                 self.advance();
+                // Note: u64 to i64 cast may wrap for values > i64::MAX.
+                // Very large integer literals are uncommon in QASM3.
                 Ok(Expression::Int(v as i64))
             }
             Token::FloatLiteral(v) => {

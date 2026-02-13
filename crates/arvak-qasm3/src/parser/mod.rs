@@ -30,6 +30,7 @@ pub fn parse_ast(source: &str) -> ParseResult<Program> {
 pub(super) struct Parser {
     pub(super) tokens: Vec<SpannedToken>,
     pub(super) pos: usize,
+    // TODO: Track line numbers by incrementing on newline tokens
     pub(super) line: usize,
 }
 

@@ -123,6 +123,10 @@ impl CompilationObserver {
     ///
     /// Instead of using `PassManager::run()` directly, this method
     /// runs each pass individually to capture before/after snapshots.
+    ///
+    /// Note: Currently this is a single-pass observation of the full pipeline.
+    /// Per-pass metrics (individual pass before/after snapshots) are not yet
+    /// implemented because `PassManager` does not expose individual passes.
     pub fn observe(
         pm: &PassManager,
         dag: &mut CircuitDag,

@@ -104,8 +104,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  {bitstring}: {count} ({prob:.3})");
     }
 
-    if let Some(exec_time) = result.execution_time_ms.checked_sub(0) {
-        println!("\nExecution time: {exec_time} ms");
+    if result.execution_time_ms > 0 {
+        println!("\nExecution time: {} ms", result.execution_time_ms);
     }
 
     println!("\nDone!");

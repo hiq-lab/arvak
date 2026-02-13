@@ -80,6 +80,7 @@ pub fn inverse_gate(gate: &StandardGate) -> UncomputeResult<StandardGate> {
 
         // iSWAP is not self-inverse: iSWAP† ≠ iSWAP
         // iSWAP† = iSWAP^(-1) which would need decomposition
+        // TODO: ISwap is mathematically invertible (ISwap†). Implement inverse.
         StandardGate::ISwap => {
             // For simplicity, we report this as non-invertible directly
             // A full implementation would decompose to basic gates

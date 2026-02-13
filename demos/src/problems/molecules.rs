@@ -10,7 +10,7 @@ use super::hamiltonian::{Pauli, PauliHamiltonian, PauliTerm};
 /// This is a 2-qubit model Hamiltonian that captures the essential physics
 /// of the H2 molecule for VQE demonstration purposes.
 ///
-/// Ground state energy: -1.137 Hartree (by construction)
+/// Ground state energy: -1.169 Hartree (by construction)
 /// The ground state is approximately (|01⟩ + |10⟩)/√2 (Bell-like state)
 ///
 /// The Hamiltonian is designed so that:

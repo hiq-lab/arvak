@@ -7,7 +7,7 @@ with open("../README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="arvak-grpc",
-    version="1.5.1",
+    version="1.5.2",
     author="Daniel Hinderink",
     author_email="daniel@hal-contract.org",
     description="Python client for Arvak gRPC quantum computing service with CUDA-Q and neutral-atom backend support",
@@ -24,11 +24,12 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering :: Physics",
     ],
     python_requires=">=3.9",
     install_requires=[
-        "grpcio>=1.60.0",
+        "grpcio>=1.78.0",
         "protobuf>=4.25.0",
     ],
     extras_require={

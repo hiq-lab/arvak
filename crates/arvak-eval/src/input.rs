@@ -52,7 +52,7 @@ impl InputAnalysis {
     /// Parse and analyze an `OpenQASM` 3.0 source string.
     pub fn analyze(qasm_source: &str) -> EvalResult<Self> {
         // Hash the raw input
-        let content_hash = sha256_hex(qasm_source);
+        let content_hash = content_fingerprint(qasm_source);
 
         // Parse QASM3
         let circuit =
@@ -170,10 +170,11 @@ fn extract_metrics(circuit: &Circuit) -> StructuralMetrics {
     }
 }
 
-/// Compute SHA-256 hash of a string, returning hex-encoded digest.
+/// Compute content fingerprint using fast non-cryptographic hashes.
 ///
-/// Uses a simple implementation without external crypto dependencies.
-fn sha256_hex(input: &str) -> String {
+/// Uses DJB2a + FNV-1a combined hash for a unique fingerprint.
+/// Not cryptographic, but sufficient for content-addressed reproducibility.
+fn content_fingerprint(input: &str) -> String {
     // DJB2a + FNV-1a combined hash for a unique fingerprint.
     // Not cryptographic, but sufficient for content-addressed reproducibility.
     let bytes = input.as_bytes();
@@ -220,15 +221,15 @@ c = measure q;
 
     #[test]
     fn test_content_hash_deterministic() {
-        let h1 = sha256_hex(BELL_QASM);
-        let h2 = sha256_hex(BELL_QASM);
+        let h1 = content_fingerprint(BELL_QASM);
+        let h2 = content_fingerprint(BELL_QASM);
         assert_eq!(h1, h2);
     }
 
     #[test]
     fn test_content_hash_differs() {
-        let h1 = sha256_hex("OPENQASM 3.0;\nqubit[1] q;\nh q[0];");
-        let h2 = sha256_hex("OPENQASM 3.0;\nqubit[2] q;\nh q[0];");
+        let h1 = content_fingerprint("OPENQASM 3.0;\nqubit[1] q;\nh q[0];");
+        let h2 = content_fingerprint("OPENQASM 3.0;\nqubit[2] q;\nh q[0];");
         assert_ne!(h1, h2);
     }
 

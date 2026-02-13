@@ -12,7 +12,7 @@ use arvak_ir::parameter::ParameterExpression;
 use arvak_ir::qubit::QubitId;
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::error::CompileResult;
+use crate::error::{CompileError, CompileResult};
 use crate::pass::{Pass, PassKind};
 use crate::property::PropertySet;
 use crate::unitary::Unitary2x2;
@@ -305,14 +305,19 @@ impl Pass for Optimize1qGates {
     }
 
     fn run(&self, dag: &mut CircuitDag, _properties: &mut PropertySet) -> CompileResult<()> {
-        // Find all runs of consecutive 1q gates
-        let runs = self.find_1q_runs(dag);
+        // Process one run at a time, re-discovering runs after each modification.
+        // petgraph's remove_node uses swap-remove, which invalidates the last
+        // node's NodeIndex. Re-discovering after each run ensures all indices
+        // are fresh. Bounded to prevent pathological cases.
+        const MAX_ITERATIONS: usize = 200;
+        for _ in 0..MAX_ITERATIONS {
+            let runs = self.find_1q_runs(dag);
 
-        // Process each run
-        for (qubit, nodes) in runs {
-            if nodes.len() < 2 {
-                continue;
-            }
+            // Find the first actionable run (len >= 2)
+            let run = runs.into_iter().find(|(_, nodes)| nodes.len() >= 2);
+            let Some((qubit, nodes)) = run else {
+                break;
+            };
 
             // Compute combined unitary
             let mut combined = Unitary2x2::identity();
@@ -338,24 +343,31 @@ impl Pass for Optimize1qGates {
             let num_new = new_gates.len();
 
             if num_new == 0 {
-                // All gates cancel - remove all nodes in this run
-                for &node_idx in &nodes {
-                    let _ = dag.remove_op(node_idx);
+                // All gates cancel - remove all nodes in this run.
+                // Sort by descending index so swap-remove never invalidates
+                // a remaining node (the last node IS the one being removed).
+                let mut to_remove = nodes;
+                to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+                for node_idx in to_remove {
+                    dag.remove_op(node_idx).map_err(CompileError::Ir)?;
                 }
             } else if num_new <= nodes.len() {
                 // We can replace in-place: update first N nodes, remove the rest
                 let (keep, remove) = nodes.split_at(num_new);
 
-                // Update kept nodes using into_iter to consume gates without cloning
+                // Update kept nodes (no removal, so indices remain valid)
                 for (&node_idx, gate) in keep.iter().zip(new_gates) {
                     if let Some(inst) = dag.get_instruction_mut(node_idx) {
                         *inst = Instruction::single_qubit_gate(gate, qubit);
                     }
                 }
 
-                // Remove extra nodes
-                for &node_idx in remove {
-                    let _ = dag.remove_op(node_idx);
+                // Remove extra nodes in descending index order to avoid
+                // swap-remove invalidation.
+                let mut to_remove: Vec<NodeIndex> = remove.to_vec();
+                to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+                for node_idx in to_remove {
+                    dag.remove_op(node_idx).map_err(CompileError::Ir)?;
                 }
             } else {
                 // Need more nodes than we have - just update what we can

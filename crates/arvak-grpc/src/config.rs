@@ -412,7 +412,7 @@ impl Config {
         if env_config.observability.logging.level != default_log_level() {
             self.observability.logging.level = env_config.observability.logging.level;
         }
-        // ... merge other fields similarly
+        // TODO: Complete environment variable merges for all configuration fields
 
         self
     }

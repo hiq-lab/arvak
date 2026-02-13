@@ -385,6 +385,7 @@ impl CircuitSpec {
     }
 
     /// Get the number of qubits in the circuit.
+    // TODO: Cache parsed qubit count to avoid re-parsing on every call
     pub fn num_qubits(&self) -> crate::SchedResult<u32> {
         let circuit = self.resolve()?;
         Ok(circuit.num_qubits() as u32)
