@@ -178,6 +178,7 @@ fn hex_to_binary(hex: &str) -> String {
 
 #[async_trait]
 impl Backend for IbmBackend {
+    #[allow(clippy::unnecessary_literal_bound)]
     fn name(&self) -> &str {
         "ibm"
     }
