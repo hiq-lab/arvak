@@ -22,11 +22,7 @@ impl ArvakServiceImpl {
 
             let caps = backend.capabilities();
 
-            let is_available = backend
-                .availability()
-                .await
-                .map(|a| a.is_available)
-                .unwrap_or(false);
+            let is_available = backend.availability().await.is_ok_and(|a| a.is_available);
 
             let topology_json =
                 serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());
@@ -59,11 +55,7 @@ impl ArvakServiceImpl {
 
         let caps = backend.capabilities();
 
-        let is_available = backend
-            .availability()
-            .await
-            .map(|a| a.is_available)
-            .unwrap_or(false);
+        let is_available = backend.availability().await.is_ok_and(|a| a.is_available);
 
         let topology_json =
             serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());

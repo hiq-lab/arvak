@@ -19,11 +19,7 @@ pub async fn list_backends(
     let mut summaries = Vec::with_capacity(backends.len());
 
     for (name, backend) in backends.iter() {
-        let available = backend
-            .availability()
-            .await
-            .map(|a| a.is_available)
-            .unwrap_or(false);
+        let available = backend.availability().await.is_ok_and(|a| a.is_available);
         let capabilities = backend.capabilities();
 
         summaries.push(BackendSummary {
@@ -48,11 +44,7 @@ pub async fn get_backend(
         .get(&name)
         .ok_or_else(|| ApiError::NotFound(format!("Backend '{name}' not found")))?;
 
-    let available = backend
-        .availability()
-        .await
-        .map(|a| a.is_available)
-        .unwrap_or(false);
+    let available = backend.availability().await.is_ok_and(|a| a.is_available);
     let capabilities = backend.capabilities();
 
     let topology_kind = match &capabilities.topology.kind {

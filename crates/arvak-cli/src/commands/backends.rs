@@ -49,11 +49,7 @@ pub async fn execute() -> Result<()> {
     {
         match IqmBackend::new() {
             Ok(iqm) => {
-                let available = iqm
-                    .availability()
-                    .await
-                    .map(|a| a.is_available)
-                    .unwrap_or(false);
+                let available = iqm.availability().await.is_ok_and(|a| a.is_available);
                 let caps = iqm.capabilities();
                 println!(
                     "  {} {} ({})",
@@ -100,11 +96,7 @@ pub async fn execute() -> Result<()> {
     {
         match IbmBackend::new() {
             Ok(ibm) => {
-                let available = ibm
-                    .availability()
-                    .await
-                    .map(|a| a.is_available)
-                    .unwrap_or(false);
+                let available = ibm.availability().await.is_ok_and(|a| a.is_available);
                 let caps = ibm.capabilities();
                 println!(
                     "  {} {} ({})",

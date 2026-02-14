@@ -100,6 +100,7 @@ impl ParameterExpression {
     }
 
     /// Bind a symbol to a value, returning a new expression.
+    #[must_use]
     pub fn bind(&self, name: &str, value: f64) -> Self {
         match self {
             ParameterExpression::Symbol(n) if n == name => ParameterExpression::Constant(value),
@@ -127,6 +128,7 @@ impl ParameterExpression {
     }
 
     /// Simplify the expression by evaluating constant subexpressions.
+    #[must_use]
     pub fn simplify(&self) -> Self {
         if let Some(v) = self.as_f64() {
             return ParameterExpression::Constant(v);
