@@ -10,7 +10,9 @@ use std::sync::{Arc, RwLock};
 use tracing::warn;
 use tracing::{debug, info};
 
-use arvak_hal::backend::{Backend, BackendConfig, BackendFactory};
+use arvak_hal::backend::{
+    Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult,
+};
 use arvak_hal::capability::{Capabilities, GateSet, Topology};
 use arvak_hal::error::{HalError, HalResult};
 use arvak_hal::job::{JobId, JobStatus};
@@ -47,8 +49,8 @@ use std::ffi::{CString, c_int, c_void};
 ///     .with_token("your-api-token")
 ///     .with_base_url("https://qdmi.lrz.de");
 ///
-/// // Get device capabilities
-/// let caps = backend.capabilities().await?;
+/// // Get device capabilities (sync, infallible)
+/// let caps = backend.capabilities();
 /// println!("Device: {} with {} qubits", caps.name, caps.num_qubits);
 ///
 /// // Submit a circuit
@@ -68,8 +70,8 @@ pub struct QdmiBackend {
     #[cfg(feature = "system-qdmi")]
     state: Arc<RwLock<SystemState>>,
 
-    /// Cached capabilities
-    capabilities_cache: Arc<RwLock<Option<Capabilities>>>,
+    /// Cached capabilities (HAL Contract v2: sync introspection).
+    capabilities: Capabilities,
 }
 
 /// Mock state for testing without system QDMI
@@ -128,10 +130,21 @@ unsafe impl Sync for SystemState {}
 impl QdmiBackend {
     /// Create a new QDMI backend.
     pub fn new() -> Self {
+        // Default capabilities — updated when initialize() is called.
+        let capabilities = Capabilities {
+            name: "QDMI Mock Device".into(),
+            num_qubits: 20,
+            gate_set: GateSet::universal(),
+            topology: Topology::full(20),
+            max_shots: 100_000,
+            is_simulator: false,
+            features: vec!["qdmi".into(), "mqss".into()],
+            noise_profile: None,
+        };
         Self {
             config: BackendConfig::new("qdmi"),
             state: Arc::new(RwLock::new(MockState::default())),
-            capabilities_cache: Arc::new(RwLock::new(None)),
+            capabilities,
         }
     }
 
@@ -232,10 +245,21 @@ impl QdmiBackend {
 impl QdmiBackend {
     /// Create a new QDMI backend.
     pub fn new() -> Self {
+        // Default capabilities — updated when initialize() discovers the device.
+        let capabilities = Capabilities {
+            name: "QDMI Device".into(),
+            num_qubits: 0,
+            gate_set: GateSet::universal(),
+            topology: Topology::full(1),
+            max_shots: 100_000,
+            is_simulator: false,
+            features: vec!["qdmi".into(), "mqss".into(), "system".into()],
+            noise_profile: None,
+        };
         Self {
             config: BackendConfig::new("qdmi"),
             state: Arc::new(RwLock::new(SystemState::default())),
-            capabilities_cache: Arc::new(RwLock::new(None)),
+            capabilities,
         }
     }
 
@@ -485,63 +509,11 @@ impl Backend for QdmiBackend {
         &self.config.name
     }
 
-    async fn capabilities(&self) -> HalResult<Capabilities> {
-        // Check cache first
-        {
-            let cache = self
-                .capabilities_cache
-                .read()
-                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
-            if let Some(ref caps) = *cache {
-                return Ok(caps.clone());
-            }
-        }
-
-        // Initialize if needed
-        #[cfg(not(feature = "system-qdmi"))]
-        {
-            let state = self
-                .state
-                .read()
-                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
-            if state.session.is_none() {
-                drop(state);
-                self.initialize()
-                    .map_err(|e| HalError::Backend(e.to_string()))?;
-            }
-        }
-
-        #[cfg(feature = "system-qdmi")]
-        {
-            let state = self
-                .state
-                .read()
-                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
-            if !state.initialized {
-                drop(state);
-                self.initialize()
-                    .map_err(|e| HalError::Backend(e.to_string()))?;
-            }
-        }
-
-        // Build capabilities
-        let caps = self
-            .build_capabilities()
-            .map_err(|e| HalError::Backend(e.to_string()))?;
-
-        // Cache the result
-        {
-            let mut cache = self
-                .capabilities_cache
-                .write()
-                .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
-            *cache = Some(caps.clone());
-        }
-
-        Ok(caps)
+    fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
     }
 
-    async fn is_available(&self) -> HalResult<bool> {
+    async fn availability(&self) -> HalResult<BackendAvailability> {
         #[cfg(not(feature = "system-qdmi"))]
         {
             let state = self
@@ -550,16 +522,30 @@ impl Backend for QdmiBackend {
                 .map_err(|_| HalError::Backend("Failed to acquire lock".into()))?;
 
             if let Some(ref device) = state.device {
-                return Ok(matches!(
+                let available = matches!(
                     device.status,
                     QdmiDeviceStatus::Idle | QdmiDeviceStatus::Busy
-                ));
+                );
+                if available {
+                    return Ok(BackendAvailability {
+                        is_available: true,
+                        queue_depth: None,
+                        estimated_wait: None,
+                        status_message: None,
+                    });
+                }
+                return Ok(BackendAvailability::unavailable("device not idle"));
             }
 
             // Try to initialize
             drop(state);
             if self.initialize().is_ok() {
-                return Ok(true);
+                return Ok(BackendAvailability {
+                    is_available: true,
+                    queue_depth: None,
+                    estimated_wait: None,
+                    status_message: None,
+                });
             }
         }
 
@@ -584,10 +570,19 @@ impl Backend for QdmiBackend {
                     );
                     if ffi::check_status(result).is_ok() {
                         let device_status = QdmiDeviceStatus::from(status_val);
-                        return Ok(matches!(
+                        let available = matches!(
                             device_status,
                             QdmiDeviceStatus::Idle | QdmiDeviceStatus::Busy
-                        ));
+                        );
+                        if available {
+                            return Ok(BackendAvailability {
+                                is_available: true,
+                                queue_depth: None,
+                                estimated_wait: None,
+                                status_message: None,
+                            });
+                        }
+                        return Ok(BackendAvailability::unavailable("device not idle"));
                     }
                 }
             }
@@ -595,11 +590,30 @@ impl Backend for QdmiBackend {
             // Try to initialize
             drop(state);
             if self.initialize().is_ok() {
-                return Ok(true);
+                return Ok(BackendAvailability {
+                    is_available: true,
+                    queue_depth: None,
+                    estimated_wait: None,
+                    status_message: None,
+                });
             }
         }
 
-        Ok(false)
+        Ok(BackendAvailability::unavailable("failed to initialize"))
+    }
+
+    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+        let caps = self.capabilities();
+        if caps.num_qubits > 0 && circuit.num_qubits() > caps.num_qubits as usize {
+            return Ok(ValidationResult::Invalid {
+                reasons: vec![format!(
+                    "Circuit has {} qubits but device only supports {}",
+                    circuit.num_qubits(),
+                    caps.num_qubits
+                )],
+            });
+        }
+        Ok(ValidationResult::Valid)
     }
 
     async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
@@ -929,11 +943,15 @@ impl BackendFactory for QdmiBackend {
         let mut backend = QdmiBackend::new();
         backend.config = config;
 
-        // Auto-initialize if we have credentials
+        // Auto-initialize if we have credentials, then refresh capabilities
         if backend.config.token.is_some() || backend.config.endpoint.is_some() {
             backend
                 .initialize()
                 .map_err(|e| HalError::Backend(e.to_string()))?;
+            // Refresh capabilities after initialization
+            if let Ok(caps) = backend.build_capabilities() {
+                backend.capabilities = caps;
+            }
         }
 
         Ok(backend)
@@ -953,7 +971,7 @@ mod tests {
     #[tokio::test]
     async fn test_qdmi_backend_capabilities() {
         let backend = QdmiBackend::new();
-        let caps = backend.capabilities().await.unwrap();
+        let caps = backend.capabilities();
 
         assert!(caps.num_qubits > 0);
         assert!(!caps.is_simulator);
@@ -963,8 +981,8 @@ mod tests {
     #[tokio::test]
     async fn test_qdmi_backend_availability() {
         let backend = QdmiBackend::new();
-        let available = backend.is_available().await.unwrap();
-        assert!(available);
+        let avail = backend.availability().await.unwrap();
+        assert!(avail.is_available);
     }
 
     #[tokio::test]

@@ -7,9 +7,11 @@
 use async_trait::async_trait;
 use rustc_hash::FxHashMap;
 use std::sync::{Arc, Mutex};
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
-use arvak_hal::backend::{Backend, BackendConfig, BackendFactory};
+use arvak_hal::backend::{
+    Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult,
+};
 use arvak_hal::capability::{Capabilities, GateSet, Topology};
 use arvak_hal::error::{HalError, HalResult};
 use arvak_hal::job::{Job, JobId, JobStatus};
@@ -70,6 +72,8 @@ pub struct CudaqBackend {
     config: BackendConfig,
     client: CudaqClient,
     target: String,
+    /// Cached capabilities (HAL Contract v2: sync introspection).
+    capabilities: Capabilities,
     jobs: Arc<Mutex<FxHashMap<String, CachedJob>>>,
     target_info: Arc<Mutex<Option<TargetInfo>>>,
 }
@@ -137,10 +141,30 @@ impl CudaqBackend {
 
         let client = CudaqClient::new(endpoint, token)?;
 
+        // Build default capabilities at construction (HAL Contract v2).
+        let (num_qubits, is_simulator) = match target.as_str() {
+            "nvidia-mqpu" => (40, true),
+            "custatevec" => (32, true),
+            "tensornet" => (100, true),
+            "density-matrix" => (20, true),
+            _ => (30, true),
+        };
+        let capabilities = Capabilities {
+            name: target.clone(),
+            num_qubits,
+            gate_set: GateSet::universal(),
+            topology: Topology::full(num_qubits),
+            max_shots: 1_000_000,
+            is_simulator,
+            features: vec!["gpu-accelerated".into(), "qasm3".into()],
+            noise_profile: None,
+        };
+
         Ok(Self {
             config,
             client,
             target,
+            capabilities,
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             target_info: Arc::new(Mutex::new(None)),
         })
@@ -180,28 +204,6 @@ impl CudaqBackend {
     fn circuit_to_qasm(&self, circuit: &Circuit) -> CudaqResult<String> {
         arvak_qasm3::emit(circuit).map_err(|e| CudaqError::QasmConversion(e.to_string()))
     }
-
-    /// Build default capabilities for a CUDA-Q simulator target.
-    fn default_capabilities(&self) -> Capabilities {
-        let (num_qubits, is_simulator) = match self.target.as_str() {
-            "nvidia-mqpu" => (40, true),
-            "custatevec" => (32, true),
-            "tensornet" => (100, true),
-            "density-matrix" => (20, true),
-            _ => (30, true),
-        };
-
-        Capabilities {
-            name: self.target.clone(),
-            num_qubits,
-            gate_set: GateSet::universal(),
-            topology: Topology::full(num_qubits),
-            max_shots: 1_000_000,
-            is_simulator,
-            features: vec!["gpu-accelerated".into(), "qasm3".into()],
-            noise_profile: None,
-        }
-    }
 }
 
 #[async_trait]
@@ -210,57 +212,49 @@ impl Backend for CudaqBackend {
         &self.config.name
     }
 
+    fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
+    }
+
     #[instrument(skip(self))]
-    async fn capabilities(&self) -> HalResult<Capabilities> {
+    async fn availability(&self) -> HalResult<BackendAvailability> {
         match self.fetch_target_info().await {
-            Ok(info) => Ok(Capabilities {
-                name: info.name.clone(),
-                num_qubits: info.num_qubits,
-                gate_set: if info.native_gates.is_empty() {
-                    GateSet::universal()
+            Ok(info) => {
+                if info.is_online() {
+                    Ok(BackendAvailability {
+                        is_available: true,
+                        queue_depth: None,
+                        estimated_wait: None,
+                        status_message: None,
+                    })
                 } else {
-                    GateSet {
-                        single_qubit: info
-                            .native_gates
-                            .iter()
-                            .filter(|g| {
-                                matches!(
-                                    g.as_str(),
-                                    "h" | "x" | "y" | "z" | "s" | "t" | "rx" | "ry" | "rz"
-                                )
-                            })
-                            .cloned()
-                            .collect(),
-                        two_qubit: info
-                            .native_gates
-                            .iter()
-                            .filter(|g| matches!(g.as_str(), "cx" | "cz" | "swap"))
-                            .cloned()
-                            .collect(),
-                        native: info.native_gates.clone(),
-                    }
-                },
-                topology: Topology::full(info.num_qubits),
-                max_shots: info.max_shots.unwrap_or(1_000_000),
-                is_simulator: info.is_simulator,
-                features: vec!["gpu-accelerated".into(), "qasm3".into()],
-                noise_profile: None,
-            }),
+                    Ok(BackendAvailability::unavailable("target offline"))
+                }
+            }
             Err(e) => {
-                warn!("Failed to fetch target info, using defaults: {}", e);
-                Ok(self.default_capabilities())
+                debug!("Availability check failed: {}", e);
+                Ok(BackendAvailability::unavailable(e.to_string()))
             }
         }
     }
 
-    #[instrument(skip(self))]
-    async fn is_available(&self) -> HalResult<bool> {
-        match self.fetch_target_info().await {
-            Ok(info) => Ok(info.is_online()),
-            Err(e) => {
-                debug!("Availability check failed: {}", e);
-                Ok(false)
-            }
+    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+        let caps = self.capabilities();
+        let mut reasons = Vec::new();
+
+        if circuit.num_qubits() > caps.num_qubits as usize {
+            reasons.push(format!(
+                "Circuit has {} qubits but {} supports max {}",
+                circuit.num_qubits(),
+                self.target,
+                caps.num_qubits
+            ));
+        }
+
+        if reasons.is_empty() {
+            Ok(ValidationResult::Valid)
+        } else {
+            Ok(ValidationResult::Invalid { reasons })
         }
     }
 
@@ -273,7 +267,7 @@ impl Backend for CudaqBackend {
             shots
         );
 
-        let caps = self.capabilities().await?;
+        let caps = self.capabilities();
         if circuit.num_qubits() > caps.num_qubits as usize {
             return Err(HalError::CircuitTooLarge(format!(
                 "Circuit has {} qubits but {} supports max {}",
@@ -507,13 +501,13 @@ mod tests {
     }
 
     #[test]
-    fn test_default_capabilities() {
+    fn test_capabilities() {
         let config = BackendConfig::new("cudaq")
             .with_endpoint(DEFAULT_ENDPOINT)
             .with_token("test-token");
 
         let backend = CudaqBackend::from_config_impl(config).unwrap();
-        let caps = backend.default_capabilities();
+        let caps = backend.capabilities();
 
         assert_eq!(caps.name, "nvidia-mqpu");
         assert_eq!(caps.num_qubits, 40);
@@ -523,14 +517,14 @@ mod tests {
     }
 
     #[test]
-    fn test_default_capabilities_tensornet() {
+    fn test_capabilities_tensornet() {
         let config = BackendConfig::new("cudaq")
             .with_endpoint(DEFAULT_ENDPOINT)
             .with_token("test-token")
             .with_extra("target", serde_json::json!("tensornet"));
 
         let backend = CudaqBackend::from_config_impl(config).unwrap();
-        let caps = backend.default_capabilities();
+        let caps = backend.capabilities();
 
         assert_eq!(caps.name, "tensornet");
         assert_eq!(caps.num_qubits, 100);
