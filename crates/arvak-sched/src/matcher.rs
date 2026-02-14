@@ -64,32 +64,15 @@ impl ResourceMatcher {
         cache.clear();
 
         for backend in &self.backends {
-            if let Ok(caps) = backend.capabilities().await {
-                cache.insert(backend.name().to_string(), caps);
-            }
+            cache.insert(backend.name().to_string(), backend.capabilities().clone());
         }
 
         Ok(())
     }
 
-    /// Get cached capabilities for a backend.
-    async fn get_capabilities(&self, backend: &dyn Backend) -> SchedResult<Capabilities> {
-        // Check cache first
-        {
-            let cache = self.capabilities_cache.read().await;
-            if let Some(caps) = cache.get(backend.name()) {
-                return Ok(caps.clone());
-            }
-        }
-
-        // Fetch and cache
-        let caps = backend.capabilities().await?;
-        {
-            let mut cache = self.capabilities_cache.write().await;
-            cache.insert(backend.name().to_string(), caps.clone());
-        }
-
-        Ok(caps)
+    /// Get capabilities for a backend (sync in HAL Contract v2).
+    fn get_capabilities(&self, backend: &dyn Backend) -> Capabilities {
+        backend.capabilities().clone()
     }
 
     /// Calculate a match score for a backend.
@@ -237,15 +220,15 @@ impl Matcher for ResourceMatcher {
 
         for backend in &self.backends {
             // Check availability
-            if !backend.is_available().await.unwrap_or(false) {
+            let avail = backend.availability().await.unwrap_or(
+                arvak_hal::BackendAvailability::unavailable("query failed"),
+            );
+            if !avail.is_available {
                 continue;
             }
 
-            // Get capabilities
-            let capabilities = match self.get_capabilities(backend.as_ref()).await {
-                Ok(caps) => caps,
-                Err(_) => continue,
-            };
+            // Get capabilities (sync, infallible in HAL Contract v2)
+            let capabilities = self.get_capabilities(backend.as_ref());
 
             // Check minimum qubit requirement
             if capabilities.num_qubits < requirements.min_qubits {
@@ -282,7 +265,7 @@ impl Matcher for ResourceMatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arvak_hal::{Counts, GateSet, Topology, TopologyKind};
+    use arvak_hal::{BackendAvailability, Counts, GateSet, Topology, TopologyKind, ValidationResult};
 
     /// Mock backend for testing.
     struct MockBackend {
@@ -297,12 +280,23 @@ mod tests {
             &self.name
         }
 
-        async fn capabilities(&self) -> arvak_hal::HalResult<Capabilities> {
-            Ok(self.capabilities.clone())
+        fn capabilities(&self) -> &Capabilities {
+            &self.capabilities
         }
 
-        async fn is_available(&self) -> arvak_hal::HalResult<bool> {
-            Ok(self.available)
+        async fn availability(&self) -> arvak_hal::HalResult<BackendAvailability> {
+            if self.available {
+                Ok(BackendAvailability::always_available())
+            } else {
+                Ok(BackendAvailability::unavailable("offline"))
+            }
+        }
+
+        async fn validate(
+            &self,
+            _circuit: &arvak_ir::Circuit,
+        ) -> arvak_hal::HalResult<ValidationResult> {
+            Ok(ValidationResult::Valid)
         }
 
         async fn submit(
