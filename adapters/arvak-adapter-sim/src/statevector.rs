@@ -459,7 +459,7 @@ impl Statevector {
 
         // Pass 2: Compute norm from the (now settled) |0⟩ subspace and renormalize.
         let mut norm_sq = 0.0;
-        for amp in self.amplitudes.iter() {
+        for amp in &self.amplitudes {
             norm_sq += amp.norm_sqr();
         }
         let norm = norm_sq.sqrt();

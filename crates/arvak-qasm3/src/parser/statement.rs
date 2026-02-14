@@ -57,8 +57,7 @@ impl Parser {
         let size = if self.consume(&Token::LBracket) {
             let size = self.parse_int_literal()?;
             self.expect(Token::RBracket)?;
-            debug_assert!(size <= u32::MAX as u64);
-            Some(size as u32)
+            Some(u32::try_from(size).expect("qubit size exceeds u32::MAX"))
         } else {
             None
         };
@@ -76,8 +75,7 @@ impl Parser {
         let size = if self.consume(&Token::LBracket) {
             let size = self.parse_int_literal()?;
             self.expect(Token::RBracket)?;
-            debug_assert!(size <= u32::MAX as u64);
-            Some(size as u32)
+            Some(u32::try_from(size).expect("bit size exceeds u32::MAX"))
         } else {
             None
         };
