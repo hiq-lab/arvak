@@ -45,13 +45,14 @@
 //!         .with_base_url("https://qdmi.lrz.de");
 //!
 //!     // Check availability
-//!     if !backend.is_available().await? {
+//!     let avail = backend.availability().await?;
+//!     if !avail.is_available {
 //!         eprintln!("QDMI device not available");
 //!         return Ok(());
 //!     }
 //!
-//!     // Get device capabilities
-//!     let caps = backend.capabilities().await?;
+//!     // Get device capabilities (sync, infallible)
+//!     let caps = backend.capabilities();
 //!     println!("Device: {} with {} qubits", caps.name, caps.num_qubits);
 //!
 //!     // Create a Bell state circuit
