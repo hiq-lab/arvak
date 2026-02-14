@@ -8,8 +8,8 @@ use tracing::{debug, instrument};
 use uuid::Uuid;
 
 use arvak_hal::{
-    Backend, BackendConfig, BackendFactory, Capabilities, Counts, ExecutionResult, HalError,
-    HalResult, Job, JobId, JobStatus,
+    Backend, BackendAvailability, BackendConfig, BackendFactory, Capabilities, Counts,
+    ExecutionResult, HalError, HalResult, Job, JobId, JobStatus, ValidationResult,
 };
 use arvak_ir::Circuit;
 
@@ -30,6 +30,8 @@ struct SimJob {
 pub struct SimulatorBackend {
     /// Backend configuration.
     config: BackendConfig,
+    /// Cached capabilities (HAL Contract v2: sync introspection).
+    capabilities: Capabilities,
     /// Active jobs.
     jobs: Arc<Mutex<FxHashMap<String, SimJob>>>,
     /// Maximum number of qubits supported.
@@ -39,10 +41,12 @@ pub struct SimulatorBackend {
 impl SimulatorBackend {
     /// Create a new simulator backend with default settings.
     pub fn new() -> Self {
+        let max_qubits = 20;
         Self {
             config: BackendConfig::new("simulator"),
+            capabilities: Capabilities::simulator(max_qubits),
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
-            max_qubits: 20,
+            max_qubits,
         }
     }
 
@@ -50,6 +54,7 @@ impl SimulatorBackend {
     pub fn with_max_qubits(max_qubits: u32) -> Self {
         Self {
             config: BackendConfig::new("simulator"),
+            capabilities: Capabilities::simulator(max_qubits),
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             max_qubits,
         }
@@ -124,12 +129,25 @@ impl Backend for SimulatorBackend {
         &self.config.name
     }
 
-    async fn capabilities(&self) -> HalResult<Capabilities> {
-        Ok(Capabilities::simulator(self.max_qubits))
+    fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
     }
 
-    async fn is_available(&self) -> HalResult<bool> {
-        Ok(true)
+    async fn availability(&self) -> HalResult<BackendAvailability> {
+        Ok(BackendAvailability::always_available())
+    }
+
+    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+        if circuit.num_qubits() > self.max_qubits as usize {
+            return Ok(ValidationResult::Invalid {
+                reasons: vec![format!(
+                    "Circuit has {} qubits but simulator only supports {}",
+                    circuit.num_qubits(),
+                    self.max_qubits
+                )],
+            });
+        }
+        Ok(ValidationResult::Valid)
     }
 
     #[instrument(skip(self, circuit))]
@@ -227,6 +245,7 @@ impl BackendFactory for SimulatorBackend {
             .map_or(20, |v| v as u32);
 
         Ok(Self {
+            capabilities: Capabilities::simulator(max_qubits),
             config,
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             max_qubits,
@@ -241,7 +260,7 @@ mod tests {
     #[tokio::test]
     async fn test_simulator_capabilities() {
         let backend = SimulatorBackend::new();
-        let caps = backend.capabilities().await.unwrap();
+        let caps = backend.capabilities();
 
         assert!(caps.is_simulator);
         assert_eq!(caps.num_qubits, 20);

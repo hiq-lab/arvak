@@ -1,9 +1,21 @@
 //! Execution result types.
+//!
+//! # HAL Contract v2
+//!
+//! Bitstring ordering: the rightmost bit corresponds to the
+//! lowest-indexed qubit (OpenQASM 3 convention). For example,
+//! the string `"01"` means qubit 0 measured `1` and qubit 1
+//! measured `0`.
 
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
 /// Measurement counts from circuit execution.
+///
+/// Maps bitstrings to occurrence counts. Bitstring ordering follows
+/// the OpenQASM 3 convention (rightmost bit = lowest qubit index).
+// Implementation note: uses FxHashMap for performance.
+// Spec defines HashMap<String, u64> — semantically equivalent.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Counts {
     /// Map from bitstring to count.
@@ -72,6 +84,7 @@ impl Counts {
         self.counts.is_empty()
     }
 
+    /// Arvak extension — not part of HAL Contract v2 spec.
     /// Get sorted counts (by count, descending).
     pub fn sorted(&self) -> Vec<(&String, &u64)> {
         let mut items: Vec<_> = self.counts.iter().collect();

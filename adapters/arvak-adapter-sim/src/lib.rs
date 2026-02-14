@@ -33,9 +33,9 @@
 //!     // Create simulator
 //!     let backend = SimulatorBackend::new();
 //!
-//!     // Verify capabilities
-//!     let caps = backend.capabilities().await?;
-//!     println!("Max qubits: {}", caps.max_qubits);
+//!     // Verify capabilities (sync, infallible)
+//!     let caps = backend.capabilities();
+//!     println!("Max qubits: {}", caps.num_qubits);
 //!     println!("Max shots: {}", caps.max_shots);
 //!
 //!     // Run a Bell state

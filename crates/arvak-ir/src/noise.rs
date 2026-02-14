@@ -203,13 +203,14 @@ impl std::fmt::Display for NoiseRole {
     }
 }
 
-/// Hardware noise profile reported by a backend.
+/// Detailed per-qubit noise profile for compiler consumption.
 ///
-/// Lives in arvak-ir (not arvak-hal) so that both the HAL and compiler
-/// can use it without circular dependencies.
+/// This is the IR-level noise profile with per-qubit/per-gate granularity,
+/// used by the `NoiseInjectionPass` to insert `Deficit` noise channels
+/// into the DAG.
 ///
-/// The `NoiseInjectionPass` reads this profile and inserts `Deficit`
-/// noise channels into the DAG at appropriate locations.
+/// For the device-wide aggregate noise profile used in capability
+/// introspection and backend routing, see `arvak_hal::NoiseProfile`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NoiseProfile {
     /// Per-gate error rates, keyed by gate name (e.g., "cx" → 0.01).

@@ -106,7 +106,8 @@ pub async fn execute(
     };
 
     // Check availability
-    if !backend_impl.is_available().await? {
+    let avail = backend_impl.availability().await?;
+    if !avail.is_available {
         anyhow::bail!("Backend '{backend}' is not available");
     }
 

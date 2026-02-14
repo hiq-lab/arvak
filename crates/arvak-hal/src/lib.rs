@@ -70,30 +70,52 @@
 //! # Implementing a Custom Backend
 //!
 //! ```ignore
-//! use arvak_hal::{Backend, Capabilities, JobId, JobStatus, ExecutionResult, HalResult};
+//! use arvak_hal::{
+//!     Backend, BackendAvailability, Capabilities, ValidationResult,
+//!     JobId, JobStatus, ExecutionResult, HalResult,
+//! };
 //! use arvak_ir::Circuit;
 //! use async_trait::async_trait;
 //!
-//! struct MyBackend { /* ... */ }
+//! struct MyBackend {
+//!     capabilities: Capabilities,
+//! }
 //!
 //! #[async_trait]
 //! impl Backend for MyBackend {
 //!     fn name(&self) -> &str { "my_backend" }
 //!
+//!     // Sync, infallible — capabilities cached at construction.
 //!     fn capabilities(&self) -> &Capabilities {
-//!         // Return hardware capabilities
+//!         &self.capabilities
+//!     }
+//!
+//!     async fn availability(&self) -> HalResult<BackendAvailability> {
+//!         Ok(BackendAvailability::always_available())
+//!     }
+//!
+//!     async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+//!         Ok(ValidationResult::Valid)
 //!     }
 //!
 //!     async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
 //!         // Submit circuit to hardware
+//!         # todo!()
 //!     }
 //!
 //!     async fn status(&self, job_id: &JobId) -> HalResult<JobStatus> {
 //!         // Query job status
+//!         # todo!()
 //!     }
 //!
 //!     async fn result(&self, job_id: &JobId) -> HalResult<ExecutionResult> {
 //!         // Retrieve execution results
+//!         # todo!()
+//!     }
+//!
+//!     async fn cancel(&self, job_id: &JobId) -> HalResult<()> {
+//!         // Cancel a running job
+//!         # todo!()
 //!     }
 //! }
 //! ```
@@ -108,8 +130,8 @@ pub mod registry;
 pub mod result;
 
 pub use auth::{CachedToken, EnvTokenProvider, OidcAuth, OidcConfig, TokenProvider};
-pub use backend::{Backend, BackendConfig, BackendFactory};
-pub use capability::{Capabilities, GateSet, Topology, TopologyKind};
+pub use backend::{Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult};
+pub use capability::{Capabilities, GateSet, NoiseProfile, Topology, TopologyKind};
 pub use error::{HalError, HalResult};
 pub use job::{Job, JobId, JobStatus};
 pub use plugin::{BackendPlugin, PluginInfo};
