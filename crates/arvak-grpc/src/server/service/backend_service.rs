@@ -20,12 +20,13 @@ impl ArvakServiceImpl {
         for id in backend_ids {
             let backend = self.backends.get(&id).map_err(Status::from)?;
 
-            let caps = backend
-                .capabilities()
-                .await
-                .map_err(|e| Status::internal(format!("Failed to get capabilities: {e}")))?;
+            let caps = backend.capabilities();
 
-            let is_available = backend.is_available().await.unwrap_or(false);
+            let is_available = backend
+                .availability()
+                .await
+                .map(|a| a.is_available)
+                .unwrap_or(false);
 
             let topology_json =
                 serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());
@@ -56,12 +57,13 @@ impl ArvakServiceImpl {
 
         let backend = self.backends.get(&req.backend_id).map_err(Status::from)?;
 
-        let caps = backend
-            .capabilities()
-            .await
-            .map_err(|e| Status::internal(format!("Failed to get capabilities: {e}")))?;
+        let caps = backend.capabilities();
 
-        let is_available = backend.is_available().await.unwrap_or(false);
+        let is_available = backend
+            .availability()
+            .await
+            .map(|a| a.is_available)
+            .unwrap_or(false);
 
         let topology_json =
             serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());

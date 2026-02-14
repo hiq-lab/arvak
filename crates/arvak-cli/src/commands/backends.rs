@@ -18,8 +18,8 @@ pub async fn execute() -> Result<()> {
 
     // Simulator
     let sim = SimulatorBackend::new();
-    let caps = sim.capabilities().await?;
-    let available = sim.is_available().await?;
+    let caps = sim.capabilities();
+    let available = sim.availability().await?.is_available;
 
     println!(
         "  {} {} {}",
@@ -49,34 +49,23 @@ pub async fn execute() -> Result<()> {
     {
         match IqmBackend::new() {
             Ok(iqm) => {
-                let available = iqm.is_available().await.unwrap_or(false);
-                match iqm.capabilities().await {
-                    Ok(caps) => {
-                        println!(
-                            "  {} {} ({})",
-                            if available {
-                                style("●").green()
-                            } else {
-                                style("○").yellow()
-                            },
-                            style("iqm").bold(),
-                            iqm.target()
-                        );
-                        println!("    Qubits: {}", caps.num_qubits);
-                        println!("    Max shots: {}", caps.max_shots);
-                        println!("    Gates: {}", caps.gate_set.native.join(", "));
-                        if !available {
-                            println!("    Status: offline or maintenance");
-                        }
-                    }
-                    Err(e) => {
-                        println!(
-                            "  {} {} (error: {})",
-                            style("○").red(),
-                            style("iqm").bold(),
-                            e
-                        );
-                    }
+                let available = iqm.availability().await.map(|a| a.is_available).unwrap_or(false);
+                let caps = iqm.capabilities();
+                println!(
+                    "  {} {} ({})",
+                    if available {
+                        style("●").green()
+                    } else {
+                        style("○").yellow()
+                    },
+                    style("iqm").bold(),
+                    iqm.target()
+                );
+                println!("    Qubits: {}", caps.num_qubits);
+                println!("    Max shots: {}", caps.max_shots);
+                println!("    Gates: {}", caps.gate_set.native.join(", "));
+                if !available {
+                    println!("    Status: offline or maintenance");
                 }
             }
             Err(_) => {
@@ -107,34 +96,23 @@ pub async fn execute() -> Result<()> {
     {
         match IbmBackend::new() {
             Ok(ibm) => {
-                let available = ibm.is_available().await.unwrap_or(false);
-                match ibm.capabilities().await {
-                    Ok(caps) => {
-                        println!(
-                            "  {} {} ({})",
-                            if available {
-                                style("●").green()
-                            } else {
-                                style("○").yellow()
-                            },
-                            style("ibm").bold(),
-                            ibm.target()
-                        );
-                        println!("    Qubits: {}", caps.num_qubits);
-                        println!("    Max shots: {}", caps.max_shots);
-                        println!("    Gates: {}", caps.gate_set.native.join(", "));
-                        if !available {
-                            println!("    Status: offline or maintenance");
-                        }
-                    }
-                    Err(e) => {
-                        println!(
-                            "  {} {} (error: {})",
-                            style("○").red(),
-                            style("ibm").bold(),
-                            e
-                        );
-                    }
+                let available = ibm.availability().await.map(|a| a.is_available).unwrap_or(false);
+                let caps = ibm.capabilities();
+                println!(
+                    "  {} {} ({})",
+                    if available {
+                        style("●").green()
+                    } else {
+                        style("○").yellow()
+                    },
+                    style("ibm").bold(),
+                    ibm.target()
+                );
+                println!("    Qubits: {}", caps.num_qubits);
+                println!("    Max shots: {}", caps.max_shots);
+                println!("    Gates: {}", caps.gate_set.native.join(", "));
+                if !available {
+                    println!("    Status: offline or maintenance");
                 }
             }
             Err(_) => {
