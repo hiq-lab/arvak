@@ -12,7 +12,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use arvak_hal::{
-    Backend, Capabilities, Counts, ExecutionResult, HalResult, JobId, JobStatus, TokenProvider,
+    Backend, BackendAvailability, Capabilities, Counts, ExecutionResult, HalResult, JobId,
+    JobStatus, TokenProvider, ValidationResult,
 };
 use arvak_ir::Circuit;
 use arvak_sched::{
@@ -24,12 +25,14 @@ use async_trait::async_trait;
 /// Mock IQM backend for LUMI Helmi testing.
 struct MockHelmiBackend {
     name: String,
+    capabilities: Capabilities,
 }
 
 impl MockHelmiBackend {
     fn new() -> Self {
         Self {
             name: "helmi".to_string(),
+            capabilities: Capabilities::iqm("helmi", 5),
         }
     }
 }
@@ -40,13 +43,16 @@ impl Backend for MockHelmiBackend {
         &self.name
     }
 
-    async fn capabilities(&self) -> HalResult<Capabilities> {
-        // Helmi is a 5-qubit IQM device
-        Ok(Capabilities::iqm("helmi", 5))
+    fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
     }
 
-    async fn is_available(&self) -> HalResult<bool> {
-        Ok(true)
+    async fn availability(&self) -> HalResult<BackendAvailability> {
+        Ok(BackendAvailability::always_available())
+    }
+
+    async fn validate(&self, _circuit: &Circuit) -> HalResult<ValidationResult> {
+        Ok(ValidationResult::Valid)
     }
 
     async fn submit(&self, _circuit: &Circuit, _shots: u32) -> HalResult<JobId> {

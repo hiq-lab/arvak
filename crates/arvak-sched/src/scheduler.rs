@@ -656,7 +656,7 @@ mod tests {
     /// Mock backend for testing.
     struct MockBackend {
         name: String,
-        num_qubits: u32,
+        capabilities: Capabilities,
     }
 
     #[async_trait]
@@ -665,12 +665,19 @@ mod tests {
             &self.name
         }
 
-        async fn capabilities(&self) -> arvak_hal::HalResult<Capabilities> {
-            Ok(Capabilities::simulator(self.num_qubits))
+        fn capabilities(&self) -> &Capabilities {
+            &self.capabilities
         }
 
-        async fn is_available(&self) -> arvak_hal::HalResult<bool> {
-            Ok(true)
+        async fn availability(&self) -> arvak_hal::HalResult<arvak_hal::BackendAvailability> {
+            Ok(arvak_hal::BackendAvailability::always_available())
+        }
+
+        async fn validate(
+            &self,
+            _circuit: &arvak_ir::Circuit,
+        ) -> arvak_hal::HalResult<arvak_hal::ValidationResult> {
+            Ok(arvak_hal::ValidationResult::Valid)
         }
 
         async fn submit(
@@ -713,7 +720,7 @@ mod tests {
         let config = SchedulerConfig::default();
         let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockBackend {
             name: "test_backend".to_string(),
-            num_qubits: 10,
+            capabilities: Capabilities::simulator(10),
         })];
         let store = Arc::new(SqliteStore::in_memory().unwrap());
 
@@ -735,7 +742,7 @@ mod tests {
         let config = SchedulerConfig::default();
         let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockBackend {
             name: "test_backend".to_string(),
-            num_qubits: 10,
+            capabilities: Capabilities::simulator(10),
         })];
         let store = Arc::new(SqliteStore::in_memory().unwrap());
 
@@ -766,7 +773,7 @@ mod tests {
         let config = SchedulerConfig::default();
         let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockBackend {
             name: "test_backend".to_string(),
-            num_qubits: 10,
+            capabilities: Capabilities::simulator(10),
         })];
         let store = Arc::new(SqliteStore::in_memory().unwrap());
 
@@ -794,7 +801,7 @@ mod tests {
         let config = SchedulerConfig::with_pbs(PbsConfig::default());
         let backends: Vec<Arc<dyn Backend>> = vec![Arc::new(MockBackend {
             name: "test_backend".to_string(),
-            num_qubits: 10,
+            capabilities: Capabilities::simulator(10),
         })];
         let store = Arc::new(SqliteStore::in_memory().unwrap());
 

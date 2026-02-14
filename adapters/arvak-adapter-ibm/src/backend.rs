@@ -4,8 +4,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use arvak_hal::{
-    Backend, BackendConfig, Capabilities, Counts, ExecutionResult, HalError, HalResult, JobId,
-    JobStatus, Topology,
+    Backend, BackendAvailability, BackendConfig, Capabilities, Counts, ExecutionResult, HalError,
+    HalResult, JobId, JobStatus, ValidationResult,
 };
 use arvak_ir::Circuit;
 use arvak_qasm3::emit;
@@ -23,6 +23,8 @@ pub struct IbmBackend {
     client: Arc<IbmClient>,
     /// Target backend name.
     target: String,
+    /// Cached capabilities (HAL Contract v2: sync introspection).
+    capabilities: Capabilities,
     /// Cached backend info.
     backend_info: Arc<RwLock<Option<BackendInfo>>>,
 }
@@ -35,10 +37,12 @@ impl IbmBackend {
         let token = std::env::var("IBM_QUANTUM_TOKEN").map_err(|_| IbmError::MissingToken)?;
 
         let client = IbmClient::new(DEFAULT_ENDPOINT, &token)?;
+        let target = DEFAULT_BACKEND.to_string();
 
         Ok(Self {
             client: Arc::new(client),
-            target: DEFAULT_BACKEND.to_string(),
+            capabilities: Capabilities::ibm(&target, 127),
+            target,
             backend_info: Arc::new(RwLock::new(None)),
         })
     }
@@ -48,10 +52,12 @@ impl IbmBackend {
         let token = std::env::var("IBM_QUANTUM_TOKEN").map_err(|_| IbmError::MissingToken)?;
 
         let client = IbmClient::new(DEFAULT_ENDPOINT, &token)?;
+        let target = target.into();
 
         Ok(Self {
             client: Arc::new(client),
-            target: target.into(),
+            capabilities: Capabilities::ibm(&target, 127),
+            target,
             backend_info: Arc::new(RwLock::new(None)),
         })
     }
@@ -77,6 +83,7 @@ impl IbmBackend {
 
         Ok(Self {
             client: Arc::new(client),
+            capabilities: Capabilities::ibm(target, 127),
             target: target.to_string(),
             backend_info: Arc::new(RwLock::new(None)),
         })
@@ -171,47 +178,52 @@ fn hex_to_binary(hex: &str) -> String {
 
 #[async_trait]
 impl Backend for IbmBackend {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "ibm"
     }
 
-    async fn capabilities(&self) -> HalResult<Capabilities> {
-        // Try to get real capabilities from API
+    fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
+    }
+
+    async fn availability(&self) -> HalResult<BackendAvailability> {
         match self.get_backend_info().await {
             Ok(info) => {
-                let topology = if info.coupling_map.is_empty() {
-                    Topology::linear(info.num_qubits as u32)
+                if info.status.operational {
+                    Ok(BackendAvailability {
+                        is_available: true,
+                        queue_depth: None,
+                        estimated_wait: None,
+                        status_message: info.status.status_msg,
+                    })
                 } else {
-                    Topology::custom(
-                        info.coupling_map
-                            .iter()
-                            .map(|[a, b]| (*a as u32, *b as u32))
-                            .collect(),
-                    )
-                };
-
-                Ok(Capabilities {
-                    name: info.name,
-                    num_qubits: info.num_qubits as u32,
-                    gate_set: arvak_hal::GateSet::ibm(),
-                    topology,
-                    max_shots: info.max_shots.unwrap_or(100_000),
-                    is_simulator: info.simulator,
-                    features: vec!["dynamic_circuits".to_string()],
-                    noise_profile: None,
-                })
+                    Ok(BackendAvailability::unavailable(
+                        info.status
+                            .status_msg
+                            .unwrap_or_else(|| "backend offline".to_string()),
+                    ))
+                }
             }
-            Err(_) => {
-                // Return default capabilities
-                Ok(Capabilities::ibm(&self.target, 127))
-            }
+            Err(_) => Ok(BackendAvailability::unavailable("failed to query backend")),
         }
     }
 
-    async fn is_available(&self) -> HalResult<bool> {
-        match self.get_backend_info().await {
-            Ok(info) => Ok(info.status.operational),
-            Err(_) => Ok(false),
+    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+        let caps = self.capabilities();
+        let mut reasons = Vec::new();
+
+        if circuit.num_qubits() > caps.num_qubits as usize {
+            reasons.push(format!(
+                "Circuit requires {} qubits but backend only has {}",
+                circuit.num_qubits(),
+                caps.num_qubits
+            ));
+        }
+
+        if reasons.is_empty() {
+            Ok(ValidationResult::Valid)
+        } else {
+            Ok(ValidationResult::Invalid { reasons })
         }
     }
 

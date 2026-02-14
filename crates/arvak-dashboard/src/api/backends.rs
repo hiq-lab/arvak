@@ -19,18 +19,19 @@ pub async fn list_backends(
     let mut summaries = Vec::with_capacity(backends.len());
 
     for (name, backend) in backends.iter() {
-        let available = backend.is_available().await.unwrap_or(false);
-        let capabilities = backend.capabilities().await.ok();
+        let available = backend
+            .availability()
+            .await
+            .map(|a| a.is_available)
+            .unwrap_or(false);
+        let capabilities = backend.capabilities();
 
         summaries.push(BackendSummary {
             name: name.clone(),
-            is_simulator: capabilities.as_ref().is_some_and(|c| c.is_simulator),
-            num_qubits: capabilities.as_ref().map_or(0, |c| c.num_qubits),
+            is_simulator: capabilities.is_simulator,
+            num_qubits: capabilities.num_qubits,
             available,
-            native_gates: capabilities
-                .as_ref()
-                .map(|c| c.gate_set.native.clone())
-                .unwrap_or_default(),
+            native_gates: capabilities.gate_set.native.clone(),
         });
     }
 
@@ -47,11 +48,12 @@ pub async fn get_backend(
         .get(&name)
         .ok_or_else(|| ApiError::NotFound(format!("Backend '{name}' not found")))?;
 
-    let available = backend.is_available().await.unwrap_or(false);
-    let capabilities = backend
-        .capabilities()
+    let available = backend
+        .availability()
         .await
-        .map_err(|e| ApiError::BackendError(e.to_string()))?;
+        .map(|a| a.is_available)
+        .unwrap_or(false);
+    let capabilities = backend.capabilities();
 
     let topology_kind = match &capabilities.topology.kind {
         arvak_hal::TopologyKind::FullyConnected => "fully_connected",

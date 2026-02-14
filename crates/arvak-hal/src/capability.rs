@@ -1,28 +1,53 @@
-//! Backend capabilities.
+//! Backend capability introspection.
+//!
+//! This module defines the types that describe what a quantum backend can do:
+//! qubit count, supported gates, connectivity topology, and hardware noise
+//! characteristics. Compilers use these to decide transpilation strategy;
+//! orchestrators use them for routing decisions.
+//!
+//! # HAL Contract v2
+//!
+//! The following types are part of the HAL Contract v2 specification:
+//! - [`Capabilities`] — top-level hardware descriptor
+//! - [`GateSet`] — supported gate operations (OpenQASM 3 naming)
+//! - [`Topology`] / [`TopologyKind`] — qubit connectivity graph
+//! - [`NoiseProfile`] — device-wide noise averages
+//!
+//! All edges in [`Topology`] are bidirectional: if `(a, b)` is present,
+//! both `a → b` and `b → a` are valid two-qubit interactions.
 
-use arvak_ir::noise::NoiseProfile;
 use serde::{Deserialize, Serialize};
 
-/// Capabilities of a quantum backend.
+/// Hardware capabilities of a quantum backend.
+///
+/// Describes what a backend can do: qubit count, supported gates,
+/// connectivity, shot limits, and noise characteristics. Compilers
+/// use this for transpilation decisions; orchestrators use it for
+/// backend routing.
+///
+/// # HAL Contract v2
+///
+/// All fields except `features` are defined by the spec.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Capabilities {
     /// Name of the backend.
     pub name: String,
     /// Number of qubits available.
     pub num_qubits: u32,
-    /// Supported gate set.
+    /// Supported gate set (OpenQASM 3 naming convention).
     pub gate_set: GateSet,
-    /// Qubit topology.
+    /// Qubit connectivity topology. All edges are bidirectional.
     pub topology: Topology,
     /// Maximum number of shots per job.
     pub max_shots: u32,
-    /// Whether this is a simulator.
+    /// Whether this is a simulator (not real hardware).
     pub is_simulator: bool,
-    /// Additional features supported.
-    #[serde(default)]
+    /// Arvak extension — not part of HAL Contract v2 spec.
+    /// Additional features supported by this backend.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub features: Vec<String>,
-    /// Hardware noise profile.
-    #[serde(default)]
+    /// Device-wide noise averages.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub noise_profile: Option<NoiseProfile>,
 }
 
@@ -90,13 +115,20 @@ impl Capabilities {
 }
 
 /// Gate set supported by a backend.
+///
+/// Gate names follow the OpenQASM 3 naming convention (lowercase):
+/// `h`, `cx`, `rz`, `prx`, etc.
+///
+/// The `native` list identifies gates that execute without decomposition.
+/// If `native` is empty, all supported gates are considered native
+/// (typical for simulators).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GateSet {
-    /// Single-qubit gates.
+    /// Single-qubit gates supported.
     pub single_qubit: Vec<String>,
-    /// Two-qubit gates.
+    /// Two-qubit gates supported.
     pub two_qubit: Vec<String>,
-    /// Native gates (preferred for this backend).
+    /// Native gates (execute without decomposition on this backend).
     pub native: Vec<String>,
 }
 
@@ -171,18 +203,33 @@ impl GateSet {
         }
     }
 
-    /// Check if a gate is supported.
+    /// Check if a gate is supported (single-qubit or two-qubit).
     pub fn contains(&self, gate: &str) -> bool {
         self.single_qubit.iter().any(|g| g == gate) || self.two_qubit.iter().any(|g| g == gate)
     }
+
+    /// Check if a gate is native (executes without decomposition).
+    ///
+    /// If the `native` list is empty, all supported gates are considered
+    /// native — this is the typical case for simulators.
+    pub fn is_native(&self, gate: &str) -> bool {
+        if self.native.is_empty() {
+            self.contains(gate)
+        } else {
+            self.native.iter().any(|g| g == gate)
+        }
+    }
 }
 
-/// Qubit topology.
+/// Qubit connectivity topology.
+///
+/// All edges are bidirectional: if `(a, b)` is listed, both `a → b`
+/// and `b → a` are valid two-qubit interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Topology {
     /// Kind of topology.
     pub kind: TopologyKind,
-    /// Coupling edges (pairs of connected qubits).
+    /// Coupling edges (pairs of connected qubits). Bidirectional.
     pub edges: Vec<(u32, u32)>,
 }
 
@@ -307,6 +354,37 @@ pub enum TopologyKind {
     },
 }
 
+/// Device-wide noise averages reported by a backend.
+///
+/// These are aggregate characterization numbers — suitable for routing
+/// and coarse-grained compilation decisions. Per-qubit / per-gate detail
+/// lives in the IR-level noise profile (`arvak_ir::noise::NoiseProfile`),
+/// which the compiler consumes directly.
+///
+/// All fidelity values are in `[0.0, 1.0]` where `1.0` means perfect.
+/// Time values (T1, T2, gate_time) are in **microseconds**.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoiseProfile {
+    /// T1 relaxation time (device average, microseconds).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub t1: Option<f64>,
+    /// T2 dephasing time (device average, microseconds).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub t2: Option<f64>,
+    /// Average single-qubit gate fidelity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub single_qubit_fidelity: Option<f64>,
+    /// Average two-qubit gate fidelity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub two_qubit_fidelity: Option<f64>,
+    /// Average readout fidelity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub readout_fidelity: Option<f64>,
+    /// Average gate execution time (microseconds).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate_time: Option<f64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,5 +466,30 @@ mod tests {
         assert!(caps.gate_set.contains("rz"));
         assert!(!caps.gate_set.contains("cx"));
         assert!(caps.features.contains(&"shuttling".to_string()));
+    }
+
+    #[test]
+    fn test_gate_set_is_native() {
+        let gs = GateSet {
+            single_qubit: vec!["h".into(), "rx".into()],
+            two_qubit: vec!["cx".into()],
+            native: vec!["rx".into(), "cx".into()],
+        };
+        assert!(gs.is_native("rx"));
+        assert!(gs.is_native("cx"));
+        assert!(!gs.is_native("h")); // supported but not native
+    }
+
+    #[test]
+    fn test_gate_set_is_native_empty_native_list() {
+        let gs = GateSet {
+            single_qubit: vec!["h".into()],
+            two_qubit: vec!["cx".into()],
+            native: vec![],
+        };
+        // When native is empty, all supported gates are native
+        assert!(gs.is_native("h"));
+        assert!(gs.is_native("cx"));
+        assert!(!gs.is_native("cz"));
     }
 }
