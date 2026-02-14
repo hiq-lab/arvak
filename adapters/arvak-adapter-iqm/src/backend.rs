@@ -3,11 +3,11 @@
 use async_trait::async_trait;
 use rustc_hash::FxHashMap;
 use std::sync::{Arc, Mutex};
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
 use arvak_hal::{
-    Backend, BackendConfig, BackendFactory, Capabilities, Counts, ExecutionResult, HalError,
-    HalResult, Job, JobId, JobStatus, Topology,
+    Backend, BackendAvailability, BackendConfig, BackendFactory, Capabilities, Counts,
+    ExecutionResult, HalError, HalResult, Job, JobId, JobStatus, ValidationResult,
 };
 use arvak_ir::Circuit;
 
@@ -37,6 +37,8 @@ pub struct IqmBackend {
     client: IqmClient,
     /// Target quantum computer name.
     target: String,
+    /// Cached capabilities (HAL Contract v2: sync introspection).
+    capabilities: Capabilities,
     /// Cached job information.
     jobs: Arc<Mutex<FxHashMap<String, CachedJob>>>,
     /// Cached backend info.
@@ -105,10 +107,13 @@ impl IqmBackend {
 
         let client = IqmClient::new(endpoint, token)?;
 
+        let capabilities = Capabilities::iqm(&target, 20);
+
         Ok(Self {
             config,
             client,
             target,
+            capabilities,
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             backend_info: Arc::new(Mutex::new(None)),
         })
@@ -188,44 +193,49 @@ impl Backend for IqmBackend {
         &self.config.name
     }
 
+    fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
+    }
+
     #[instrument(skip(self))]
-    async fn capabilities(&self) -> HalResult<Capabilities> {
+    async fn availability(&self) -> HalResult<BackendAvailability> {
         match self.fetch_backend_info().await {
             Ok(info) => {
-                let topology = if info.connectivity.is_empty() {
-                    // Default star topology for IQM devices
-                    Topology::star(info.num_qubits)
+                if info.is_online() {
+                    Ok(BackendAvailability {
+                        is_available: true,
+                        queue_depth: None,
+                        estimated_wait: None,
+                        status_message: None,
+                    })
                 } else {
-                    Topology::custom(info.connectivity)
-                };
-
-                Ok(Capabilities {
-                    name: info.name.clone(),
-                    num_qubits: info.num_qubits,
-                    gate_set: arvak_hal::GateSet::iqm(),
-                    topology,
-                    max_shots: info.max_shots.unwrap_or(20_000),
-                    is_simulator: false,
-                    features: vec![],
-                    noise_profile: None,
-                })
+                    Ok(BackendAvailability::unavailable("backend offline"))
+                }
             }
             Err(e) => {
-                warn!("Failed to fetch backend info, using defaults: {}", e);
-                // Return default IQM capabilities
-                Ok(Capabilities::iqm(&self.target, 20))
+                debug!("Backend availability check failed: {}", e);
+                Ok(BackendAvailability::unavailable(e.to_string()))
             }
         }
     }
 
-    #[instrument(skip(self))]
-    async fn is_available(&self) -> HalResult<bool> {
-        match self.fetch_backend_info().await {
-            Ok(info) => Ok(info.is_online()),
-            Err(e) => {
-                debug!("Backend availability check failed: {}", e);
-                Ok(false)
-            }
+    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+        let caps = self.capabilities();
+        let mut reasons = Vec::new();
+
+        if circuit.num_qubits() > caps.num_qubits as usize {
+            reasons.push(format!(
+                "Circuit has {} qubits but {} only supports {}",
+                circuit.num_qubits(),
+                self.target,
+                caps.num_qubits
+            ));
+        }
+
+        if reasons.is_empty() {
+            Ok(ValidationResult::Valid)
+        } else {
+            Ok(ValidationResult::Invalid { reasons })
         }
     }
 
@@ -239,7 +249,7 @@ impl Backend for IqmBackend {
         );
 
         // Validate circuit size
-        let caps = self.capabilities().await?;
+        let caps = self.capabilities();
         if circuit.num_qubits() > caps.num_qubits as usize {
             return Err(HalError::CircuitTooLarge(format!(
                 "Circuit has {} qubits but {} only supports {}",
