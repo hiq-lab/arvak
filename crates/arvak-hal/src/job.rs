@@ -1,4 +1,22 @@
-//! Job management types.
+//! Job lifecycle types.
+//!
+//! # HAL Contract v2
+//!
+//! The job state machine:
+//!
+//! ```text
+//!   submit() ──→ Queued ──→ Running ──→ Completed
+//!                  │           │
+//!                  │           ├──→ Failed(reason)
+//!                  │           │
+//!                  └───────────┴──→ Cancelled
+//! ```
+//!
+//! **Invariants:**
+//! - `submit()` MUST return `Queued`.
+//! - Transitions are monotonic — a job never moves backward.
+//! - Terminal states (`Completed`, `Failed`, `Cancelled`) are permanent.
+//! - `result()` is only valid when status is `Completed`.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -79,7 +97,8 @@ impl std::fmt::Display for JobStatus {
     }
 }
 
-/// A job with metadata.
+/// Arvak extension — not part of HAL Contract v2 spec.
+/// A job with metadata for orchestration tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
     /// The job identifier.
