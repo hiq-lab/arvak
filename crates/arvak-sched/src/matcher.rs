@@ -220,9 +220,10 @@ impl Matcher for ResourceMatcher {
 
         for backend in &self.backends {
             // Check availability
-            let avail = backend.availability().await.unwrap_or(
-                arvak_hal::BackendAvailability::unavailable("query failed"),
-            );
+            let avail = backend
+                .availability()
+                .await
+                .unwrap_or(arvak_hal::BackendAvailability::unavailable("query failed"));
             if !avail.is_available {
                 continue;
             }
@@ -265,7 +266,9 @@ impl Matcher for ResourceMatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arvak_hal::{BackendAvailability, Counts, GateSet, Topology, TopologyKind, ValidationResult};
+    use arvak_hal::{
+        BackendAvailability, Counts, GateSet, Topology, TopologyKind, ValidationResult,
+    };
 
     /// Mock backend for testing.
     struct MockBackend {

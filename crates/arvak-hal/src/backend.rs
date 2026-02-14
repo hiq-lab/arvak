@@ -298,9 +298,11 @@ mod tests {
     fn test_validation_result_is_valid() {
         assert!(ValidationResult::Valid.is_valid());
         assert!(!ValidationResult::Invalid { reasons: vec![] }.is_valid());
-        assert!(!ValidationResult::RequiresTranspilation {
-            details: String::new()
-        }
-        .is_valid());
+        assert!(
+            !ValidationResult::RequiresTranspilation {
+                details: String::new()
+            }
+            .is_valid()
+        );
     }
 }

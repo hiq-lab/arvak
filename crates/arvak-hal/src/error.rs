@@ -22,7 +22,6 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum HalError {
     // ── HAL Contract v2 spec variants ─────────────────────────────
-
     /// Backend is not available (transient — retry with backoff).
     #[error("Backend not available: {0}")]
     BackendUnavailable(String),
@@ -76,7 +75,6 @@ pub enum HalError {
     Backend(String),
 
     // ── Arvak extensions (not part of HAL Contract v2 spec) ───────
-
     /// OIDC/token authentication error (Arvak extension).
     #[error("Authentication error: {0}")]
     Auth(String),

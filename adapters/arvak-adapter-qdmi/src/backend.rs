@@ -10,7 +10,9 @@ use std::sync::{Arc, RwLock};
 use tracing::warn;
 use tracing::{debug, info};
 
-use arvak_hal::backend::{Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult};
+use arvak_hal::backend::{
+    Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult,
+};
 use arvak_hal::capability::{Capabilities, GateSet, Topology};
 use arvak_hal::error::{HalError, HalResult};
 use arvak_hal::job::{JobId, JobStatus};
