@@ -9,7 +9,9 @@ use rustc_hash::FxHashMap;
 use std::sync::{Arc, Mutex};
 use tracing::{debug, info, instrument};
 
-use arvak_hal::backend::{Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult};
+use arvak_hal::backend::{
+    Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult,
+};
 use arvak_hal::capability::{Capabilities, GateSet, Topology};
 use arvak_hal::error::{HalError, HalResult};
 use arvak_hal::job::{Job, JobId, JobStatus};
@@ -202,7 +204,6 @@ impl CudaqBackend {
     fn circuit_to_qasm(&self, circuit: &Circuit) -> CudaqResult<String> {
         arvak_qasm3::emit(circuit).map_err(|e| CudaqError::QasmConversion(e.to_string()))
     }
-
 }
 
 #[async_trait]
