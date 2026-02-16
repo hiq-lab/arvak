@@ -20,7 +20,7 @@ prost-types = "0.13"
 tokio = { workspace = true, features = ["net", "signal", "io-util"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait = { workspace = true }
-futures = "0.3"
+futures = { workspace = true }
 
 # Arvak core
 arvak-hal = { workspace = true }
@@ -45,7 +45,7 @@ chrono = { workspace = true, features = ["serde"] }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = "0.9"
+serde_yml = { workspace = true }
 
 # Configuration
 dotenvy = "0.15"

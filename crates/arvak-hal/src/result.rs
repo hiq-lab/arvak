@@ -29,10 +29,13 @@ impl Counts {
     }
 
     /// Create counts from an iterator of (bitstring, count) pairs.
+    /// Duplicate bitstrings are accumulated (summed), consistent with `insert()`.
     pub fn from_pairs(iter: impl IntoIterator<Item = (impl Into<String>, u64)>) -> Self {
-        Self {
-            counts: iter.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+        let mut counts = Self::new();
+        for (k, v) in iter {
+            counts.insert(k, v);
         }
+        counts
     }
 
     /// Insert a count for a bitstring.
@@ -94,10 +97,12 @@ impl Counts {
 }
 
 impl FromIterator<(String, u64)> for Counts {
-    fn from_iter<T: IntoIterator<Item = (String, u64)>>(iter: T) -> Self {
-        Self {
-            counts: iter.into_iter().collect(),
+    fn from_iter<I: IntoIterator<Item = (String, u64)>>(iter: I) -> Self {
+        let mut counts = Self::new();
+        for (key, value) in iter {
+            counts.insert(key, value);
         }
+        counts
     }
 }
 
@@ -148,6 +153,9 @@ impl ExecutionResult {
     #[allow(clippy::cast_precision_loss)]
     pub fn most_frequent(&self) -> Option<(&String, f64)> {
         let total = self.counts.total_shots() as f64;
+        if total == 0.0 {
+            return None;
+        }
         self.counts
             .most_frequent()
             .map(|(s, &c)| (s, c as f64 / total))

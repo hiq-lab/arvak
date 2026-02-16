@@ -302,7 +302,7 @@ impl Config {
             .map_err(|e| ConfigError::IoError(e.to_string()))?;
 
         let config: Config =
-            serde_yaml::from_str(&contents).map_err(|e| ConfigError::ParseError(e.to_string()))?;
+            serde_yml::from_str(&contents).map_err(|e| ConfigError::ParseError(e.to_string()))?;
 
         config.validate()?;
         Ok(config)

@@ -345,6 +345,7 @@ mod tests {
                 gate_set: GateSet {
                     single_qubit: vec!["h".to_string(), "x".to_string()],
                     two_qubit: vec!["cx".to_string()],
+                    three_qubit: vec![],
                     native: vec![],
                 },
                 topology: Topology {

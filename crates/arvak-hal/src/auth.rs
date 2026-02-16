@@ -518,19 +518,25 @@ impl OidcAuth {
             let json = serde_json::to_string_pretty(token)
                 .map_err(|e| HalError::Auth(format!("Failed to serialize token: {e}")))?;
 
-            std::fs::write(path, json)
-                .map_err(|e| HalError::Auth(format!("Failed to write token cache: {e}")))?;
-
-            // Set restrictive permissions on Unix
+            // Write token file with restrictive permissions from the start (no TOCTOU window)
             #[cfg(unix)]
             {
-                use std::os::unix::fs::PermissionsExt;
-                let mut perms = std::fs::metadata(path)
-                    .map_err(|e| HalError::Auth(format!("Failed to get file metadata: {e}")))?
-                    .permissions();
-                perms.set_mode(0o600);
-                std::fs::set_permissions(path, perms)
-                    .map_err(|e| HalError::Auth(format!("Failed to set permissions: {e}")))?;
+                use std::io::Write;
+                use std::os::unix::fs::OpenOptionsExt;
+                let mut file = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .mode(0o600)
+                    .open(path)
+                    .map_err(|e| HalError::Auth(format!("Failed to write token cache: {e}")))?;
+                file.write_all(json.as_bytes())
+                    .map_err(|e| HalError::Auth(format!("Failed to write token cache: {e}")))?;
+            }
+            #[cfg(not(unix))]
+            {
+                std::fs::write(path, json)
+                    .map_err(|e| HalError::Auth(format!("Failed to write token cache: {e}")))?;
             }
         }
 

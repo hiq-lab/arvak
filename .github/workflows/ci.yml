@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -91,7 +94,59 @@ jobs:
             ${{ runner.os }}-cargo-clippy-
 
       - name: Run clippy
-        run: cargo clippy --workspace --exclude arvak-python -- -W clippy::all
+        run: >
+          cargo clippy
+          --workspace
+          --exclude arvak-python
+          --all-targets
+          -- -D warnings -D clippy::all
+          -W clippy::pedantic
+          -A clippy::missing-errors-doc
+          -A clippy::missing-panics-doc
+          -A clippy::module-name-repetitions
+          -A clippy::must-use-candidate
+          -A clippy::return-self-not-must-use
+          -A clippy::similar-names
+          -A clippy::many-single-char-names
+          -A clippy::cast-possible-truncation
+          -A clippy::cast-precision-loss
+          -A clippy::cast-sign-loss
+          -A clippy::cast-possible-wrap
+          -A clippy::doc-markdown
+          -A clippy::wildcard-imports
+          -A clippy::items-after-statements
+          -A clippy::implicit-hasher
+          -A clippy::unnecessary-debug-formatting
+          -A clippy::struct-excessive-bools
+          -A clippy::uninlined-format-args
+          -A clippy::trivially-copy-pass-by-ref
+          -A clippy::float-cmp
+          -A clippy::unreadable-literal
+          -A clippy::unused-self
+          -A clippy::match-same-arms
+          -A clippy::needless-pass-by-value
+          -A clippy::format-push-string
+          -A clippy::missing-fields-in-debug
+          -A clippy::too-many-lines
+          -A clippy::no-effect-underscore-binding
+          -A clippy::unnecessary-wraps
+          -A clippy::only-used-in-recursion
+          -A clippy::self-only-used-in-recursion
+          -A clippy::needless-continue
+          -A clippy::redundant-else
+          -A clippy::option-if-let-else
+          -A clippy::if-not-else
+          -A clippy::manual-let-else
+          -A clippy::single-match-else
+          -A clippy::used-underscore-binding
+          -A clippy::default-trait-access
+          -A clippy::non-std-lazy-statics
+          -A clippy::unnecessary-sort-by
+          -A clippy::type-complexity
+          -A clippy::too-many-arguments
+          -A clippy::unused-async
+          -A clippy::ref-option
+          -A clippy::semicolon-if-nothing-returned
 
   build:
     name: Build

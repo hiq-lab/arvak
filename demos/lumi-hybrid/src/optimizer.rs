@@ -612,7 +612,7 @@ impl SpsaOptimizer {
             let mut hasher = DefaultHasher::new();
             (self.iteration, i).hash(&mut hasher);
             let hash = hasher.finish();
-            let sign = if hash.is_multiple_of(2) { 1.0 } else { -1.0 };
+            let sign = if hash % 2 == 0 { 1.0 } else { -1.0 };
             self.delta.push(sign);
         }
     }
