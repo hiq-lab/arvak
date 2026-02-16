@@ -37,7 +37,7 @@ impl PostgresStorage {
         // Spawn connection handler
         tokio::spawn(async move {
             if let Err(e) = connection.await {
-                eprintln!("PostgreSQL connection error: {}", e);
+                tracing::error!("PostgreSQL connection error: {}", e);
             }
         });
 

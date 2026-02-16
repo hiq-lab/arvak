@@ -228,16 +228,20 @@ impl SlurmAdapter {
             return Ok(());
         }
 
-        let output = Command::new("scancel")
-            .arg(slurm_job_id)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::SlurmCommandError {
-                command: "scancel".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("scancel")
+                .arg(slurm_job_id)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("scancel timed out after 30s".into()))?
+        .map_err(|e| SchedError::SlurmCommandError {
+            command: "scancel".to_string(),
+            message: e.to_string(),
+        })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -284,16 +288,20 @@ impl SlurmAdapter {
 
     /// Run sbatch command.
     async fn run_sbatch(&self, script_path: &Path) -> SchedResult<String> {
-        let output = Command::new("sbatch")
-            .arg(script_path)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::SlurmCommandError {
-                command: "sbatch".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            Command::new("sbatch")
+                .arg(script_path)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("sbatch timed out after 60s".into()))?
+        .map_err(|e| SchedError::SlurmCommandError {
+            command: "sbatch".to_string(),
+            message: e.to_string(),
+        })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -306,16 +314,20 @@ impl SlurmAdapter {
 
     /// Run squeue command to get job status.
     async fn run_squeue(&self, slurm_job_id: &str) -> SchedResult<Option<SlurmJobInfo>> {
-        let output = Command::new("squeue")
-            .args(["-j", slurm_job_id, "-o", "%i|%j|%T|%r|%S"])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::SlurmCommandError {
-                command: "squeue".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("squeue")
+                .args(["-j", slurm_job_id, "-o", "%i|%j|%T|%r|%S"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("squeue timed out after 30s".into()))?
+        .map_err(|e| SchedError::SlurmCommandError {
+            command: "squeue".to_string(),
+            message: e.to_string(),
+        })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         parser::parse_squeue_output(&stdout)
@@ -323,22 +335,26 @@ impl SlurmAdapter {
 
     /// Run sacct command to get completed job status.
     async fn run_sacct(&self, slurm_job_id: &str) -> SchedResult<Option<SlurmJobInfo>> {
-        let output = Command::new("sacct")
-            .args([
-                "-j",
-                slurm_job_id,
-                "-o",
-                "JobID,JobName,State,ExitCode",
-                "-P",
-            ])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::SlurmCommandError {
-                command: "sacct".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("sacct")
+                .args([
+                    "-j",
+                    slurm_job_id,
+                    "-o",
+                    "JobID,JobName,State,ExitCode",
+                    "-P",
+                ])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("sacct timed out after 30s".into()))?
+        .map_err(|e| SchedError::SlurmCommandError {
+            command: "sacct".to_string(),
+            message: e.to_string(),
+        })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         parser::parse_sacct_output(&stdout)

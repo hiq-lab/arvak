@@ -82,7 +82,9 @@ impl ArvakServiceImpl {
             job_id.clone(),
             self.metrics.clone(),
             self.resources.clone(),
-        );
+            self.abort_handles.clone(),
+        )
+        .await;
 
         // Record RPC duration
         let duration = start.elapsed().as_millis() as u64;
@@ -142,7 +144,9 @@ impl ArvakServiceImpl {
                 job_id.clone(),
                 self.metrics.clone(),
                 self.resources.clone(),
-            );
+                self.abort_handles.clone(),
+            )
+            .await;
 
             job_ids.push(job_id.0);
         }
@@ -210,9 +214,22 @@ impl ArvakServiceImpl {
         let job_store = self.job_store.clone();
         let (tx, rx) = tokio::sync::mpsc::channel(16);
 
-        // Spawn watcher task
+        // Spawn watcher task with a maximum watch duration of 1 hour
         tokio::spawn(async move {
+            const MAX_WATCH_DURATION: std::time::Duration = std::time::Duration::from_secs(3600);
+            let watch_start = std::time::Instant::now();
+
             loop {
+                // Check if we've exceeded the maximum watch duration
+                if watch_start.elapsed() > MAX_WATCH_DURATION {
+                    let _ = tx
+                        .send(Err(Status::deadline_exceeded(
+                            "Watch stream timed out after 1 hour",
+                        )))
+                        .await;
+                    break;
+                }
+
                 match job_store.get_job(&job_id).await {
                     Ok(job) => {
                         let error_message = match &job.status {
@@ -289,6 +306,19 @@ impl ArvakServiceImpl {
             let all_counts: Vec<(String, u64)> =
                 result.counts.iter().map(|(k, v)| (k.clone(), *v)).collect();
 
+            if all_counts.is_empty() {
+                // Send a single empty response for empty results
+                let chunk = ResultChunk {
+                    job_id: req.job_id.clone(),
+                    counts: std::collections::HashMap::new(),
+                    is_final: true,
+                    chunk_index: 0,
+                    total_chunks: 1,
+                };
+                let _ = tx.send(Ok(chunk)).await;
+                return;
+            }
+
             let total_entries = all_counts.len();
             let total_chunks = total_entries.div_ceil(chunk_size);
 
@@ -298,13 +328,13 @@ impl ArvakServiceImpl {
                     chunk_counts.insert(bitstring.clone(), *count);
                 }
 
-                let is_final = chunk_index == total_chunks - 1;
+                let is_final = chunk_index + 1 == total_chunks;
                 let chunk = ResultChunk {
                     job_id: req.job_id.clone(),
                     counts: chunk_counts,
                     is_final,
-                    chunk_index: chunk_index as u32,
-                    total_chunks: total_chunks as u32,
+                    chunk_index: u32::try_from(chunk_index).unwrap_or(u32::MAX),
+                    total_chunks: u32::try_from(total_chunks).unwrap_or(u32::MAX),
                 };
 
                 if tx.send(Ok(chunk)).await.is_err() {
@@ -502,7 +532,6 @@ impl ArvakServiceImpl {
         }))
     }
 
-    // TODO: Store AbortHandle when spawning job execution and abort on cancellation
     pub(in crate::server) async fn cancel_job_impl(
         &self,
         request: Request<CancelJobRequest>,
@@ -522,6 +551,11 @@ impl ArvakServiceImpl {
                 success: false,
                 message: format!("Job already in terminal state: {}", job.status),
             }));
+        }
+
+        // Abort the running task if we have a handle for it
+        if let Some(handle) = self.abort_handles.write().await.remove(&job_id.0) {
+            handle.abort();
         }
 
         // Update status to cancelled

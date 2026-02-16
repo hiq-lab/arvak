@@ -33,6 +33,7 @@
 //! | `cancel()` | async | yes | `HalResult<()>` |
 //! | `wait()` | async | provided | `HalResult<ExecutionResult>` |
 
+use std::fmt;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -49,7 +50,7 @@ use crate::result::ExecutionResult;
 
 /// Arvak extension — not part of HAL Contract v2 spec.
 /// Configuration for a backend instance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BackendConfig {
     /// Name of the backend.
     pub name: String,
@@ -91,6 +92,17 @@ impl BackendConfig {
     pub fn with_extra(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.extra.insert(key.into(), value);
         self
+    }
+}
+
+impl fmt::Debug for BackendConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BackendConfig")
+            .field("name", &self.name)
+            .field("endpoint", &self.endpoint)
+            .field("token", &"[REDACTED]")
+            .field("extra", &self.extra)
+            .finish()
     }
 }
 

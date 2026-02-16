@@ -71,7 +71,13 @@ impl Default for SchedulerConfig {
             poll_interval_secs: 30,
             max_wait_time_secs: 86400, // 24 hours
             auto_match_resources: true,
-            state_dir: std::env::temp_dir().join("arvak-scheduler"),
+            state_dir: std::env::var("ARVAK_STATE_DIR")
+                .map(PathBuf::from)
+                .or_else(|_| {
+                    std::env::var("XDG_RUNTIME_DIR")
+                        .map(|d| PathBuf::from(d).join("arvak-scheduler"))
+                })
+                .unwrap_or_else(|_| std::env::temp_dir().join("arvak-scheduler")),
         }
     }
 }
@@ -139,6 +145,12 @@ pub trait Scheduler: Send + Sync {
     /// Wait for a workflow to complete.
     async fn wait_workflow(&self, workflow_id: &WorkflowId) -> SchedResult<()>;
 }
+
+/// Maximum number of completed job IDs to retain in memory.
+const MAX_COMPLETED_JOBS: usize = 10_000;
+
+/// Maximum number of completed workflows to retain in memory.
+const MAX_COMPLETED_WORKFLOWS: usize = 1_000;
 
 /// HPC Scheduler with SLURM and PBS integration.
 pub struct HpcScheduler {
@@ -336,6 +348,17 @@ impl HpcScheduler {
 
                         if new_status.is_terminal() {
                             let mut completed = self.completed_jobs.write().await;
+                            // Evict oldest entries when cache exceeds limit
+                            if completed.len() >= MAX_COMPLETED_JOBS {
+                                let to_remove: Vec<_> = completed
+                                    .iter()
+                                    .take(MAX_COMPLETED_JOBS / 4)
+                                    .cloned()
+                                    .collect();
+                                for id in to_remove {
+                                    completed.remove(&id);
+                                }
+                            }
                             completed.insert(job.id.clone());
                         }
                     }
@@ -349,6 +372,21 @@ impl HpcScheduler {
             if !workflow.status.is_terminal() {
                 workflow.update_status();
                 self.store.save_workflow(workflow).await?;
+            }
+        }
+
+        // Evict completed workflows when cache exceeds limit
+        if workflows.len() > MAX_COMPLETED_WORKFLOWS {
+            let completed_ids: Vec<_> = workflows
+                .iter()
+                .filter(|(_, w)| w.status.is_terminal())
+                .map(|(id, _)| id.clone())
+                .collect();
+            let to_evict = completed_ids
+                .len()
+                .saturating_sub(MAX_COMPLETED_WORKFLOWS / 2);
+            for id in completed_ids.into_iter().take(to_evict) {
+                workflows.remove(&id);
             }
         }
 
