@@ -6,6 +6,7 @@ mod job_execution;
 mod job_service;
 
 use arvak_ir::circuit::Circuit;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -31,6 +32,7 @@ pub struct ArvakServiceImpl {
     pub(crate) backends: Arc<BackendRegistry>,
     pub(crate) metrics: Metrics,
     pub(crate) resources: Option<ResourceManager>,
+    pub(crate) abort_handles: Arc<tokio::sync::RwLock<HashMap<String, tokio::task::AbortHandle>>>,
 }
 
 impl ArvakServiceImpl {
@@ -48,6 +50,7 @@ impl ArvakServiceImpl {
             backends: Arc::new(backends),
             metrics,
             resources: None,
+            abort_handles: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
         }
     }
 

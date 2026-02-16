@@ -29,6 +29,7 @@ impl ArvakServiceImpl {
 
             let mut supported_gates = caps.gate_set.single_qubit.clone();
             supported_gates.extend(caps.gate_set.two_qubit.clone());
+            supported_gates.extend(caps.gate_set.three_qubit.iter().cloned());
 
             backends.push(BackendInfo {
                 backend_id: id.clone(),
@@ -62,6 +63,7 @@ impl ArvakServiceImpl {
 
         let mut supported_gates = caps.gate_set.single_qubit.clone();
         supported_gates.extend(caps.gate_set.two_qubit.clone());
+        supported_gates.extend(caps.gate_set.three_qubit.iter().cloned());
 
         let backend_info = BackendInfo {
             backend_id: req.backend_id.clone(),

@@ -980,20 +980,20 @@ function renderJobsTable(container, jobs) {
         </thead>
         <tbody>
             ${jobs.map(job => `
-                <tr class="job-row" data-job-id="${job.id}">
-                    <td class="job-id" title="${job.id}">${job.id.substring(0, 8)}...</td>
+                <tr class="job-row" data-job-id="${escapeHtml(job.id)}">
+                    <td class="job-id" title="${escapeHtml(job.id)}">${escapeHtml(job.id.substring(0, 8))}...</td>
                     <td class="job-name">${escapeHtml(job.name)}</td>
                     <td>
-                        <span class="status-badge status-${job.status.toLowerCase()}">${job.status}</span>
+                        <span class="status-badge status-${escapeHtml(job.status.toLowerCase())}">${escapeHtml(job.status)}</span>
                         ${job.status_details ? `<span class="status-details" title="${escapeHtml(job.status_details)}">ℹ️</span>` : ''}
                     </td>
-                    <td>${job.backend || '-'}</td>
-                    <td>${job.shots}</td>
-                    <td>${job.priority}</td>
+                    <td>${escapeHtml(job.backend || '-')}</td>
+                    <td>${escapeHtml(String(job.shots))}</td>
+                    <td>${escapeHtml(String(job.priority))}</td>
                     <td class="job-time">${formatTime(job.created_at)}</td>
                     <td class="job-actions">
-                        <button class="btn-small" onclick="viewJobDetails('${job.id}')">View</button>
-                        ${isJobCancellable(job.status) ? `<button class="btn-small btn-danger" onclick="cancelJob('${job.id}')">Cancel</button>` : ''}
+                        <button class="btn-small" data-action="view" data-job-id="${escapeHtml(job.id)}">View</button>
+                        ${isJobCancellable(job.status) ? `<button class="btn-small btn-danger" data-action="cancel" data-job-id="${escapeHtml(job.id)}">Cancel</button>` : ''}
                     </td>
                 </tr>
             `).join('')}
@@ -1002,6 +1002,18 @@ function renderJobsTable(container, jobs) {
 
     container.innerHTML = '';
     container.appendChild(table);
+
+    // Event delegation for job action buttons
+    table.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const jobId = btn.dataset.jobId;
+        if (btn.dataset.action === 'view') {
+            viewJobDetails(jobId);
+        } else if (btn.dataset.action === 'cancel') {
+            cancelJob(jobId);
+        }
+    });
 }
 
 function isJobCancellable(status) {
@@ -1021,7 +1033,7 @@ async function viewJobDetails(jobId) {
                 <div class="job-details-header">
                     <button class="btn-back" onclick="loadJobs()">← Back to Jobs</button>
                     <h3>${escapeHtml(job.name)}</h3>
-                    <span class="status-badge status-${job.status.toLowerCase()}">${job.status}</span>
+                    <span class="status-badge status-${escapeHtml(job.status.toLowerCase())}">${escapeHtml(job.status)}</span>
                 </div>
 
                 <div class="job-details-grid">
@@ -1039,15 +1051,15 @@ async function viewJobDetails(jobId) {
                     </div>
                     <div class="detail-item">
                         <span class="label">Shots</span>
-                        <span class="value">${job.shots}</span>
+                        <span class="value">${escapeHtml(String(job.shots))}</span>
                     </div>
                     <div class="detail-item">
                         <span class="label">Priority</span>
-                        <span class="value">${job.priority}</span>
+                        <span class="value">${escapeHtml(String(job.priority))}</span>
                     </div>
                     <div class="detail-item">
                         <span class="label">Circuits</span>
-                        <span class="value">${job.num_circuits}</span>
+                        <span class="value">${escapeHtml(String(job.num_circuits))}</span>
                     </div>
                     <div class="detail-item">
                         <span class="label">Created</span>
@@ -1078,8 +1090,8 @@ async function viewJobDetails(jobId) {
                 </div>` : ''}
 
                 <div class="job-actions-panel">
-                    ${isJobCancellable(job.status) ? `<button class="btn-danger" onclick="cancelJob('${job.id}')">Cancel Job</button>` : ''}
-                    ${isJobComplete(job.status) ? `<button class="btn-primary" onclick="viewJobResult('${job.id}')">View Results</button>` : ''}
+                    ${isJobCancellable(job.status) ? `<button class="btn-danger" data-action="cancel" data-job-id="${escapeHtml(job.id)}">Cancel Job</button>` : ''}
+                    ${isJobComplete(job.status) ? `<button class="btn-primary" data-action="result" data-job-id="${escapeHtml(job.id)}">View Results</button>` : ''}
                 </div>
 
                 <div id="job-result-container"></div>
@@ -1087,6 +1099,18 @@ async function viewJobDetails(jobId) {
         `;
 
         container.innerHTML = detailsHtml;
+
+        // Attach event listeners for action buttons
+        container.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const jobId = btn.dataset.jobId;
+                if (btn.dataset.action === 'cancel') {
+                    cancelJob(jobId);
+                } else if (btn.dataset.action === 'result') {
+                    viewJobResult(jobId);
+                }
+            });
+        });
 
         // If job is complete, automatically load results
         if (isJobComplete(job.status)) {
@@ -1115,10 +1139,10 @@ async function viewJobResult(jobId) {
                 <h4>Execution Results</h4>
 
                 <div class="result-stats">
-                    <span><strong>Total Shots:</strong> ${result.statistics.total_shots}</span>
-                    <span><strong>Unique Outcomes:</strong> ${result.statistics.unique_outcomes}</span>
-                    ${result.execution_time_ms ? `<span><strong>Execution Time:</strong> ${result.execution_time_ms}ms</span>` : ''}
-                    <span><strong>Most Frequent:</strong> ${escapeHtml(String(result.statistics.most_frequent))} (${result.statistics.most_frequent_count} times)</span>
+                    <span><strong>Total Shots:</strong> ${escapeHtml(String(result.statistics.total_shots))}</span>
+                    <span><strong>Unique Outcomes:</strong> ${escapeHtml(String(result.statistics.unique_outcomes))}</span>
+                    ${result.execution_time_ms ? `<span><strong>Execution Time:</strong> ${escapeHtml(String(result.execution_time_ms))}ms</span>` : ''}
+                    <span><strong>Most Frequent:</strong> ${escapeHtml(String(result.statistics.most_frequent))} (${escapeHtml(String(result.statistics.most_frequent_count))} times)</span>
                 </div>
 
                 <div id="histogram-container" class="histogram-container"></div>
@@ -1288,7 +1312,7 @@ async function loadVqe() {
             </div>
             <div class="detail-item">
                 <span class="label">Backend</span>
-                <span class="value">${data.backend}</span>
+                <span class="value">${escapeHtml(String(data.backend))}</span>
             </div>
             <div class="detail-item">
                 <span class="label">Converged</span>
@@ -1523,7 +1547,7 @@ function renderEvalReport(container, r) {
             html += '<table class="eval-table"><thead><tr><th>Gate</th><th>Count</th><th>Status</th><th>Cost</th></tr></thead><tbody>';
             r.emitter.gates.forEach(g => {
                 const statusClass = g.status === 'Native' ? 'tag-safe' : g.status === 'Decomposed' ? 'tag-conditional' : 'tag-violating';
-                html += `<tr><td class="mono">${escapeHtml(g.gate)}</td><td>${g.count}</td><td><span class="${statusClass}">${g.status}</span></td><td>${g.cost !== null ? g.cost : '-'}</td></tr>`;
+                html += `<tr><td class="mono">${escapeHtml(g.gate)}</td><td>${escapeHtml(String(g.count))}</td><td><span class="${statusClass}">${escapeHtml(g.status)}</span></td><td>${g.cost !== null ? escapeHtml(String(g.cost)) : '-'}</td></tr>`;
             });
             html += '</tbody></table>';
         }
@@ -1533,7 +1557,7 @@ function renderEvalReport(container, r) {
             html += '<h4>Loss Documentation</h4>';
             html += '<table class="eval-table"><thead><tr><th>Capability</th><th>Category</th><th>Impact</th></tr></thead><tbody>';
             r.emitter.losses.forEach(l => {
-                html += `<tr><td class="mono">${escapeHtml(l.capability)}</td><td>${l.category}</td><td>${escapeHtml(l.impact)}</td></tr>`;
+                html += `<tr><td class="mono">${escapeHtml(l.capability)}</td><td>${escapeHtml(l.category)}</td><td>${escapeHtml(l.impact)}</td></tr>`;
             });
             html += '</tbody></table>';
         }
@@ -1600,15 +1624,15 @@ function renderEvalReport(container, r) {
 
 function evalCard(label, value, cls, delta) {
     return `<div class="eval-card">
-        <div class="eval-card-value ${cls || ''}">${value}${delta ? ` <small>(${delta})</small>` : ''}</div>
-        <div class="eval-card-label">${label}</div>
+        <div class="eval-card-value ${cls || ''}">${escapeHtml(String(value))}${delta ? ` <small>(${escapeHtml(String(delta))})</small>` : ''}</div>
+        <div class="eval-card-label">${escapeHtml(String(label))}</div>
     </div>`;
 }
 
 function evalMetric(label, value, cls) {
     return `<div class="eval-metric">
-        <span class="eval-metric-value ${cls || ''}">${value}</span>
-        <span class="eval-metric-label">${label}</span>
+        <span class="eval-metric-value ${cls || ''}">${escapeHtml(String(value))}</span>
+        <span class="eval-metric-label">${escapeHtml(String(label))}</span>
     </div>`;
 }
 

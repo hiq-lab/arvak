@@ -13,6 +13,7 @@
 use reqwest::{Client, header};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 
 use crate::error::{IbmError, IbmResult};
 
@@ -29,6 +30,16 @@ pub struct IbmClient {
     token: String,
     /// Selected instance (hub/group/project).
     instance: Option<String>,
+}
+
+impl fmt::Debug for IbmClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IbmClient")
+            .field("endpoint", &self.endpoint)
+            .field("token", &"[REDACTED]")
+            .field("instance", &self.instance)
+            .finish()
+    }
 }
 
 impl IbmClient {

@@ -7,6 +7,8 @@ The sampler calls Arvak's built-in Rust statevector simulator directly
 via PyO3, returning real simulation results.
 """
 
+from __future__ import annotations
+
 from typing import Optional, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:

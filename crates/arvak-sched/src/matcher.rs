@@ -131,11 +131,17 @@ impl ResourceMatcher {
 
     /// Score topology match.
     fn score_topology(&self, preference: &TopologyPreference, capabilities: &Capabilities) -> f64 {
+        if capabilities.num_qubits == 0 {
+            return 0.0;
+        }
+
         match preference {
             TopologyPreference::Linear => {
                 // Check if topology is linear-compatible
                 // For now, just check if it's not too sparse
-                if capabilities.topology.edges.len() >= capabilities.num_qubits as usize - 1 {
+                if capabilities.topology.edges.len()
+                    >= (capabilities.num_qubits as usize).saturating_sub(1)
+                {
                     10.0
                 } else {
                     5.0
@@ -149,8 +155,8 @@ impl ResourceMatcher {
             }
             TopologyPreference::AllToAll => {
                 // Check if fully connected
-                let max_edges =
-                    capabilities.num_qubits as usize * (capabilities.num_qubits as usize - 1) / 2;
+                let n = capabilities.num_qubits as usize;
+                let max_edges = n * n.saturating_sub(1) / 2;
                 if capabilities.topology.edges.len() >= max_edges {
                     15.0
                 } else {

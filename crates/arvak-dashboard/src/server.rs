@@ -55,6 +55,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     // Build CORS layer: use ARVAK_CORS_ORIGIN env var in production,
     // fall back to permissive for local development.
     let cors = match std::env::var("ARVAK_CORS_ORIGIN") {
+        Ok(origin) if origin == "*" => CorsLayer::permissive(),
         Ok(origin) => match origin.parse::<axum::http::HeaderValue>() {
             Ok(hv) => CorsLayer::new()
                 .allow_origin(hv)
@@ -66,12 +67,35 @@ pub fn create_router(state: Arc<AppState>) -> Router {
                 .allow_headers(Any),
             Err(e) => {
                 tracing::warn!(
-                    "Invalid ARVAK_CORS_ORIGIN '{origin}': {e}; falling back to permissive CORS"
+                    "Invalid ARVAK_CORS_ORIGIN '{origin}': {e}; falling back to localhost-only CORS"
                 );
-                CorsLayer::permissive()
+                CorsLayer::new()
+                    .allow_origin([
+                        "http://localhost:3000".parse().unwrap(),
+                        "http://127.0.0.1:3000".parse().unwrap(),
+                    ])
+                    .allow_methods([
+                        axum::http::Method::GET,
+                        axum::http::Method::POST,
+                        axum::http::Method::DELETE,
+                    ])
+                    .allow_headers(Any)
             }
         },
-        Err(_) => CorsLayer::permissive(),
+        Err(_) => {
+            tracing::warn!("ARVAK_CORS_ORIGIN not set. Defaulting to localhost-only CORS.");
+            CorsLayer::new()
+                .allow_origin([
+                    "http://localhost:3000".parse().unwrap(),
+                    "http://127.0.0.1:3000".parse().unwrap(),
+                ])
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::DELETE,
+                ])
+                .allow_headers(Any)
+        }
     };
 
     // Combine all routes
