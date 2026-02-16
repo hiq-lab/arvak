@@ -12,7 +12,7 @@ categories = ["science", "api-bindings"]
 [dependencies]
 arvak-ir = { workspace = true }
 arvak-hal = { workspace = true }
-arvak-qasm3 = { path = "../../crates/arvak-qasm3" }
+arvak-qasm3 = { workspace = true }
 
 tokio = { workspace = true }
 async-trait = { workspace = true }

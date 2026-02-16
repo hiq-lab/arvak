@@ -128,6 +128,9 @@ pub struct GateSet {
     pub single_qubit: Vec<String>,
     /// Two-qubit gates supported.
     pub two_qubit: Vec<String>,
+    /// Three-qubit gates supported.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub three_qubit: Vec<String>,
     /// Native gates (execute without decomposition on this backend).
     pub native: Vec<String>,
 }
@@ -138,6 +141,7 @@ impl GateSet {
         Self {
             single_qubit: vec!["prx".into()],
             two_qubit: vec!["cz".into()],
+            three_qubit: vec![],
             native: vec!["prx".into(), "cz".into()],
         }
     }
@@ -147,6 +151,7 @@ impl GateSet {
         Self {
             single_qubit: vec!["rz".into(), "sx".into(), "x".into(), "id".into()],
             two_qubit: vec!["cx".into()],
+            three_qubit: vec![],
             native: vec!["rz".into(), "sx".into(), "x".into(), "cx".into()],
         }
     }
@@ -188,6 +193,7 @@ impl GateSet {
                 "ryy".into(),
                 "rzz".into(),
             ],
+            three_qubit: vec!["ccx".into(), "cswap".into()],
             native: vec![],
         }
     }
@@ -199,13 +205,16 @@ impl GateSet {
         Self {
             single_qubit: vec!["rz".into(), "rx".into(), "ry".into()],
             two_qubit: vec!["cz".into()],
+            three_qubit: vec![],
             native: vec!["rz".into(), "rx".into(), "ry".into(), "cz".into()],
         }
     }
 
-    /// Check if a gate is supported (single-qubit or two-qubit).
+    /// Check if a gate is supported (single-qubit, two-qubit, or three-qubit).
     pub fn contains(&self, gate: &str) -> bool {
-        self.single_qubit.iter().any(|g| g == gate) || self.two_qubit.iter().any(|g| g == gate)
+        self.single_qubit.iter().any(|g| g == gate)
+            || self.two_qubit.iter().any(|g| g == gate)
+            || self.three_qubit.iter().any(|g| g == gate)
     }
 
     /// Check if a gate is native (executes without decomposition).
@@ -473,6 +482,7 @@ mod tests {
         let gs = GateSet {
             single_qubit: vec!["h".into(), "rx".into()],
             two_qubit: vec!["cx".into()],
+            three_qubit: vec![],
             native: vec!["rx".into(), "cx".into()],
         };
         assert!(gs.is_native("rx"));
@@ -485,6 +495,7 @@ mod tests {
         let gs = GateSet {
             single_qubit: vec!["h".into()],
             two_qubit: vec!["cx".into()],
+            three_qubit: vec![],
             native: vec![],
         };
         // When native is empty, all supported gates are native

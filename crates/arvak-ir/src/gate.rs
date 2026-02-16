@@ -278,10 +278,14 @@ impl CustomGate {
     }
 
     /// Add a unitary matrix to the gate.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `matrix.len()` does not equal `(2^num_qubits)^2`.
     #[must_use]
     pub fn with_matrix(mut self, matrix: Vec<Complex64>) -> Self {
         let dim = 1usize << self.num_qubits;
-        debug_assert_eq!(
+        assert_eq!(
             matrix.len(),
             dim * dim,
             "Matrix length {} does not match expected {} for {}-qubit gate",

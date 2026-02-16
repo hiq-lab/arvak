@@ -11,7 +11,7 @@ categories = ["science", "compilers"]
 
 [dependencies]
 arvak-ir = { workspace = true }
-arvak-qasm3 = { path = "../arvak-qasm3" }
+arvak-qasm3 = { workspace = true }
 arvak-compile = { workspace = true }
 arvak-hal = { workspace = true }
 

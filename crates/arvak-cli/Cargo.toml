@@ -15,7 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 arvak-ir = { workspace = true }
-arvak-qasm3 = { path = "../arvak-qasm3" }
+arvak-qasm3 = { workspace = true }
 arvak-compile = { workspace = true }
 arvak-hal = { workspace = true }
 arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim" }
@@ -30,7 +30,7 @@ dirs = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = { workspace = true }
+serde_yml = { workspace = true }
 anyhow = { workspace = true }
 console = { workspace = true }
 indicatif = { workspace = true }
@@ -43,7 +43,7 @@ mimalloc = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
 arvak-compile = { workspace = true }
-arvak-qasm3 = { path = "../arvak-qasm3" }
+arvak-qasm3 = { workspace = true }
 tempfile = "3"
 
 [features]

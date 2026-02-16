@@ -15,7 +15,7 @@ use tracing::{debug, instrument};
 use crate::error::{IqmError, IqmResult};
 
 /// IQM Resonance API client.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct IqmClient {
     /// HTTP client.
     client: Client,
@@ -23,6 +23,15 @@ pub struct IqmClient {
     base_url: String,
     /// Authentication token.
     token: String,
+}
+
+impl std::fmt::Debug for IqmClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IqmClient")
+            .field("base_url", &self.base_url)
+            .field("token", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl IqmClient {
