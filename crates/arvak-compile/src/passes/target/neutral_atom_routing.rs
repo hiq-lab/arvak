@@ -41,8 +41,11 @@ impl ZoneAssignment {
             self.zones > 0,
             "ZoneAssignment::zone_of called with zones == 0"
         );
+        if self.qubits_per_zone == 0 {
+            return 0;
+        }
         let z = qubit / self.qubits_per_zone;
-        z.min(self.zones - 1)
+        z.min(self.zones.saturating_sub(1))
     }
 
     /// Check if two physical qubits are in the same zone.

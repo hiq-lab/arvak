@@ -56,6 +56,10 @@ pub fn run_sim(circuit: &PyCircuit, shots: u32, py: Python<'_>) -> PyResult<Py<P
         let circuit_clone = circuit.inner.clone();
         let result = py.detach(move || backend.run_simulation(&circuit_clone, shots));
 
+        let result = result.map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Simulation failed: {e}"))
+        })?;
+
         // Convert Counts → Python dict
         let dict = PyDict::new(py);
         for (bitstring, count) in result.counts.iter() {

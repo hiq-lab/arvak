@@ -40,7 +40,7 @@ futures = "0.3"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
+serde_yml = "0.0.12"
 
 # Graph algorithms
 petgraph = "0.7"
@@ -85,6 +85,9 @@ libloading = "0.8"
 
 # Allocator
 mimalloc = { version = "0.1", default-features = false }
+
+# Random
+rand = "0.8"
 
 # Testing
 proptest = "1.5"

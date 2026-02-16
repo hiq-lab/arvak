@@ -51,7 +51,11 @@ impl IbmClient {
             header::HeaderValue::from_static("application/json"),
         );
 
-        let client = Client::builder().default_headers(headers).build()?;
+        let client = Client::builder()
+            .default_headers(headers)
+            .timeout(std::time::Duration::from_secs(60))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()?;
 
         Ok(Self {
             client,

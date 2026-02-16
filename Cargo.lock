@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-cudaq"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -130,7 +130,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-ibm"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-iqm"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -167,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-qdmi"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-sim"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -204,7 +204,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-auto"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-ir",
  "petgraph",
@@ -216,7 +216,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-bench"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-compile",
  "arvak-ir",
@@ -230,7 +230,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-cli"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-ibm",
@@ -250,7 +250,7 @@ dependencies = [
  "mimalloc",
  "serde",
  "serde_json",
- "serde_yaml",
+ "serde_yml",
  "tempfile",
  "tokio",
  "tracing",
@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-compile"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-ir",
  "num-complex",
@@ -275,7 +275,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-dashboard"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-sim",
@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-demos"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-compile",
  "arvak-hal",
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-eval"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-compile",
  "arvak-hal",
@@ -341,7 +341,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-grpc"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-sim",
@@ -368,7 +368,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_json",
- "serde_yaml",
+ "serde_yml",
  "thiserror 2.0.18",
  "tokio",
  "tokio-postgres",
@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-hal"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-ir",
  "async-trait",
@@ -404,7 +404,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-ir"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "criterion",
  "num-complex",
@@ -418,7 +418,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-python"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-adapter-sim",
  "arvak-compile",
@@ -431,7 +431,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-qasm3"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-ir",
  "logos",
@@ -443,18 +443,17 @@ dependencies = [
 
 [[package]]
 name = "arvak-qdmi"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
- "env_logger",
  "libloading",
- "log",
  "tempfile",
  "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]
 name = "arvak-sched"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -476,7 +475,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-types"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "arvak-ir",
  "proptest",
@@ -1170,29 +1169,6 @@ name = "encode_unicode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
-
-[[package]]
-name = "env_filter"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a1c3cc8e57274ec99de65301228b537f1e4eedc1b8e0f9411c6caac8ae7308f"
-dependencies = [
- "log",
- "regex",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.11.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2daee4ea451f429a58296525ddf28b45a3b64f1acf6587e2067437bb11e218d"
-dependencies = [
- "anstream",
- "anstyle",
- "env_filter",
- "jiff",
- "log",
-]
 
 [[package]]
 name = "equivalent"
@@ -1984,30 +1960,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
-name = "jiff"
-version = "0.2.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c867c356cc096b33f4981825ab281ecba3db0acefe60329f044c1789d94c6543"
-dependencies = [
- "jiff-static",
- "log",
- "portable-atomic",
- "portable-atomic-util",
- "serde_core",
-]
-
-[[package]]
-name = "jiff-static"
-version = "0.2.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7946b4325269738f270bb55b3c19ab5c5040525f83fd625259422a9d25d9be5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.115",
-]
-
-[[package]]
 name = "js-sys"
 version = "0.3.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2074,6 +2026,16 @@ dependencies = [
  "cc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "libyml"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3302702afa434ffa30847a83305f0a69d6abd74293b6554c18ec85c7ef30c980"
+dependencies = [
+ "anyhow",
+ "version_check",
 ]
 
 [[package]]
@@ -2144,7 +2106,7 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "lumi-hybrid"
-version = "1.0.0"
+version = "1.7.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -3374,16 +3336,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
+name = "serde_yml"
+version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+checksum = "59e2dd588bf1597a252c3b920e0143eb99b0f76e4e082f4c92ce34fbc9e71ddd"
 dependencies = [
  "indexmap 2.13.0",
  "itoa",
+ "libyml",
+ "memchr",
  "ryu",
  "serde",
- "unsafe-libyaml",
+ "version_check",
 ]
 
 [[package]]
@@ -4168,12 +4132,6 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
-
-[[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"
