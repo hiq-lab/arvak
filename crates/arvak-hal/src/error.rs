@@ -88,5 +88,15 @@ pub enum HalError {
     Serialization(#[from] serde_json::Error),
 }
 
+impl HalError {
+    /// Returns `true` if this error is transient and the operation may succeed on retry.
+    pub fn is_transient(&self) -> bool {
+        matches!(
+            self,
+            Self::BackendUnavailable(_) | Self::Timeout(_) | Self::Network(_)
+        )
+    }
+}
+
 /// Result type for HAL operations.
 pub type HalResult<T> = Result<T, HalError>;

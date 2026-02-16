@@ -57,7 +57,9 @@ impl Parser {
         let size = if self.consume(&Token::LBracket) {
             let size = self.parse_int_literal()?;
             self.expect(Token::RBracket)?;
-            Some(u32::try_from(size).expect("qubit size exceeds u32::MAX"))
+            Some(u32::try_from(size).map_err(|_| {
+                ParseError::Generic(format!("Qubit register size {size} exceeds maximum"))
+            })?)
         } else {
             None
         };
@@ -75,7 +77,9 @@ impl Parser {
         let size = if self.consume(&Token::LBracket) {
             let size = self.parse_int_literal()?;
             self.expect(Token::RBracket)?;
-            Some(u32::try_from(size).expect("bit size exceeds u32::MAX"))
+            Some(u32::try_from(size).map_err(|_| {
+                ParseError::Generic(format!("Bit register size {size} exceeds maximum"))
+            })?)
         } else {
             None
         };
@@ -221,7 +225,9 @@ impl Parser {
     /// Parse assignment statement.
     fn parse_assignment(&mut self, target: String) -> ParseResult<Statement> {
         let index = if self.consume(&Token::LBracket) {
-            let idx = self.parse_int_literal()? as u32;
+            let idx_val = self.parse_int_literal()?;
+            let idx = u32::try_from(idx_val)
+                .map_err(|_| ParseError::Generic(format!("Index {idx_val} exceeds maximum")))?;
             self.expect(Token::RBracket)?;
             Some(idx)
         } else {
@@ -305,7 +311,10 @@ impl Parser {
         let register = self.parse_identifier()?;
 
         if self.consume(&Token::LBracket) {
-            let index = self.parse_int_literal()? as u32;
+            let idx_val = self.parse_int_literal()?;
+            let index = u32::try_from(idx_val).map_err(|_| {
+                ParseError::Generic(format!("Qubit index {idx_val} exceeds maximum"))
+            })?;
             self.expect(Token::RBracket)?;
             Ok(QubitRef::Single {
                 register,
@@ -333,7 +342,9 @@ impl Parser {
         let register = self.parse_identifier()?;
 
         if self.consume(&Token::LBracket) {
-            let index = self.parse_int_literal()? as u32;
+            let idx_val = self.parse_int_literal()?;
+            let index = u32::try_from(idx_val)
+                .map_err(|_| ParseError::Generic(format!("Bit index {idx_val} exceeds maximum")))?;
             self.expect(Token::RBracket)?;
             Ok(BitRef::Single {
                 register,

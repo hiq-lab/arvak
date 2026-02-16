@@ -37,6 +37,13 @@ pub fn run_sim(circuit: &PyCircuit, shots: u32, py: Python<'_>) -> PyResult<Py<P
         return Err(pyo3::exceptions::PyValueError::new_err("shots must be > 0"));
     }
 
+    const MAX_SHOTS: u32 = 1_000_000;
+    if shots > MAX_SHOTS {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "shots must be <= {MAX_SHOTS} (got {shots})"
+        )));
+    }
+
     #[cfg(feature = "simulator")]
     {
         use arvak_adapter_sim::SimulatorBackend;
@@ -54,7 +61,7 @@ pub fn run_sim(circuit: &PyCircuit, shots: u32, py: Python<'_>) -> PyResult<Py<P
 
         // Release the GIL during simulation (may take a while for many shots)
         let circuit_clone = circuit.inner.clone();
-        let result = py.detach(move || backend.run_simulation(&circuit_clone, shots));
+        let result = py.allow_threads(move || backend.run_simulation(&circuit_clone, shots));
 
         let result = result.map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("Simulation failed: {e}"))

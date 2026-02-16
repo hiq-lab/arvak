@@ -44,6 +44,20 @@ use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::{error, info, warn};
 
+/// Constant-time string comparison to prevent timing side-channel attacks.
+///
+/// The length check does leak length information, but that is standard practice
+/// — you cannot hide length without padding both values.
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.bytes()
+        .zip(b.bytes())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments
@@ -142,8 +156,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Graceful shutdown timeout: {}s", shutdown_timeout);
 
     // Build gRPC server with middleware and interceptors
-    let service_with_interceptor =
-        ArvakServiceServer::with_interceptor(service, RequestIdInterceptor::new());
+    let max_message_size = config.server.max_message_size_bytes;
+    let api_key = config.server.api_key.clone();
+    if api_key.is_some() {
+        info!("API key authentication enabled");
+    } else {
+        warn!(
+            "No API key configured. Server is unauthenticated. \
+             Set ARVAK_API_KEY or deploy behind a reverse proxy."
+        );
+    }
+    // Build service with message size limits, then wrap with interceptor
+    let grpc_service = ArvakServiceServer::new(service)
+        .max_decoding_message_size(max_message_size)
+        .max_encoding_message_size(max_message_size);
+
+    #[allow(clippy::result_large_err)] // tonic::Status is inherently large
+    let service_with_interceptor = tonic::service::interceptor::InterceptedService::new(
+        grpc_service,
+        move |mut req: tonic::Request<()>| -> Result<tonic::Request<()>, tonic::Status> {
+            // Run request ID interceptor
+            let mut rid = RequestIdInterceptor::new();
+            req = tonic::service::Interceptor::call(&mut rid, req)?;
+            // Check API key if configured
+            if let Some(ref expected_key) = api_key {
+                let provided = req
+                    .metadata()
+                    .get("x-api-key")
+                    .and_then(|v| v.to_str().ok());
+                match provided {
+                    Some(k) if constant_time_eq(k, expected_key) => Ok(req),
+                    _ => Err(tonic::Status::unauthenticated("Invalid or missing API key")),
+                }
+            } else {
+                Ok(req)
+            }
+        },
+    );
 
     // Enable gRPC reflection for tools like grpcurl
     let reflection_service = tonic_reflection::server::Builder::configure()

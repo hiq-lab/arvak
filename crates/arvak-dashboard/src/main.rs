@@ -20,7 +20,9 @@ async fn main() -> anyhow::Result<()> {
     // Create configuration
     let mut config = DashboardConfig::default();
     if let Ok(bind) = std::env::var("ARVAK_BIND") {
-        config.bind_address = bind.parse().expect("Invalid ARVAK_BIND address");
+        config.bind_address = bind
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Invalid ARVAK_BIND address '{bind}': {e}"))?;
     }
     let bind_addr = config.bind_address;
 
