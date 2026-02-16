@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.6.0)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.7.0)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.6.0 Released!** Major correctness and security audit — 263 fixes across 96 files including shell injection prevention, DAG optimization correctness, division-by-zero guards, thread safety, and mutex poison recovery. See [CHANGELOG.md](CHANGELOG.md).
+> **v1.7.0 Released!** Architect review + Double Knuth audit — 57 fixes across security, correctness, and robustness including secret redaction in Debug impls, constant-time auth, XSS hardening, subprocess timeouts, job cancellation via AbortHandle, and retry logic with exponential backoff. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 
@@ -131,7 +131,7 @@ client.close()
 - **Thread-safe**: Handles concurrent requests with `Arc<RwLock<>>`
 - **Feature-gated backends**: Enable specific backends via Cargo features
 
-**Python Client (v1.6.0):**
+**Python Client (v1.7.0):**
 - **Synchronous & Async APIs**: Full sync and async/await support
 - **Job Futures**: Promise-like interface with callbacks
 - **Retry & Resilience**: Exponential backoff, circuit breaker
@@ -513,7 +513,7 @@ arvak/
 │   ├── arvak-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── arvak-auto/        # Automatic uncomputation
 ├── grpc-client/
-│   └── arvak_grpc/        # gRPC Python client (v1.6.0)
+│   └── arvak_grpc/        # gRPC Python client (v1.7.0)
 │       ├── client.py               # Sync client
 │       ├── async_client.py         # Async client with connection pooling
 │       ├── job_future.py           # Promise-like job interface
@@ -906,7 +906,7 @@ fn main() -> anyhow::Result<()> {
 | **Evaluator** (`arvak-eval`) | ✅ Complete | **QDMI contracts, emitter compliance, orchestration, benchmarks** |
 | **Benchmarks** (`arvak-bench`) | ✅ Complete | **Quantum Volume, CLOPS, Randomized Benchmarking** |
 | **gRPC Service** (`arvak-grpc`) | ✅ Complete | **10 RPCs, async execution, thread-safe** |
-| **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **v1.6.0: Async, futures, caching, analysis** |
+| **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **v1.7.0: Async, futures, caching, analysis** |
 | Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
 | Auto-Uncompute (`arvak-auto`) | ✅ Complete | Automatic ancilla uncomputation |
 | Simulator (`arvak-adapter-sim`) | ✅ Complete | Statevector simulation |
