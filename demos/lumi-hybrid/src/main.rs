@@ -314,7 +314,9 @@ async fn evaluate_energy(
         "iqm" | "lumi" => {
             // For real hardware, we'd use the IQM adapter
             // For now, fall back to exact simulation
-            warn!("IQM/LUMI backend: using exact simulation (connect to real hardware with IQM_TOKEN)");
+            warn!(
+                "IQM/LUMI backend: using exact simulation (connect to real hardware with IQM_TOKEN)"
+            );
             Ok(hamiltonian.exact_energy_for_parameter(theta))
         }
         _ => {

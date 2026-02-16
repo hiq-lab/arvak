@@ -39,6 +39,7 @@ COPY crates/arvak-auto/Cargo.toml crates/arvak-auto/Cargo.toml
 COPY crates/arvak-dashboard/Cargo.toml crates/arvak-dashboard/Cargo.toml
 COPY crates/arvak-cli/Cargo.toml crates/arvak-cli/Cargo.toml
 COPY crates/arvak-grpc/Cargo.toml crates/arvak-grpc/Cargo.toml
+COPY crates/arvak-qdmi/Cargo.toml crates/arvak-qdmi/Cargo.toml
 COPY adapters/arvak-adapter-ibm/Cargo.toml adapters/arvak-adapter-ibm/Cargo.toml
 COPY adapters/arvak-adapter-iqm/Cargo.toml adapters/arvak-adapter-iqm/Cargo.toml
 COPY adapters/arvak-adapter-qdmi/Cargo.toml adapters/arvak-adapter-qdmi/Cargo.toml
@@ -70,6 +71,7 @@ RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
         && echo "fn main() {}" > crates/arvak-grpc/src/bin/arvak-grpc-server.rs \
     && mkdir -p crates/arvak-grpc/proto \
         && touch crates/arvak-grpc/proto/arvak.proto \
+    && mkdir -p crates/arvak-qdmi/src && echo "" > crates/arvak-qdmi/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-ibm/src && echo "" > adapters/arvak-adapter-ibm/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-iqm/src && echo "" > adapters/arvak-adapter-iqm/src/lib.rs \
     && mkdir -p adapters/arvak-adapter-qdmi/src && echo "" > adapters/arvak-adapter-qdmi/src/lib.rs \
@@ -85,6 +87,9 @@ RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
         && echo "fn main() {}" > demos/bin/demo_multi.rs \
         && echo "fn main() {}" > demos/bin/demo_all.rs \
         && echo "fn main() {}" > demos/bin/demo_qi_nutshell.rs \
+        && echo "fn main() {}" > demos/bin/demo_speed_vqe.rs \
+        && echo "fn main() {}" > demos/bin/demo_speed_qml.rs \
+        && echo "fn main() {}" > demos/bin/demo_speed_qaoa.rs \
     && mkdir -p demos/lumi-hybrid/src \
         && echo "fn main() {}" > demos/lumi-hybrid/src/main.rs \
         && echo "fn main() {}" > demos/lumi-hybrid/src/quantum_worker.rs \

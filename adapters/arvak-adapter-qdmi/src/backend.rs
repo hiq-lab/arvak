@@ -477,21 +477,23 @@ impl QdmiBackend {
 #[cfg(feature = "system-qdmi")]
 impl Drop for QdmiBackend {
     fn drop(&mut self) {
-        if let Ok(mut state) = self.state.write() {
-            unsafe {
-                // Free all outstanding jobs
-                for (_id, job_ptr) in state.jobs.drain() {
-                    if !job_ptr.is_null() {
-                        ffi::QDMI_job_free(job_ptr);
-                    }
+        let mut state = self
+            .state
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        unsafe {
+            // Free all outstanding jobs
+            for (_id, job_ptr) in state.jobs.drain() {
+                if !job_ptr.is_null() {
+                    ffi::QDMI_job_free(job_ptr);
                 }
+            }
 
-                // Free session (which implicitly frees associated devices)
-                if !state.session.is_null() {
-                    ffi::QDMI_session_free(state.session);
-                    state.session = std::ptr::null_mut();
-                    state.device = std::ptr::null_mut();
-                }
+            // Free session (which implicitly frees associated devices)
+            if !state.session.is_null() {
+                ffi::QDMI_session_free(state.session);
+                state.session = std::ptr::null_mut();
+                state.device = std::ptr::null_mut();
             }
         }
     }
@@ -604,16 +606,33 @@ impl Backend for QdmiBackend {
 
     async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
+        let mut reasons = Vec::new();
+
         if caps.num_qubits > 0 && circuit.num_qubits() > caps.num_qubits as usize {
-            return Ok(ValidationResult::Invalid {
-                reasons: vec![format!(
-                    "Circuit has {} qubits but device only supports {}",
-                    circuit.num_qubits(),
-                    caps.num_qubits
-                )],
-            });
+            reasons.push(format!(
+                "Circuit has {} qubits but device only supports {}",
+                circuit.num_qubits(),
+                caps.num_qubits
+            ));
         }
-        Ok(ValidationResult::Valid)
+
+        // Check gate set support
+        let gate_set = &caps.gate_set;
+        for (_, inst) in circuit.dag().topological_ops() {
+            if let Some(gate) = inst.as_gate() {
+                let name = gate.name();
+                if !gate_set.contains(name) {
+                    reasons.push(format!("Unsupported gate: {}", name));
+                    break;
+                }
+            }
+        }
+
+        if reasons.is_empty() {
+            Ok(ValidationResult::Valid)
+        } else {
+            Ok(ValidationResult::Invalid { reasons })
+        }
     }
 
     async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
@@ -874,20 +893,23 @@ impl Backend for QdmiBackend {
                     .collect();
 
                 // Get histogram values (buffer-query pattern)
+                // QDMI returns size_t (usize) values; read into usize buffer
+                // then convert to u64 for the Arvak Counts type.
                 let num_keys = hist_keys.len();
-                let values_buf_size = num_keys * std::mem::size_of::<u64>();
-                let mut hist_values = vec![0u64; num_keys];
+                let values_buf_size = num_keys * std::mem::size_of::<usize>();
+                let mut hist_values_raw = vec![0usize; num_keys];
                 let mut values_size = values_buf_size;
                 let status = ffi::QDMI_job_get_results(
                     job_ptr,
                     QdmiJobResult::HistValues as c_int,
                     values_buf_size,
-                    hist_values.as_mut_ptr() as *mut c_void,
+                    hist_values_raw.as_mut_ptr() as *mut c_void,
                     &mut values_size,
                 );
                 ffi::check_status(status)
                     .map_err(|s| HalError::Backend(format!("get HistValues failed: {s:?}")))?;
 
+                let hist_values: Vec<u64> = hist_values_raw.iter().map(|&v| v as u64).collect();
                 let counts = self.parse_results(&hist_keys, &hist_values);
                 let total_shots: u64 = hist_values.iter().sum();
 

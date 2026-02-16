@@ -1,9 +1,10 @@
 [package]
 name = "lumi-hybrid"
-version = "1.0.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "LUMI-Q Quantum-HPC Hybrid Demo: VQE for H2 molecule"
-license = "Apache-2.0"
+license.workspace = true
 publish = false
 
 [[bin]]
@@ -15,21 +16,21 @@ name = "quantum_worker"
 path = "src/quantum_worker.rs"
 
 [dependencies]
-arvak-ir = { path = "../../crates/arvak-ir" }
-arvak-qasm3 = { path = "../../crates/arvak-qasm3" }
-arvak-hal = { path = "../../crates/arvak-hal" }
-arvak-compile = { path = "../../crates/arvak-compile" }
-arvak-sched = { path = "../../crates/arvak-sched" }
-arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim" }
+arvak-ir = { workspace = true }
+arvak-qasm3 = { workspace = true }
+arvak-hal = { workspace = true }
+arvak-compile = { workspace = true }
+arvak-sched = { workspace = true }
+arvak-adapter-sim = { workspace = true }
 arvak-adapter-iqm = { path = "../../adapters/arvak-adapter-iqm" }
 
-tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-anyhow = "1"
-clap = { version = "4", features = ["derive"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 approx = "0.5"

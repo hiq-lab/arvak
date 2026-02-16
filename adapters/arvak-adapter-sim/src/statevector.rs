@@ -37,11 +37,14 @@ impl Statevector {
     }
 
     /// Apply an instruction to the statevector.
-    pub fn apply(&mut self, instruction: &Instruction) {
+    ///
+    /// Returns an error if a parametric gate has unresolved symbolic parameters
+    /// or if a custom gate is encountered.
+    pub fn apply(&mut self, instruction: &Instruction) -> Result<(), String> {
         match &instruction.kind {
             InstructionKind::Gate(gate) => {
                 let qubits: Vec<_> = instruction.qubits.iter().map(|q| q.0 as usize).collect();
-                self.apply_gate(&gate.kind, &qubits);
+                self.apply_gate(&gate.kind, &qubits)?;
             }
             InstructionKind::Reset => {
                 // Simplified reset: collapse to |0⟩ on the qubit
@@ -56,23 +59,27 @@ impl Statevector {
                 // These don't modify the statevector in simulation
             }
         }
+        Ok(())
     }
 
     /// Apply a gate to specific qubits.
-    fn apply_gate(&mut self, gate: &GateKind, qubits: &[usize]) {
+    fn apply_gate(&mut self, gate: &GateKind, qubits: &[usize]) -> Result<(), String> {
         match gate {
             GateKind::Standard(std_gate) => {
-                self.apply_standard_gate(std_gate, qubits);
+                self.apply_standard_gate(std_gate, qubits)?;
             }
-            GateKind::Custom(_) => {
-                // TODO: Custom gate simulation not yet supported — gate is silently skipped.
-                // Custom gates would need matrix multiplication.
+            GateKind::Custom(custom_gate) => {
+                return Err(format!(
+                    "Custom gate '{}' cannot be simulated: matrix multiplication not yet implemented",
+                    custom_gate.name
+                ));
             }
         }
+        Ok(())
     }
 
     /// Apply a standard gate.
-    fn apply_standard_gate(&mut self, gate: &StandardGate, qubits: &[usize]) {
+    fn apply_standard_gate(&mut self, gate: &StandardGate, qubits: &[usize]) -> Result<(), String> {
         match gate {
             // Single-qubit gates
             StandardGate::I => {}
@@ -87,47 +94,49 @@ impl Statevector {
             StandardGate::SX => self.apply_sx(qubits[0]),
             StandardGate::SXdg => self.apply_sxdg(qubits[0]),
             StandardGate::Rx(theta) => {
-                if let Some(t) = theta.as_f64() {
-                    self.apply_rx(qubits[0], t);
-                } else {
-                    tracing::warn!("Skipping Rx gate with unresolved symbolic parameter");
-                }
+                let t = theta
+                    .as_f64()
+                    .ok_or_else(|| "Rx gate has unresolved symbolic parameter".to_string())?;
+                self.apply_rx(qubits[0], t);
             }
             StandardGate::Ry(theta) => {
-                if let Some(t) = theta.as_f64() {
-                    self.apply_ry(qubits[0], t);
-                } else {
-                    tracing::warn!("Skipping Ry gate with unresolved symbolic parameter");
-                }
+                let t = theta
+                    .as_f64()
+                    .ok_or_else(|| "Ry gate has unresolved symbolic parameter".to_string())?;
+                self.apply_ry(qubits[0], t);
             }
             StandardGate::Rz(theta) => {
-                if let Some(t) = theta.as_f64() {
-                    self.apply_rz(qubits[0], t);
-                } else {
-                    tracing::warn!("Skipping Rz gate with unresolved symbolic parameter");
-                }
+                let t = theta
+                    .as_f64()
+                    .ok_or_else(|| "Rz gate has unresolved symbolic parameter".to_string())?;
+                self.apply_rz(qubits[0], t);
             }
             StandardGate::P(theta) => {
-                if let Some(t) = theta.as_f64() {
-                    self.apply_phase(qubits[0], t);
-                } else {
-                    tracing::warn!("Skipping P gate with unresolved symbolic parameter");
-                }
+                let t = theta
+                    .as_f64()
+                    .ok_or_else(|| "P gate has unresolved symbolic parameter".to_string())?;
+                self.apply_phase(qubits[0], t);
             }
             StandardGate::U(theta, phi, lambda) => {
-                if let (Some(t), Some(p), Some(l)) = (theta.as_f64(), phi.as_f64(), lambda.as_f64())
-                {
-                    self.apply_u(qubits[0], t, p, l);
-                } else {
-                    tracing::warn!("Skipping U gate with unresolved symbolic parameter");
-                }
+                let t = theta.as_f64().ok_or_else(|| {
+                    "U gate has unresolved symbolic parameter (theta)".to_string()
+                })?;
+                let p = phi
+                    .as_f64()
+                    .ok_or_else(|| "U gate has unresolved symbolic parameter (phi)".to_string())?;
+                let l = lambda.as_f64().ok_or_else(|| {
+                    "U gate has unresolved symbolic parameter (lambda)".to_string()
+                })?;
+                self.apply_u(qubits[0], t, p, l);
             }
             StandardGate::PRX(theta, phi) => {
-                if let (Some(t), Some(p)) = (theta.as_f64(), phi.as_f64()) {
-                    self.apply_prx(qubits[0], t, p);
-                } else {
-                    tracing::warn!("Skipping PRX gate with unresolved symbolic parameter");
-                }
+                let t = theta.as_f64().ok_or_else(|| {
+                    "PRX gate has unresolved symbolic parameter (theta)".to_string()
+                })?;
+                let p = phi.as_f64().ok_or_else(|| {
+                    "PRX gate has unresolved symbolic parameter (phi)".to_string()
+                })?;
+                self.apply_prx(qubits[0], t, p);
             }
 
             // Two-qubit gates
@@ -138,18 +147,16 @@ impl Statevector {
             StandardGate::Swap => self.apply_swap(qubits[0], qubits[1]),
             StandardGate::ISwap => self.apply_iswap(qubits[0], qubits[1]),
             StandardGate::CRz(theta) => {
-                if let Some(t) = theta.as_f64() {
-                    self.apply_crz(qubits[0], qubits[1], t);
-                } else {
-                    tracing::warn!("Skipping CRz gate with unresolved symbolic parameter");
-                }
+                let t = theta
+                    .as_f64()
+                    .ok_or_else(|| "CRz gate has unresolved symbolic parameter".to_string())?;
+                self.apply_crz(qubits[0], qubits[1], t);
             }
             StandardGate::CP(theta) => {
-                if let Some(t) = theta.as_f64() {
-                    self.apply_cp(qubits[0], qubits[1], t);
-                } else {
-                    tracing::warn!("Skipping CP gate with unresolved symbolic parameter");
-                }
+                let t = theta
+                    .as_f64()
+                    .ok_or_else(|| "CP gate has unresolved symbolic parameter".to_string())?;
+                self.apply_cp(qubits[0], qubits[1], t);
             }
 
             // Three-qubit gates
@@ -157,9 +164,10 @@ impl Statevector {
             StandardGate::CSwap => self.apply_cswap(qubits[0], qubits[1], qubits[2]),
 
             _ => {
-                tracing::warn!("Unhandled gate type in simulation: skipping");
+                return Err(format!("Unhandled gate type in simulation: {:?}", gate));
             }
         }
+        Ok(())
     }
 
     // =========================================================================

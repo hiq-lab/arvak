@@ -295,9 +295,15 @@ impl CircuitDag {
     }
 
     /// Iterate over operations in topological order.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the DAG contains a cycle. This indicates a bug in DAG construction
+    /// (e.g., `apply()` or `substitute_node()`) since a well-formed circuit DAG is
+    /// always acyclic. Use `verify_integrity()` to detect cycles before calling this.
     pub fn topological_ops(&self) -> impl Iterator<Item = (NodeIndex, &Instruction)> {
         let sorted: Vec<_> = petgraph::algo::toposort(&self.graph, None)
-            .expect("DAG must be acyclic — cycle detected in circuit graph")
+            .expect("DAG contains a cycle — this is a bug in DAG construction; call verify_integrity() to diagnose")
             .into_iter()
             .filter_map(|idx| {
                 if let DagNode::Op(inst) = &self.graph[idx] {
@@ -466,6 +472,11 @@ impl CircuitDag {
     }
 
     /// Calculate the circuit depth.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the DAG contains a cycle. See [`topological_ops`](Self::topological_ops)
+    /// for details.
     pub fn depth(&self) -> usize {
         let node_count = self.graph.node_count();
         // Pre-allocate with expected capacity
@@ -475,7 +486,7 @@ impl CircuitDag {
         let mut max_depth = 0usize;
 
         for node in petgraph::algo::toposort(&self.graph, None)
-            .expect("DAG must be acyclic — cycle detected in circuit graph")
+            .expect("DAG contains a cycle — this is a bug in DAG construction; call verify_integrity() to diagnose")
         {
             let max_pred_depth = self
                 .graph

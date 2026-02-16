@@ -63,6 +63,14 @@ impl ResourceManager {
     pub async fn check_can_submit(&self, client_ip: Option<&str>) -> Result<(), ResourceError> {
         let state = self.state.read().await;
 
+        // Check concurrent job limit
+        if state.running_jobs >= self.limits.max_concurrent_jobs {
+            return Err(ResourceError::ConcurrencyLimitReached {
+                current: state.running_jobs,
+                limit: self.limits.max_concurrent_jobs,
+            });
+        }
+
         // Check queue limit
         if state.queued_jobs >= self.limits.max_queued_jobs {
             return Err(ResourceError::QueueFull {
@@ -205,6 +213,9 @@ pub struct ResourceStats {
 /// Resource limit errors.
 #[derive(Debug, thiserror::Error)]
 pub enum ResourceError {
+    #[error("Concurrency limit reached: {current} jobs running (limit: {limit})")]
+    ConcurrencyLimitReached { current: usize, limit: usize },
+
     #[error("Queue full: {current} jobs queued (limit: {limit})")]
     QueueFull { current: usize, limit: usize },
 

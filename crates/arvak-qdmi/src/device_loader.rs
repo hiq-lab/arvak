@@ -95,7 +95,7 @@ impl QdmiDevice {
             cause: e.to_string(),
         })?;
 
-        log::info!("loaded QDMI device library '{path_str}' with prefix '{prefix}'");
+        tracing::info!("loaded QDMI device library '{path_str}' with prefix '{prefix}'");
 
         // -- Device lifecycle (required) ----------------------------------------
 
@@ -194,7 +194,7 @@ impl QdmiDevice {
             resolve_optional::<ffi::FnJobFree>(&library, prefix, "QDMI_device_job_free");
 
         if fn_create_device_job.is_none() {
-            log::warn!("device '{prefix}' does not export job submission functions");
+            tracing::warn!("device '{prefix}' does not export job submission functions");
         }
 
         // -- Call device_initialize immediately after loading -------------------
@@ -206,7 +206,7 @@ impl QdmiDevice {
             )));
         }
 
-        log::debug!("device '{prefix}' initialized successfully");
+        tracing::debug!("device '{prefix}' initialized successfully");
 
         Ok(Self {
             _library: library,
@@ -253,9 +253,9 @@ impl Drop for QdmiDevice {
     fn drop(&mut self) {
         let ret = unsafe { (self.fn_device_finalize)() };
         if ffi::is_success(ret) {
-            log::debug!("device '{}' finalized", self.prefix);
+            tracing::debug!("device '{}' finalized", self.prefix);
         } else {
-            log::error!(
+            tracing::error!(
                 "device_finalize failed for '{}' (code {})",
                 self.prefix,
                 ret
@@ -292,7 +292,7 @@ fn resolve_required<T: Copy>(
     _lib_path: &str,
 ) -> Result<T> {
     let sym_name = prefixed_symbol(prefix, base_name);
-    log::trace!("resolving required symbol '{sym_name}'");
+    tracing::trace!("resolving required symbol '{sym_name}'");
 
     // SAFETY: The caller guarantees the type `T` matches the actual function
     // signature exported by the library. This is the core FFI contract.
@@ -311,7 +311,7 @@ fn resolve_required<T: Copy>(
 /// Resolve an optional symbol. Returns `None` if the symbol is missing.
 fn resolve_optional<T: Copy>(library: &Library, prefix: &str, base_name: &str) -> Option<T> {
     let sym_name = prefixed_symbol(prefix, base_name);
-    log::trace!("resolving optional symbol '{sym_name}'");
+    tracing::trace!("resolving optional symbol '{sym_name}'");
 
     unsafe { library.get::<T>(sym_name.as_bytes()).ok().map(|s| *s) }
 }
@@ -363,15 +363,15 @@ pub fn scan_directory(
         if let Some(prefix) = prefix_map.get(&lookup_key) {
             match QdmiDevice::load(&path, prefix) {
                 Ok(device) => {
-                    log::info!("discovered QDMI device '{prefix}' at {}", path.display());
+                    tracing::info!("discovered QDMI device '{prefix}' at {}", path.display());
                     devices.push(device);
                 }
                 Err(e) => {
-                    log::debug!("skipping {}: {e}", path.display());
+                    tracing::debug!("skipping {}: {e}", path.display());
                 }
             }
         } else {
-            log::debug!(
+            tracing::debug!(
                 "no prefix mapping for '{lookup_key}'; skipping {}",
                 path.display()
             );

@@ -56,7 +56,10 @@ impl Circuit {
     /// Add a single qubit to the circuit.
     pub fn add_qubit(&mut self) -> QubitId {
         let id = QubitId(self.next_qubit_id);
-        self.next_qubit_id += 1;
+        self.next_qubit_id = self
+            .next_qubit_id
+            .checked_add(1)
+            .expect("QubitId overflow: exceeded u32::MAX");
         let qubit = Qubit::new(id);
         self.qubits.push(qubit);
         self.dag.add_qubit(id);
@@ -69,7 +72,10 @@ impl Circuit {
         let mut ids = vec![];
         for i in 0..size {
             let id = QubitId(self.next_qubit_id);
-            self.next_qubit_id += 1;
+            self.next_qubit_id = self
+                .next_qubit_id
+                .checked_add(1)
+                .expect("QubitId overflow: exceeded u32::MAX");
             let qubit = Qubit::with_register(id, &name, i);
             self.qubits.push(qubit);
             self.dag.add_qubit(id);
@@ -81,7 +87,10 @@ impl Circuit {
     /// Add a single classical bit to the circuit.
     pub fn add_clbit(&mut self) -> ClbitId {
         let id = ClbitId(self.next_clbit_id);
-        self.next_clbit_id += 1;
+        self.next_clbit_id = self
+            .next_clbit_id
+            .checked_add(1)
+            .expect("ClbitId overflow: exceeded u32::MAX");
         let clbit = Clbit::new(id);
         self.clbits.push(clbit);
         self.dag.add_clbit(id);
@@ -94,7 +103,10 @@ impl Circuit {
         let mut ids = vec![];
         for i in 0..size {
             let id = ClbitId(self.next_clbit_id);
-            self.next_clbit_id += 1;
+            self.next_clbit_id = self
+                .next_clbit_id
+                .checked_add(1)
+                .expect("ClbitId overflow: exceeded u32::MAX");
             let clbit = Clbit::with_register(id, &name, i);
             self.clbits.push(clbit);
             self.dag.add_clbit(id);
@@ -579,14 +591,13 @@ impl Circuit {
     ///
     /// Known limitations:
     /// - The original circuit name is lost; the result is named "circuit".
-    /// - `next_qubit_id` / `next_clbit_id` are set to the count of qubits/clbits
-    ///   in the DAG, not the maximum QubitId/ClbitId + 1. This means that if the
-    ///   DAG has non-contiguous qubit IDs (e.g., 0, 2, 5), newly added qubits
-    ///   may collide with existing IDs.
-    #[allow(clippy::cast_possible_truncation)]
     pub fn from_dag(dag: CircuitDag) -> Self {
-        let num_qubits = dag.num_qubits() as u32;
-        let num_clbits = dag.num_clbits() as u32;
+        let next_qubit_id = dag.qubits().map(|q| q.0).max().map_or(0, |m| {
+            m.checked_add(1).expect("QubitId overflow in from_dag")
+        });
+        let next_clbit_id = dag.clbits().map(|c| c.0).max().map_or(0, |m| {
+            m.checked_add(1).expect("ClbitId overflow in from_dag")
+        });
 
         let qubits: Vec<_> = dag.qubits().map(Qubit::new).collect();
         let clbits: Vec<_> = dag.clbits().map(Clbit::new).collect();
@@ -596,8 +607,8 @@ impl Circuit {
             qubits,
             clbits,
             dag,
-            next_qubit_id: num_qubits,
-            next_clbit_id: num_clbits,
+            next_qubit_id,
+            next_clbit_id,
         }
     }
 
