@@ -25,6 +25,7 @@ futures = { workspace = true }
 # Arvak core
 arvak-hal = { workspace = true }
 arvak-ir = { workspace = true }
+arvak-compile = { workspace = true }
 arvak-qasm3 = { workspace = true }
 arvak-types = { workspace = true }
 
