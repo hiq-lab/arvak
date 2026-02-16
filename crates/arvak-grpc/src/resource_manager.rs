@@ -32,16 +32,13 @@ struct ResourceState {
     rate_limits: HashMap<String, RateLimitState>,
 }
 
-/// Rate limiting state for a single client.
-// Note: `requests` is an unbounded Vec<Instant> that grows with each request
-// within the retention window. For high-throughput clients, consider replacing
-// with a fixed-size ring buffer to bound memory usage.
+/// Rate limiting state for a single client (fixed-window counter, O(1) memory).
 struct RateLimitState {
-    /// Request timestamps within the current window
-    requests: Vec<Instant>,
+    /// Number of requests in the current window
+    count: u32,
 
-    /// Window start time
-    _window_start: Instant,
+    /// Start of the current 1-second window
+    window_start: Instant,
 }
 
 impl ResourceManager {
@@ -85,16 +82,12 @@ impl ResourceManager {
                 let now = Instant::now();
                 let window = Duration::from_secs(1);
 
-                // Count requests in the last second
-                let recent_requests = rate_state
-                    .requests
-                    .iter()
-                    .filter(|&&t| now.duration_since(t) < window)
-                    .count();
-
-                if recent_requests >= self.limits.rate_limit_rps as usize {
+                // If within current window, check count
+                if now.duration_since(rate_state.window_start) < window
+                    && rate_state.count >= self.limits.rate_limit_rps
+                {
                     return Err(ResourceError::RateLimitExceeded {
-                        current_rps: recent_requests as u32,
+                        current_rps: rate_state.count,
                         limit_rps: self.limits.rate_limit_rps,
                     });
                 }
@@ -112,23 +105,23 @@ impl ResourceManager {
         // Update rate limit tracking
         if let Some(ip) = client_ip {
             let now = Instant::now();
+            let window = Duration::from_secs(1);
             let rate_state =
                 state
                     .rate_limits
                     .entry(ip.to_string())
                     .or_insert_with(|| RateLimitState {
-                        requests: Vec::new(),
-                        _window_start: now,
+                        count: 0,
+                        window_start: now,
                     });
 
-            // Clean up old requests (older than 1 second)
-            let window = Duration::from_secs(1);
-            rate_state
-                .requests
-                .retain(|&t| now.duration_since(t) < window);
-
-            // Add this request
-            rate_state.requests.push(now);
+            // If window expired, reset
+            if now.duration_since(rate_state.window_start) >= window {
+                rate_state.count = 1;
+                rate_state.window_start = now;
+            } else {
+                rate_state.count += 1;
+            }
         }
     }
 
@@ -189,15 +182,12 @@ impl ResourceManager {
     pub async fn cleanup_rate_limits(&self) {
         let mut state = self.state.write().await;
         let now = Instant::now();
-        let cleanup_window = Duration::from_secs(60); // Keep last minute
+        let cleanup_window = Duration::from_secs(60);
 
-        state.rate_limits.retain(|_, rate_state| {
-            // Remove clients with no recent requests
-            rate_state
-                .requests
-                .iter()
-                .any(|&t| now.duration_since(t) < cleanup_window)
-        });
+        // Remove entries whose window started more than 60s ago
+        state
+            .rate_limits
+            .retain(|_, rate_state| now.duration_since(rate_state.window_start) < cleanup_window);
     }
 }
 

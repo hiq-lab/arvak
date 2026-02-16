@@ -4,6 +4,8 @@ This module provides functions to convert between PennyLane and Arvak circuit fo
 using OpenQASM as an interchange format.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -175,8 +177,10 @@ def _op_to_qasm_lines(op, wire_map: dict, qasm_lines: list):
             for sub_op in decomp:
                 _op_to_qasm_lines(sub_op, wire_map, qasm_lines)
         except (NotImplementedError, AttributeError, TypeError):
-            # If decomposition is unsupported or fails, emit as comment
-            qasm_lines.append(f"// Unsupported operation: {op.name}")
+            raise ValueError(
+                f"Unsupported PennyLane operation '{op.name}' cannot be decomposed "
+                f"to QASM-compatible gates. Use qml.compile() to decompose first."
+            )
 
 
 def _operation_to_qasm(op, wire_map: dict) -> str:

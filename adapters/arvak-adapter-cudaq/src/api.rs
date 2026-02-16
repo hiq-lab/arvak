@@ -9,16 +9,26 @@
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 use tracing::{debug, instrument};
 
 use crate::error::{CudaqError, CudaqResult};
 
 /// CUDA-Q REST API client.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CudaqClient {
     client: Client,
     base_url: String,
     token: String,
+}
+
+impl fmt::Debug for CudaqClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CudaqClient")
+            .field("base_url", &self.base_url)
+            .field("token", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl CudaqClient {
@@ -33,6 +43,7 @@ impl CudaqClient {
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(120))
+            .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .map_err(CudaqError::Http)?;
 

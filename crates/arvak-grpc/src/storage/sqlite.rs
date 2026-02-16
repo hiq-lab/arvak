@@ -39,6 +39,9 @@ impl SqliteStorage {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let conn = Connection::open(path)?;
 
+        // Enable WAL mode for concurrent readers and busy timeout to avoid SQLITE_BUSY
+        conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;")?;
+
         // Enable foreign keys
         conn.execute("PRAGMA foreign_keys = ON", [])?;
 

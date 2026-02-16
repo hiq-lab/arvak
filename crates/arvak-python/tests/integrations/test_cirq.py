@@ -150,7 +150,13 @@ class TestArvakToCirq:
     def test_arvak_to_cirq_via_qasm(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Cirq via QASM."""
         from arvak.integrations.cirq.converter import _qasm3_to_qasm2
-        from cirq.contrib.qasm_import import circuit_from_qasm
+
+        try:
+            from cirq.contrib.qasm_import import circuit_from_qasm
+        except ImportError as e:
+            if "ply" in str(e):
+                pytest.skip("Cirq QASM import requires 'ply' package")
+            raise
 
         # Export to QASM (Arvak produces QASM 3.0)
         qasm_str = arvak.to_qasm(arvak_bell_circuit)

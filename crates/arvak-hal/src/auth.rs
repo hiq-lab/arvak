@@ -23,6 +23,7 @@
 //! )?;
 //! ```
 
+use std::fmt;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -32,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{HalError, HalResult};
 
 /// OIDC provider configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OidcConfig {
     /// Provider name (e.g., "csc", "lrz").
     pub provider: String,
@@ -63,6 +64,23 @@ pub struct OidcConfig {
 
     /// Token refresh buffer (refresh before expiry).
     pub refresh_buffer_secs: u64,
+}
+
+impl fmt::Debug for OidcConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OidcConfig")
+            .field("provider", &self.provider)
+            .field("auth_endpoint", &self.auth_endpoint)
+            .field("token_endpoint", &self.token_endpoint)
+            .field("client_id", &self.client_id)
+            .field("client_secret", &"[REDACTED]")
+            .field("redirect_uri", &self.redirect_uri)
+            .field("scopes", &self.scopes)
+            .field("project_id", &self.project_id)
+            .field("token_cache_path", &self.token_cache_path)
+            .field("refresh_buffer_secs", &self.refresh_buffer_secs)
+            .finish()
+    }
 }
 
 impl OidcConfig {
@@ -163,7 +181,7 @@ impl OidcConfig {
 }
 
 /// Cached token with metadata.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CachedToken {
     /// Access token.
     pub access_token: String,
@@ -204,8 +222,21 @@ impl CachedToken {
     }
 }
 
+impl fmt::Debug for CachedToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CachedToken")
+            .field("access_token", &"[REDACTED]")
+            .field("refresh_token", &"[REDACTED]")
+            .field("token_type", &self.token_type)
+            .field("expires_at", &self.expires_at)
+            .field("id_token", &"[REDACTED]")
+            .field("scope", &self.scope)
+            .finish()
+    }
+}
+
 /// OIDC token response from the provider.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct TokenResponse {
     access_token: String,
     token_type: String,
@@ -215,8 +246,21 @@ struct TokenResponse {
     scope: Option<String>,
 }
 
+impl fmt::Debug for TokenResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TokenResponse")
+            .field("access_token", &"[REDACTED]")
+            .field("token_type", &self.token_type)
+            .field("expires_in", &self.expires_in)
+            .field("refresh_token", &"[REDACTED]")
+            .field("id_token", &"[REDACTED]")
+            .field("scope", &self.scope)
+            .finish()
+    }
+}
+
 /// Device authorization response.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct DeviceAuthResponse {
     device_code: String,
     user_code: String,
@@ -225,6 +269,19 @@ struct DeviceAuthResponse {
     verification_uri_complete: Option<String>,
     expires_in: u64,
     interval: u64,
+}
+
+impl fmt::Debug for DeviceAuthResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DeviceAuthResponse")
+            .field("device_code", &"[REDACTED]")
+            .field("user_code", &self.user_code)
+            .field("verification_uri", &self.verification_uri)
+            .field("verification_uri_complete", &self.verification_uri_complete)
+            .field("expires_in", &self.expires_in)
+            .field("interval", &self.interval)
+            .finish()
+    }
 }
 
 /// OIDC authentication handler.

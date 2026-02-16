@@ -11,6 +11,7 @@
 //! 3. Default values
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::net::SocketAddr;
 use std::path::Path;
 
@@ -36,7 +37,7 @@ pub struct Config {
 }
 
 /// gRPC server settings.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     /// Server bind address (e.g., "0.0.0.0:50051")
     #[serde(default = "default_grpc_address")]
@@ -57,10 +58,32 @@ pub struct ServerConfig {
     /// Graceful shutdown timeout in seconds
     #[serde(default = "default_shutdown_timeout")]
     pub shutdown_timeout_seconds: u64,
+
+    /// Maximum gRPC message size in bytes (default: 16 MB)
+    #[serde(default = "default_max_message_size")]
+    pub max_message_size_bytes: usize,
+
+    /// Optional API key for authentication (set via ARVAK_API_KEY)
+    #[serde(default)]
+    pub api_key: Option<String>,
+}
+
+impl fmt::Debug for ServerConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ServerConfig")
+            .field("address", &self.address)
+            .field("timeout_seconds", &self.timeout_seconds)
+            .field("keepalive_seconds", &self.keepalive_seconds)
+            .field("max_connections", &self.max_connections)
+            .field("shutdown_timeout_seconds", &self.shutdown_timeout_seconds)
+            .field("max_message_size_bytes", &self.max_message_size_bytes)
+            .field("api_key", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// Storage backend configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
     /// Storage backend type: "memory", "sqlite", "postgres"
     #[serde(default = "default_storage_type")]
@@ -72,6 +95,16 @@ pub struct StorageConfig {
     /// Maximum number of database connections
     #[serde(default = "default_db_pool_size")]
     pub pool_size: u32,
+}
+
+impl fmt::Debug for StorageConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StorageConfig")
+            .field("backend", &self.backend)
+            .field("connection_string", &"[REDACTED]")
+            .field("pool_size", &self.pool_size)
+            .finish()
+    }
 }
 
 /// Observability configuration.
@@ -246,6 +279,10 @@ fn default_shutdown_timeout() -> u64 {
     30 // 30 seconds
 }
 
+fn default_max_message_size() -> usize {
+    16 * 1024 * 1024 // 16 MB
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -255,6 +292,8 @@ impl Default for Config {
                 keepalive_seconds: default_keepalive(),
                 max_connections: default_max_connections(),
                 shutdown_timeout_seconds: default_shutdown_timeout(),
+                max_message_size_bytes: default_max_message_size(),
+                api_key: None,
             },
             storage: StorageConfig {
                 backend: default_storage_type(),
@@ -327,6 +366,18 @@ impl Config {
             if let Ok(val) = keepalive.parse() {
                 config.server.keepalive_seconds = val;
             }
+        }
+
+        // Message size
+        if let Ok(size) = std::env::var("ARVAK_MAX_MESSAGE_SIZE") {
+            if let Ok(val) = size.parse() {
+                config.server.max_message_size_bytes = val;
+            }
+        }
+
+        // API key
+        if let Ok(key) = std::env::var("ARVAK_API_KEY") {
+            config.server.api_key = Some(key);
         }
 
         // Storage configuration
