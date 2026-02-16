@@ -345,6 +345,7 @@ version = "1.7.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-sim",
+ "arvak-compile",
  "arvak-hal",
  "arvak-ir",
  "arvak-qasm3",
