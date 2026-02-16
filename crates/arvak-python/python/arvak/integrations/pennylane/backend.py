@@ -8,6 +8,8 @@ via PyO3, returning real simulation results. Expectation values are
 computed from measurement samples.
 """
 
+from __future__ import annotations
+
 from typing import Optional
 import numpy as np
 

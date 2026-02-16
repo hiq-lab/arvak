@@ -57,11 +57,19 @@ pub async fn compile(
         .with_target(coupling_map, basis_gates)
         .build();
 
-    // Convert to DAG and run compilation
+    // Run CPU-bound compilation on a blocking thread
     let mut dag = circuit.into_dag();
-    let compile_start = Instant::now();
-    pm.run(&mut dag, &mut props)?;
-    let compile_time = compile_start.elapsed();
+    let (dag_result, props_result, compile_time) = tokio::task::spawn_blocking(move || {
+        let compile_start = Instant::now();
+        let run_result = pm.run(&mut dag, &mut props);
+        let compile_time = compile_start.elapsed();
+        (run_result.map(|()| dag), props, compile_time)
+    })
+    .await
+    .map_err(|e| ApiError::Internal(format!("Task join error: {e}")))?;
+
+    let dag = dag_result?;
+    let props = props_result;
 
     // Extract qubit mapping from layout (set by layout pass)
     let qubit_mapping = props.layout.as_ref().map(|layout| {

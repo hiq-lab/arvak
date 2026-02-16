@@ -14,10 +14,14 @@ use tokio::sync::RwLock;
 use super::{JobFilter, JobStorage, StoredJob};
 use crate::error::{Error, Result};
 
+/// Maximum number of jobs to retain in memory before evicting terminal jobs.
+const DEFAULT_MAX_CAPACITY: usize = 10_000;
+
 /// In-memory job storage.
 #[derive(Clone)]
 pub struct MemoryStorage {
     jobs: Arc<RwLock<FxHashMap<String, StoredJob>>>,
+    max_capacity: usize,
 }
 
 impl MemoryStorage {
@@ -25,6 +29,7 @@ impl MemoryStorage {
     pub fn new() -> Self {
         Self {
             jobs: Arc::new(RwLock::new(FxHashMap::default())),
+            max_capacity: DEFAULT_MAX_CAPACITY,
         }
     }
 }
@@ -40,6 +45,24 @@ impl JobStorage for MemoryStorage {
     async fn store_job(&self, job: &StoredJob) -> Result<()> {
         let mut jobs = self.jobs.write().await;
         jobs.insert(job.id.0.clone(), job.clone());
+
+        // Evict oldest terminal job if over capacity
+        if jobs.len() > self.max_capacity {
+            let oldest = jobs
+                .iter()
+                .filter(|(_, j)| {
+                    matches!(
+                        j.status,
+                        JobStatus::Completed | JobStatus::Failed(_) | JobStatus::Cancelled
+                    )
+                })
+                .min_by_key(|(_, j)| j.submitted_at)
+                .map(|(k, _)| k.clone());
+            if let Some(key) = oldest {
+                jobs.remove(&key);
+            }
+        }
+
         Ok(())
     }
 

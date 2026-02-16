@@ -299,16 +299,20 @@ impl PbsAdapter {
             return Ok(());
         }
 
-        let output = Command::new("qdel")
-            .arg(pbs_job_id)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::PbsCommandError {
-                command: "qdel".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("qdel")
+                .arg(pbs_job_id)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("qdel timed out after 30s".into()))?
+        .map_err(|e| SchedError::PbsCommandError {
+            command: "qdel".to_string(),
+            message: e.to_string(),
+        })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -355,16 +359,20 @@ impl PbsAdapter {
 
     /// Run qsub command.
     async fn run_qsub(&self, script_path: &Path) -> SchedResult<String> {
-        let output = Command::new("qsub")
-            .arg(script_path)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::PbsCommandError {
-                command: "qsub".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            Command::new("qsub")
+                .arg(script_path)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("qsub timed out after 60s".into()))?
+        .map_err(|e| SchedError::PbsCommandError {
+            command: "qsub".to_string(),
+            message: e.to_string(),
+        })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -378,16 +386,20 @@ impl PbsAdapter {
     /// Run qstat command to get job status.
     async fn run_qstat(&self, pbs_job_id: &str) -> SchedResult<Option<PbsJobInfo>> {
         // Use qstat -f for full output in parseable format
-        let output = Command::new("qstat")
-            .args(["-f", pbs_job_id])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::PbsCommandError {
-                command: "qstat".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("qstat")
+                .args(["-f", pbs_job_id])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("qstat timed out after 30s".into()))?
+        .map_err(|e| SchedError::PbsCommandError {
+            command: "qstat".to_string(),
+            message: e.to_string(),
+        })?;
 
         // Check for "Unknown Job Id" error
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -402,16 +414,20 @@ impl PbsAdapter {
     /// Run qstat -x to get finished job status.
     async fn run_qstat_finished(&self, pbs_job_id: &str) -> SchedResult<Option<PbsJobInfo>> {
         // qstat -xf shows finished jobs too (PBS Pro feature)
-        let output = Command::new("qstat")
-            .args(["-xf", pbs_job_id])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::PbsCommandError {
-                command: "qstat".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("qstat")
+                .args(["-xf", pbs_job_id])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("qstat -xf timed out after 30s".into()))?
+        .map_err(|e| SchedError::PbsCommandError {
+            command: "qstat".to_string(),
+            message: e.to_string(),
+        })?;
 
         let stderr = String::from_utf8_lossy(&output.stderr);
         if stderr.contains("Unknown Job Id") || stderr.contains("does not exist") {
@@ -428,16 +444,20 @@ impl PbsAdapter {
             return Ok(());
         }
 
-        let output = Command::new("qhold")
-            .arg(pbs_job_id)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::PbsCommandError {
-                command: "qhold".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("qhold")
+                .arg(pbs_job_id)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("qhold timed out after 30s".into()))?
+        .map_err(|e| SchedError::PbsCommandError {
+            command: "qhold".to_string(),
+            message: e.to_string(),
+        })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -456,16 +476,20 @@ impl PbsAdapter {
             return Ok(());
         }
 
-        let output = Command::new("qrls")
-            .arg(pbs_job_id)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .await
-            .map_err(|e| SchedError::PbsCommandError {
-                command: "qrls".to_string(),
-                message: e.to_string(),
-            })?;
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            Command::new("qrls")
+                .arg(pbs_job_id)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output(),
+        )
+        .await
+        .map_err(|_| SchedError::Timeout("qrls timed out after 30s".into()))?
+        .map_err(|e| SchedError::PbsCommandError {
+            command: "qrls".to_string(),
+            message: e.to_string(),
+        })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);

@@ -92,7 +92,10 @@ impl PriorityQueue {
             priority: job.priority,
             insertion_order: self.insertion_counter,
         };
-        self.insertion_counter += 1;
+        self.insertion_counter = self
+            .insertion_counter
+            .checked_add(1)
+            .expect("insertion counter overflow");
         self.jobs.insert(job.id.clone(), job);
         self.heap.push(entry);
     }
@@ -183,7 +186,10 @@ impl PriorityQueue {
                 priority: new_priority,
                 insertion_order: self.insertion_counter,
             };
-            self.insertion_counter += 1;
+            self.insertion_counter = self
+                .insertion_counter
+                .checked_add(1)
+                .expect("insertion counter overflow");
             self.heap.push(entry);
             true
         } else {

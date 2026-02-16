@@ -4,6 +4,8 @@ This module provides functions to convert between Cirq and Arvak circuit formats
 using OpenQASM as an interchange format.
 """
 
+from __future__ import annotations
+
 import re
 from typing import TYPE_CHECKING
 
@@ -171,12 +173,21 @@ def arvak_to_cirq(circuit: 'arvak.Circuit') -> 'cirq.Circuit':
     """
     try:
         import cirq
-        from cirq.contrib.qasm_import import circuit_from_qasm
     except ImportError:
         raise ImportError(
             "Cirq is required for this operation. "
-            "Install with: pip install cirq>=1.0.0 ply"
+            "Install with: pip install cirq>=1.0.0"
         )
+
+    try:
+        from cirq.contrib.qasm_import import circuit_from_qasm
+    except ImportError as e:
+        if "ply" in str(e):
+            raise ImportError(
+                "Cirq's QASM import requires the 'ply' package. "
+                "Install with: pip install arvak[cirq]"
+            ) from e
+        raise
 
     import arvak
 
