@@ -93,7 +93,7 @@ impl<'dev> DeviceSession<'dev> {
             )));
         }
 
-        log::debug!(
+        tracing::debug!(
             "opened session on device '{}' (handle {:?})",
             device.prefix(),
             handle
@@ -446,7 +446,7 @@ impl Drop for DeviceSession<'_> {
     fn drop(&mut self) {
         if !self.handle.is_null() {
             unsafe { (self.device.fn_session_free)(self.handle) };
-            log::debug!("freed session on device '{}'", self.device.prefix());
+            tracing::debug!("freed session on device '{}'", self.device.prefix());
         }
     }
 }
@@ -588,7 +588,7 @@ impl Drop for DeviceJob<'_, '_> {
     fn drop(&mut self) {
         if let Some(free_fn) = self.session.device.fn_job_free {
             unsafe { free_fn(self.handle) };
-            log::debug!("freed job on device '{}'", self.session.device.prefix());
+            tracing::debug!("freed job on device '{}'", self.session.device.prefix());
         }
     }
 }

@@ -1,6 +1,7 @@
 //! IBM Quantum backend implementation.
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 use arvak_hal::{
@@ -17,6 +18,9 @@ use crate::error::{IbmError, IbmResult};
 /// Default IBM Quantum backend (simulator).
 const DEFAULT_BACKEND: &str = "ibmq_qasm_simulator";
 
+/// How long to cache backend info before refreshing from the API.
+const BACKEND_INFO_TTL: Duration = Duration::from_secs(5 * 60);
+
 /// IBM Quantum backend adapter.
 pub struct IbmBackend {
     /// API client.
@@ -25,8 +29,8 @@ pub struct IbmBackend {
     target: String,
     /// Cached capabilities (HAL Contract v2: sync introspection).
     capabilities: Capabilities,
-    /// Cached backend info.
-    backend_info: Arc<RwLock<Option<BackendInfo>>>,
+    /// Cached backend info with fetch timestamp for TTL-based refresh.
+    backend_info: Arc<RwLock<Option<(BackendInfo, Instant)>>>,
 }
 
 impl IbmBackend {
@@ -94,23 +98,25 @@ impl IbmBackend {
         &self.target
     }
 
-    /// Get backend information, fetching from API if not cached.
+    /// Get backend information, fetching from API if not cached or stale.
     async fn get_backend_info(&self) -> IbmResult<BackendInfo> {
-        // Check cache first
+        // Check cache first; refresh if older than TTL.
         {
             let cached = self.backend_info.read().await;
-            if let Some(info) = cached.as_ref() {
-                return Ok(info.clone());
+            if let Some((ref info, fetched_at)) = *cached {
+                if fetched_at.elapsed() < BACKEND_INFO_TTL {
+                    return Ok(info.clone());
+                }
             }
         }
 
         // Fetch from API
         let info = self.client.get_backend(&self.target).await?;
 
-        // Cache it
+        // Cache it with current timestamp
         {
             let mut cached = self.backend_info.write().await;
-            *cached = Some(info.clone());
+            *cached = Some((info.clone(), Instant::now()));
         }
 
         Ok(info)
@@ -122,27 +128,40 @@ impl IbmBackend {
     }
 
     /// Convert measurement results to counts.
-    fn results_to_counts(results: &crate::api::JobResultResponse) -> Counts {
+    ///
+    /// `num_qubits` is used to pad bitstrings to the correct width.
+    fn results_to_counts(results: &crate::api::JobResultResponse, num_qubits: usize) -> Counts {
         let mut counts = Counts::new();
 
         // Handle sampler results
         if let Some(result) = results.results.first() {
+            // Try to extract shot count from metadata for quasi-distribution conversion.
+            let metadata_shots: Option<u64> = result
+                .metadata
+                .as_ref()
+                .and_then(|m| m.get("shots"))
+                .and_then(serde_json::Value::as_u64);
+
             // Try counts first (more accurate)
             if let Some(raw_counts) = &result.counts {
                 for (bitstring, &count) in raw_counts {
                     // IBM returns hex strings, convert to binary
-                    let binary = hex_to_binary(bitstring);
+                    let binary = hex_to_binary(bitstring, num_qubits);
                     counts.insert(binary, count);
                 }
             }
             // Fall back to quasi-distributions
             else if let Some(quasi_dists) = &result.quasi_dists {
+                // Derive effective shot count: prefer metadata, then fall back to
+                // the sum of existing counts (which is zero here), or default 1024
+                // (IBM's standard default shot count).
+                let effective_shots = metadata_shots.unwrap_or(1024) as f64;
+
                 if let Some(dist) = quasi_dists.first() {
                     for (bitstring, &prob) in dist {
-                        let binary = hex_to_binary(bitstring);
-                        // TODO: Use actual shot count from job submission instead of hardcoded 1000.0
+                        let binary = hex_to_binary(bitstring, num_qubits);
                         // Clamp negative quasi-probabilities to zero before conversion.
-                        let count = (prob * 1000.0).max(0.0).round() as u64;
+                        let count = (prob * effective_shots).max(0.0).round() as u64;
                         if count > 0 {
                             counts.insert(binary, count);
                         }
@@ -155,20 +174,21 @@ impl IbmBackend {
     }
 }
 
-/// Convert hex string to binary string.
+/// Convert hex string to binary string, padded to `num_qubits` width.
 ///
-/// TODO: Leading zeros are lost because the number of qubits is not available here.
-/// Callers that need fixed-width bitstrings should pad the result, e.g.
-/// `format!("{:0>width$}", hex_to_binary(s), width = num_qubits)`.
-fn hex_to_binary(hex: &str) -> String {
+/// If `num_qubits` is 0 the width falls back to 4 bits per hex digit.
+fn hex_to_binary(hex: &str, num_qubits: usize) -> String {
     // Handle 0x prefix
     let hex = hex.strip_prefix("0x").unwrap_or(hex);
 
-    // Parse as integer and format as binary.
-    // Note: this does not preserve leading zeros; the width of the original
-    // hex representation is used as a heuristic (4 bits per hex digit).
+    // Parse as integer and format as binary, padded to the circuit qubit count
+    // so that leading zeros are preserved.
     if let Ok(value) = u64::from_str_radix(hex, 16) {
-        let width = hex.len() * 4;
+        let width = if num_qubits > 0 {
+            num_qubits
+        } else {
+            hex.len() * 4
+        };
         format!("{value:0>width$b}", value = value, width = width)
     } else {
         // If not hex, assume it's already binary
@@ -219,6 +239,18 @@ impl Backend for IbmBackend {
                 circuit.num_qubits(),
                 caps.num_qubits
             ));
+        }
+
+        // Check gate set support
+        let gate_set = &caps.gate_set;
+        for (_, inst) in circuit.dag().topological_ops() {
+            if let Some(gate) = inst.as_gate() {
+                let name = gate.name();
+                if !gate_set.contains(name) {
+                    reasons.push(format!("Unsupported gate: {}", name));
+                    break;
+                }
+            }
         }
 
         if reasons.is_empty() {
@@ -324,7 +356,14 @@ impl Backend for IbmBackend {
             .await
             .map_err(|e| HalError::Backend(e.to_string()))?;
 
-        let counts = Self::results_to_counts(&results);
+        // Use device qubit count for bitstring padding; fall back to hex heuristic
+        // if backend info is unavailable.
+        let num_qubits = self
+            .get_backend_info()
+            .await
+            .map_or(0, |info| info.num_qubits);
+
+        let counts = Self::results_to_counts(&results, num_qubits);
         let total_shots = counts.total_shots() as u32;
 
         Ok(ExecutionResult::new(counts, total_shots))
@@ -345,12 +384,18 @@ mod tests {
 
     #[test]
     fn test_hex_to_binary() {
-        assert_eq!(hex_to_binary("0x0"), "0000");
-        assert_eq!(hex_to_binary("0x1"), "0001");
-        assert_eq!(hex_to_binary("0x3"), "0011");
-        assert_eq!(hex_to_binary("0xf"), "1111");
-        assert_eq!(hex_to_binary("0xff"), "11111111");
-        assert_eq!(hex_to_binary("3"), "0011");
+        // With num_qubits=0, falls back to hex-digit heuristic (4 bits per digit)
+        assert_eq!(hex_to_binary("0x0", 0), "0000");
+        assert_eq!(hex_to_binary("0x1", 0), "0001");
+        assert_eq!(hex_to_binary("0x3", 0), "0011");
+        assert_eq!(hex_to_binary("0xf", 0), "1111");
+        assert_eq!(hex_to_binary("0xff", 0), "11111111");
+        assert_eq!(hex_to_binary("3", 0), "0011");
+
+        // With explicit num_qubits, pads to correct width
+        assert_eq!(hex_to_binary("0x0", 4), "0000");
+        assert_eq!(hex_to_binary("0x1", 5), "00001");
+        assert_eq!(hex_to_binary("0x3", 8), "00000011");
     }
 
     #[test]
@@ -385,7 +430,7 @@ mod tests {
             }],
         };
 
-        let counts = IbmBackend::results_to_counts(&results);
+        let counts = IbmBackend::results_to_counts(&results, 4);
         assert_eq!(counts.get("0000"), 500);
         assert_eq!(counts.get("0011"), 500);
         assert_eq!(counts.total_shots(), 1000);

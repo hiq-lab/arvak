@@ -101,7 +101,24 @@ impl Layout {
     }
 
     /// Add a mapping from logical to physical qubit.
+    ///
+    /// If the physical qubit is already mapped to a different logical qubit,
+    /// the old mapping is removed first to keep both maps consistent.
+    /// Similarly, if the logical qubit is already mapped to a different physical
+    /// qubit, that old physical mapping is removed.
     pub fn add(&mut self, logical: QubitId, physical: u32) {
+        // Remove conflicting physical → logical mapping if it exists.
+        if let Some(&old_logical) = self.physical_to_logical.get(&physical) {
+            if old_logical != logical {
+                self.logical_to_physical.remove(&old_logical);
+            }
+        }
+        // Remove conflicting logical → physical mapping if it exists.
+        if let Some(&old_physical) = self.logical_to_physical.get(&logical) {
+            if old_physical != physical {
+                self.physical_to_logical.remove(&old_physical);
+            }
+        }
         self.logical_to_physical.insert(logical, physical);
         self.physical_to_logical.insert(physical, logical);
     }
@@ -162,6 +179,13 @@ impl Layout {
 /// On construction, a distance matrix is precomputed using BFS from each
 /// node. This enables O(1) `distance()` lookups and O(distance) path
 /// reconstruction during routing, eliminating per-gate BFS.
+///
+/// ## Deserialization
+///
+/// After deserialization, call [`rebuild_caches()`](Self::rebuild_caches) to
+/// recompute the adjacency list and distance/predecessor matrices (which are
+/// skipped during serialization). Without this call, `distance()` will fall
+/// back to per-query BFS, and `shortest_path()` will return `None`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CouplingMap {
     /// List of connected qubit pairs (bidirectional).
@@ -196,10 +220,16 @@ impl CouplingMap {
 
     /// Add an edge between two qubits (bidirectional).
     ///
-    /// Note: This does not check for duplicate edges. Adding the same edge
-    /// multiple times will result in duplicate entries in the adjacency list
-    /// and edge list.
+    /// Duplicate edges (including reversed pairs) are silently ignored.
     pub fn add_edge(&mut self, q1: u32, q2: u32) {
+        // Check for duplicates in either direction.
+        if self
+            .edges
+            .iter()
+            .any(|&(a, b)| (a == q1 && b == q2) || (a == q2 && b == q1))
+        {
+            return;
+        }
         self.edges.push((q1, q2));
         self.adjacency.entry(q1).or_default().push(q2);
         self.adjacency.entry(q2).or_default().push(q1);
@@ -230,6 +260,18 @@ impl CouplingMap {
                 }
             }
         }
+    }
+
+    /// Rebuild the adjacency list and distance/predecessor matrices from the
+    /// edge list. Must be called after deserialization to restore O(1) distance
+    /// lookups and shortest-path reconstruction.
+    pub fn rebuild_caches(&mut self) {
+        self.adjacency.clear();
+        for &(q1, q2) in &self.edges {
+            self.adjacency.entry(q1).or_default().push(q2);
+            self.adjacency.entry(q2).or_default().push(q1);
+        }
+        self.precompute_distances();
     }
 
     /// Check if two qubits are directly connected.
