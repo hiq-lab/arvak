@@ -216,11 +216,19 @@ pub async fn evaluate(
     };
 
     let evaluator = Evaluator::new(config);
-    let eval_start = Instant::now();
-    let report = evaluator
-        .evaluate(&req.qasm, &[])
-        .map_err(|e| ApiError::Internal(format!("Evaluation failed: {e}")))?;
-    let eval_time = eval_start.elapsed();
+    let qasm = req.qasm.clone();
+
+    // Run CPU-bound evaluation on a blocking thread
+    let (report, eval_time) = tokio::task::spawn_blocking(move || {
+        let eval_start = Instant::now();
+        let result = evaluator.evaluate(&qasm, &[]);
+        let eval_time = eval_start.elapsed();
+        (result, eval_time)
+    })
+    .await
+    .map_err(|e| ApiError::Internal(format!("Task join error: {e}")))?;
+
+    let report = report.map_err(|e| ApiError::Internal(format!("Evaluation failed: {e}")))?;
 
     // Build response from report
     let input = InputView {

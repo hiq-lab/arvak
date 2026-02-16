@@ -53,16 +53,31 @@ pub enum Error {
 impl From<Error> for Status {
     fn from(err: Error) -> Self {
         match err {
-            Error::JobNotFound(msg) => Status::not_found(msg),
-            Error::BackendNotFound(msg) => Status::not_found(msg),
-            Error::InvalidCircuit(msg) => Status::invalid_argument(msg),
-            Error::JobNotCompleted(msg) => Status::failed_precondition(msg),
-            Error::JobFailed(msg) => Status::aborted(msg),
-            Error::Backend(e) => Status::internal(format!("Backend error: {e}")),
-            Error::QasmParse(msg) => Status::invalid_argument(format!("QASM parse error: {msg}")),
-            Error::JsonParse(e) => Status::invalid_argument(format!("JSON parse error: {e}")),
-            Error::StorageError(msg) => Status::internal(format!("Storage error: {msg}")),
-            Error::Internal(msg) => Status::internal(msg),
+            Error::JobNotFound(msg) => Status::not_found(format!("[permanent] {msg}")),
+            Error::BackendNotFound(msg) => Status::not_found(format!("[permanent] {msg}")),
+            Error::InvalidCircuit(msg) => Status::invalid_argument(format!("[permanent] {msg}")),
+            Error::JobNotCompleted(msg) => {
+                Status::failed_precondition(format!("[transient] {msg}"))
+            }
+            Error::JobFailed(msg) => Status::aborted(format!("[permanent] {msg}")),
+            Error::Backend(ref e) => {
+                let tag = if e.is_transient() {
+                    "[transient]"
+                } else {
+                    "[permanent]"
+                };
+                Status::internal(format!("{tag} Backend error: {err}"))
+            }
+            Error::QasmParse(msg) => {
+                Status::invalid_argument(format!("[permanent] QASM parse error: {msg}"))
+            }
+            Error::JsonParse(e) => {
+                Status::invalid_argument(format!("[permanent] JSON parse error: {e}"))
+            }
+            Error::StorageError(msg) => {
+                Status::internal(format!("[transient] Storage error: {msg}"))
+            }
+            Error::Internal(msg) => Status::internal(format!("[permanent] {msg}")),
         }
     }
 }
