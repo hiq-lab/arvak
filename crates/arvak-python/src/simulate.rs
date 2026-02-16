@@ -61,7 +61,7 @@ pub fn run_sim(circuit: &PyCircuit, shots: u32, py: Python<'_>) -> PyResult<Py<P
 
         // Release the GIL during simulation (may take a while for many shots)
         let circuit_clone = circuit.inner.clone();
-        let result = py.allow_threads(move || backend.run_simulation(&circuit_clone, shots));
+        let result = py.detach(move || backend.run_simulation(&circuit_clone, shots));
 
         let result = result.map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("Simulation failed: {e}"))
