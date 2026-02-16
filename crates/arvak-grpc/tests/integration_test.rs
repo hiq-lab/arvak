@@ -1,9 +1,15 @@
 // //! Integration tests for Arvak gRPC service.
 
+mod strict_backend;
+
+use std::sync::Arc;
+
 use arvak_grpc::proto::{arvak_service_client::ArvakServiceClient, *};
-use arvak_grpc::server::ArvakServiceImpl;
+use arvak_grpc::server::{ArvakServiceImpl, BackendRegistry, JobStore};
 use tonic::Request;
 use tonic::transport::Server;
+
+use strict_backend::StrictBackend;
 
 const TEST_QASM: &str = r"
 OPENQASM 3.0;
@@ -88,6 +94,7 @@ async fn test_submit_and_get_status() {
             }),
             backend_id: "simulator".to_string(),
             shots: 1000,
+            ..Default::default()
         }))
         .await
         .unwrap();
@@ -122,6 +129,7 @@ async fn test_full_job_lifecycle() {
             }),
             backend_id: "simulator".to_string(),
             shots: 1000,
+            ..Default::default()
         }))
         .await
         .unwrap();
@@ -184,18 +192,21 @@ async fn test_submit_batch() {
                         format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
                     }),
                     shots: 500,
+                    ..Default::default()
                 },
                 BatchJobRequest {
                     circuit: Some(CircuitPayload {
                         format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
                     }),
                     shots: 1000,
+                    ..Default::default()
                 },
                 BatchJobRequest {
                     circuit: Some(CircuitPayload {
                         format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
                     }),
                     shots: 1500,
+                    ..Default::default()
                 },
             ],
         }))
@@ -243,6 +254,7 @@ async fn test_invalid_backend() {
             }),
             backend_id: "nonexistent".to_string(),
             shots: 1000,
+            ..Default::default()
         }))
         .await;
 
@@ -263,6 +275,7 @@ async fn test_invalid_circuit() {
             }),
             backend_id: "simulator".to_string(),
             shots: 1000,
+            ..Default::default()
         }))
         .await;
 
@@ -300,6 +313,7 @@ async fn test_cancel_job() {
             }),
             backend_id: "simulator".to_string(),
             shots: 1000,
+            ..Default::default()
         }))
         .await
         .unwrap();
@@ -341,6 +355,7 @@ async fn test_concurrent_100_jobs() {
                     }),
                     backend_id: "simulator".to_string(),
                     shots: 100,
+                    ..Default::default()
                 }))
                 .await
                 .unwrap();
@@ -408,6 +423,7 @@ async fn test_malformed_qasm_variants() {
                 }),
                 backend_id: "simulator".to_string(),
                 shots: 100,
+                ..Default::default()
             }))
             .await;
 
@@ -429,6 +445,7 @@ async fn test_missing_circuit_payload() {
             circuit: None,
             backend_id: "simulator".to_string(),
             shots: 1000,
+            ..Default::default()
         }))
         .await;
 
@@ -440,6 +457,7 @@ async fn test_missing_circuit_payload() {
             circuit: Some(CircuitPayload { format: None }),
             backend_id: "simulator".to_string(),
             shots: 1000,
+            ..Default::default()
         }))
         .await;
 
@@ -460,6 +478,7 @@ async fn test_ir_json_format_returns_unimplemented() {
             }),
             backend_id: "simulator".to_string(),
             shots: 100,
+            ..Default::default()
         }))
         .await;
 
@@ -488,6 +507,7 @@ async fn test_cancel_race_condition() {
             }),
             backend_id: "simulator".to_string(),
             shots: 100,
+            ..Default::default()
         }))
         .await
         .unwrap();
@@ -523,5 +543,189 @@ async fn test_cancel_race_condition() {
         state == JobState::Completed || state == JobState::Canceled,
         "Job should be in terminal state after cancel race, got: {:?}",
         state
+    );
+}
+
+// =============================================================================
+// Compilation Smoke Tests
+// =============================================================================
+
+/// Start a test server with the strict backend (IQM-like: prx + cz only).
+async fn start_strict_test_server() -> String {
+    let mut registry = BackendRegistry::new();
+    registry.register("strict".to_string(), Arc::new(StrictBackend::new()));
+
+    let service = ArvakServiceImpl::with_components(JobStore::new(), registry);
+    let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
+
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        Server::builder()
+            .add_service(arvak_grpc::proto::arvak_service_server::ArvakServiceServer::new(service))
+            .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+            .await
+            .unwrap();
+    });
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    format!("http://{addr}")
+}
+
+/// Submit h+cx circuit to strict backend WITH compilation (optimization_level=1).
+/// The compiler should translate h+cx → prx+cz so the strict backend accepts it.
+#[tokio::test]
+async fn test_submit_with_compilation() {
+    let addr = start_strict_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    let response = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: Some(CircuitPayload {
+                format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
+            }),
+            backend_id: "strict".to_string(),
+            shots: 1024,
+            optimization_level: 1,
+        }))
+        .await
+        .unwrap();
+
+    let job_id = response.into_inner().job_id;
+    assert!(!job_id.is_empty());
+
+    // Poll until completed
+    let mut completed = false;
+    for _ in 0..20 {
+        let response = client
+            .get_job_status(Request::new(GetJobStatusRequest {
+                job_id: job_id.clone(),
+            }))
+            .await
+            .unwrap();
+
+        let job = response.into_inner().job.unwrap();
+        let state = JobState::try_from(job.state).unwrap();
+
+        if state == JobState::Completed {
+            completed = true;
+            break;
+        }
+        assert!(
+            state != JobState::Failed,
+            "Job failed unexpectedly: {}",
+            job.error_message
+        );
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+
+    assert!(completed, "Compiled job should complete on strict backend");
+}
+
+/// Submit h+cx circuit to strict backend WITHOUT compilation (optimization_level=0).
+/// The strict backend should reject the unsupported h and cx gates.
+#[tokio::test]
+async fn test_submit_without_compilation_rejects_unsupported_gates() {
+    let addr = start_strict_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    let response = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: Some(CircuitPayload {
+                format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
+            }),
+            backend_id: "strict".to_string(),
+            shots: 1024,
+            optimization_level: 0, // No compilation
+        }))
+        .await
+        .unwrap();
+
+    let job_id = response.into_inner().job_id;
+
+    // Poll until terminal state
+    let mut failed = false;
+    for _ in 0..20 {
+        let response = client
+            .get_job_status(Request::new(GetJobStatusRequest {
+                job_id: job_id.clone(),
+            }))
+            .await
+            .unwrap();
+
+        let job = response.into_inner().job.unwrap();
+        let state = JobState::try_from(job.state).unwrap();
+
+        if state == JobState::Failed {
+            failed = true;
+            assert!(
+                job.error_message.contains("Unsupported gate") || job.error_message.contains('h'),
+                "Error should mention unsupported gate 'h', got: {}",
+                job.error_message
+            );
+            break;
+        }
+        assert!(
+            state != JobState::Completed,
+            "Job should have failed — strict backend should reject the h gate"
+        );
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+
+    assert!(
+        failed,
+        "Job with unsupported gates should fail on strict backend"
+    );
+}
+
+/// Submit to simulator without setting optimization_level (default=0).
+/// Backwards compatible — simulator accepts all gates, so it should work.
+#[tokio::test]
+async fn test_submit_default_backwards_compatible() {
+    let addr = start_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    let response = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: Some(CircuitPayload {
+                format: Some(circuit_payload::Format::Qasm3(TEST_QASM.to_string())),
+            }),
+            backend_id: "simulator".to_string(),
+            shots: 100,
+            optimization_level: 0, // Explicit default — no compilation
+        }))
+        .await
+        .unwrap();
+
+    let job_id = response.into_inner().job_id;
+    assert!(!job_id.is_empty());
+
+    // Poll until completed
+    let mut completed = false;
+    for _ in 0..20 {
+        let response = client
+            .get_job_status(Request::new(GetJobStatusRequest {
+                job_id: job_id.clone(),
+            }))
+            .await
+            .unwrap();
+
+        let job = response.into_inner().job.unwrap();
+        let state = JobState::try_from(job.state).unwrap();
+
+        if state == JobState::Completed {
+            completed = true;
+            break;
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+
+    assert!(
+        completed,
+        "Default submission to simulator should still work"
     );
 }

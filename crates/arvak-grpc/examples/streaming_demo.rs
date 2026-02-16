@@ -39,6 +39,7 @@ cx q[0], q[1];
         }),
         backend_id: "simulator".to_string(),
         shots: 1000,
+        ..Default::default()
     };
 
     let response = client.submit_job(submit_req).await?;
@@ -119,6 +120,7 @@ h q[0];
                 backend_id: "simulator".to_string(),
                 shots: 100,
                 client_request_id: format!("batch-job-{i}"),
+                ..Default::default()
             };
 
             // Small delay between submissions

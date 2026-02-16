@@ -47,6 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }),
         backend_id: "simulator".to_string(),
         shots: 1000,
+        ..Default::default()
     });
 
     let submit_response = client.submit_job(submit_request).await?;

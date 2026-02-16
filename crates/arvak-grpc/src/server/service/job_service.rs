@@ -12,7 +12,7 @@ use crate::proto::{
 };
 
 use super::super::ArvakServiceImpl;
-use super::circuit_utils::parse_circuit_static;
+use super::circuit_utils::{compile_for_backend, parse_circuit_static};
 use super::job_execution::{execute_job_sync, spawn_job_execution, to_proto_state};
 
 // Type aliases for streaming types
@@ -56,6 +56,10 @@ impl ArvakServiceImpl {
 
         // Validate backend exists
         let backend = self.backends.get(&req.backend_id).map_err(Status::from)?;
+
+        // Compile circuit for target backend (no-op when optimization_level == 0)
+        let circuit =
+            compile_for_backend(circuit, backend.as_ref(), req.optimization_level).await?;
 
         // Create job in store (status = QUEUED)
         let job_id = self
@@ -123,6 +127,11 @@ impl ArvakServiceImpl {
             let circuit = self
                 .parse_circuit(batch_job.circuit)
                 .map_err(Status::from)?;
+
+            // Compile circuit for target backend (no-op when optimization_level == 0)
+            let circuit =
+                compile_for_backend(circuit, backend.as_ref(), batch_job.optimization_level)
+                    .await?;
 
             let job_id = self
                 .job_store
@@ -397,6 +406,29 @@ impl ArvakServiceImpl {
                                         client_request_id,
                                         result: Some(batch_job_result::Result::Error(format!(
                                             "Backend not found: {e}"
+                                        ))),
+                                    }))
+                                    .await;
+                                continue;
+                            }
+                        };
+
+                        // Compile circuit for target backend
+                        let circuit = match compile_for_backend(
+                            circuit,
+                            backend.as_ref(),
+                            submission.optimization_level,
+                        )
+                        .await
+                        {
+                            Ok(c) => c,
+                            Err(e) => {
+                                let _ = tx
+                                    .send(Ok(BatchJobResult {
+                                        job_id: String::new(),
+                                        client_request_id,
+                                        result: Some(batch_job_result::Result::Error(format!(
+                                            "Compilation failed: {e}"
                                         ))),
                                     }))
                                     .await;
