@@ -52,19 +52,35 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/app.js", get(serve_app_js))
         .route("/style.css", get(serve_style_css));
 
+    // Build CORS layer: use ARVAK_CORS_ORIGIN env var in production,
+    // fall back to permissive for local development.
+    let cors = match std::env::var("ARVAK_CORS_ORIGIN") {
+        Ok(origin) => match origin.parse::<axum::http::HeaderValue>() {
+            Ok(hv) => CorsLayer::new()
+                .allow_origin(hv)
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::DELETE,
+                ])
+                .allow_headers(Any),
+            Err(e) => {
+                tracing::warn!(
+                    "Invalid ARVAK_CORS_ORIGIN '{origin}': {e}; falling back to permissive CORS"
+                );
+                CorsLayer::permissive()
+            }
+        },
+        Err(_) => CorsLayer::permissive(),
+    };
+
     // Combine all routes
     Router::new()
         .nest("/api", api_routes)
         .merge(static_routes)
         .fallback(serve_index) // SPA fallback
         .layer(CompressionLayer::new())
-        // TODO: Make CORS configurable; restrict origins in production
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(Any)
-                .allow_headers(Any),
-        )
+        .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }

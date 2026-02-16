@@ -2,7 +2,9 @@
 
 use async_trait::async_trait;
 use rustc_hash::FxHashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 use tracing::{debug, info, instrument};
 
 use arvak_hal::{
@@ -19,6 +21,12 @@ pub const DEFAULT_ENDPOINT: &str = "https://cocos.resonance.meetiqm.com/api/v1";
 
 /// Default target backend (Garnet - IQM's 20-qubit device).
 pub const DEFAULT_BACKEND: &str = "garnet";
+
+/// Maximum number of cached jobs before evicting completed entries.
+const MAX_CACHED_JOBS: usize = 10_000;
+
+/// How long to cache backend info before refreshing from the API.
+const BACKEND_INFO_TTL: Duration = Duration::from_secs(5 * 60);
 
 /// Job cache entry.
 struct CachedJob {
@@ -41,8 +49,8 @@ pub struct IqmBackend {
     capabilities: Capabilities,
     /// Cached job information.
     jobs: Arc<Mutex<FxHashMap<String, CachedJob>>>,
-    /// Cached backend info.
-    backend_info: Arc<Mutex<Option<BackendInfo>>>,
+    /// Cached backend info with fetch timestamp for TTL-based refresh.
+    backend_info: Arc<Mutex<Option<(BackendInfo, Instant)>>>,
 }
 
 impl IqmBackend {
@@ -124,29 +132,25 @@ impl IqmBackend {
         &self.target
     }
 
-    /// Fetch and cache backend information.
+    /// Fetch and cache backend information, refreshing if stale.
     async fn fetch_backend_info(&self) -> IqmResult<BackendInfo> {
-        // Check cache first
+        // Check cache first; refresh if older than TTL.
         {
-            let cache = self
-                .backend_info
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if let Some(info) = cache.as_ref() {
-                return Ok(info.clone());
+            let cache = self.backend_info.lock().await;
+            if let Some((ref info, fetched_at)) = *cache {
+                if fetched_at.elapsed() < BACKEND_INFO_TTL {
+                    return Ok(info.clone());
+                }
             }
         }
 
         // Fetch from API
         let info = self.client.get_backend_info(&self.target).await?;
 
-        // Cache it
+        // Cache it with current timestamp
         {
-            let mut cache = self
-                .backend_info
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            *cache = Some(info.clone());
+            let mut cache = self.backend_info.lock().await;
+            *cache = Some((info.clone(), Instant::now()));
         }
 
         Ok(info)
@@ -232,6 +236,18 @@ impl Backend for IqmBackend {
             ));
         }
 
+        // Check gate set support
+        let gate_set = &caps.gate_set;
+        for (_, inst) in circuit.dag().topological_ops() {
+            if let Some(gate) = inst.as_gate() {
+                let name = gate.name();
+                if !gate_set.contains(name) {
+                    reasons.push(format!("Unsupported gate: {}", name));
+                    break;
+                }
+            }
+        }
+
         if reasons.is_empty() {
             Ok(ValidationResult::Valid)
         } else {
@@ -286,13 +302,13 @@ impl Backend for IqmBackend {
         let job_id = JobId::new(&response.id);
         info!("Job submitted: {}", job_id);
 
-        // Cache job info
+        // Cache job info, evicting completed entries if the cache is full.
         let job = Job::new(job_id.clone(), shots).with_backend(&self.target);
         {
-            let mut jobs = self
-                .jobs
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self.jobs.lock().await;
+            if jobs.len() >= MAX_CACHED_JOBS {
+                jobs.retain(|_, j| !j.job.status.is_terminal());
+            }
             jobs.insert(job_id.0.clone(), CachedJob { job, result: None });
         }
 
@@ -324,10 +340,7 @@ impl Backend for IqmBackend {
 
         // Update cache
         {
-            let mut jobs = self
-                .jobs
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self.jobs.lock().await;
             if let Some(cached) = jobs.get_mut(&job_id.0) {
                 cached.job = cached.job.clone().with_status(status.clone());
             }
@@ -340,10 +353,7 @@ impl Backend for IqmBackend {
     async fn result(&self, job_id: &JobId) -> HalResult<ExecutionResult> {
         // Check cache first
         {
-            let jobs = self
-                .jobs
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let jobs = self.jobs.lock().await;
             if let Some(cached) = jobs.get(&job_id.0) {
                 if let Some(ref result) = cached.result {
                     return Ok(result.clone());
@@ -399,10 +409,7 @@ impl Backend for IqmBackend {
 
         // Cache result
         {
-            let mut jobs = self
-                .jobs
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self.jobs.lock().await;
             if let Some(cached) = jobs.get_mut(&job_id.0) {
                 cached.result = Some(result.clone());
                 cached.job = cached.job.clone().with_status(JobStatus::Completed);
@@ -424,10 +431,7 @@ impl Backend for IqmBackend {
 
         // Update cache
         {
-            let mut jobs = self
-                .jobs
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut jobs = self.jobs.lock().await;
             if let Some(cached) = jobs.get_mut(&job_id.0) {
                 cached.job = cached.job.clone().with_status(JobStatus::Cancelled);
             }

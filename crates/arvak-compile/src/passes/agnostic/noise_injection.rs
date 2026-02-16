@@ -94,7 +94,16 @@ impl Pass for NoiseInjectionPass {
             }
         }
 
-        // Apply injections
+        // Apply injections.
+        //
+        // TODO: Known limitation — noise channels are appended at the end of the
+        // DAG via `dag.apply()` rather than being inserted immediately after the
+        // target gate. In the DAG model, `apply()` always places the new node at
+        // the current wire front (just before the output node), so noise channels
+        // will appear after all pre-existing operations on that wire. This is
+        // semantically correct for single-wire circuits but may reorder operations
+        // relative to gates on other wires. A positional `insert_after(node, inst)`
+        // API on CircuitDag would be needed to fix this precisely.
         for inst in gate_injections {
             dag.apply(inst)?;
         }

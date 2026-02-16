@@ -296,17 +296,15 @@ impl Unitary2x2 {
     }
 
     /// Normalize angles to [-pi, pi].
-    pub fn normalize_angle(mut angle: f64) -> f64 {
+    pub fn normalize_angle(angle: f64) -> f64 {
         if angle.is_nan() || angle.is_infinite() {
             return 0.0;
         }
-        while angle > PI {
-            angle -= 2.0 * PI;
+        let mut a = angle.rem_euclid(2.0 * PI);
+        if a > PI {
+            a -= 2.0 * PI;
         }
-        while angle < -PI {
-            angle += 2.0 * PI;
-        }
-        angle
+        a
     }
 }
 

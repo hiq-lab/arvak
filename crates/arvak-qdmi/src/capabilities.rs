@@ -306,7 +306,7 @@ fn query_sites(session: &DeviceSession<'_>) -> Result<Vec<SiteId>> {
         })
         .collect();
 
-    log::debug!("queried {} sites from device", sites.len());
+    tracing::debug!("queried {} sites from device", sites.len());
     Ok(sites)
 }
 
@@ -318,7 +318,7 @@ fn query_coupling_map(session: &DeviceSession<'_>) -> Result<CouplingMap> {
     let buf = match session.raw_query_device_property(ffi::QDMI_DEVICE_PROPERTY_COUPLINGMAP) {
         Ok(b) => b,
         Err(QdmiError::NotSupported) => {
-            log::warn!("device does not report a coupling map");
+            tracing::warn!("device does not report a coupling map");
             return Ok(CouplingMap::default());
         }
         Err(e) => return Err(e),
@@ -351,7 +351,7 @@ fn query_coupling_map(session: &DeviceSession<'_>) -> Result<CouplingMap> {
         pairs.push((a, b));
     }
 
-    log::debug!("queried coupling map with {} edges", pairs.len());
+    tracing::debug!("queried coupling map with {} edges", pairs.len());
     Ok(CouplingMap::from_pairs(pairs))
 }
 
@@ -379,7 +379,7 @@ fn query_operations(session: &DeviceSession<'_>) -> Result<Vec<OperationId>> {
         })
         .collect();
 
-    log::debug!("queried {} operations from device", ops.len());
+    tracing::debug!("queried {} operations from device", ops.len());
     Ok(ops)
 }
 
@@ -518,7 +518,7 @@ fn query_supported_formats(session: &DeviceSession<'_>) -> Vec<CircuitFormat> {
     {
         let int_size = std::mem::size_of::<i32>();
         if buf.len() % int_size != 0 || buf.is_empty() {
-            log::warn!(
+            tracing::warn!(
                 "supported program formats buffer has unexpected size {}; falling back",
                 buf.len()
             );
@@ -534,14 +534,16 @@ fn query_supported_formats(session: &DeviceSession<'_>) -> Vec<CircuitFormat> {
             })
             .collect();
         if formats.is_empty() {
-            log::warn!("device reported formats but none are supported by Arvak; falling back");
+            tracing::warn!("device reported formats but none are supported by Arvak; falling back");
             vec![CircuitFormat::OpenQasm3]
         } else {
-            log::debug!("device supports formats: {formats:?}");
+            tracing::debug!("device supports formats: {formats:?}");
             formats
         }
     } else {
-        log::debug!("device does not report supported program formats; defaulting to OpenQASM 3");
+        tracing::debug!(
+            "device does not report supported program formats; defaulting to OpenQASM 3"
+        );
         vec![CircuitFormat::OpenQasm3]
     }
 }

@@ -15,6 +15,9 @@ use arvak_ir::Circuit;
 
 use crate::statevector::Statevector;
 
+/// Maximum number of cached jobs before evicting completed entries.
+const MAX_CACHED_JOBS: usize = 10_000;
+
 /// Job data for the simulator.
 struct SimJob {
     job: Job,
@@ -67,10 +70,13 @@ impl SimulatorBackend {
     /// measurement outcome for each shot. Returns a [`ExecutionResult`] with
     /// the resulting histogram.
     ///
+    /// Returns an error if a gate has unresolved symbolic parameters or if an
+    /// unsupported gate type is encountered.
+    ///
     /// The method is public so that the Python bindings can call it directly
     /// without going through the async [`Backend`] trait.
     #[instrument(skip(self, circuit))]
-    pub fn run_simulation(&self, circuit: &Circuit, shots: u32) -> ExecutionResult {
+    pub fn run_simulation(&self, circuit: &Circuit, shots: u32) -> Result<ExecutionResult, String> {
         let start = Instant::now();
 
         let num_qubits = circuit.num_qubits();
@@ -97,7 +103,7 @@ impl SimulatorBackend {
 
             // Apply all gates
             for inst in &instructions {
-                sv.apply(inst);
+                sv.apply(inst)?;
             }
 
             // Sample and record result
@@ -113,7 +119,7 @@ impl SimulatorBackend {
         let elapsed = start.elapsed();
         debug!("Simulation completed in {:?}", elapsed);
 
-        ExecutionResult::new(counts, shots).with_execution_time(elapsed.as_millis() as u64)
+        Ok(ExecutionResult::new(counts, shots).with_execution_time(elapsed.as_millis() as u64))
     }
 }
 
@@ -173,19 +179,31 @@ impl Backend for SimulatorBackend {
             result: None,
         };
 
-        // Store job
+        // Store job, evicting completed entries if the cache is full.
         {
             let mut jobs = self
                 .jobs
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if jobs.len() >= MAX_CACHED_JOBS {
+                jobs.retain(|_, j| !j.job.status.is_terminal());
+            }
             jobs.insert(job_id.0.clone(), sim_job);
         }
 
         debug!("Submitted job: {}", job_id);
 
-        // Run simulation immediately (in a real implementation, this would be async)
-        let result = self.run_simulation(circuit, shots);
+        // Run simulation on a blocking thread to avoid starving the async runtime.
+        let circuit_clone = circuit.clone();
+        let max_qubits = self.max_qubits;
+        let result = tokio::task::spawn_blocking(move || {
+            // Construct a temporary SimulatorBackend to reuse run_simulation.
+            let sim = SimulatorBackend::with_max_qubits(max_qubits);
+            sim.run_simulation(&circuit_clone, shots)
+        })
+        .await
+        .map_err(|e| HalError::Backend(format!("simulation task panicked: {e}")))?
+        .map_err(|e| HalError::Backend(format!("simulation failed: {e}")))?;
 
         // Update job with result
         {
@@ -242,7 +260,7 @@ impl BackendFactory for SimulatorBackend {
             .extra
             .get("max_qubits")
             .and_then(serde_json::value::Value::as_u64)
-            .map_or(20, |v| v as u32);
+            .map_or(20, |v| u32::try_from(v).unwrap_or(20));
 
         Ok(Self {
             capabilities: Capabilities::simulator(max_qubits),

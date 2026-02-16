@@ -731,10 +731,10 @@ async function visualizeCircuit() {
 
         // Update info bar
         infoBar.innerHTML = `
-            <span><span class="label">Name:</span> <span class="value">${circuit.name}</span></span>
-            <span><span class="label">Qubits:</span> <span class="value">${circuit.num_qubits}</span></span>
-            <span><span class="label">Depth:</span> <span class="value">${circuit.depth}</span></span>
-            <span><span class="label">Gates:</span> <span class="value">${circuit.num_ops}</span></span>
+            <span><span class="label">Name:</span> <span class="value">${escapeHtml(String(circuit.name))}</span></span>
+            <span><span class="label">Qubits:</span> <span class="value">${escapeHtml(String(circuit.num_qubits))}</span></span>
+            <span><span class="label">Depth:</span> <span class="value">${escapeHtml(String(circuit.depth))}</span></span>
+            <span><span class="label">Gates:</span> <span class="value">${escapeHtml(String(circuit.num_ops))}</span></span>
         `;
 
         // Render circuit
@@ -771,9 +771,9 @@ async function compileCircuit() {
 
         // Update main circuit info
         infoBar.innerHTML = `
-            <span><span class="label">Name:</span> <span class="value">${result.before.name}</span></span>
-            <span><span class="label">Target:</span> <span class="value">${target.toUpperCase()}</span></span>
-            <span><span class="label">Opt Level:</span> <span class="value">${optLevel}</span></span>
+            <span><span class="label">Name:</span> <span class="value">${escapeHtml(String(result.before.name))}</span></span>
+            <span><span class="label">Target:</span> <span class="value">${escapeHtml(target.toUpperCase())}</span></span>
+            <span><span class="label">Opt Level:</span> <span class="value">${escapeHtml(String(optLevel))}</span></span>
         `;
 
         // Render original circuit in main container
@@ -795,12 +795,12 @@ async function compileCircuit() {
             : `${(stats.throughput_gates_per_sec / 1000).toFixed(0)}K gates/s`;
 
         document.getElementById('compile-stats').innerHTML = `
-            <span><span class="label">Original Depth:</span> <span class="value">${stats.original_depth}</span></span>
-            <span><span class="label">Compiled Depth:</span> <span class="value ${depthChange < 0 ? 'improved' : depthChange > 0 ? 'degraded' : ''}">${stats.compiled_depth} (${depthChange >= 0 ? '+' : ''}${depthChange})</span></span>
-            <span><span class="label">Original Gates:</span> <span class="value">${stats.gates_before}</span></span>
-            <span><span class="label">Compiled Gates:</span> <span class="value ${gateChange < 0 ? 'improved' : gateChange > 0 ? 'degraded' : ''}">${stats.gates_after} (${gateChange >= 0 ? '+' : ''}${gateChange})</span></span>
-            <span><span class="label">Compile Time:</span> <span class="value improved">${timeStr}</span></span>
-            <span><span class="label">Throughput:</span> <span class="value improved">${throughputStr}</span></span>
+            <span><span class="label">Original Depth:</span> <span class="value">${escapeHtml(String(stats.original_depth))}</span></span>
+            <span><span class="label">Compiled Depth:</span> <span class="value ${depthChange < 0 ? 'improved' : depthChange > 0 ? 'degraded' : ''}">${escapeHtml(String(stats.compiled_depth))} (${depthChange >= 0 ? '+' : ''}${escapeHtml(String(depthChange))})</span></span>
+            <span><span class="label">Original Gates:</span> <span class="value">${escapeHtml(String(stats.gates_before))}</span></span>
+            <span><span class="label">Compiled Gates:</span> <span class="value ${gateChange < 0 ? 'improved' : gateChange > 0 ? 'degraded' : ''}">${escapeHtml(String(stats.gates_after))} (${gateChange >= 0 ? '+' : ''}${escapeHtml(String(gateChange))})</span></span>
+            <span><span class="label">Compile Time:</span> <span class="value improved">${escapeHtml(String(timeStr))}</span></span>
+            <span><span class="label">Throughput:</span> <span class="value improved">${escapeHtml(String(throughputStr))}</span></span>
         `;
 
         // Render before/after circuits
@@ -883,18 +883,18 @@ async function loadBackends() {
             card.style.cursor = 'pointer';
             card.innerHTML = `
                 <h3>
-                    ${backend.name}
+                    ${escapeHtml(backend.name)}
                     <span class="status ${backend.available ? 'available' : 'unavailable'}"></span>
                 </h3>
                 <div class="info">
                     <span><strong>Type:</strong> ${backend.is_simulator ? 'Simulator' : 'Hardware'}</span>
-                    <span><strong>Qubits:</strong> ${backend.num_qubits}</span>
+                    <span><strong>Qubits:</strong> ${escapeHtml(String(backend.num_qubits))}</span>
                     <span><strong>Status:</strong> ${backend.available ? 'Available' : 'Unavailable'}</span>
                 </div>
                 <div class="gates">
                     <strong>Native gates:</strong>
                     ${backend.native_gates.length > 0
-                        ? backend.native_gates.map(g => `<span class="tag">${g}</span>`).join('')
+                        ? backend.native_gates.map(g => `<span class="tag">${escapeHtml(g)}</span>`).join('')
                         : '<span class="tag">universal</span>'}
                 </div>
             `;
@@ -927,12 +927,12 @@ async function showBackendTopology(name) {
         }
     } catch (error) {
         detailContainer.style.display = 'block';
-        topoContainer.innerHTML = `<div class="error-message">${error.message}</div>`;
+        topoContainer.innerHTML = `<div class="error-message">${escapeHtml(error.message)}</div>`;
     }
 }
 
 function showError(container, message) {
-    container.innerHTML = `<div class="error-message">${message}</div>`;
+    container.innerHTML = `<div class="error-message">${escapeHtml(message)}</div>`;
 }
 
 // ============================================================================
@@ -1027,15 +1027,15 @@ async function viewJobDetails(jobId) {
                 <div class="job-details-grid">
                     <div class="detail-item">
                         <span class="label">Job ID</span>
-                        <span class="value">${job.id}</span>
+                        <span class="value">${escapeHtml(job.id)}</span>
                     </div>
                     <div class="detail-item">
                         <span class="label">Status</span>
-                        <span class="value">${job.status}${job.status_details ? ' - ' + escapeHtml(job.status_details) : ''}</span>
+                        <span class="value">${escapeHtml(job.status)}${job.status_details ? ' - ' + escapeHtml(job.status_details) : ''}</span>
                     </div>
                     <div class="detail-item">
                         <span class="label">Backend</span>
-                        <span class="value">${job.backend || 'Not assigned'}</span>
+                        <span class="value">${escapeHtml(job.backend || 'Not assigned')}</span>
                     </div>
                     <div class="detail-item">
                         <span class="label">Shots</span>
@@ -1074,7 +1074,7 @@ async function viewJobDetails(jobId) {
                 ${Object.keys(job.metadata || {}).length > 0 ? `
                 <div class="job-metadata">
                     <h4>Metadata</h4>
-                    <pre>${JSON.stringify(job.metadata, null, 2)}</pre>
+                    <pre>${escapeHtml(JSON.stringify(job.metadata, null, 2))}</pre>
                 </div>` : ''}
 
                 <div class="job-actions-panel">
@@ -1118,7 +1118,7 @@ async function viewJobResult(jobId) {
                     <span><strong>Total Shots:</strong> ${result.statistics.total_shots}</span>
                     <span><strong>Unique Outcomes:</strong> ${result.statistics.unique_outcomes}</span>
                     ${result.execution_time_ms ? `<span><strong>Execution Time:</strong> ${result.execution_time_ms}ms</span>` : ''}
-                    <span><strong>Most Frequent:</strong> ${result.statistics.most_frequent} (${result.statistics.most_frequent_count} times)</span>
+                    <span><strong>Most Frequent:</strong> ${escapeHtml(String(result.statistics.most_frequent))} (${result.statistics.most_frequent_count} times)</span>
                 </div>
 
                 <div id="histogram-container" class="histogram-container"></div>
@@ -1136,7 +1136,7 @@ async function viewJobResult(jobId) {
                         <tbody>
                             ${result.bars.slice(0, 20).map(bar => `
                                 <tr>
-                                    <td class="mono">${bar.bitstring}</td>
+                                    <td class="mono">${escapeHtml(bar.bitstring)}</td>
                                     <td>${bar.count}</td>
                                     <td>${(bar.probability * 100).toFixed(2)}%</td>
                                 </tr>
@@ -1153,7 +1153,7 @@ async function viewJobResult(jobId) {
         // Render histogram with D3
         renderHistogram(document.getElementById('histogram-container'), result.bars);
     } catch (error) {
-        container.innerHTML = `<div class="error-message">${error.message}</div>`;
+        container.innerHTML = `<div class="error-message">${escapeHtml(error.message)}</div>`;
     }
 }
 

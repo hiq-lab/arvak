@@ -97,6 +97,10 @@ impl ArvakServiceImpl {
         request: Request<SubmitBatchRequest>,
     ) -> std::result::Result<Response<SubmitBatchResponse>, Status> {
         let start = std::time::Instant::now();
+
+        // Extract client IP before consuming the request
+        let client_ip = request.remote_addr().map(|addr| addr.ip().to_string());
+
         let req = request.into_inner();
 
         // Validate backend exists
@@ -106,6 +110,14 @@ impl ArvakServiceImpl {
 
         // Submit each job
         for batch_job in req.jobs {
+            // Check resource limits per job if manager is configured
+            if let Some(ref resources) = self.resources {
+                resources
+                    .check_can_submit(client_ip.as_deref())
+                    .await
+                    .map_err(|e| Status::resource_exhausted(e.to_string()))?;
+            }
+
             let circuit = self
                 .parse_circuit(batch_job.circuit)
                 .map_err(Status::from)?;
@@ -118,6 +130,11 @@ impl ArvakServiceImpl {
 
             // Record job submission metric
             self.metrics.record_job_submitted(&req.backend_id);
+
+            // Update resource tracking
+            if let Some(ref resources) = self.resources {
+                resources.job_submitted(client_ip.as_deref()).await;
+            }
 
             spawn_job_execution(
                 self.job_store.clone(),
