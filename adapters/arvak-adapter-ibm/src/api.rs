@@ -354,11 +354,14 @@ impl IbmClient {
     /// Submit a job using the Sampler primitive.
     ///
     /// Uses V2 PUB format for the Cloud API, V1 format for legacy.
+    /// When `skip_transpilation` is true, tells IBM to skip its own
+    /// transpilation pass (use when the circuit is already compiled).
     pub async fn submit_sampler_job(
         &self,
         backend: &str,
         circuits: Vec<String>,
         shots: u32,
+        _skip_transpilation: bool,
     ) -> IbmResult<SubmitResponse> {
         let url = format!("{}/v1/jobs", self.endpoint);
 
@@ -369,13 +372,22 @@ impl IbmClient {
                 .map(|c| serde_json::json!([c, {}, shots]))
                 .collect();
 
+            let mut params = serde_json::json!({
+                "version": 2,
+                "pubs": pubs
+            });
+            // V2 Sampler requires ISA circuits by default.
+            // Use optimization_level 1 to let IBM handle physical routing.
+            // Arvak handles basis translation and gate optimization;
+            // IBM handles qubit-to-hardware mapping.
+            params["options"] = serde_json::json!({
+                "optimization_level": 1
+            });
+
             serde_json::json!({
                 "program_id": "sampler",
                 "backend": backend,
-                "params": {
-                    "version": 2,
-                    "pubs": pubs
-                }
+                "params": params
             })
         } else {
             // V1 Sampler: legacy format

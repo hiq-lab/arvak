@@ -32,6 +32,8 @@ pub struct IbmBackend {
     capabilities: Capabilities,
     /// Cached backend info with fetch timestamp for TTL-based refresh.
     backend_info: Arc<RwLock<Option<(BackendInfo, Instant)>>>,
+    /// Whether to tell IBM to skip its own transpilation.
+    skip_transpilation: bool,
 }
 
 impl IbmBackend {
@@ -50,6 +52,7 @@ impl IbmBackend {
             capabilities: Capabilities::ibm(&target, 127),
             target,
             backend_info: Arc::new(RwLock::new(None)),
+            skip_transpilation: false,
         })
     }
 
@@ -67,6 +70,7 @@ impl IbmBackend {
             capabilities: Capabilities::ibm(&target, 127),
             target,
             backend_info: Arc::new(RwLock::new(None)),
+            skip_transpilation: false,
         })
     }
 
@@ -90,6 +94,7 @@ impl IbmBackend {
                 capabilities: Capabilities::ibm(&target, 133),
                 target,
                 backend_info: Arc::new(RwLock::new(None)),
+                skip_transpilation: false,
             });
         }
 
@@ -103,6 +108,7 @@ impl IbmBackend {
                 capabilities: Capabilities::ibm(&target, 127),
                 target,
                 backend_info: Arc::new(RwLock::new(None)),
+                skip_transpilation: false,
             });
         }
 
@@ -133,7 +139,16 @@ impl IbmBackend {
             capabilities: Capabilities::ibm(target, 127),
             target: target.to_string(),
             backend_info: Arc::new(RwLock::new(None)),
+            skip_transpilation: false,
         })
+    }
+
+    /// Tell IBM to skip its own transpilation when submitting jobs.
+    ///
+    /// Use this when the circuit has already been compiled to the
+    /// native basis (e.g. by Arvak's compiler).
+    pub fn set_skip_transpilation(&mut self, skip: bool) {
+        self.skip_transpilation = skip;
     }
 
     /// Get the target backend name.
@@ -388,7 +403,7 @@ impl Backend for IbmBackend {
         // Submit job
         let response = self
             .client
-            .submit_sampler_job(&self.target, vec![qasm], shots)
+            .submit_sampler_job(&self.target, vec![qasm], shots, self.skip_transpilation)
             .await
             .map_err(|e| HalError::SubmissionFailed(e.to_string()))?;
 
