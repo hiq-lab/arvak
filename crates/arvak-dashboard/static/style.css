@@ -1220,3 +1220,204 @@ button.secondary:hover {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* =====================================================================
+   Nathan — Research Optimizer
+   ===================================================================== */
+
+.nathan-editor-panel {
+    min-width: 400px;
+    flex: 1;
+}
+
+.nathan-results-panel {
+    min-width: 400px;
+    flex: 1;
+}
+
+.nathan-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.nathan-stat {
+    background: var(--bg-secondary);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.nathan-stat-label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.nathan-stat-value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.nathan-classification {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+
+.nathan-papers {
+    margin-bottom: 1rem;
+}
+
+.nathan-paper {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nathan-paper a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.nathan-paper a:hover {
+    text-decoration: underline;
+}
+
+.nathan-paper-meta {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+}
+
+.nathan-suggestion {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.nathan-suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.35rem;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.nathan-suggestion p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0 0 0.35rem 0;
+}
+
+.nathan-impact {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.nathan-impact-high {
+    background: rgba(0, 217, 255, 0.15);
+    color: var(--accent);
+}
+
+.nathan-impact-medium {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+}
+
+.nathan-impact-low {
+    background: rgba(160, 160, 160, 0.15);
+    color: var(--text-secondary);
+}
+
+.nathan-code {
+    background: var(--bg-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text-primary);
+}
+
+.nathan-llm-response {
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+}
+
+.nathan-chat-panel {
+    min-width: 100%;
+}
+
+.nathan-chat-messages {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 0.75rem;
+}
+
+.nathan-msg {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.nathan-msg-user {
+    background: var(--bg-secondary);
+}
+
+.nathan-msg-assistant {
+    background: rgba(0, 217, 255, 0.05);
+    border: 1px solid rgba(0, 217, 255, 0.15);
+}
+
+.nathan-chat-input-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.nathan-chat-input-row input {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.nathan-chat-input-row input:focus {
+    border-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+    .nathan-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .nathan-classification {
+        grid-template-columns: 1fr;
+    }
+}

@@ -16,6 +16,7 @@ use crate::property::PropertySet;
 /// Currently supports translation to:
 /// - IQM basis: PRX + CZ
 /// - IBM basis: RZ + SX + X + CX
+/// - IBM Heron basis: RZ + SX + X + CZ
 pub struct BasisTranslation;
 
 impl Pass for BasisTranslation {
@@ -33,29 +34,34 @@ impl Pass for BasisTranslation {
             .as_ref()
             .ok_or(CompileError::MissingBasisGates)?;
 
-        // Collect node indices that need translation (avoid cloning instructions)
-        let nodes_to_translate: Vec<_> = dag
-            .topological_ops()
-            .filter_map(|(idx, inst)| {
-                if let Some(gate) = inst.as_gate() {
-                    if !is_in_basis(gate, basis_gates) {
-                        return Some(idx);
-                    }
-                }
-                None
-            })
-            .collect();
+        // Rebuild the DAG from scratch to guarantee correct gate ordering.
+        // The old approach used `substitute_node` which appends replacements at
+        // wire ends instead of at the original node position, producing wrong
+        // circuits whenever a non-final gate is translated (e.g. H before CX).
+        let mut new_dag = CircuitDag::new();
+        for qubit in dag.qubits().collect::<Vec<_>>() {
+            new_dag.add_qubit(qubit);
+        }
+        for clbit in dag.clbits().collect::<Vec<_>>() {
+            new_dag.add_clbit(clbit);
+        }
+        new_dag.set_global_phase(dag.global_phase());
+        new_dag.set_level(dag.level());
 
-        // Translate each gate (re-fetch instruction to avoid clone)
-        for node_idx in nodes_to_translate {
-            if let Some(instruction) = dag.get_instruction(node_idx) {
-                let replacement = translate_gate(instruction, basis_gates)?;
-                if !replacement.is_empty() {
-                    dag.substitute_node(node_idx, replacement)?;
+        for (_idx, inst) in dag.topological_ops() {
+            if let Some(gate) = inst.as_gate() {
+                if !is_in_basis(gate, basis_gates) {
+                    let replacement = translate_gate(inst, basis_gates)?;
+                    for r in replacement {
+                        new_dag.apply(r)?;
+                    }
+                    continue;
                 }
             }
+            new_dag.apply(inst.clone())?;
         }
 
+        *dag = new_dag;
         Ok(())
     }
 
@@ -93,6 +99,8 @@ fn translate_gate(
     let is_iqm = basis.contains("prx") && basis.contains("cz");
     // Check if it's IBM basis (RZ + SX + X + CX)
     let is_ibm = basis.contains("rz") && basis.contains("sx") && basis.contains("cx");
+    // Check if it's IBM Heron basis (RZ + SX + X + CZ, no CX)
+    let is_heron = basis.contains("rz") && basis.contains("sx") && basis.contains("cz") && !is_ibm;
 
     match &gate.kind {
         GateKind::Standard(std_gate) => {
@@ -100,6 +108,8 @@ fn translate_gate(
                 translate_to_iqm(std_gate, &instruction.qubits)
             } else if is_ibm {
                 translate_to_ibm(std_gate, &instruction.qubits)
+            } else if is_heron {
+                translate_to_heron(std_gate, &instruction.qubits)
             } else {
                 // Unknown basis, return as-is
                 Ok(vec![instruction.clone()])
@@ -313,6 +323,74 @@ fn translate_to_ibm(
     })
 }
 
+/// Translate a standard gate to IBM Heron basis (RZ + SX + X + CZ).
+///
+/// Single-qubit decompositions are identical to the IBM basis.
+/// Two-qubit: CX is decomposed as H · CZ · H on the target qubit.
+fn translate_to_heron(
+    gate: &StandardGate,
+    qubits: &[arvak_ir::QubitId],
+) -> CompileResult<Vec<Instruction>> {
+    let q0 = qubits[0];
+
+    Ok(match gate {
+        // Single-qubit gates — same as IBM basis
+        StandardGate::I => vec![],
+        StandardGate::X => vec![Instruction::single_qubit_gate(StandardGate::X, q0)],
+        StandardGate::Y => vec![
+            Instruction::single_qubit_gate(StandardGate::Rz(PI.into()), q0),
+            Instruction::single_qubit_gate(StandardGate::X, q0),
+        ],
+        StandardGate::Z => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz(PI.into()),
+            q0,
+        )],
+        StandardGate::H => vec![
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
+        ],
+        StandardGate::SX => vec![Instruction::single_qubit_gate(StandardGate::SX, q0)],
+        StandardGate::Rx(theta) => vec![
+            Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
+            Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
+        ],
+        StandardGate::Ry(theta) => vec![
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
+            Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
+            Instruction::single_qubit_gate(StandardGate::SXdg, q0),
+        ],
+        StandardGate::Rz(theta) => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz(theta.clone()),
+            q0,
+        )],
+
+        // CZ is native on Heron
+        StandardGate::CZ => {
+            let q1 = qubits[1];
+            vec![Instruction::two_qubit_gate(StandardGate::CZ, q0, q1)]
+        }
+
+        // CX = H(target) · CZ · H(target)
+        StandardGate::CX => {
+            let q1 = qubits[1];
+            let h_gates = translate_to_heron(&StandardGate::H, &[q1])?;
+            let mut result = Vec::with_capacity(h_gates.len() * 2 + 1);
+            result.extend_from_slice(&h_gates);
+            result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
+            result.extend_from_slice(&h_gates);
+            result
+        }
+
+        other => {
+            return Err(CompileError::GateNotInBasis(format!("{other:?}")));
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -360,5 +438,103 @@ mod tests {
 
         // H = Rz · SX · Rz = 3 gates
         assert_eq!(dag.num_ops(), 3);
+    }
+
+    #[test]
+    fn test_heron_translation_h() {
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.h(QubitId(0)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props =
+            PropertySet::new().with_target(CouplingMap::linear(133), BasisGates::heron());
+
+        BasisTranslation.run(&mut dag, &mut props).unwrap();
+
+        // H = Rz · SX · Rz = 3 gates (same as IBM single-qubit)
+        assert_eq!(dag.num_ops(), 3);
+    }
+
+    #[test]
+    fn test_heron_translation_cx() {
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props =
+            PropertySet::new().with_target(CouplingMap::linear(133), BasisGates::heron());
+
+        BasisTranslation.run(&mut dag, &mut props).unwrap();
+
+        // CX = H(t) · CZ · H(t), where H = 3 gates
+        // So CX = 3 + 1 + 3 = 7 gates
+        assert_eq!(dag.num_ops(), 7);
+    }
+
+    /// Verify that BasisTranslation preserves gate ordering in multi-gate circuits.
+    ///
+    /// This is a regression test for a bug where `substitute_node` appended
+    /// replacement gates at wire ends instead of at the original position,
+    /// placing the H decomposition AFTER the CX in a Bell state circuit.
+    #[test]
+    fn test_bell_state_ordering() {
+        // Build: H(q0) -> CX(q0,q1) -> Measure(q0) -> Measure(q1)
+        let mut circuit = Circuit::with_size("test", 2, 2);
+        circuit.h(QubitId(0)).unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit.measure(QubitId(0), arvak_ir::ClbitId(0)).unwrap();
+        circuit.measure(QubitId(1), arvak_ir::ClbitId(1)).unwrap();
+
+        let mut dag = circuit.into_dag();
+        let mut props =
+            PropertySet::new().with_target(CouplingMap::linear(133), BasisGates::heron());
+
+        BasisTranslation.run(&mut dag, &mut props).unwrap();
+
+        // Collect gates in topological order and verify:
+        // 1. All single-qubit gates on q[0] from H decomposition come BEFORE CZ
+        // 2. Measurements come LAST
+        let ops: Vec<_> = dag
+            .topological_ops()
+            .map(|(_, inst)| {
+                let name = match &inst.kind {
+                    InstructionKind::Gate(g) => g.name().to_string(),
+                    InstructionKind::Measure => "measure".to_string(),
+                    _ => "other".to_string(),
+                };
+                (name, inst.qubits.clone())
+            })
+            .collect();
+
+        // Find position of CZ gate
+        let cz_pos = ops.iter().position(|(name, _)| name == "cz").unwrap();
+        // Find position of first measurement
+        let meas_pos = ops.iter().position(|(name, _)| name == "measure").unwrap();
+
+        // H decomposition on q[0] (rz, sx, rz) must come before CZ
+        // CZ must come before measurements
+        assert!(
+            cz_pos > 0,
+            "CZ should not be the first gate (H decomposition must precede it)"
+        );
+        assert!(
+            cz_pos < meas_pos,
+            "CZ at position {cz_pos} must come before measurement at position {meas_pos}"
+        );
+
+        // Verify the first gates on q[0] are from H decomposition (rz/sx)
+        let q0_gates_before_cz: Vec<_> = ops[..cz_pos]
+            .iter()
+            .filter(|(_, qubits)| qubits.contains(&QubitId(0)))
+            .map(|(name, _)| name.as_str())
+            .collect();
+        assert!(
+            !q0_gates_before_cz.is_empty(),
+            "H decomposition gates on q[0] must precede CZ"
+        );
+        assert!(
+            q0_gates_before_cz.iter().all(|n| *n == "rz" || *n == "sx"),
+            "Gates before CZ on q[0] should be rz/sx (H decomposition), got: {q0_gates_before_cz:?}"
+        );
     }
 }

@@ -103,35 +103,57 @@ pub async fn execute(
     };
 
     // Create backend
-    let backend_impl: Arc<dyn Backend> =
-        match backend.to_lowercase().as_str() {
-            "simulator" | "sim" => Arc::new(SimulatorBackend::new()),
-            #[cfg(feature = "iqm")]
-            "iqm" | "garnet" => {
-                use arvak_adapter_iqm::IqmBackend;
-                Arc::new(IqmBackend::new().map_err(|e| {
+    let backend_impl: Arc<dyn Backend> = match backend.to_lowercase().as_str() {
+        "simulator" | "sim" => Arc::new(SimulatorBackend::new()),
+        #[cfg(feature = "iqm")]
+        "iqm" | "garnet" => {
+            use arvak_adapter_iqm::IqmBackend;
+            Arc::new(
+                IqmBackend::new().map_err(|e| {
                     anyhow::anyhow!("Failed to connect to IQM: {}. Set IQM_TOKEN.", e)
+                })?,
+            )
+        }
+        #[cfg(not(feature = "iqm"))]
+        "iqm" | "garnet" => {
+            anyhow::bail!("IQM backend not available. Rebuild with --features iqm");
+        }
+        #[cfg(feature = "ibm")]
+        "ibm" | "ibmq" | "ibm_torino" | "ibm_fez" | "ibm_marrakesh" => {
+            use arvak_adapter_ibm::IbmBackend;
+            Arc::new(IbmBackend::connect(backend).await.map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to connect to IBM: {}. Set IBM_API_KEY + IBM_SERVICE_CRN (or IBM_QUANTUM_TOKEN).",
+                    e
+                )
+            })?)
+        }
+        #[cfg(not(feature = "ibm"))]
+        "ibm" | "ibmq" | "ibm_torino" | "ibm_fez" | "ibm_marrakesh" => {
+            anyhow::bail!("IBM backend not available. Rebuild with --features ibm");
+        }
+        #[cfg(feature = "braket")]
+        "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1"
+        | "rigetti" | "ankaa" | "ionq" | "aria" => {
+            use arvak_adapter_braket::BraketBackend;
+            let device_arn = arvak_adapter_braket::device::arn_for_name(backend)
+                .ok_or_else(|| anyhow::anyhow!("Unknown Braket device: {backend}"))?;
+            Arc::new(BraketBackend::connect(device_arn).await.map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to connect to AWS Braket: {}. Set ARVAK_BRAKET_S3_BUCKET and configure AWS credentials.",
+                        e
+                    )
                 })?)
-            }
-            #[cfg(not(feature = "iqm"))]
-            "iqm" | "garnet" => {
-                anyhow::bail!("IQM backend not available. Rebuild with --features iqm");
-            }
-            #[cfg(feature = "ibm")]
-            "ibm" | "ibmq" => {
-                use arvak_adapter_ibm::IbmBackend;
-                Arc::new(IbmBackend::new().map_err(|e| {
-                    anyhow::anyhow!("Failed to connect to IBM: {}. Set IBM_QUANTUM_TOKEN.", e)
-                })?)
-            }
-            #[cfg(not(feature = "ibm"))]
-            "ibm" | "ibmq" => {
-                anyhow::bail!("IBM backend not available. Rebuild with --features ibm");
-            }
-            other => {
-                anyhow::bail!("Unknown backend: '{other}'. Available: simulator, iqm, ibm");
-            }
-        };
+        }
+        #[cfg(not(feature = "braket"))]
+        "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1"
+        | "rigetti" | "ankaa" | "ionq" | "aria" => {
+            anyhow::bail!("Braket backend not available. Rebuild with --features braket");
+        }
+        other => {
+            anyhow::bail!("Unknown backend: '{other}'. Available: simulator, iqm, ibm, braket");
+        }
+    };
 
     // Create HPC scheduler
     let hpc = HpcScheduler::new(sched_config, vec![backend_impl], Arc::new(store))

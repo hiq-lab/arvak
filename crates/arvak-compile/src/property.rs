@@ -469,6 +469,13 @@ impl BasisGates {
         Self::new(["rz", "sx", "x", "cx", "measure", "barrier", "id"])
     }
 
+    /// Create IBM Heron basis gates (RZ + SX + X + CZ).
+    pub fn heron() -> Self {
+        Self::new([
+            "rz", "sx", "x", "cz", "id", "rx", "rzz", "measure", "barrier",
+        ])
+    }
+
     /// Create neutral-atom basis gates (RZ + RX + RY + CZ + shuttle).
     pub fn neutral_atom() -> Self {
         Self::new(["rz", "rx", "ry", "cz", "measure", "barrier", "shuttle"])

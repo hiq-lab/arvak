@@ -41,6 +41,9 @@ from arvak._native import (
 # Import integration registry
 from arvak.integrations import IntegrationRegistry
 
+# Nathan research optimizer (lazy import — only loaded when accessed)
+from arvak import nathan
+
 # Integration API
 def list_integrations():
     """List all available framework integrations.
@@ -145,4 +148,6 @@ __all__ = [
     "list_integrations",
     "integration_status",
     "get_integration",
+    # Research optimizer
+    "nathan",
 ]

@@ -9,12 +9,22 @@ pub type IbmResult<T> = Result<T, IbmError>;
 #[derive(Debug, Error)]
 pub enum IbmError {
     /// Missing API token.
-    #[error("IBM Quantum API token not found. Set IBM_QUANTUM_TOKEN environment variable.")]
+    #[error(
+        "IBM Quantum API token not found. Set IBM_API_KEY or IBM_QUANTUM_TOKEN environment variable."
+    )]
     MissingToken,
 
     /// Invalid API token.
     #[error("Invalid IBM Quantum API token")]
     InvalidToken,
+
+    /// IAM token exchange failed.
+    #[error("IAM token exchange failed: {0}")]
+    IamTokenExchange(String),
+
+    /// Missing service CRN.
+    #[error("IBM_SERVICE_CRN environment variable is required when using IBM_API_KEY")]
+    MissingServiceCrn,
 
     /// HTTP request failed.
     #[error("HTTP request failed: {0}")]
@@ -74,7 +84,10 @@ pub enum IbmError {
 impl From<IbmError> for arvak_hal::HalError {
     fn from(e: IbmError) -> Self {
         match e {
-            IbmError::MissingToken | IbmError::InvalidToken => {
+            IbmError::MissingToken
+            | IbmError::InvalidToken
+            | IbmError::IamTokenExchange(_)
+            | IbmError::MissingServiceCrn => {
                 arvak_hal::HalError::AuthenticationFailed(e.to_string())
             }
             IbmError::JobNotFound(id) => arvak_hal::HalError::JobNotFound(id),
@@ -102,7 +115,7 @@ mod tests {
     #[test]
     fn test_missing_token_display() {
         let err = IbmError::MissingToken;
-        assert!(err.to_string().contains("IBM_QUANTUM_TOKEN"));
+        assert!(err.to_string().contains("IBM_API_KEY"));
     }
 
     #[test]
@@ -182,6 +195,18 @@ mod tests {
         assert!(err.to_string().contains("shots must be positive"));
     }
 
+    #[test]
+    fn test_iam_token_exchange_display() {
+        let err = IbmError::IamTokenExchange("401 Unauthorized".into());
+        assert!(err.to_string().contains("401 Unauthorized"));
+    }
+
+    #[test]
+    fn test_missing_service_crn_display() {
+        let err = IbmError::MissingServiceCrn;
+        assert!(err.to_string().contains("IBM_SERVICE_CRN"));
+    }
+
     // -- HalError conversion tests --
 
     #[test]
@@ -256,5 +281,17 @@ mod tests {
     fn test_invalid_parameter_to_hal_backend() {
         let hal: arvak_hal::HalError = IbmError::InvalidParameter("bad param".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
+    }
+
+    #[test]
+    fn test_iam_token_exchange_to_hal_auth_failed() {
+        let hal: arvak_hal::HalError = IbmError::IamTokenExchange("fail".into()).into();
+        assert!(matches!(hal, arvak_hal::HalError::AuthenticationFailed(_)));
+    }
+
+    #[test]
+    fn test_missing_service_crn_to_hal_auth_failed() {
+        let hal: arvak_hal::HalError = IbmError::MissingServiceCrn.into();
+        assert!(matches!(hal, arvak_hal::HalError::AuthenticationFailed(_)));
     }
 }
