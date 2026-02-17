@@ -16,6 +16,7 @@
             <a href="#" data-view="jobs">Jobs</a>
             <a href="#" data-view="eval">Evaluator</a>
             <a href="#" data-view="vqe">VQE</a>
+            <a href="#" data-view="nathan">Nathan</a>
         </nav>
     </header>
 
@@ -193,6 +194,84 @@ c = measure q;</textarea>
                 <div id="vqe-chart-container" class="vqe-chart"></div>
                 <div id="vqe-legend" class="vqe-legend"></div>
                 <div id="vqe-info" class="vqe-info-grid"></div>
+            </div>
+        </section>
+        <!-- Nathan View -->
+        <section id="nathan-view" class="view">
+            <div class="panel nathan-editor-panel">
+                <h2>Circuit Analysis</h2>
+                <div class="input-group">
+                    <label for="nathan-lang">Language:</label>
+                    <select id="nathan-lang">
+                        <option value="qasm3" selected>QASM3</option>
+                        <option value="qiskit">Qiskit</option>
+                        <option value="pennylane">PennyLane</option>
+                        <option value="cirq">Cirq</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="nathan-code">Code:</label>
+                    <textarea id="nathan-code" rows="14" placeholder="Paste your quantum circuit here...">OPENQASM 3.0;
+include "stdgates.inc";
+
+qubit[4] q;
+bit[4] c;
+
+h q[0]; h q[1]; h q[2]; h q[3];
+
+// QAOA cost layer
+cx q[0], q[1]; rz(0.7) q[1]; cx q[0], q[1];
+cx q[1], q[2]; rz(0.7) q[2]; cx q[1], q[2];
+cx q[2], q[3]; rz(0.7) q[3]; cx q[2], q[3];
+
+// Mixer
+rx(1.0) q[0]; rx(1.0) q[1]; rx(1.0) q[2]; rx(1.0) q[3];
+
+c = measure q;</textarea>
+                </div>
+                <div class="input-group">
+                    <label for="nathan-backend">Target Backend:</label>
+                    <select id="nathan-backend">
+                        <option value="">Any backend</option>
+                        <option value="iqm_garnet">IQM Garnet (20Q)</option>
+                        <option value="ibm_eagle">IBM Eagle (127Q)</option>
+                        <option value="quantinuum_h1">Quantinuum H1 (20Q)</option>
+                        <option value="aer_simulator">Aer Simulator</option>
+                    </select>
+                </div>
+                <div class="button-group">
+                    <button id="nathan-analyze-btn" class="primary">Analyze</button>
+                    <button id="nathan-template-btn" class="secondary">Load Template</button>
+                </div>
+                <div class="input-group" id="nathan-template-picker" style="display:none;">
+                    <label>Template:</label>
+                    <select id="nathan-template-select">
+                        <option value="qaoa_maxcut">QAOA MaxCut</option>
+                        <option value="vqe_h2">VQE H2</option>
+                        <option value="grover_search">Grover Search</option>
+                        <option value="qml_classifier">QML Classifier</option>
+                        <option value="portfolio_optimization">Portfolio Optimization</option>
+                        <option value="quantum_simulation">Quantum Simulation</option>
+                        <option value="tsp">TSP</option>
+                    </select>
+                    <button id="nathan-load-template-btn">Load</button>
+                </div>
+            </div>
+
+            <div class="panel nathan-results-panel">
+                <h2>Nathan Analysis</h2>
+                <div id="nathan-results">
+                    <p class="placeholder">Enter circuit code and click "Analyze" to get AI-powered optimization suggestions.</p>
+                </div>
+            </div>
+
+            <div class="panel full-width nathan-chat-panel" style="display:none;" id="nathan-chat-section">
+                <h2>Ask Nathan</h2>
+                <div id="nathan-chat-messages" class="nathan-chat-messages"></div>
+                <div class="nathan-chat-input-row">
+                    <input type="text" id="nathan-chat-input" placeholder="Ask about quantum algorithms, hardware, or optimization..." />
+                    <button id="nathan-chat-send" class="primary">Send</button>
+                </div>
             </div>
         </section>
     </main>

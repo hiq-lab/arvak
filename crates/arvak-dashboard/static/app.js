@@ -706,6 +706,8 @@ function showView(viewName) {
         loadVqe();
     } else if (viewName === 'eval') {
         // Eval view loads on demand via button
+    } else if (viewName === 'nathan') {
+        initNathan();
     }
 }
 
@@ -1814,7 +1816,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Handle hash-based routing
-    const validViews = ['circuits', 'backends', 'jobs', 'eval', 'vqe'];
+    const validViews = ['circuits', 'backends', 'jobs', 'eval', 'vqe', 'nathan'];
     const hashView = location.hash.replace('#', '');
     showView(validViews.includes(hashView) ? hashView : 'circuits');
 
@@ -1825,3 +1827,182 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+// =====================================================================
+// Nathan — Research Optimizer
+// =====================================================================
+
+const NATHAN_API = '/api/nathan';
+let nathanInitialized = false;
+
+function initNathan() {
+    if (nathanInitialized) return;
+    nathanInitialized = true;
+
+    document.getElementById('nathan-analyze-btn').addEventListener('click', nathanAnalyze);
+
+    document.getElementById('nathan-template-btn').addEventListener('click', () => {
+        const picker = document.getElementById('nathan-template-picker');
+        picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('nathan-load-template-btn').addEventListener('click', nathanLoadTemplate);
+
+    document.getElementById('nathan-chat-send').addEventListener('click', nathanSendChat);
+    document.getElementById('nathan-chat-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') nathanSendChat();
+    });
+}
+
+async function nathanAnalyze() {
+    const code = document.getElementById('nathan-code').value.trim();
+    const lang = document.getElementById('nathan-lang').value;
+    const backend = document.getElementById('nathan-backend').value || null;
+    const results = document.getElementById('nathan-results');
+    const btn = document.getElementById('nathan-analyze-btn');
+
+    if (!code) {
+        results.innerHTML = '<p class="placeholder">Please enter circuit code.</p>';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+    results.innerHTML = '<p class="placeholder">Analyzing circuit...</p>';
+
+    try {
+        const resp = await fetch(`${NATHAN_API}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, language: lang, backend_id: backend }),
+        });
+
+        if (resp.status === 429) {
+            results.innerHTML = '<p class="placeholder" style="color:var(--warning);">Rate limit exceeded. Please wait a moment.</p>';
+            return;
+        }
+
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            results.innerHTML = `<p class="placeholder" style="color:#ef4444;">Error: ${err.detail || resp.status}</p>`;
+            return;
+        }
+
+        const data = await resp.json();
+        renderNathanResults(data);
+
+        // Show chat section after first analysis
+        document.getElementById('nathan-chat-section').style.display = '';
+    } catch (e) {
+        results.innerHTML = '<p class="placeholder" style="color:#ef4444;">Failed to connect to Nathan API.</p>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analyze';
+    }
+}
+
+function renderNathanResults(data) {
+    const results = document.getElementById('nathan-results');
+    let html = '';
+
+    // Circuit stats
+    if (data.circuit) {
+        const c = data.circuit;
+        html += `<div class="nathan-stats-grid">
+            <div class="nathan-stat"><span class="nathan-stat-label">Qubits</span><span class="nathan-stat-value">${c.num_qubits}</span></div>
+            <div class="nathan-stat"><span class="nathan-stat-label">Gates</span><span class="nathan-stat-value">${c.total_gates}</span></div>
+            <div class="nathan-stat"><span class="nathan-stat-label">Depth</span><span class="nathan-stat-value">${c.depth}</span></div>
+            <div class="nathan-stat"><span class="nathan-stat-label">Pattern</span><span class="nathan-stat-value">${c.detected_pattern}</span></div>
+        </div>`;
+    }
+
+    // Classification
+    const suitPct = Math.round((data.suitability || 0) * 100);
+    const suitColor = suitPct >= 60 ? 'var(--accent)' : suitPct >= 35 ? '#eab308' : '#ef4444';
+    html += `<div class="nathan-classification">
+        <div><strong>Problem:</strong> ${data.problem_type || 'unknown'}</div>
+        <div><strong>Algorithm:</strong> ${data.recommended_algorithm || 'N/A'}</div>
+        <div><strong>Suitability:</strong> <span style="color:${suitColor};font-weight:600;">${suitPct}%</span></div>
+        <div><strong>Est. Qubits:</strong> ${data.estimated_qubits || 'N/A'}</div>
+    </div>`;
+
+    // Papers
+    if (data.papers && data.papers.length > 0) {
+        html += '<h3>Relevant Papers</h3><div class="nathan-papers">';
+        for (const p of data.papers) {
+            html += `<div class="nathan-paper">
+                <a href="${escapeHtml(p.arxiv_url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a>
+                ${p.relevance ? `<span class="nathan-paper-meta">${escapeHtml(p.relevance)}</span>` : ''}
+            </div>`;
+        }
+        html += '</div>';
+    }
+
+    // Suggestions
+    if (data.suggestions && data.suggestions.length > 0) {
+        html += '<h3>Suggestions</h3>';
+        for (const s of data.suggestions) {
+            html += `<div class="nathan-suggestion">
+                <div class="nathan-suggestion-header">
+                    <span>${escapeHtml(s.title)}</span>
+                    ${s.impact ? `<span class="nathan-impact nathan-impact-${s.impact}">${s.impact}</span>` : ''}
+                </div>
+                <p>${escapeHtml(s.description)}</p>
+                ${s.qasm3 ? `<pre class="nathan-code">${escapeHtml(s.qasm3)}</pre>` : ''}
+            </div>`;
+        }
+    }
+
+    // LLM response
+    if (data.raw_llm_response || data.summary) {
+        html += `<h3>Analysis</h3><div class="nathan-llm-response">${escapeHtml(data.raw_llm_response || data.summary)}</div>`;
+    }
+
+    results.innerHTML = html;
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+}
+
+async function nathanLoadTemplate() {
+    const templateId = document.getElementById('nathan-template-select').value;
+    try {
+        const resp = await fetch(`${NATHAN_API}/templates?problem_type=${templateId}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data.qasm3) {
+            document.getElementById('nathan-code').value = data.qasm3;
+            document.getElementById('nathan-lang').value = 'qasm3';
+            document.getElementById('nathan-template-picker').style.display = 'none';
+        }
+    } catch { /* silently fail */ }
+}
+
+async function nathanSendChat() {
+    const input = document.getElementById('nathan-chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    input.value = '';
+    const container = document.getElementById('nathan-chat-messages');
+
+    // User message
+    container.innerHTML += `<div class="nathan-msg nathan-msg-user"><strong>You:</strong> ${escapeHtml(msg)}</div>`;
+
+    try {
+        const resp = await fetch(`${NATHAN_API}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg, context: '' }),
+        });
+        const data = await resp.json();
+        container.innerHTML += `<div class="nathan-msg nathan-msg-assistant"><strong>Nathan:</strong> ${escapeHtml(data.message)}</div>`;
+    } catch {
+        container.innerHTML += `<div class="nathan-msg nathan-msg-assistant" style="color:#ef4444;"><strong>Nathan:</strong> Could not reach API.</div>`;
+    }
+
+    container.scrollTop = container.scrollHeight;
+}

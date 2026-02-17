@@ -1,5 +1,6 @@
 //! IBM Quantum backend implementation.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -12,11 +13,11 @@ use arvak_ir::Circuit;
 use arvak_qasm3::emit;
 use async_trait::async_trait;
 
-use crate::api::{BackendInfo, DEFAULT_ENDPOINT, IbmClient};
+use crate::api::{BackendInfo, IbmClient, LEGACY_ENDPOINT};
 use crate::error::{IbmError, IbmResult};
 
-/// Default IBM Quantum backend (simulator).
-const DEFAULT_BACKEND: &str = "ibmq_qasm_simulator";
+/// Default IBM Quantum backend (Heron processor, zero-queue).
+const DEFAULT_BACKEND: &str = "ibm_torino";
 
 /// How long to cache backend info before refreshing from the API.
 const BACKEND_INFO_TTL: Duration = Duration::from_secs(5 * 60);
@@ -34,13 +35,14 @@ pub struct IbmBackend {
 }
 
 impl IbmBackend {
-    /// Create a new IBM backend with default settings.
+    /// Create a new IBM backend with default settings (legacy token mode).
     ///
     /// Reads the API token from the `IBM_QUANTUM_TOKEN` environment variable.
+    /// For the new IBM Cloud API, use [`IbmBackend::connect`] instead.
     pub fn new() -> IbmResult<Self> {
         let token = std::env::var("IBM_QUANTUM_TOKEN").map_err(|_| IbmError::MissingToken)?;
 
-        let client = IbmClient::new(DEFAULT_ENDPOINT, &token)?;
+        let client = IbmClient::new(LEGACY_ENDPOINT, &token)?;
         let target = DEFAULT_BACKEND.to_string();
 
         Ok(Self {
@@ -51,11 +53,13 @@ impl IbmBackend {
         })
     }
 
-    /// Create a backend targeting a specific IBM Quantum device.
+    /// Create a backend targeting a specific IBM Quantum device (legacy token mode).
+    ///
+    /// For the new IBM Cloud API, use [`IbmBackend::connect`] instead.
     pub fn with_target(target: impl Into<String>) -> IbmResult<Self> {
         let token = std::env::var("IBM_QUANTUM_TOKEN").map_err(|_| IbmError::MissingToken)?;
 
-        let client = IbmClient::new(DEFAULT_ENDPOINT, &token)?;
+        let client = IbmClient::new(LEGACY_ENDPOINT, &token)?;
         let target = target.into();
 
         Ok(Self {
@@ -66,9 +70,48 @@ impl IbmBackend {
         })
     }
 
+    /// Connect to an IBM Quantum backend using the new Cloud API.
+    ///
+    /// Reads `IBM_API_KEY` and `IBM_SERVICE_CRN` from environment. If `IBM_API_KEY`
+    /// is not set, falls back to `IBM_QUANTUM_TOKEN` with the legacy endpoint.
+    pub async fn connect(target: impl Into<String>) -> IbmResult<Self> {
+        let target = target.into();
+
+        // Try new Cloud API first (IBM_API_KEY + IBM_SERVICE_CRN)
+        if let Ok(api_key) = std::env::var("IBM_API_KEY") {
+            let service_crn =
+                std::env::var("IBM_SERVICE_CRN").map_err(|_| IbmError::MissingServiceCrn)?;
+
+            tracing::info!("connecting to IBM Cloud API (IAM key exchange)");
+            let client = IbmClient::connect(&api_key, &service_crn).await?;
+
+            return Ok(Self {
+                client: Arc::new(client),
+                capabilities: Capabilities::ibm(&target, 133),
+                target,
+                backend_info: Arc::new(RwLock::new(None)),
+            });
+        }
+
+        // Fall back to legacy direct-token mode
+        if let Ok(token) = std::env::var("IBM_QUANTUM_TOKEN") {
+            tracing::info!("falling back to legacy IBM Quantum token");
+            let client = IbmClient::new(LEGACY_ENDPOINT, &token)?;
+
+            return Ok(Self {
+                client: Arc::new(client),
+                capabilities: Capabilities::ibm(&target, 127),
+                target,
+                backend_info: Arc::new(RwLock::new(None)),
+            });
+        }
+
+        Err(IbmError::MissingToken)
+    }
+
     /// Create a backend with explicit configuration.
     pub fn with_config(config: BackendConfig) -> IbmResult<Self> {
-        let endpoint = config.endpoint.as_deref().unwrap_or(DEFAULT_ENDPOINT);
+        let endpoint = config.endpoint.as_deref().unwrap_or(LEGACY_ENDPOINT);
 
         let token = config.token.as_ref().ok_or(IbmError::MissingToken)?;
 
@@ -123,44 +166,71 @@ impl IbmBackend {
     }
 
     /// Convert circuit to `OpenQASM` 3.0 string.
+    ///
+    /// Adds `include "stdgates.inc";` after the version header so that
+    /// IBM's QASM loader can resolve standard gate definitions.
     fn circuit_to_qasm(circuit: &Circuit) -> IbmResult<String> {
-        emit(circuit).map_err(|e| IbmError::CircuitError(e.to_string()))
+        let qasm = emit(circuit).map_err(|e| IbmError::CircuitError(e.to_string()))?;
+        // Insert stdgates include after OPENQASM version line
+        Ok(qasm.replacen(
+            "OPENQASM 3.0;",
+            "OPENQASM 3.0;\ninclude \"stdgates.inc\";",
+            1,
+        ))
     }
 
     /// Convert measurement results to counts.
     ///
-    /// `num_qubits` is used to pad bitstrings to the correct width.
+    /// `num_qubits` is used to pad bitstrings to the correct width when the
+    /// result format doesn't provide enough context to infer it.
     fn results_to_counts(results: &crate::api::JobResultResponse, num_qubits: usize) -> Counts {
         let mut counts = Counts::new();
 
         // Handle sampler results
         if let Some(result) = results.results.first() {
-            // Try to extract shot count from metadata for quasi-distribution conversion.
-            let metadata_shots: Option<u64> = result
-                .metadata
-                .as_ref()
-                .and_then(|m| m.get("shots"))
-                .and_then(serde_json::Value::as_u64);
+            // V2 Sampler: raw samples in `data.<register>.samples`
+            if let Some(data) = &result.data {
+                // Collect samples from all classical registers.
+                // For a Bell state with 2 classical bits, the register "c"
+                // will contain samples like ["0x0", "0x3", "0x0", ...].
+                // Note: we do NOT use `num_qubits` here because that is the
+                // device qubit count (e.g. 133) whereas the samples only
+                // represent the circuit's measured classical bits.
+                for register_data in data.values() {
+                    let bit_width = infer_bit_width(&register_data.samples);
 
-            // Try counts first (more accurate)
+                    let mut sample_counts: HashMap<String, u64> = HashMap::new();
+                    for sample in &register_data.samples {
+                        let binary = hex_to_binary(sample, bit_width);
+                        *sample_counts.entry(binary).or_insert(0) += 1;
+                    }
+
+                    for (bitstring, count) in sample_counts {
+                        counts.insert(bitstring, count);
+                    }
+                }
+                return counts;
+            }
+
+            // V1: Try pre-aggregated counts first (more accurate)
             if let Some(raw_counts) = &result.counts {
                 for (bitstring, &count) in raw_counts {
-                    // IBM returns hex strings, convert to binary
                     let binary = hex_to_binary(bitstring, num_qubits);
                     counts.insert(binary, count);
                 }
             }
-            // Fall back to quasi-distributions
+            // V1: Fall back to quasi-distributions
             else if let Some(quasi_dists) = &result.quasi_dists {
-                // Derive effective shot count: prefer metadata, then fall back to
-                // the sum of existing counts (which is zero here), or default 1024
-                // (IBM's standard default shot count).
+                let metadata_shots: Option<u64> = result
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.get("shots"))
+                    .and_then(serde_json::Value::as_u64);
                 let effective_shots = metadata_shots.unwrap_or(1024) as f64;
 
                 if let Some(dist) = quasi_dists.first() {
                     for (bitstring, &prob) in dist {
                         let binary = hex_to_binary(bitstring, num_qubits);
-                        // Clamp negative quasi-probabilities to zero before conversion.
                         let count = (prob * effective_shots).max(0.0).round() as u64;
                         if count > 0 {
                             counts.insert(binary, count);
@@ -171,6 +241,30 @@ impl IbmBackend {
         }
 
         counts
+    }
+}
+
+/// Infer the classical register bit width from the V2 hex samples.
+///
+/// Finds the maximum value across all samples and uses its bit length.
+/// For example, if samples contain "0x3" the max is 3, which needs 2 bits.
+/// Falls back to 1 if all samples are zero.
+fn infer_bit_width(samples: &[String]) -> usize {
+    let max_val = samples
+        .iter()
+        .filter_map(|s| {
+            let hex = s.strip_prefix("0x").unwrap_or(s);
+            u64::from_str_radix(hex, 16).ok()
+        })
+        .max()
+        .unwrap_or(0);
+
+    if max_val == 0 {
+        // All zeros — need at least 1 bit to display "0"
+        1
+    } else {
+        // Minimum bits needed to represent max_val
+        64 - max_val.leading_zeros() as usize
     }
 }
 
@@ -225,7 +319,10 @@ impl Backend for IbmBackend {
                     ))
                 }
             }
-            Err(_) => Ok(BackendAvailability::unavailable("failed to query backend")),
+            Err(e) => {
+                tracing::warn!("IBM backend availability check failed: {e}");
+                Ok(BackendAvailability::unavailable("failed to query backend"))
+            }
         }
     }
 
@@ -308,14 +405,14 @@ impl Backend for IbmBackend {
                 other => HalError::Backend(other.to_string()),
             })?;
 
-        let job_status = match status.status.as_str() {
+        let job_status = match status.status.to_uppercase().as_str() {
             "QUEUED" => JobStatus::Queued,
             "VALIDATING" | "RUNNING" => JobStatus::Running,
             "COMPLETED" => JobStatus::Completed,
             "FAILED" | "ERROR" => {
                 let msg = status
-                    .error
-                    .map_or_else(|| "Unknown error".to_string(), |e| e.message);
+                    .error_message()
+                    .unwrap_or_else(|| "Unknown error".to_string());
                 JobStatus::Failed(msg)
             }
             "CANCELLED" => JobStatus::Cancelled,
@@ -336,8 +433,8 @@ impl Backend for IbmBackend {
         if !status.is_completed() {
             if status.is_failed() {
                 let msg = status
-                    .error
-                    .map_or_else(|| "Job failed".to_string(), |e| e.message);
+                    .error_message()
+                    .unwrap_or_else(|| "Job failed".to_string());
                 return Err(HalError::JobFailed(msg));
             }
             if status.is_cancelled() {
@@ -413,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn test_results_to_counts() {
+    fn test_results_to_counts_v1() {
         use crate::api::{JobResultResponse, SamplerResult};
         use std::collections::HashMap;
 
@@ -422,8 +519,9 @@ mod tests {
         raw_counts.insert("0x3".to_string(), 500u64);
 
         let results = JobResultResponse {
-            id: "test".to_string(),
+            id: Some("test".to_string()),
             results: vec![SamplerResult {
+                data: None,
                 quasi_dists: None,
                 counts: Some(raw_counts),
                 metadata: None,
@@ -434,5 +532,116 @@ mod tests {
         assert_eq!(counts.get("0000"), 500);
         assert_eq!(counts.get("0011"), 500);
         assert_eq!(counts.total_shots(), 1000);
+    }
+
+    #[test]
+    fn test_results_to_counts_v2_samples() {
+        use crate::api::{ClassicalRegisterData, JobResultResponse, SamplerResult};
+        use std::collections::HashMap;
+
+        // Simulate V2 Sampler results: 10 shots of a Bell state
+        // Outcomes: 6x "00" (0x0) and 4x "11" (0x3)
+        let samples = vec![
+            "0x0".into(),
+            "0x3".into(),
+            "0x0".into(),
+            "0x3".into(),
+            "0x0".into(),
+            "0x0".into(),
+            "0x3".into(),
+            "0x0".into(),
+            "0x3".into(),
+            "0x0".into(),
+        ];
+
+        let mut data = HashMap::new();
+        data.insert("c".to_string(), ClassicalRegisterData { samples });
+
+        let results = JobResultResponse {
+            id: None,
+            results: vec![SamplerResult {
+                data: Some(data),
+                quasi_dists: None,
+                counts: None,
+                metadata: Some(serde_json::json!({"version": 2})),
+            }],
+        };
+
+        // num_qubits=133 should NOT affect V2 bitstring width
+        let counts = IbmBackend::results_to_counts(&results, 133);
+        assert_eq!(counts.get("00"), 6);
+        assert_eq!(counts.get("11"), 4);
+        assert_eq!(counts.total_shots(), 10);
+    }
+
+    #[test]
+    fn test_results_to_counts_v2_all_zeros() {
+        use crate::api::{ClassicalRegisterData, JobResultResponse, SamplerResult};
+        use std::collections::HashMap;
+
+        // All shots measured 0
+        let samples = vec!["0x0".into(), "0x0".into(), "0x0".into()];
+
+        let mut data = HashMap::new();
+        data.insert("c".to_string(), ClassicalRegisterData { samples });
+
+        let results = JobResultResponse {
+            id: None,
+            results: vec![SamplerResult {
+                data: Some(data),
+                quasi_dists: None,
+                counts: None,
+                metadata: None,
+            }],
+        };
+
+        let counts = IbmBackend::results_to_counts(&results, 133);
+        assert_eq!(counts.get("0"), 3);
+        assert_eq!(counts.total_shots(), 3);
+    }
+
+    #[test]
+    fn test_infer_bit_width() {
+        // Bell state: max value 3 → 2 bits
+        let samples = vec!["0x0".into(), "0x3".into(), "0x0".into()];
+        assert_eq!(infer_bit_width(&samples), 2);
+
+        // GHZ on 3 qubits: max value 7 → 3 bits
+        let samples = vec!["0x0".into(), "0x7".into()];
+        assert_eq!(infer_bit_width(&samples), 3);
+
+        // All zeros → 1 bit
+        let samples = vec!["0x0".into(), "0x0".into()];
+        assert_eq!(infer_bit_width(&samples), 1);
+
+        // Single qubit: max 1 → 1 bit
+        let samples = vec!["0x0".into(), "0x1".into()];
+        assert_eq!(infer_bit_width(&samples), 1);
+    }
+
+    #[test]
+    fn test_v2_results_deserialization() {
+        // Test that the actual V2 JSON structure can be deserialized
+        let json = r#"{
+            "results": [{
+                "data": {
+                    "c": {
+                        "samples": ["0x0", "0x3", "0x0", "0x3"]
+                    }
+                },
+                "metadata": {
+                    "version": 2,
+                    "execution": {"execution_spans": []}
+                }
+            }]
+        }"#;
+
+        let response: crate::api::JobResultResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.results.len(), 1);
+        let result = &response.results[0];
+        assert!(result.data.is_some());
+        let data = result.data.as_ref().unwrap();
+        assert!(data.contains_key("c"));
+        assert_eq!(data["c"].samples.len(), 4);
     }
 }
