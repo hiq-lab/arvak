@@ -31,7 +31,6 @@ arvak-eval = { path = "crates/arvak-eval" }
 
 # Adapter crates
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
-arvak-adapter-braket = { path = "adapters/arvak-adapter-braket" }
 
 # Async runtime — minimal workspace features; crates add extras as needed.
 tokio = { version = "1.43", features = ["macros", "rt-multi-thread", "sync", "time"] }
@@ -64,11 +63,6 @@ console = "0.15"
 
 # HTTP
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-
-# AWS SDK
-aws-config = { version = "1", features = ["behavior-version-latest"] }
-aws-sdk-braket = "1"
-aws-sdk-s3 = "1"
 
 # Hashing
 rustc-hash = "2.1"

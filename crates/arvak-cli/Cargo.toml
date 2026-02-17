@@ -21,7 +21,6 @@ arvak-hal = { workspace = true }
 arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim" }
 arvak-adapter-iqm = { path = "../../adapters/arvak-adapter-iqm", optional = true }
 arvak-adapter-ibm = { path = "../../adapters/arvak-adapter-ibm", optional = true }
-arvak-adapter-braket = { path = "../../adapters/arvak-adapter-braket", optional = true }
 arvak-sched = { workspace = true }
 arvak-eval = { workspace = true }
 
@@ -51,5 +50,4 @@ tempfile = "3"
 default = []
 iqm = ["dep:arvak-adapter-iqm"]
 ibm = ["dep:arvak-adapter-ibm"]
-braket = ["dep:arvak-adapter-braket"]
-all-backends = ["iqm", "ibm", "braket"]
+all-backends = ["iqm", "ibm"]

@@ -139,54 +139,6 @@ pub async fn execute() -> Result<()> {
     }
 
     // AWS Braket backends
-    #[cfg(feature = "braket")]
-    {
-        use arvak_adapter_braket::BraketBackend;
-
-        println!("  {} AWS Braket:", style("─").dim());
-
-        let braket_devices = [
-            ("braket-sv1", arvak_adapter_braket::device::SV1),
-            ("rigetti", arvak_adapter_braket::device::RIGETTI_ANKAA_3),
-            ("ionq", arvak_adapter_braket::device::IONQ_ARIA),
-        ];
-
-        for (name, arn) in &braket_devices {
-            match BraketBackend::connect(*arn).await {
-                Ok(braket) => {
-                    let available = braket.availability().await.is_ok_and(|a| a.is_available);
-                    let caps = braket.capabilities();
-                    println!(
-                        "  {} {} ({})",
-                        if available {
-                            style("●").green()
-                        } else {
-                            style("○").yellow()
-                        },
-                        style(name).bold(),
-                        caps.name
-                    );
-                    println!("    Qubits: {}", caps.num_qubits);
-                    println!("    Max shots: {}", caps.max_shots);
-                    println!("    Gates: {}", caps.gate_set.native.join(", "));
-                    if !available {
-                        println!("    Status: offline or maintenance");
-                    }
-                }
-                Err(_) => {
-                    println!(
-                        "  {} {} (not configured)",
-                        style("○").dim(),
-                        style(name).dim()
-                    );
-                    println!("    Set ARVAK_BRAKET_S3_BUCKET and configure AWS credentials");
-                }
-            }
-        }
-        println!();
-    }
-
-    #[cfg(not(feature = "braket"))]
     {
         println!(
             "  {} {} (not compiled)",
