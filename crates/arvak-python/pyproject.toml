@@ -36,10 +36,12 @@ qrisp = ["qrisp>=0.4.0"]
 cirq = ["cirq>=1.0.0", "cirq-core>=1.0.0", "ply>=3.11"]
 pennylane = ["pennylane>=0.32.0"]
 chemistry = ["pyscf>=2.4.0", "pennylane>=0.32.0"]
+# Nathan research optimizer
+nathan = ["httpx>=0.27"]
 # Notebook support
 notebook = ["jupyter>=1.0.0", "matplotlib>=3.5.0"]
 # All integrations
-all = ["arvak[qiskit,qrisp,cirq,pennylane,chemistry,notebook]"]
+all = ["arvak[qiskit,qrisp,cirq,pennylane,chemistry,notebook,nathan]"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

@@ -15,6 +15,9 @@ use arvak_adapter_iqm::IqmBackend;
 #[cfg(feature = "ibm")]
 use arvak_adapter_ibm::IbmBackend;
 
+#[cfg(feature = "braket")]
+use arvak_adapter_braket::BraketBackend;
+
 use super::common::{get_target_properties, load_circuit, print_results};
 
 /// Execute the run command.
@@ -84,24 +87,47 @@ pub async fn execute(
             anyhow::bail!("IQM backend not available. Rebuild with --features iqm");
         }
         #[cfg(feature = "ibm")]
-        "ibm" | "ibmq" | "ibm_brisbane" | "ibm_kyoto" | "ibm_osaka" => {
+        "ibm" | "ibmq" | "ibm_torino" | "ibm_fez" | "ibm_marrakesh" | "ibm_brisbane"
+        | "ibm_kyoto" | "ibm_osaka" => {
             println!("  Connecting to IBM Quantum...");
-            match IbmBackend::with_target(backend) {
+            match IbmBackend::connect(backend).await {
                 Ok(b) => Box::new(b),
                 Err(e) => {
                     anyhow::bail!(
-                        "Failed to connect to IBM Quantum: {}. Set IBM_QUANTUM_TOKEN environment variable.",
+                        "Failed to connect to IBM Quantum: {}. Set IBM_API_KEY + IBM_SERVICE_CRN (or IBM_QUANTUM_TOKEN).",
                         e
                     );
                 }
             }
         }
         #[cfg(not(feature = "ibm"))]
-        "ibm" | "ibmq" | "ibm_brisbane" | "ibm_kyoto" | "ibm_osaka" => {
+        "ibm" | "ibmq" | "ibm_torino" | "ibm_fez" | "ibm_marrakesh" | "ibm_brisbane"
+        | "ibm_kyoto" | "ibm_osaka" => {
             anyhow::bail!("IBM backend not available. Rebuild with --features ibm");
         }
+        #[cfg(feature = "braket")]
+        "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1"
+        | "rigetti" | "ankaa" | "ionq" | "aria" => {
+            println!("  Connecting to AWS Braket...");
+            let device_arn = arvak_adapter_braket::device::arn_for_name(backend)
+                .ok_or_else(|| anyhow::anyhow!("Unknown Braket device: {backend}"))?;
+            match BraketBackend::connect(device_arn).await {
+                Ok(b) => Box::new(b),
+                Err(e) => {
+                    anyhow::bail!(
+                        "Failed to connect to AWS Braket: {}. Set ARVAK_BRAKET_S3_BUCKET and configure AWS credentials.",
+                        e
+                    );
+                }
+            }
+        }
+        #[cfg(not(feature = "braket"))]
+        "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1"
+        | "rigetti" | "ankaa" | "ionq" | "aria" => {
+            anyhow::bail!("Braket backend not available. Rebuild with --features braket");
+        }
         other => {
-            anyhow::bail!("Unknown backend: '{other}'. Available: simulator, iqm, ibm");
+            anyhow::bail!("Unknown backend: '{other}'. Available: simulator, iqm, ibm, braket");
         }
     };
 

@@ -59,13 +59,29 @@ pub fn create_default_registry() -> BackendRegistry {
         registry.register("simulator".to_string(), Arc::new(SimulatorBackend::new()));
     }
 
-    // Future backends will be added here with feature gates:
-    // #[cfg(feature = "iqm")]
-    // {
-    //     registry.register("iqm".to_string(), Arc::new(IqmBackend::new()));
-    // }
+    // Note: Braket registration is async (BraketBackend::connect) — call
+    // `register_braket_backends()` from an async context for Braket support.
 
     registry
+}
+
+/// Register AWS Braket backends (async due to credential resolution).
+///
+/// Attempts to connect to the SV1 simulator. Logs a warning and skips
+/// if credentials or S3 bucket are not configured.
+#[cfg(feature = "braket")]
+pub async fn register_braket_backends(registry: &mut BackendRegistry) {
+    use arvak_adapter_braket::BraketBackend;
+
+    match BraketBackend::connect(arvak_adapter_braket::device::SV1).await {
+        Ok(backend) => {
+            registry.register("braket-sv1".to_string(), Arc::new(backend));
+            tracing::info!("Registered Braket SV1 simulator");
+        }
+        Err(e) => {
+            tracing::warn!("Braket SV1 not registered: {e}");
+        }
+    }
 }
 
 #[cfg(test)]

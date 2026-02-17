@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.7.1-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.7.1)
+[![Version](https://img.shields.io/badge/version-1.7.2-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.7.2)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)

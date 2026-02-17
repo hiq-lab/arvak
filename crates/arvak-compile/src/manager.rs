@@ -7,7 +7,8 @@ use arvak_ir::CircuitDag;
 use crate::error::CompileResult;
 use crate::pass::Pass;
 use crate::passes::{
-    BasicRouting, BasisTranslation, MeasurementBarrierVerification, Optimize1qGates, TrivialLayout,
+    BasicRouting, BasisTranslation, MeasurementBarrierVerification, OneQubitBasis, Optimize1qGates,
+    TrivialLayout,
 };
 use crate::property::{BasisGates, CouplingMap, PropertySet};
 
@@ -140,7 +141,18 @@ impl PassManagerBuilder {
 
         // Add optimization passes based on level
         if self.optimization_level >= 1 {
-            pm.add_pass(Optimize1qGates::new());
+            // Use ZSX decomposition for IBM/Heron targets (RZ + SX native basis),
+            // otherwise default to ZYZ.
+            let use_zsx = self
+                .properties
+                .basis_gates
+                .as_ref()
+                .is_some_and(|b| b.contains("sx") && b.contains("rz"));
+            if use_zsx {
+                pm.add_pass(Optimize1qGates::with_basis(OneQubitBasis::ZSX));
+            } else {
+                pm.add_pass(Optimize1qGates::new());
+            }
         }
 
         // Always add measurement barrier verification as the final pass

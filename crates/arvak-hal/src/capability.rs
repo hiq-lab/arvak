@@ -107,6 +107,51 @@ impl Capabilities {
         }
     }
 
+    /// Create capabilities for Braket Rigetti devices (superconducting).
+    pub fn braket_rigetti(name: impl Into<String>, num_qubits: u32) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits,
+            gate_set: GateSet::rigetti(),
+            topology: Topology::grid(
+                f64::from(num_qubits).sqrt().ceil() as u32,
+                f64::from(num_qubits).sqrt().ceil() as u32,
+            ),
+            max_shots: 100_000,
+            is_simulator: false,
+            features: vec![],
+            noise_profile: None,
+        }
+    }
+
+    /// Create capabilities for Braket IonQ devices (trapped-ion).
+    pub fn braket_ionq(name: impl Into<String>, num_qubits: u32) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits,
+            gate_set: GateSet::ionq(),
+            topology: Topology::full(num_qubits),
+            max_shots: 100_000,
+            is_simulator: false,
+            features: vec![],
+            noise_profile: None,
+        }
+    }
+
+    /// Create capabilities for Braket managed simulators (SV1, TN1, DM1).
+    pub fn braket_simulator(name: impl Into<String>, num_qubits: u32) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits,
+            gate_set: GateSet::universal(),
+            topology: Topology::full(num_qubits),
+            max_shots: 100_000,
+            is_simulator: true,
+            features: vec!["braket_simulator".into()],
+            noise_profile: None,
+        }
+    }
+
     /// Attach a noise profile to these capabilities.
     pub fn with_noise_profile(mut self, profile: NoiseProfile) -> Self {
         self.noise_profile = Some(profile);
@@ -195,6 +240,30 @@ impl GateSet {
             ],
             three_qubit: vec!["ccx".into(), "cswap".into()],
             native: vec![],
+        }
+    }
+
+    /// Create Rigetti gate set (superconducting).
+    ///
+    /// Native gates: RX, RZ (single-qubit), CZ (two-qubit).
+    pub fn rigetti() -> Self {
+        Self {
+            single_qubit: vec!["rx".into(), "rz".into()],
+            two_qubit: vec!["cz".into()],
+            three_qubit: vec![],
+            native: vec!["rx".into(), "rz".into(), "cz".into()],
+        }
+    }
+
+    /// Create IonQ gate set (trapped-ion).
+    ///
+    /// Native gates: RX, RY, RZ (single-qubit), XX (two-qubit).
+    pub fn ionq() -> Self {
+        Self {
+            single_qubit: vec!["rx".into(), "ry".into(), "rz".into()],
+            two_qubit: vec!["xx".into()],
+            three_qubit: vec![],
+            native: vec!["rx".into(), "ry".into(), "rz".into(), "xx".into()],
         }
     }
 
@@ -475,6 +544,38 @@ mod tests {
         assert!(caps.gate_set.contains("rz"));
         assert!(!caps.gate_set.contains("cx"));
         assert!(caps.features.contains(&"shuttling".to_string()));
+    }
+
+    #[test]
+    fn test_capabilities_braket_rigetti() {
+        let caps = Capabilities::braket_rigetti("Ankaa-3", 84);
+        assert!(!caps.is_simulator);
+        assert_eq!(caps.num_qubits, 84);
+        assert!(caps.gate_set.contains("rx"));
+        assert!(caps.gate_set.contains("rz"));
+        assert!(caps.gate_set.contains("cz"));
+        assert!(!caps.gate_set.contains("cx"));
+    }
+
+    #[test]
+    fn test_capabilities_braket_ionq() {
+        let caps = Capabilities::braket_ionq("IonQ Aria", 25);
+        assert!(!caps.is_simulator);
+        assert_eq!(caps.num_qubits, 25);
+        assert!(caps.gate_set.contains("rx"));
+        assert!(caps.gate_set.contains("ry"));
+        assert!(caps.gate_set.contains("rz"));
+        assert!(caps.gate_set.contains("xx"));
+        assert!(!caps.gate_set.contains("cx"));
+    }
+
+    #[test]
+    fn test_capabilities_braket_simulator() {
+        let caps = Capabilities::braket_simulator("SV1", 34);
+        assert!(caps.is_simulator);
+        assert_eq!(caps.num_qubits, 34);
+        assert!(caps.gate_set.contains("h"));
+        assert!(caps.gate_set.contains("cx"));
     }
 
     #[test]

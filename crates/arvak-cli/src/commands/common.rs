@@ -40,10 +40,24 @@ pub fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> 
         "iqm20" => Ok((CouplingMap::star(20), BasisGates::iqm())),
         "ibm" | "ibm5" => Ok((CouplingMap::linear(5), BasisGates::ibm())),
         "ibm27" => Ok((CouplingMap::linear(27), BasisGates::ibm())),
+        "ibm_torino" | "ibm_fez" | "ibm_marrakesh" => {
+            Ok((CouplingMap::linear(133), BasisGates::heron()))
+        }
         "simulator" | "sim" => Ok((CouplingMap::full(20), BasisGates::universal())),
+        "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1" => {
+            Ok((CouplingMap::full(34), BasisGates::universal()))
+        }
+        "rigetti" | "ankaa" => Ok((
+            CouplingMap::linear(84),
+            BasisGates::new(["rx", "rz", "cz"].map(String::from)),
+        )),
+        "ionq" | "aria" => Ok((
+            CouplingMap::full(25),
+            BasisGates::new(["rx", "ry", "rz", "xx"].map(String::from)),
+        )),
         other => {
             anyhow::bail!(
-                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, simulator"
+                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq"
             );
         }
     }
