@@ -358,10 +358,13 @@ fn translate_to_heron(
             Instruction::single_qubit_gate(StandardGate::SX, q0),
             Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
         ],
+        // Ry(θ) = Rz(π/2) · Rx(θ) · Rz(-π/2) = SX · Rz(θ) · SX · Rz(-π)
+        // Uses only native gates (no SXdg which IBM rejects).
         StandardGate::Ry(theta) => vec![
             Instruction::single_qubit_gate(StandardGate::SX, q0),
             Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
-            Instruction::single_qubit_gate(StandardGate::SXdg, q0),
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((-PI).into()), q0),
         ],
         StandardGate::Rz(theta) => vec![Instruction::single_qubit_gate(
             StandardGate::Rz(theta.clone()),
@@ -382,6 +385,29 @@ fn translate_to_heron(
             result.extend_from_slice(&h_gates);
             result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
             result.extend_from_slice(&h_gates);
+            result
+        }
+
+        // SWAP = CX(a,b) · CX(b,a) · CX(a,b), each CX decomposed to H·CZ·H
+        StandardGate::Swap => {
+            let q1 = qubits[1];
+            let h0 = translate_to_heron(&StandardGate::H, &[q0])?;
+            let h1 = translate_to_heron(&StandardGate::H, &[q1])?;
+            let cz = Instruction::two_qubit_gate(StandardGate::CZ, q0, q1);
+
+            // CX(q0,q1) = H(q1) · CZ · H(q1)
+            // CX(q1,q0) = H(q0) · CZ · H(q0)
+            // CX(q0,q1) = H(q1) · CZ · H(q1)
+            let mut result = Vec::with_capacity(h0.len() * 2 + h1.len() * 4 + 3);
+            result.extend_from_slice(&h1);
+            result.push(cz.clone());
+            result.extend_from_slice(&h1);
+            result.extend_from_slice(&h0);
+            result.push(cz.clone());
+            result.extend_from_slice(&h0);
+            result.extend_from_slice(&h1);
+            result.push(cz);
+            result.extend_from_slice(&h1);
             result
         }
 

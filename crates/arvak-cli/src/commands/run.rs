@@ -91,7 +91,12 @@ pub async fn execute(
         | "ibm_kyoto" | "ibm_osaka" => {
             println!("  Connecting to IBM Quantum...");
             match IbmBackend::connect(backend).await {
-                Ok(b) => Box::new(b),
+                Ok(mut b) => {
+                    if do_compile {
+                        b.set_skip_transpilation(true);
+                    }
+                    Box::new(b)
+                }
                 Err(e) => {
                     anyhow::bail!(
                         "Failed to connect to IBM Quantum: {}. Set IBM_API_KEY + IBM_SERVICE_CRN (or IBM_QUANTUM_TOKEN).",
