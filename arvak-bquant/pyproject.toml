@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arvak-bquant"
+version = "0.1.0"
+description = "Arvak quantum computing client for Bloomberg BQuant — portfolio optimization via QAOA"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.25",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+    "pytest-httpx>=0.30",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arvak_bquant"]
