@@ -1,6 +1,6 @@
 //! Routing passes for inserting SWAP gates.
 
-use arvak_ir::{CircuitDag, Instruction, StandardGate};
+use arvak_ir::{CircuitDag, Instruction, QubitId, StandardGate};
 
 use crate::error::{CompileError, CompileResult};
 use crate::pass::{Pass, PassKind};
@@ -9,8 +9,13 @@ use crate::property::PropertySet;
 /// Basic routing pass.
 ///
 /// Inserts SWAP gates to satisfy connectivity constraints.
-/// This is a simple greedy algorithm that may not produce
-/// optimal results but is fast and correct.
+/// Rebuilds the DAG from scratch in topological order, inserting
+/// SWAP chains immediately before each non-adjacent two-qubit gate.
+///
+/// The output DAG uses **physical** qubit wire labels: every instruction's
+/// qubit operands are remapped from logical IDs to physical positions via
+/// the current layout. SWAP gates use physical wire labels directly so
+/// the emitted circuit is ready for hardware execution.
 pub struct BasicRouting;
 
 impl Pass for BasicRouting {
@@ -34,56 +39,79 @@ impl Pass for BasicRouting {
             .as_mut()
             .ok_or(CompileError::MissingLayout)?;
 
-        // Collect only the qubit pairs for two-qubit gates (avoids cloning full instructions)
-        let two_qubit_ops: Vec<_> = dag
+        // Collect all instructions in topological order from the original DAG
+        let ops: Vec<Instruction> = dag
             .topological_ops()
-            .filter(|(_, inst)| inst.qubits.len() == 2)
-            .map(|(idx, inst)| (idx, inst.qubits[0], inst.qubits[1]))
+            .map(|(_, inst)| inst.clone())
             .collect();
 
-        // Known limitation: SWAP gates are appended at the end of the DAG via
-        // `dag.apply()` rather than being inserted immediately before the target
-        // two-qubit gate. This means the SWAPs will appear after all existing
-        // operations in the topological order, which may not produce the optimal
-        // circuit ordering. Fixing this requires architectural changes to support
-        // positional insertion in the DAG.
-        for (_node_idx, q0, q1) in two_qubit_ops {
-            let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
-            let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;
+        // Build a new DAG with physical qubit wires.
+        // Each mapped logical qubit gets a wire labelled by its physical position.
+        let mut new_dag = CircuitDag::new();
+        for (_, physical) in layout.iter() {
+            new_dag.add_qubit(QubitId(physical));
+        }
+        for clbit in dag.clbits().collect::<Vec<_>>() {
+            new_dag.add_clbit(clbit);
+        }
 
-            // Check if qubits are connected
-            if coupling_map.is_connected(p0, p1) {
-                continue;
-            }
+        for inst in ops {
+            if inst.qubits.len() == 2 {
+                let q0 = inst.qubits[0];
+                let q1 = inst.qubits[1];
+                let p0 = layout.get_physical(q0).ok_or(CompileError::MissingLayout)?;
+                let p1 = layout.get_physical(q1).ok_or(CompileError::MissingLayout)?;
 
-            // Use precomputed shortest path (O(distance) reconstruction, no BFS).
-            let path = coupling_map
-                .shortest_path(p0, p1)
-                .ok_or(CompileError::RoutingFailed {
-                    qubit1: p0,
-                    qubit2: p1,
-                })?;
+                if !coupling_map.is_connected(p0, p1) {
+                    let path =
+                        coupling_map
+                            .shortest_path(p0, p1)
+                            .ok_or(CompileError::RoutingFailed {
+                                qubit1: p0,
+                                qubit2: p1,
+                            })?;
 
-            // Insert SWAPs along the path (except the last edge which is the gate)
-            for i in 0..path.len() - 2 {
-                let swap_p1 = path[i];
-                let swap_p2 = path[i + 1];
+                    // Insert SWAPs along the path (except the last edge which is the gate).
+                    // SWAPs use physical wire labels so they operate on the correct
+                    // hardware qubits.
+                    for i in 0..path.len() - 2 {
+                        let swap_p1 = path[i];
+                        let swap_p2 = path[i + 1];
 
-                // Find logical qubits at these physical locations
-                let swap_l1 = layout.get_logical(swap_p1);
-                let swap_l2 = layout.get_logical(swap_p2);
+                        // Ensure physical wires exist in the new DAG
+                        new_dag.add_qubit(QubitId(swap_p1));
+                        new_dag.add_qubit(QubitId(swap_p2));
 
-                // Only insert SWAP if both positions have qubits
-                if let (Some(l1), Some(l2)) = (swap_l1, swap_l2) {
-                    // Insert SWAP gate
-                    dag.apply(Instruction::two_qubit_gate(StandardGate::Swap, l1, l2))
-                        .map_err(CompileError::Ir)?;
-
-                    // Update layout
-                    layout.swap(swap_p1, swap_p2);
+                        new_dag
+                            .apply(Instruction::two_qubit_gate(
+                                StandardGate::Swap,
+                                QubitId(swap_p1),
+                                QubitId(swap_p2),
+                            ))
+                            .map_err(CompileError::Ir)?;
+                        layout.swap(swap_p1, swap_p2);
+                    }
                 }
             }
+
+            // Remap instruction qubits from logical to physical positions.
+            let mut remapped = inst;
+            remapped.qubits = remapped
+                .qubits
+                .iter()
+                .map(|&q| {
+                    let p = layout.get_physical(q).ok_or(CompileError::MissingLayout)?;
+                    // Ensure physical wire exists (handles ancilla paths)
+                    new_dag.add_qubit(QubitId(p));
+                    Ok(QubitId(p))
+                })
+                .collect::<CompileResult<Vec<_>>>()?;
+            new_dag.apply(remapped).map_err(CompileError::Ir)?;
         }
+
+        new_dag.set_global_phase(dag.global_phase());
+        new_dag.set_level(dag.level());
+        *dag = new_dag;
 
         Ok(())
     }
@@ -147,8 +175,8 @@ fn find_path(
 mod tests {
     use super::*;
     use crate::passes::TrivialLayout;
-    use crate::property::{BasisGates, CouplingMap};
-    use arvak_ir::{Circuit, QubitId};
+    use crate::property::{BasisGates, CouplingMap, Layout};
+    use arvak_ir::{Circuit, InstructionKind, QubitId};
 
     #[test]
     fn test_basic_routing_connected() {
@@ -169,21 +197,143 @@ mod tests {
 
     #[test]
     fn test_basic_routing_needs_swap() {
-        // Create a circuit with a CX on non-adjacent qubits
+        // Create a circuit with a CX on non-adjacent qubits (q0, q2)
+        // On linear(5): 0-1-2-3-4, so q0 and q2 are distance 2 apart.
+        // The router should insert a SWAP before the CX.
         let mut circuit = Circuit::with_size("test", 3, 0);
-        circuit.cx(QubitId(0), QubitId(2)).unwrap(); // Not adjacent in linear
+        circuit.cx(QubitId(0), QubitId(2)).unwrap();
         let mut dag = circuit.into_dag();
 
         let mut props = PropertySet::new().with_target(CouplingMap::linear(5), BasisGates::iqm());
 
         TrivialLayout.run(&mut dag, &mut props).unwrap();
-
-        let ops_before = dag.num_ops();
         BasicRouting.run(&mut dag, &mut props).unwrap();
-        let ops_after = dag.num_ops();
 
         // Should have inserted at least one SWAP
-        assert!(ops_after > ops_before);
+        assert!(dag.num_ops() > 1);
+
+        // Verify SWAPs appear BEFORE the CX in topological order
+        let ops: Vec<_> = dag
+            .topological_ops()
+            .filter_map(|(_, inst)| {
+                if let InstructionKind::Gate(gate) = &inst.kind {
+                    Some(gate.name().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Find last SWAP and first CX — SWAPs must come before CX
+        let last_swap = ops.iter().rposition(|name| name == "swap");
+        let first_cx = ops.iter().position(|name| name == "cx");
+        assert!(last_swap.is_some(), "expected at least one SWAP gate");
+        assert!(first_cx.is_some(), "expected CX gate in output");
+        assert!(
+            last_swap.unwrap() < first_cx.unwrap(),
+            "SWAP gates must appear before CX in topological order, got ops: {ops:?}"
+        );
+
+        // Verify all two-qubit gates use adjacent physical qubits.
+        // Since the output uses physical wire labels, QubitId values
+        // are physical positions — check adjacency directly.
+        let coupling_map = props.coupling_map.as_ref().unwrap();
+        for (_, inst) in dag.topological_ops() {
+            if inst.qubits.len() == 2 {
+                assert!(
+                    coupling_map.is_connected(inst.qubits[0].0, inst.qubits[1].0),
+                    "two-qubit gate on non-adjacent physical qubits ({}, {})",
+                    inst.qubits[0].0,
+                    inst.qubits[1].0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_routing_bv_pattern() {
+        // BV-style circuit: CX from q0 to q3 on linear(5)
+        // Path: 0-1-2-3, needs 2 SWAPs to bring q0 adjacent to q3
+        let mut circuit = Circuit::with_size("bv_test", 4, 0);
+        circuit.cx(QubitId(0), QubitId(3)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props = PropertySet::new().with_target(CouplingMap::linear(5), BasisGates::iqm());
+
+        TrivialLayout.run(&mut dag, &mut props).unwrap();
+        BasicRouting.run(&mut dag, &mut props).unwrap();
+
+        // Since the output uses physical wire labels, check adjacency directly.
+        let coupling_map = props.coupling_map.as_ref().unwrap();
+        for (_, inst) in dag.topological_ops() {
+            if inst.qubits.len() == 2 {
+                assert!(
+                    coupling_map.is_connected(inst.qubits[0].0, inst.qubits[1].0),
+                    "two-qubit gate on non-adjacent physical qubits ({}, {})",
+                    inst.qubits[0].0,
+                    inst.qubits[1].0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_routing_with_ancilla() {
+        // Sparse coupling map: 0-1, 1-2, 2-3 (linear 4-qubit)
+        // Circuit uses only q0 and q1 (mapped to physical 0 and 3, distance 3).
+        // Path 0→1→2→3 traverses physical qubits 1 and 2 which have no
+        // logical qubits mapped — the router must add physical wires.
+        let mut circuit = Circuit::with_size("ancilla_test", 2, 0);
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        // Manually set up a layout where logical q0→physical 0, q1→physical 3
+        // (skipping physical 1 and 2 — no logical qubits there)
+        let mut props = PropertySet::new().with_target(CouplingMap::linear(4), BasisGates::iqm());
+        let mut layout = Layout::new();
+        layout.add(QubitId(0), 0);
+        layout.add(QubitId(1), 3);
+        props.layout = Some(layout);
+
+        BasicRouting.run(&mut dag, &mut props).unwrap();
+
+        // Should have added physical wires for intermediary qubits 1 and 2
+        assert!(
+            dag.num_qubits() > 2,
+            "expected physical wires for SWAP path, got {} qubits",
+            dag.num_qubits()
+        );
+
+        // Verify SWAPs were inserted
+        let ops: Vec<_> = dag
+            .topological_ops()
+            .filter_map(|(_, inst)| {
+                if let InstructionKind::Gate(gate) = &inst.kind {
+                    Some(gate.name().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let swap_count = ops.iter().filter(|n| *n == "swap").count();
+        assert!(
+            swap_count >= 2,
+            "expected at least 2 SWAPs, got {swap_count}"
+        );
+        assert!(ops.iter().any(|n| n == "cx"), "expected CX gate in output");
+
+        // Verify all two-qubit gates are on adjacent physical qubits
+        let coupling_map = props.coupling_map.as_ref().unwrap();
+        for (_, inst) in dag.topological_ops() {
+            if inst.qubits.len() == 2 {
+                assert!(
+                    coupling_map.is_connected(inst.qubits[0].0, inst.qubits[1].0),
+                    "two-qubit gate on non-adjacent physical qubits ({}, {})",
+                    inst.qubits[0].0,
+                    inst.qubits[1].0
+                );
+            }
+        }
     }
 
     #[test]
