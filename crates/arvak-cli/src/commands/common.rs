@@ -33,7 +33,33 @@ pub fn load_circuit(path: &str) -> Result<Circuit> {
     }
 }
 
+/// Get basis gates for a named target (coupling map comes from HAL capabilities).
+pub fn get_basis_gates(target: &str) -> Result<BasisGates> {
+    match target.to_lowercase().as_str() {
+        "iqm" | "iqm5" | "iqm20" => Ok(BasisGates::iqm()),
+        "ibm" | "ibm5" | "ibm27" => Ok(BasisGates::ibm()),
+        "ibm_torino" | "ibm_fez" | "ibm_marrakesh" => Ok(BasisGates::heron()),
+        "simulator" | "sim" => Ok(BasisGates::universal()),
+        "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1" => {
+            Ok(BasisGates::universal())
+        }
+        "rigetti" | "ankaa" => Ok(BasisGates::new(["rx", "rz", "cz"].map(String::from))),
+        "ionq" | "aria" => Ok(BasisGates::new(["rx", "ry", "rz", "xx"].map(String::from))),
+        "scaleway" | "scaleway-garnet" => Ok(BasisGates::iqm()),
+        "scaleway-emerald" => Ok(BasisGates::iqm()),
+        other => {
+            anyhow::bail!(
+                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq, scaleway"
+            );
+        }
+    }
+}
+
 /// Get target coupling map and basis gates for a named target.
+///
+/// Offline fallback — uses hardcoded topologies. Prefer extracting
+/// the coupling map from `Backend::capabilities()` when a live backend
+/// is available (see `run` command).
 pub fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> {
     match target.to_lowercase().as_str() {
         "iqm" | "iqm5" => Ok((CouplingMap::star(5), BasisGates::iqm())),
@@ -55,9 +81,11 @@ pub fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> 
             CouplingMap::full(25),
             BasisGates::new(["rx", "ry", "rz", "xx"].map(String::from)),
         )),
+        "scaleway" | "scaleway-garnet" => Ok((CouplingMap::star(20), BasisGates::iqm())),
+        "scaleway-emerald" => Ok((CouplingMap::star(54), BasisGates::iqm())),
         other => {
             anyhow::bail!(
-                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq"
+                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq, scaleway"
             );
         }
     }

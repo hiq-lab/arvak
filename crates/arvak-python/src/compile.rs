@@ -2,7 +2,64 @@
 
 use pyo3::prelude::*;
 
+use crate::circuit::PyCircuit;
 use crate::qubits::PyQubitId;
+
+/// Compile a circuit for target hardware.
+///
+/// Runs Arvak's full compilation pipeline: layout mapping, SWAP routing,
+/// basis translation, and gate optimization.
+///
+/// Args:
+///     circuit: An Arvak Circuit to compile.
+///     coupling_map: Target device coupling map (optional).
+///     basis_gates: Target native gate set (optional).
+///     optimization_level: Optimization level 0-3 (default: 1).
+///
+/// Returns:
+///     A new compiled Circuit ready for hardware execution.
+///
+/// Raises:
+///     RuntimeError: If compilation fails.
+#[pyfunction]
+#[pyo3(signature = (circuit, coupling_map=None, basis_gates=None, optimization_level=1))]
+pub fn compile(
+    circuit: &PyCircuit,
+    coupling_map: Option<PyCouplingMap>,
+    basis_gates: Option<PyBasisGates>,
+    optimization_level: u8,
+) -> PyResult<PyCircuit> {
+    let mut builder =
+        arvak_compile::PassManagerBuilder::new().with_optimization_level(optimization_level);
+
+    match (coupling_map, basis_gates) {
+        (Some(cm), Some(bg)) => {
+            builder = builder.with_target(cm.inner, bg.inner);
+        }
+        (None, Some(bg)) => {
+            let mut props = arvak_compile::PropertySet::new();
+            props.basis_gates = Some(bg.inner);
+            builder = builder.with_properties(props);
+        }
+        (Some(cm), None) => {
+            let mut props = arvak_compile::PropertySet::new();
+            props.coupling_map = Some(cm.inner);
+            builder = builder.with_properties(props);
+        }
+        (None, None) => {}
+    }
+
+    let (pm, mut props) = builder.build();
+    let mut dag = circuit.inner.clone().into_dag();
+
+    pm.run(&mut dag, &mut props).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("Compilation failed: {e}"))
+    })?;
+
+    Ok(PyCircuit {
+        inner: arvak_ir::Circuit::from_dag(dag),
+    })
+}
 
 /// A mapping from logical qubits to physical qubits.
 ///
@@ -161,6 +218,18 @@ impl PyCouplingMap {
         }
     }
 
+    /// Create a coupling map from an explicit edge list.
+    ///
+    /// Args:
+    ///     num_qubits: Total number of physical qubits.
+    ///     edges: List of (q1, q2) tuples representing bidirectional edges.
+    #[staticmethod]
+    fn from_edge_list(num_qubits: u32, edges: Vec<(u32, u32)>) -> Self {
+        Self {
+            inner: arvak_compile::CouplingMap::from_edge_list(num_qubits, &edges),
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "CouplingMap(num_qubits={}, edges={})",
@@ -213,6 +282,14 @@ impl PyBasisGates {
     fn ibm() -> Self {
         Self {
             inner: arvak_compile::BasisGates::ibm(),
+        }
+    }
+
+    /// Create IBM Heron basis gates (RZ + SX + X + CZ + RX + RZZ).
+    #[staticmethod]
+    fn heron() -> Self {
+        Self {
+            inner: arvak_compile::BasisGates::heron(),
         }
     }
 

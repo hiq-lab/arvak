@@ -210,6 +210,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvak-adapter-scaleway"
+version = "1.7.2"
+dependencies = [
+ "arvak-hal",
+ "arvak-ir",
+ "arvak-qasm3",
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "flate2",
+ "reqwest",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "arvak-adapter-sim"
 version = "1.7.2"
 dependencies = [
@@ -262,6 +283,7 @@ dependencies = [
  "arvak-adapter-braket",
  "arvak-adapter-ibm",
  "arvak-adapter-iqm",
+ "arvak-adapter-scaleway",
  "arvak-adapter-sim",
  "arvak-compile",
  "arvak-eval",
