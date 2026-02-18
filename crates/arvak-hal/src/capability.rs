@@ -152,6 +152,12 @@ impl Capabilities {
         }
     }
 
+    /// Override the topology with real hardware connectivity.
+    pub fn with_topology(mut self, topology: Topology) -> Self {
+        self.topology = topology;
+        self
+    }
+
     /// Attach a noise profile to these capabilities.
     pub fn with_noise_profile(mut self, profile: NoiseProfile) -> Self {
         self.noise_profile = Some(profile);
@@ -423,6 +429,8 @@ pub enum TopologyKind {
     Star,
     /// 2D grid.
     Grid { rows: u32, cols: u32 },
+    /// Heavy-hex lattice (IBM Heron/Eagle processors).
+    HeavyHex,
     /// Custom topology.
     Custom,
     /// Neutral-atom topology with reconfigurable zones.

@@ -18,7 +18,10 @@ use arvak_adapter_ibm::IbmBackend;
 #[cfg(feature = "braket")]
 use arvak_adapter_braket::BraketBackend;
 
-use super::common::{get_target_properties, load_circuit, print_results};
+#[cfg(feature = "scaleway")]
+use arvak_adapter_scaleway::ScalewayBackend;
+
+use super::common::{get_basis_gates, load_circuit, print_results};
 
 /// Execute the run command.
 pub async fn execute(
@@ -44,29 +47,7 @@ pub async fn execute(
         circuit.depth()
     );
 
-    // Compile if requested
-    if do_compile {
-        let target = target.unwrap_or(backend);
-        println!("  Compiling for target: {}", style(target).yellow());
-
-        let (coupling_map, basis_gates) = get_target_properties(target)?;
-        let (pm, mut props) = PassManagerBuilder::new()
-            .with_optimization_level(1)
-            .with_target(coupling_map, basis_gates)
-            .build();
-
-        let mut dag = circuit.into_dag();
-        pm.run(&mut dag, &mut props)?;
-        circuit = Circuit::from_dag(dag);
-
-        println!(
-            "  Compiled: depth {}, {} ops",
-            circuit.depth(),
-            circuit.dag().num_ops()
-        );
-    }
-
-    // Create backend
+    // Create backend FIRST so we can extract real topology for compilation
     let backend_impl: Box<dyn Backend> = match backend.to_lowercase().as_str() {
         "simulator" | "sim" => Box::new(SimulatorBackend::new()),
         #[cfg(feature = "iqm")]
@@ -131,10 +112,57 @@ pub async fn execute(
         | "rigetti" | "ankaa" | "ionq" | "aria" => {
             anyhow::bail!("Braket backend not available. Rebuild with --features braket");
         }
+        #[cfg(feature = "scaleway")]
+        "scaleway" | "scaleway-garnet" | "scaleway-emerald" => {
+            println!("  Connecting to Scaleway QaaS...");
+            match ScalewayBackend::new() {
+                Ok(b) => {
+                    println!("  Session: {}, Platform: {}", b.session_id(), b.platform());
+                    Box::new(b)
+                }
+                Err(e) => {
+                    anyhow::bail!(
+                        "Failed to connect to Scaleway: {}. Set SCALEWAY_SECRET_KEY, SCALEWAY_PROJECT_ID, and SCALEWAY_SESSION_ID.",
+                        e
+                    );
+                }
+            }
+        }
+        #[cfg(not(feature = "scaleway"))]
+        "scaleway" | "scaleway-garnet" | "scaleway-emerald" => {
+            anyhow::bail!("Scaleway backend not available. Rebuild with --features scaleway");
+        }
         other => {
-            anyhow::bail!("Unknown backend: '{other}'. Available: simulator, iqm, ibm, braket");
+            anyhow::bail!(
+                "Unknown backend: '{other}'. Available: simulator, iqm, ibm, braket, scaleway"
+            );
         }
     };
+
+    // Compile if requested — use real topology from HAL capabilities
+    if do_compile {
+        let compile_target = target.unwrap_or(backend);
+        println!("  Compiling for target: {}", style(compile_target).yellow());
+
+        let caps = backend_impl.capabilities();
+        let coupling_map =
+            arvak_compile::CouplingMap::from_edge_list(caps.num_qubits, &caps.topology.edges);
+        let basis_gates = get_basis_gates(compile_target)?;
+        let (pm, mut props) = PassManagerBuilder::new()
+            .with_optimization_level(1)
+            .with_target(coupling_map, basis_gates)
+            .build();
+
+        let mut dag = circuit.into_dag();
+        pm.run(&mut dag, &mut props)?;
+        circuit = Circuit::from_dag(dag);
+
+        println!(
+            "  Compiled: depth {}, {} ops",
+            circuit.depth(),
+            circuit.dag().num_ops()
+        );
+    }
 
     // Check availability
     let avail = backend_impl.availability().await?;
