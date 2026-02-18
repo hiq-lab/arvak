@@ -30,10 +30,10 @@ pub const DEFAULT_BASE_URL: &str = "https://api.scaleway.com";
 const MAX_CACHED_JOBS: usize = 10_000;
 
 /// How long to wait between job status polls (seconds).
-const POLL_INTERVAL: Duration = Duration::from_secs(2);
+pub(crate) const POLL_INTERVAL: Duration = Duration::from_secs(2);
 
 /// Maximum time to wait for a job to complete (seconds).
-const MAX_WAIT_TIME: Duration = Duration::from_secs(300);
+pub(crate) const MAX_WAIT_TIME: Duration = Duration::from_secs(300);
 
 /// Job cache entry.
 struct CachedJob {
@@ -168,7 +168,7 @@ impl ScalewayBackend {
             .extra
             .get("platform")
             .and_then(|v| v.as_str())
-            .map_or_else(|| "QPU-GARNET-20PQ".to_string(), |s| s.to_string());
+            .map_or_else(|| "QPU-GARNET-20PQ".to_string(), str::to_string);
 
         let client = ScalewayClient::new(secret_key, &project_id)?;
 
@@ -194,7 +194,7 @@ impl ScalewayBackend {
             // IQM Emerald 54-qubit — crystal-54 topology.
             "QPU-EMERALD-54PQ" => Capabilities::iqm("scaleway-emerald-54", 54),
             // Fallback: assume IQM-like, 20 qubits.
-            _ => Capabilities::iqm(&format!("scaleway-{platform}"), 20),
+            _ => Capabilities::iqm(format!("scaleway-{platform}"), 20),
         }
     }
 
@@ -261,7 +261,7 @@ impl ScalewayBackend {
     }
 
     /// Poll a job until it reaches a terminal state.
-    async fn wait_for_job(&self, job_id: &str) -> ScalewayResult<JobResponse> {
+    pub async fn wait_for_job(&self, job_id: &str) -> ScalewayResult<JobResponse> {
         let start = std::time::Instant::now();
 
         loop {
