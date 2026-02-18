@@ -117,7 +117,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-braket"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -137,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-cudaq"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -156,7 +156,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-ibm"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -174,7 +174,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-iqm"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -193,7 +193,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-qdmi"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -211,7 +211,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-scaleway"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-adapter-sim"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -251,7 +251,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-auto"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-ir",
  "petgraph",
@@ -263,7 +263,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-bench"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-compile",
  "arvak-ir",
@@ -277,7 +277,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-cli"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-braket",
@@ -309,7 +309,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-compile"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-ir",
  "num-complex",
@@ -324,7 +324,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-dashboard"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-sim",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-demos"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-compile",
  "arvak-hal",
@@ -374,7 +374,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-eval"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-compile",
  "arvak-hal",
@@ -390,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-grpc"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-braket",
@@ -437,7 +437,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-hal"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-ir",
  "async-trait",
@@ -455,7 +455,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-ir"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "criterion",
  "num-complex",
@@ -469,7 +469,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-python"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-adapter-sim",
  "arvak-compile",
@@ -482,7 +482,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-qasm3"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-ir",
  "logos",
@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-qdmi"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "libloading",
  "tempfile",
@@ -504,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-sched"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-hal",
  "arvak-ir",
@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "arvak-types"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "arvak-ir",
  "proptest",
@@ -2858,7 +2858,7 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "lumi-hybrid"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "anyhow",
  "approx",
