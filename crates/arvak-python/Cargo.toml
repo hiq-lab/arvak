@@ -15,7 +15,7 @@ default = ["simulator"]
 simulator = ["arvak-adapter-sim"]
 
 [dependencies]
-pyo3 = { version = "0.28", features = ["extension-module"] }
+pyo3 = { version = "0.28.2", features = ["extension-module"] }
 arvak-ir = { workspace = true }
 arvak-compile = { workspace = true }
 arvak-qasm3 = { workspace = true }
