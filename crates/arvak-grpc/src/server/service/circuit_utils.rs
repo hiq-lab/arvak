@@ -9,7 +9,7 @@ use arvak_hal::capability::{Capabilities, TopologyKind};
 use arvak_ir::circuit::Circuit;
 
 /// Parse circuit from protobuf payload (static version for use in async contexts).
-pub(super) fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Circuit> {
+pub(crate) fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Circuit> {
     let payload =
         payload.ok_or_else(|| Error::InvalidCircuit("Missing circuit payload".to_string()))?;
 
@@ -31,7 +31,7 @@ pub(super) fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Ci
 ///
 /// If `optimization_level` is 0, returns the circuit unchanged (backwards compatible).
 /// Levels 1-3 enable compilation with the corresponding optimization level.
-pub(super) async fn compile_for_backend(
+pub(crate) async fn compile_for_backend(
     circuit: Circuit,
     backend: &dyn Backend,
     optimization_level: u32,

@@ -49,6 +49,7 @@ pub mod health;
 pub mod metrics;
 pub mod proto;
 pub mod resource_manager;
+pub mod rest;
 pub mod server;
 pub mod storage;
 pub mod tracing_config;

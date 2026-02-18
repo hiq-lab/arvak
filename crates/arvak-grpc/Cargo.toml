@@ -71,7 +71,7 @@ lazy_static = "1.4"
 # HTTP server for health/metrics
 axum = "0.7"
 tower = "0.4"
-tower-http = { version = "0.5", features = ["trace"] }
+tower-http = { version = "0.5", features = ["trace", "cors"] }
 hyper = "1.0"
 
 [build-dependencies]
@@ -93,6 +93,10 @@ postgres = ["tokio-postgres"]
 [[bin]]
 name = "arvak-grpc-server"
 path = "src/bin/arvak-grpc-server.rs"
+
+[[bin]]
+name = "arvak-rest-gateway"
+path = "src/bin/arvak-rest-gateway.rs"
 
 [[example]]
 name = "simple_client"

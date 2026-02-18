@@ -137,7 +137,7 @@ pub(super) fn to_proto_state(status: &JobStatus) -> JobState {
 
 /// Spawn async task to execute a job, storing its `AbortHandle` for cancellation.
 #[instrument(skip(job_store, backend, metrics, resources, abort_handles), fields(job_id = %job_id.0))]
-pub(super) async fn spawn_job_execution(
+pub(crate) async fn spawn_job_execution(
     job_store: Arc<JobStore>,
     backend: Arc<dyn Backend>,
     job_id: JobId,
