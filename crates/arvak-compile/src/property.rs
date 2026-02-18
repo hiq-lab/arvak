@@ -360,6 +360,16 @@ impl CouplingMap {
         map
     }
 
+    /// Create a coupling map from a list of edge pairs.
+    pub fn from_edge_list(num_qubits: u32, edges: &[(u32, u32)]) -> Self {
+        let mut map = Self::new(num_qubits);
+        for &(q1, q2) in edges {
+            map.add_edge(q1, q2);
+        }
+        map.precompute_distances();
+        map
+    }
+
     /// O(1) shortest-path distance lookup using the precomputed matrix.
     /// Falls back to BFS if the matrix has not been precomputed.
     pub fn distance(&self, from: u32, to: u32) -> Option<u32> {

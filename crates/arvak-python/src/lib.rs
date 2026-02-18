@@ -56,5 +56,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Simulation
     m.add_function(wrap_pyfunction!(simulate::run_sim, m)?)?;
 
+    // Compilation
+    m.add_function(wrap_pyfunction!(compile::compile, m)?)?;
+
     Ok(())
 }

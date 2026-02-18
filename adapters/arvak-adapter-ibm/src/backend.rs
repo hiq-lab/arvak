@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use arvak_hal::{
     Backend, BackendAvailability, BackendConfig, Capabilities, Counts, ExecutionResult, HalError,
-    HalResult, JobId, JobStatus, ValidationResult,
+    HalResult, JobId, JobStatus, Topology, TopologyKind, ValidationResult,
 };
 use arvak_ir::Circuit;
 use arvak_qasm3::emit;
@@ -89,11 +89,27 @@ impl IbmBackend {
             tracing::info!("connecting to IBM Cloud API (IAM key exchange)");
             let client = IbmClient::connect(&api_key, &service_crn).await?;
 
+            // Eagerly fetch backend info for real topology
+            let info = client.get_backend(&target).await?;
+            let num_qubits = u32::try_from(info.num_qubits).unwrap_or(133);
+            let topology = Topology {
+                kind: TopologyKind::HeavyHex,
+                edges: info
+                    .coupling_map
+                    .iter()
+                    .map(|&[a, b]| (u32::try_from(a).unwrap_or(0), u32::try_from(b).unwrap_or(0)))
+                    .collect(),
+            };
+            let capabilities = Capabilities::ibm(&target, num_qubits).with_topology(topology);
+
+            // Pre-cache the backend info
+            let backend_info = Arc::new(RwLock::new(Some((info, Instant::now()))));
+
             return Ok(Self {
                 client: Arc::new(client),
-                capabilities: Capabilities::ibm(&target, 133),
+                capabilities,
                 target,
-                backend_info: Arc::new(RwLock::new(None)),
+                backend_info,
                 skip_transpilation: false,
             });
         }
