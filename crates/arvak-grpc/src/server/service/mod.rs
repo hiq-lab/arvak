@@ -1,8 +1,8 @@
 //! gRPC service implementation.
 
 mod backend_service;
-mod circuit_utils;
-mod job_execution;
+pub(crate) mod circuit_utils;
+pub(crate) mod job_execution;
 mod job_service;
 
 use arvak_ir::circuit::Circuit;
