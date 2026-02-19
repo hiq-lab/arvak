@@ -92,6 +92,9 @@ pub fn inverse_gate(gate: &StandardGate) -> UncomputeResult<StandardGate> {
 
         // PRX gate: PRX(θ, φ)† = PRX(-θ, φ)
         StandardGate::PRX(theta, phi) => Ok(StandardGate::PRX(negate_param(theta), phi.clone())),
+
+        // ECR is self-inverse: ECR† = ECR (Hermitian unitary).
+        StandardGate::ECR => Ok(StandardGate::ECR),
     }
 }
 

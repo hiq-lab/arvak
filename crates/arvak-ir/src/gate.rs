@@ -87,6 +87,13 @@ pub enum StandardGate {
     // IQM native gates
     /// Phased RX gate: PRX(θ, φ) = RZ(φ) · RX(θ) · RZ(-φ).
     PRX(ParameterExpression, ParameterExpression),
+
+    // IBM Eagle native gates
+    /// Echoed Cross-Resonance gate (IBM Eagle native two-qubit gate).
+    ///
+    /// Unitary (in |q0,q1⟩ basis, q0 high):
+    /// `ECR = (1/√2) [[0, 0, 1, i], [0, 0, i, 1], [1, -i, 0, 0], [-i, 1, 0, 0]]`
+    ECR,
 }
 
 impl StandardGate {
@@ -126,6 +133,7 @@ impl StandardGate {
             StandardGate::CCX => "ccx",
             StandardGate::CSwap => "cswap",
             StandardGate::PRX(_, _) => "prx",
+            StandardGate::ECR => "ecr",
         }
     }
 
@@ -163,7 +171,8 @@ impl StandardGate {
             | StandardGate::CP(_)
             | StandardGate::RXX(_)
             | StandardGate::RYY(_)
-            | StandardGate::RZZ(_) => 2,
+            | StandardGate::RZZ(_)
+            | StandardGate::ECR => 2,
 
             StandardGate::CCX | StandardGate::CSwap => 3,
         }

@@ -157,6 +157,7 @@ impl Emitter {
                 StandardGate::CCX => "ccx".into(),
                 StandardGate::CSwap => "cswap".into(),
                 StandardGate::PRX(_, _) => "prx".into(),
+                StandardGate::ECR => "ecr".into(),
             },
             GateKind::Custom(custom) => custom.name.clone(),
         }
