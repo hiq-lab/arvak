@@ -479,6 +479,14 @@ impl BasisGates {
         Self::new(["rz", "sx", "x", "cx", "measure", "barrier", "id"])
     }
 
+    /// Create IBM Eagle basis gates (RZ + SX + X + ECR).
+    ///
+    /// Eagle is the 127-qubit processor family (ibm_brussels, ibm_strasbourg, etc.).
+    /// ECR is the native two-qubit gate; CZ and CX require decomposition.
+    pub fn eagle() -> Self {
+        Self::new(["rz", "sx", "x", "ecr", "id", "measure", "barrier"])
+    }
+
     /// Create IBM Heron basis gates (RZ + SX + X + CZ).
     pub fn heron() -> Self {
         Self::new([

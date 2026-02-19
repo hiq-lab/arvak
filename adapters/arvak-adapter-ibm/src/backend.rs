@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 use arvak_hal::{
-    Backend, BackendAvailability, BackendConfig, Capabilities, Counts, ExecutionResult, HalError,
-    HalResult, JobId, JobStatus, Topology, TopologyKind, ValidationResult,
+    Backend, BackendAvailability, BackendConfig, Capabilities, Counts, ExecutionResult, GateSet,
+    HalError, HalResult, JobId, JobStatus, Topology, TopologyKind, ValidationResult,
 };
 use arvak_ir::Circuit;
 use arvak_qasm3::emit;
@@ -18,6 +18,69 @@ use crate::error::{IbmError, IbmResult};
 
 /// Default IBM Quantum backend (Heron processor, zero-queue).
 const DEFAULT_BACKEND: &str = "ibm_torino";
+
+/// Eagle backends (127-qubit, ECR native).
+const EAGLE_BACKENDS: &[&str] = &[
+    "ibm_brussels",
+    "ibm_strasbourg",
+    "ibm_brisbane",
+    "ibm_kyoto",
+    "ibm_osaka",
+    "ibm_sherbrooke",
+    "ibm_nazca",
+];
+
+/// Return the correct gate set for a named IBM backend.
+///
+/// Uses the target name to distinguish Eagle (ECR) from Heron (CZ).
+/// Falls back to Heron for unknown targets (safe: Heron is the current
+/// generation and most new backends are Heron).
+fn gate_set_for_target(target: &str) -> GateSet {
+    if EAGLE_BACKENDS.contains(&target) {
+        GateSet::ibm_eagle()
+    } else {
+        GateSet::ibm_heron()
+    }
+}
+
+/// Build a `Capabilities` stub for a named IBM backend.
+///
+/// The topology is a placeholder (`linear`) — callers that need accurate
+/// topology must use `IbmBackend::connect()` which fetches it from the API.
+fn capabilities_stub(target: &str, num_qubits: u32) -> Capabilities {
+    Capabilities {
+        name: target.to_string(),
+        num_qubits,
+        gate_set: gate_set_for_target(target),
+        topology: Topology::linear(num_qubits), // placeholder
+        max_shots: 100_000,
+        is_simulator: false,
+        features: vec!["dynamic_circuits".into()],
+        noise_profile: None,
+    }
+}
+
+/// Return a `Capabilities` for a backend where the real qubit count is known.
+///
+/// Uses `num_qubits <= 127` to distinguish Eagle from Heron when the target
+/// name is not in the known lists (e.g., fresh backends not yet in this list).
+fn capabilities_from_real_info(target: &str, num_qubits: u32, topology: Topology) -> Capabilities {
+    let gate_set = if EAGLE_BACKENDS.contains(&target) || num_qubits <= 127 {
+        GateSet::ibm_eagle()
+    } else {
+        GateSet::ibm_heron()
+    };
+    Capabilities {
+        name: target.to_string(),
+        num_qubits,
+        gate_set,
+        topology,
+        max_shots: 100_000,
+        is_simulator: false,
+        features: vec!["dynamic_circuits".into()],
+        noise_profile: None,
+    }
+}
 
 /// How long to cache backend info before refreshing from the API.
 const BACKEND_INFO_TTL: Duration = Duration::from_secs(5 * 60);
@@ -49,7 +112,7 @@ impl IbmBackend {
 
         Ok(Self {
             client: Arc::new(client),
-            capabilities: Capabilities::ibm(&target, 127),
+            capabilities: capabilities_stub(&target, 127),
             target,
             backend_info: Arc::new(RwLock::new(None)),
             skip_transpilation: false,
@@ -67,7 +130,7 @@ impl IbmBackend {
 
         Ok(Self {
             client: Arc::new(client),
-            capabilities: Capabilities::ibm(&target, 127),
+            capabilities: capabilities_stub(&target, 127),
             target,
             backend_info: Arc::new(RwLock::new(None)),
             skip_transpilation: false,
@@ -100,7 +163,7 @@ impl IbmBackend {
                     .map(|&[a, b]| (u32::try_from(a).unwrap_or(0), u32::try_from(b).unwrap_or(0)))
                     .collect(),
             };
-            let capabilities = Capabilities::ibm(&target, num_qubits).with_topology(topology);
+            let capabilities = capabilities_from_real_info(&target, num_qubits, topology);
 
             // Pre-cache the backend info
             let backend_info = Arc::new(RwLock::new(Some((info, Instant::now()))));
@@ -121,7 +184,7 @@ impl IbmBackend {
 
             return Ok(Self {
                 client: Arc::new(client),
-                capabilities: Capabilities::ibm(&target, 127),
+                capabilities: capabilities_stub(&target, 127),
                 target,
                 backend_info: Arc::new(RwLock::new(None)),
                 skip_transpilation: false,
@@ -152,7 +215,7 @@ impl IbmBackend {
 
         Ok(Self {
             client: Arc::new(client),
-            capabilities: Capabilities::ibm(target, 127),
+            capabilities: capabilities_stub(target, 127),
             target: target.to_string(),
             backend_info: Arc::new(RwLock::new(None)),
             skip_transpilation: false,
@@ -369,26 +432,51 @@ impl Backend for IbmBackend {
             ));
         }
 
-        // Check gate set support
+        if !reasons.is_empty() {
+            return Ok(ValidationResult::Invalid { reasons });
+        }
+
+        // Check gate set support; detect gates that require transpilation (DEBT-14).
         let gate_set = &caps.gate_set;
+        let is_eagle = gate_set.two_qubit.iter().any(|g| g == "ecr");
+        let mut needs_transpilation = false;
         for (_, inst) in circuit.dag().topological_ops() {
             if let Some(gate) = inst.as_gate() {
                 let name = gate.name();
                 if !gate_set.contains(name) {
-                    reasons.push(format!("Unsupported gate: {}", name));
-                    break;
+                    // On Eagle, CZ/CX are not native but can be synthesised to ECR.
+                    if is_eagle && (name == "cz" || name == "cx") {
+                        needs_transpilation = true;
+                    } else {
+                        reasons.push(format!("Unsupported gate: {name}"));
+                        break;
+                    }
                 }
             }
         }
 
-        if reasons.is_empty() {
-            Ok(ValidationResult::Valid)
-        } else {
-            Ok(ValidationResult::Invalid { reasons })
+        if !reasons.is_empty() {
+            return Ok(ValidationResult::Invalid { reasons });
         }
+
+        if needs_transpilation {
+            return Ok(ValidationResult::RequiresTranspilation {
+                details: "Eagle backend requires ECR; circuits containing CX/CZ will be \
+                          retranslated to ECR + single-qubit gates"
+                    .to_string(),
+            });
+        }
+
+        Ok(ValidationResult::Valid)
     }
 
     async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+        // Pre-submission validation (DEBT-01): catch unsupported gates and
+        // qubit-count violations before burning queue time or quantum credits.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
+        }
+
         // Check qubit count
         let info = self
             .get_backend_info()

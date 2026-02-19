@@ -448,8 +448,8 @@ fn format_gate_label(gate: &arvak_ir::Gate) -> String {
 /// Format a `StandardGate` label with parameters.
 fn format_standard_gate_label(gate: &arvak_ir::StandardGate) -> String {
     use arvak_ir::StandardGate::{
-        CCX, CH, CP, CRx, CRy, CRz, CSwap, CX, CY, CZ, H, I, ISwap, P, PRX, RXX, RYY, RZZ, Rx, Ry,
-        Rz, S, SX, SXdg, Sdg, Swap, T, Tdg, U, X, Y, Z,
+        CCX, CH, CP, CRx, CRy, CRz, CSwap, CX, CY, CZ, ECR, H, I, ISwap, P, PRX, RXX, RYY, RZZ, Rx,
+        Ry, Rz, S, SX, SXdg, Sdg, Swap, T, Tdg, U, X, Y, Z,
     };
 
     match gate {
@@ -493,6 +493,7 @@ fn format_standard_gate_label(gate: &arvak_ir::StandardGate) -> String {
         RYY(p) => format!("RYY({})", format_param(p)),
         RZZ(p) => format!("RZZ({})", format_param(p)),
         PRX(t, p) => format!("PRX({},{})", format_param(t), format_param(p)),
+        ECR => "ECR".to_string(),
     }
 }
 

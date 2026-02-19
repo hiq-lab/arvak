@@ -64,7 +64,7 @@ use reproducibility::ReproducibilityInfo;
 use scheduler_context::{SchedulerConstraints, SchedulerContext};
 
 use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
-use arvak_hal::Capabilities;
+use arvak_hal::{Capabilities, GateSet, Topology};
 use tracing::info;
 
 /// Evaluation profile controlling compilation target and observation depth.
@@ -113,7 +113,16 @@ impl EvalConfig {
     /// Build target capabilities from the config.
     pub fn target_capabilities(&self) -> Capabilities {
         match self.target.as_str() {
-            "ibm" => Capabilities::ibm(&self.target, self.target_qubits),
+            "ibm" => Capabilities {
+                name: self.target.clone(),
+                num_qubits: self.target_qubits,
+                gate_set: GateSet::ibm_heron(),
+                topology: Topology::linear(self.target_qubits),
+                max_shots: 100_000,
+                is_simulator: false,
+                features: vec!["dynamic_circuits".into()],
+                noise_profile: None,
+            },
             "simulator" => Capabilities::simulator(self.target_qubits),
             // Default to IQM
             _ => Capabilities::iqm(&self.target, self.target_qubits),
