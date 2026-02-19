@@ -105,7 +105,8 @@ impl ScalewayBackend {
 
         let client = ScalewayClient::new(&secret_key, &project_id)?;
 
-        let capabilities = Self::capabilities_for_platform(&platform);
+        let capabilities = Self::capabilities_for_platform(&platform)
+            .map_err(|e| ScalewayError::CircuitValidation(e.to_string()))?;
 
         Ok(Self {
             config,
@@ -135,7 +136,8 @@ impl ScalewayBackend {
 
         let client = ScalewayClient::new(&secret_key, &project_id)?;
 
-        let capabilities = Self::capabilities_for_platform(&platform);
+        let capabilities = Self::capabilities_for_platform(&platform)
+            .map_err(|e| ScalewayError::CircuitValidation(e.to_string()))?;
 
         Ok(Self {
             config,
@@ -172,7 +174,8 @@ impl ScalewayBackend {
 
         let client = ScalewayClient::new(secret_key, &project_id)?;
 
-        let capabilities = Self::capabilities_for_platform(&platform);
+        let capabilities = Self::capabilities_for_platform(&platform)
+            .map_err(|e| ScalewayError::CircuitValidation(e.to_string()))?;
 
         Ok(Self {
             config,
@@ -185,16 +188,24 @@ impl ScalewayBackend {
     }
 
     /// Build capabilities for a known Scaleway platform.
-    fn capabilities_for_platform(platform: &str) -> Capabilities {
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` for unknown platform strings (DEBT-16: silently defaulting
+    /// to star topology would produce wrong routing for new Scaleway platforms).
+    fn capabilities_for_platform(platform: &str) -> Result<Capabilities, HalError> {
         match platform {
             // IQM Sirius 16-qubit — star-24 topology.
-            "QPU-SIRIUS-24PQ" => Capabilities::iqm("scaleway-sirius-16", 16),
+            "QPU-SIRIUS-24PQ" => Ok(Capabilities::iqm("scaleway-sirius-16", 16)),
             // IQM Garnet 20-qubit — crystal-20 topology.
-            "QPU-GARNET-20PQ" => Capabilities::iqm("scaleway-garnet-20", 20),
+            "QPU-GARNET-20PQ" => Ok(Capabilities::iqm("scaleway-garnet-20", 20)),
             // IQM Emerald 54-qubit — crystal-54 topology.
-            "QPU-EMERALD-54PQ" => Capabilities::iqm("scaleway-emerald-54", 54),
-            // Fallback: assume IQM-like, 20 qubits.
-            _ => Capabilities::iqm(format!("scaleway-{platform}"), 20),
+            "QPU-EMERALD-54PQ" => Ok(Capabilities::iqm("scaleway-emerald-54", 54)),
+            // DEBT-16: error on unknown platform instead of silently defaulting.
+            _ => Err(HalError::Backend(format!(
+                "Unknown Scaleway platform: {platform}. \
+                 Known platforms: QPU-SIRIUS-24PQ, QPU-GARNET-20PQ, QPU-EMERALD-54PQ"
+            ))),
         }
     }
 
@@ -350,7 +361,7 @@ impl Backend for ScalewayBackend {
             if let Some(gate) = inst.as_gate() {
                 let name = gate.name();
                 if !gate_set.contains(name) {
-                    reasons.push(format!("Unsupported gate: {}", name));
+                    reasons.push(format!("Unsupported gate: {name}"));
                     break;
                 }
             }
@@ -372,6 +383,22 @@ impl Backend for ScalewayBackend {
             circuit.num_qubits(),
             shots
         );
+
+        // Pre-submission shot-count validation (DEBT-17).
+        // IQM/Scaleway limits: 1 ≤ shots ≤ 100,000.
+        if shots == 0 {
+            return Err(HalError::InvalidShots("shots must be ≥ 1".to_string()));
+        }
+        if shots > 100_000 {
+            return Err(HalError::InvalidShots(format!(
+                "shots {shots} exceeds IQM/Scaleway maximum of 100,000"
+            )));
+        }
+
+        // Pre-submission circuit validation (gate set + qubit count).
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
+        }
 
         // Validate circuit size
         let caps = self.capabilities();
@@ -611,22 +638,27 @@ mod tests {
 
     #[test]
     fn test_capabilities_garnet() {
-        let caps = ScalewayBackend::capabilities_for_platform("QPU-GARNET-20PQ");
+        let caps = ScalewayBackend::capabilities_for_platform("QPU-GARNET-20PQ").unwrap();
         assert_eq!(caps.num_qubits, 20);
         assert!(!caps.is_simulator);
     }
 
     #[test]
     fn test_capabilities_emerald() {
-        let caps = ScalewayBackend::capabilities_for_platform("QPU-EMERALD-54PQ");
+        let caps = ScalewayBackend::capabilities_for_platform("QPU-EMERALD-54PQ").unwrap();
         assert_eq!(caps.num_qubits, 54);
     }
 
     #[test]
     fn test_capabilities_unknown_platform() {
-        let caps = ScalewayBackend::capabilities_for_platform("QPU-UNKNOWN-100PQ");
-        // Falls back to 20 qubits
-        assert_eq!(caps.num_qubits, 20);
+        // DEBT-16 fix: unknown platforms must return an error, not silently default.
+        let result = ScalewayBackend::capabilities_for_platform("QPU-UNKNOWN-100PQ");
+        assert!(result.is_err(), "Unknown platform should return an error");
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("Unknown Scaleway platform"),
+            "Error should mention platform name"
+        );
     }
 
     #[test]

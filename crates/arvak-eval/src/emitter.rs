@@ -398,6 +398,7 @@ fn decomposition_cost(gate_name: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arvak_hal::{GateSet, Topology};
     use arvak_ir::{Circuit, ClbitId, QubitId};
 
     #[test]
@@ -438,7 +439,16 @@ mod tests {
         circuit.cx(QubitId(0), QubitId(1)).unwrap();
 
         let dag = circuit.into_dag();
-        let caps = Capabilities::ibm("test", 20);
+        let caps = Capabilities {
+            name: "test".into(),
+            num_qubits: 20,
+            gate_set: GateSet::ibm_heron(),
+            topology: Topology::linear(20),
+            max_shots: 100_000,
+            is_simulator: false,
+            features: vec![],
+            noise_profile: None,
+        };
         let report = EmitterAnalyzer::analyze(&dag, &EmitTarget::Ibm, &caps).unwrap();
 
         assert_eq!(report.coverage.total_gates, 2);

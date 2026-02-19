@@ -81,12 +81,27 @@ impl Capabilities {
     }
 
     /// Create capabilities for IBM devices.
+    ///
+    /// # Deprecated
+    ///
+    /// This factory uses `GateSet::ibm()` (wrong CX gate set) and
+    /// `Topology::linear()` (wildly wrong for IBM heavy-hex processors).
+    /// Use `IbmBackend::connect()` instead — it fetches the real gate set and
+    /// topology from the IBM Cloud API.
+    ///
+    /// For Eagle (127q) processors use `GateSet::ibm_eagle()`;
+    /// for Heron (156q) processors use `GateSet::ibm_heron()`.
+    #[deprecated(
+        since = "1.9.0",
+        note = "Use IbmBackend::connect() — this factory has wrong gate set (CX) and wrong topology (linear)"
+    )]
+    #[allow(deprecated)]
     pub fn ibm(name: impl Into<String>, num_qubits: u32) -> Self {
         Self {
             name: name.into(),
             num_qubits,
             gate_set: GateSet::ibm(),
-            topology: Topology::linear(num_qubits), // Simplified
+            topology: Topology::linear(num_qubits), // placeholder — use connect() for real topology
             max_shots: 100_000,
             is_simulator: false,
             features: vec!["dynamic_circuits".into()],
@@ -197,7 +212,44 @@ impl GateSet {
         }
     }
 
+    /// Create IBM Eagle gate set (127-qubit processors: ibm_brussels, ibm_strasbourg, etc.).
+    ///
+    /// Eagle native gates: `ecr, rz, sx, x`. IBM retired CX-native hardware with Falcon.
+    pub fn ibm_eagle() -> Self {
+        Self {
+            single_qubit: vec!["rz".into(), "sx".into(), "x".into(), "id".into()],
+            two_qubit: vec!["ecr".into()],
+            three_qubit: vec![],
+            native: vec!["rz".into(), "sx".into(), "x".into(), "ecr".into()],
+        }
+    }
+
+    /// Create IBM Heron gate set (156-qubit processors: ibm_torino, ibm_marrakesh, etc.).
+    ///
+    /// Heron native gates: `cz, rz, sx, x`. Matches `BasisGates::heron()`.
+    pub fn ibm_heron() -> Self {
+        Self {
+            single_qubit: vec!["rz".into(), "sx".into(), "x".into(), "id".into()],
+            two_qubit: vec!["cz".into()],
+            three_qubit: vec![],
+            native: vec!["rz".into(), "sx".into(), "x".into(), "cz".into()],
+        }
+    }
+
     /// Create IBM gate set.
+    ///
+    /// # Deprecated
+    ///
+    /// This method is wrong: it hardcodes CX as the two-qubit gate, but IBM
+    /// retired CX-native hardware with Falcon processors.
+    /// - For Eagle (127q) backends use [`GateSet::ibm_eagle()`] (ECR native).
+    /// - For Heron (156q) backends use [`GateSet::ibm_heron()`] (CZ native).
+    ///
+    /// Use `IbmBackend::connect()` to fetch the real gate set from the IBM API.
+    #[deprecated(
+        since = "1.9.0",
+        note = "Use ibm_eagle() or ibm_heron() instead; Capabilities::ibm() uses wrong CX gate set"
+    )]
     pub fn ibm() -> Self {
         Self {
             single_qubit: vec!["rz".into(), "sx".into(), "x".into(), "id".into()],
