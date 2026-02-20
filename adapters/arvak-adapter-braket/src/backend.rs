@@ -32,6 +32,9 @@ struct CachedJob {
     result: Option<ExecutionResult>,
     /// Number of qubits in the submitted circuit.
     num_qubits: usize,
+    /// Number of shots requested at submission time (used to convert
+    /// probability-only result formats to approximate counts).
+    shots: u32,
 }
 
 /// AWS Braket backend adapter.
@@ -127,7 +130,11 @@ impl BraketBackend {
     }
 
     /// Parse task result into execution counts.
-    fn parse_result(result: &crate::api::TaskResult, _num_qubits: usize) -> Counts {
+    ///
+    /// `submitted_shots` is used as the denominator when the only available
+    /// result format is `measurementProbabilities`. Pass 0 to use the default
+    /// fallback of 1000 (for callers that don't have the shot count available).
+    fn parse_result(result: &crate::api::TaskResult, _num_qubits: usize, submitted_shots: u32) -> Counts {
         let mut counts = Counts::new();
 
         // Prefer measurementCounts (bitstring -> count)
@@ -152,8 +159,7 @@ impl BraketBackend {
 
         // Fall back to measurementProbabilities
         if let Some(probs) = &result.measurement_probabilities {
-            // Convert probabilities to approximate counts (assume 1000 shots)
-            let total_shots = 1000.0_f64;
+            let total_shots = if submitted_shots > 0 { submitted_shots as f64 } else { 1000.0_f64 };
             for (bitstring, &prob) in probs {
                 let count = (prob * total_shots).max(0.0).round() as u64;
                 if count > 0 {
@@ -296,6 +302,7 @@ impl Backend for BraketBackend {
                     status: JobStatus::Queued,
                     result: None,
                     num_qubits: circuit.num_qubits(),
+                    shots,
                 },
             );
         }
@@ -369,14 +376,16 @@ impl Backend for BraketBackend {
             .await
             .map_err(|e| HalError::Backend(e.to_string()))?;
 
-        // Get num_qubits from cache or capabilities
-        let num_qubits = {
+        // Get num_qubits and shots from cache or capabilities
+        let (num_qubits, submitted_shots) = {
             let jobs = self.jobs.lock().await;
-            jobs.get(&job_id.0)
-                .map_or(self.capabilities.num_qubits as usize, |j| j.num_qubits)
+            jobs.get(&job_id.0).map_or(
+                (self.capabilities.num_qubits as usize, 0u32),
+                |j| (j.num_qubits, j.shots),
+            )
         };
 
-        let counts = Self::parse_result(&task_result, num_qubits);
+        let counts = Self::parse_result(&task_result, num_qubits, submitted_shots);
         let total_shots = counts.total_shots() as u32;
         let result = ExecutionResult::new(counts, total_shots);
 
@@ -429,7 +438,7 @@ mod tests {
             additional_metadata: None,
         };
 
-        let counts = BraketBackend::parse_result(&result, 2);
+        let counts = BraketBackend::parse_result(&result, 2, 1000);
         assert_eq!(counts.get("00"), 500);
         assert_eq!(counts.get("11"), 500);
         assert_eq!(counts.total_shots(), 1000);
@@ -445,7 +454,7 @@ mod tests {
             additional_metadata: None,
         };
 
-        let counts = BraketBackend::parse_result(&result, 2);
+        let counts = BraketBackend::parse_result(&result, 2, 4);
         assert_eq!(counts.get("00"), 2);
         assert_eq!(counts.get("11"), 2);
         assert_eq!(counts.total_shots(), 4);

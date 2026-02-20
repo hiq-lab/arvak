@@ -176,6 +176,7 @@ pub fn is_self_inverse(gate: &StandardGate) -> bool {
             | StandardGate::CCX
             | StandardGate::CSwap
             | StandardGate::CH
+            | StandardGate::ECR
     )
 }
 

@@ -581,6 +581,15 @@ impl Config {
             ));
         }
 
+        // Validate API key is non-empty if provided
+        if let Some(ref key) = self.server.api_key {
+            if key.is_empty() {
+                return Err(ConfigError::ValidationError(
+                    "api_key must not be empty; omit the field to disable authentication".to_string(),
+                ));
+            }
+        }
+
         Ok(())
     }
 
