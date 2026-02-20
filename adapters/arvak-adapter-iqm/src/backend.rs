@@ -303,11 +303,24 @@ impl Backend for IqmBackend {
         info!("Job submitted: {}", job_id);
 
         // Cache job info, evicting completed entries if the cache is full.
+        // If no terminal entries exist, evict an arbitrary active entry to
+        // prevent unbounded memory growth.
         let job = Job::new(job_id.clone(), shots).with_backend(&self.target);
         {
             let mut jobs = self.jobs.lock().await;
             if jobs.len() >= MAX_CACHED_JOBS {
                 jobs.retain(|_, j| !j.job.status.is_terminal());
+                // If retain did not free any space, evict any entry to bound memory.
+                if jobs.len() >= MAX_CACHED_JOBS {
+                    tracing::warn!(
+                        capacity = MAX_CACHED_JOBS,
+                        "IQM job cache at capacity with no terminal entries; \
+                         evicting an active entry to prevent unbounded growth"
+                    );
+                    if let Some(key) = jobs.keys().next().cloned() {
+                        jobs.remove(&key);
+                    }
+                }
             }
             jobs.insert(job_id.0.clone(), CachedJob { job, result: None });
         }

@@ -126,33 +126,12 @@ impl SqliteStorage {
         Ok(arvak_ir::circuit::Circuit::new("stored"))
     }
 
-    /// Convert JobStatus to string for storage.
-    // TODO: Extract shared status conversion to storage/mod.rs (duplicated in postgres.rs)
     fn status_to_string(status: &JobStatus) -> String {
-        match status {
-            JobStatus::Queued => "queued".to_string(),
-            JobStatus::Running => "running".to_string(),
-            JobStatus::Completed => "completed".to_string(),
-            JobStatus::Failed(msg) => format!("failed:{}", msg),
-            JobStatus::Cancelled => "cancelled".to_string(),
-        }
+        super::job_status_to_string(status)
     }
 
-    /// Convert string to JobStatus.
     fn string_to_status(s: &str) -> Result<JobStatus> {
-        if s == "queued" {
-            Ok(JobStatus::Queued)
-        } else if s == "running" {
-            Ok(JobStatus::Running)
-        } else if s == "completed" {
-            Ok(JobStatus::Completed)
-        } else if s == "cancelled" {
-            Ok(JobStatus::Cancelled)
-        } else if let Some(msg) = s.strip_prefix("failed:") {
-            Ok(JobStatus::Failed(msg.to_string()))
-        } else {
-            Err(Error::StorageError(format!("Invalid status: {}", s)))
-        }
+        super::job_status_from_string(s)
     }
 }
 
@@ -405,8 +384,18 @@ impl JobStorage for SqliteStorage {
             let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
             if let Some(status) = filter.state {
-                query.push_str(" AND status LIKE ?");
-                params.push(Box::new(format!("{}%", Self::status_to_string(&status))));
+                // Use exact equality for non-failed statuses.
+                // Use LIKE prefix for Failed since the error message is appended after "failed:".
+                match &status {
+                    JobStatus::Failed(_) => {
+                        query.push_str(" AND status LIKE ?");
+                        params.push(Box::new("failed:%".to_string()));
+                    }
+                    _ => {
+                        query.push_str(" AND status = ?");
+                        params.push(Box::new(Self::status_to_string(&status)));
+                    }
+                }
             }
 
             if let Some(backend_id) = filter.backend_id {

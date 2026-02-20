@@ -61,12 +61,18 @@ impl ArvakServiceImpl {
         let circuit =
             compile_for_backend(circuit, backend.as_ref(), req.optimization_level).await?;
 
-        // Create job in store (status = QUEUED)
+        // Create job in store (status = QUEUED).
+        // Note: resource counter is incremented AFTER successful creation to avoid
+        // a counter mismatch if create_job fails. If creation fails, we skip
+        // job_submitted() so the resource slot is never reserved.
         let job_id = self
             .job_store
             .create_job(circuit, req.backend_id.clone(), req.shots)
             .await
-            .map_err(Status::from)?;
+            .map_err(|e| {
+                // create_job failed — resource was checked but never incremented; nothing to roll back.
+                Status::from(e)
+            })?;
 
         tracing::Span::current().record("job_id", job_id.0.as_str());
         info!(shots = req.shots, "Job submitted");
@@ -74,7 +80,7 @@ impl ArvakServiceImpl {
         // Record job submission metric
         self.metrics.record_job_submitted(&req.backend_id);
 
-        // Update resource tracking
+        // Update resource tracking (after successful job creation)
         if let Some(ref resources) = self.resources {
             resources.job_submitted(client_ip.as_deref()).await;
         }

@@ -326,16 +326,18 @@ impl QdmiBackend {
                 .map_err(|s| QdmiError::Ffi(format!("session_init failed: {s:?}")))?;
 
             // 4. Discover devices via session property query (buffer-query pattern)
-            // First call: get required buffer size
+            // First call: get required buffer size.
+            // The QDMI spec states that the first call (with size=0) may return
+            // ErrorInvalidArgument while still writing the required size via size_ret;
+            // so we intentionally ignore the status here and check devices_size instead.
             let mut devices_size: usize = 0;
-            let status = ffi::QDMI_session_query_session_property(
+            let _status = ffi::QDMI_session_query_session_property(
                 session,
                 QdmiSessionProperty::Devices as c_int,
                 0,
                 std::ptr::null_mut(),
                 &mut devices_size,
             );
-            // ErrorInvalidArgument with size_ret > 0 means "buffer too small, here's the size"
             if devices_size == 0 {
                 ffi::QDMI_session_free(session);
                 return Err(QdmiError::NoDevice);
@@ -892,19 +894,29 @@ impl Backend for QdmiBackend {
                     .map(|s| s.to_string())
                     .collect();
 
-                // Get histogram values (buffer-query pattern)
+                // Get histogram values (buffer-query pattern — two calls required).
                 // QDMI returns size_t (usize) values; read into usize buffer
                 // then convert to u64 for the Arvak Counts type.
-                let num_keys = hist_keys.len();
-                let values_buf_size = num_keys * std::mem::size_of::<usize>();
-                let mut hist_values_raw = vec![0usize; num_keys];
-                let mut values_size = values_buf_size;
+                let mut values_size: usize = 0;
+                let _status = ffi::QDMI_job_get_results(
+                    job_ptr,
+                    QdmiJobResult::HistValues as c_int,
+                    0,
+                    std::ptr::null_mut(),
+                    &mut values_size,
+                );
+                if values_size == 0 {
+                    return Err(HalError::Backend("No histogram values available".into()));
+                }
+                let num_values = values_size / std::mem::size_of::<usize>();
+                let mut hist_values_raw = vec![0usize; num_values];
+                let mut values_size_ret = values_size;
                 let status = ffi::QDMI_job_get_results(
                     job_ptr,
                     QdmiJobResult::HistValues as c_int,
-                    values_buf_size,
+                    values_size,
                     hist_values_raw.as_mut_ptr() as *mut c_void,
-                    &mut values_size,
+                    &mut values_size_ret,
                 );
                 ffi::check_status(status)
                     .map_err(|s| HalError::Backend(format!("get HistValues failed: {s:?}")))?;

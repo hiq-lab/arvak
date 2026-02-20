@@ -262,6 +262,12 @@ impl BackendFactory for SimulatorBackend {
             .and_then(serde_json::value::Value::as_u64)
             .map_or(20, |v| u32::try_from(v).unwrap_or(20));
 
+        if max_qubits == 0 {
+            return Err(HalError::Backend(
+                "max_qubits must be greater than 0".to_string(),
+            ));
+        }
+
         Ok(Self {
             capabilities: Capabilities::simulator(max_qubits),
             config,

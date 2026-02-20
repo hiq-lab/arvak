@@ -46,7 +46,9 @@ impl JobStorage for MemoryStorage {
         let mut jobs = self.jobs.write().await;
         jobs.insert(job.id.0.clone(), job.clone());
 
-        // Evict oldest terminal job if over capacity
+        // Evict oldest terminal job if over capacity.
+        // If no terminal jobs exist, fall back to evicting the oldest job of any
+        // state to prevent unbounded memory growth when all jobs are active.
         if jobs.len() > self.max_capacity {
             let oldest = jobs
                 .iter()
@@ -57,7 +59,17 @@ impl JobStorage for MemoryStorage {
                     )
                 })
                 .min_by_key(|(_, j)| j.submitted_at)
-                .map(|(k, _)| k.clone());
+                .map(|(k, _)| k.clone())
+                .or_else(|| {
+                    tracing::warn!(
+                        capacity = self.max_capacity,
+                        "MemoryStorage at capacity with no terminal jobs to evict; \
+                         evicting oldest active job to prevent unbounded growth"
+                    );
+                    jobs.iter()
+                        .min_by_key(|(_, j)| j.submitted_at)
+                        .map(|(k, _)| k.clone())
+                });
             if let Some(key) = oldest {
                 jobs.remove(&key);
             }
