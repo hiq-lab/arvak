@@ -23,6 +23,7 @@ arvak-adapter-iqm = { path = "../../adapters/arvak-adapter-iqm", optional = true
 arvak-adapter-ibm = { path = "../../adapters/arvak-adapter-ibm", optional = true }
 arvak-adapter-braket = { path = "../../adapters/arvak-adapter-braket", optional = true }
 arvak-adapter-scaleway = { path = "../../adapters/arvak-adapter-scaleway", optional = true }
+arvak-adapter-quantinuum = { path = "../../adapters/arvak-adapter-quantinuum", optional = true }
 arvak-sched = { workspace = true }
 arvak-eval = { workspace = true }
 
@@ -54,4 +55,5 @@ iqm = ["dep:arvak-adapter-iqm"]
 ibm = ["dep:arvak-adapter-ibm"]
 braket = ["dep:arvak-adapter-braket"]
 scaleway = ["dep:arvak-adapter-scaleway"]
-all-backends = ["iqm", "ibm", "braket", "scaleway"]
+quantinuum = ["dep:arvak-adapter-quantinuum"]
+all-backends = ["iqm", "ibm", "braket", "scaleway", "quantinuum"]

@@ -47,9 +47,14 @@ pub fn get_basis_gates(target: &str) -> Result<BasisGates> {
         "ionq" | "aria" => Ok(BasisGates::new(["rx", "ry", "rz", "xx"].map(String::from))),
         "scaleway" | "scaleway-garnet" => Ok(BasisGates::iqm()),
         "scaleway-emerald" => Ok(BasisGates::iqm()),
+        "quantinuum" | "quantinuum-h2" | "h2-1le" | "h2-1e" | "h1-1e" | "h2-1" | "h1-1" => Ok(
+            BasisGates::new(["rz", "rx", "ry", "h", "cx", "cz"].map(String::from)),
+        ),
         other => {
             anyhow::bail!(
-                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq, scaleway"
+                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, \
+                 ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq, scaleway, \
+                 quantinuum"
             );
         }
     }
@@ -83,9 +88,19 @@ pub fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> 
         )),
         "scaleway" | "scaleway-garnet" => Ok((CouplingMap::star(20), BasisGates::iqm())),
         "scaleway-emerald" => Ok((CouplingMap::star(54), BasisGates::iqm())),
+        "quantinuum" | "quantinuum-h2" | "h2-1le" | "h2-1e" | "h2-1" => Ok((
+            CouplingMap::full(32),
+            BasisGates::new(["rz", "rx", "ry", "h", "cx", "cz"].map(String::from)),
+        )),
+        "h1-1e" | "h1-1" => Ok((
+            CouplingMap::full(20),
+            BasisGates::new(["rz", "rx", "ry", "h", "cx", "cz"].map(String::from)),
+        )),
         other => {
             anyhow::bail!(
-                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq, scaleway"
+                "Unknown target: '{other}'. Available: iqm, iqm5, iqm20, ibm, ibm5, ibm27, \
+                 ibm_torino, ibm_fez, ibm_marrakesh, simulator, braket, rigetti, ionq, scaleway, \
+                 quantinuum"
             );
         }
     }

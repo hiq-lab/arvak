@@ -84,6 +84,26 @@ pub async fn register_braket_backends(registry: &mut BackendRegistry) {
     }
 }
 
+/// Register Quantinuum backends.
+///
+/// Registers the H2-1LE noiseless emulator as `"quantinuum-h2le"`.
+/// Reads `QUANTINUUM_EMAIL` and `QUANTINUUM_PASSWORD` from the environment.
+/// Logs a warning and skips if credentials are absent.
+#[cfg(feature = "quantinuum")]
+pub async fn register_quantinuum_backends(registry: &mut BackendRegistry) {
+    use arvak_adapter_quantinuum::QuantinuumBackend;
+
+    match QuantinuumBackend::new() {
+        Ok(backend) => {
+            registry.register("quantinuum-h2le".to_string(), Arc::new(backend));
+            tracing::info!("Registered Quantinuum H2-1LE as 'quantinuum-h2le'");
+        }
+        Err(e) => {
+            tracing::warn!("Quantinuum backend not registered: {e}");
+        }
+    }
+}
+
 /// Register IBM Quantum backends (async — requires IAM token exchange).
 ///
 /// Registers ibm_torino as "ibm-torino". Reads `IBM_API_KEY` and `IBM_SERVICE_CRN`
