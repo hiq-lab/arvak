@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use arvak_hal::{
     Backend, BackendAvailability, BackendConfig, Capabilities, Counts, ExecutionResult, GateSet,
@@ -97,6 +97,9 @@ pub struct IbmBackend {
     backend_info: Arc<RwLock<Option<(BackendInfo, Instant)>>>,
     /// Whether to tell IBM to skip its own transpilation.
     skip_transpilation: bool,
+    /// Submitted shot counts keyed by job ID.
+    /// Used to correctly convert quasi-probability distributions to counts.
+    shots_cache: Arc<Mutex<HashMap<String, u32>>>,
 }
 
 impl IbmBackend {
@@ -116,6 +119,7 @@ impl IbmBackend {
             target,
             backend_info: Arc::new(RwLock::new(None)),
             skip_transpilation: false,
+            shots_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -134,6 +138,7 @@ impl IbmBackend {
             target,
             backend_info: Arc::new(RwLock::new(None)),
             skip_transpilation: false,
+            shots_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -174,6 +179,7 @@ impl IbmBackend {
                 target,
                 backend_info,
                 skip_transpilation: false,
+            shots_cache: Arc::new(Mutex::new(HashMap::new())),
             });
         }
 
@@ -188,6 +194,7 @@ impl IbmBackend {
                 target,
                 backend_info: Arc::new(RwLock::new(None)),
                 skip_transpilation: false,
+            shots_cache: Arc::new(Mutex::new(HashMap::new())),
             });
         }
 
@@ -219,6 +226,7 @@ impl IbmBackend {
             target: target.to_string(),
             backend_info: Arc::new(RwLock::new(None)),
             skip_transpilation: false,
+            shots_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -280,7 +288,11 @@ impl IbmBackend {
     ///
     /// `num_qubits` is used to pad bitstrings to the correct width when the
     /// result format doesn't provide enough context to infer it.
-    fn results_to_counts(results: &crate::api::JobResultResponse, num_qubits: usize) -> Counts {
+    ///
+    /// `submitted_shots` is the number of shots requested at submission time.
+    /// It is used as the denominator when converting quasi-probability
+    /// distributions to counts, taking priority over metadata or the 1024 fallback.
+    fn results_to_counts(results: &crate::api::JobResultResponse, num_qubits: usize, submitted_shots: Option<u32>) -> Counts {
         let mut counts = Counts::new();
 
         // Handle sampler results
@@ -318,12 +330,19 @@ impl IbmBackend {
             }
             // V1: Fall back to quasi-distributions
             else if let Some(quasi_dists) = &result.quasi_dists {
-                let metadata_shots: Option<u64> = result
-                    .metadata
-                    .as_ref()
-                    .and_then(|m| m.get("shots"))
-                    .and_then(serde_json::Value::as_u64);
-                let effective_shots = metadata_shots.unwrap_or(1024) as f64;
+                // Prefer shots from the original submission, fall back to
+                // IBM metadata, then to the IBM default of 1024.
+                let effective_shots = submitted_shots
+                    .map(|s| s as f64)
+                    .or_else(|| {
+                        result
+                            .metadata
+                            .as_ref()
+                            .and_then(|m| m.get("shots"))
+                            .and_then(serde_json::Value::as_u64)
+                            .map(|s| s as f64)
+                    })
+                    .unwrap_or(1024.0_f64);
 
                 if let Some(dist) = quasi_dists.first() {
                     for (bitstring, &prob) in dist {
@@ -514,6 +533,12 @@ impl Backend for IbmBackend {
             .await
             .map_err(|e| HalError::SubmissionFailed(e.to_string()))?;
 
+        // Cache submitted shot count for accurate quasi-distribution conversion.
+        {
+            let mut cache = self.shots_cache.lock().await;
+            cache.insert(response.id.clone(), shots);
+        }
+
         Ok(JobId(response.id))
     }
 
@@ -582,7 +607,12 @@ impl Backend for IbmBackend {
             .await
             .map_or(0, |info| info.num_qubits);
 
-        let counts = Self::results_to_counts(&results, num_qubits);
+        let submitted_shots = {
+            let cache = self.shots_cache.lock().await;
+            cache.get(&job_id.0).copied()
+        };
+
+        let counts = Self::results_to_counts(&results, num_qubits, submitted_shots);
         let total_shots = counts.total_shots() as u32;
 
         Ok(ExecutionResult::new(counts, total_shots))
@@ -650,7 +680,7 @@ mod tests {
             }],
         };
 
-        let counts = IbmBackend::results_to_counts(&results, 4);
+        let counts = IbmBackend::results_to_counts(&results, 4, Some(1000));
         assert_eq!(counts.get("0000"), 500);
         assert_eq!(counts.get("0011"), 500);
         assert_eq!(counts.total_shots(), 1000);
@@ -690,7 +720,7 @@ mod tests {
         };
 
         // num_qubits=133 should NOT affect V2 bitstring width
-        let counts = IbmBackend::results_to_counts(&results, 133);
+        let counts = IbmBackend::results_to_counts(&results, 133, Some(10));
         assert_eq!(counts.get("00"), 6);
         assert_eq!(counts.get("11"), 4);
         assert_eq!(counts.total_shots(), 10);
@@ -717,7 +747,7 @@ mod tests {
             }],
         };
 
-        let counts = IbmBackend::results_to_counts(&results, 133);
+        let counts = IbmBackend::results_to_counts(&results, 133, None);
         assert_eq!(counts.get("0"), 3);
         assert_eq!(counts.total_shots(), 3);
     }
