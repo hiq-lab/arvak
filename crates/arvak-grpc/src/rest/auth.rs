@@ -40,8 +40,8 @@ pub async fn bearer_auth(request: Request, next: Next) -> Response {
         .get("authorization")
         .and_then(|v| v.to_str().ok());
 
-    let provided = match header {
-        Some(h) if h.starts_with("Bearer ") => &h[7..],
+    let provided = match header.and_then(|h| h.strip_prefix("Bearer ")) {
+        Some(token) if !token.is_empty() => token,
         _ => {
             return (
                 StatusCode::UNAUTHORIZED,

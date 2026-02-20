@@ -450,20 +450,77 @@ impl Config {
     }
 
     /// Merge environment variables into this configuration.
+    ///
+    /// Only variables that are explicitly set in the environment override the
+    /// file-loaded (or default) values. Variables that are absent leave the
+    /// corresponding fields unchanged.
     fn merge_env(mut self) -> Self {
-        let env_config = Config::from_env();
+        // Server
+        if let Ok(v) = std::env::var("ARVAK_GRPC_ADDRESS") {
+            self.server.address = v;
+        }
+        if let Ok(v) = std::env::var("ARVAK_GRPC_TIMEOUT") {
+            if let Ok(val) = v.parse() {
+                self.server.timeout_seconds = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_GRPC_KEEPALIVE") {
+            if let Ok(val) = v.parse() {
+                self.server.keepalive_seconds = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_MAX_MESSAGE_SIZE") {
+            if let Ok(val) = v.parse() {
+                self.server.max_message_size_bytes = val;
+            }
+        }
+        if let Ok(key) = std::env::var("ARVAK_API_KEY") {
+            self.server.api_key = Some(key);
+        }
 
-        // Only override if env var was actually set (check against default)
-        if env_config.server.address != default_grpc_address() {
-            self.server.address = env_config.server.address;
+        // Storage
+        if let Ok(v) = std::env::var("ARVAK_STORAGE_TYPE") {
+            self.storage.backend = v;
         }
-        if env_config.storage.backend != default_storage_type() {
-            self.storage.backend = env_config.storage.backend;
+        if let Ok(v) = std::env::var("ARVAK_STORAGE_CONNECTION") {
+            self.storage.connection_string = Some(v);
         }
-        if env_config.observability.logging.level != default_log_level() {
-            self.observability.logging.level = env_config.observability.logging.level;
+
+        // Observability — HTTP server
+        if let Ok(v) = std::env::var("ARVAK_HTTP_ADDRESS") {
+            self.observability.http_server.address = v;
         }
-        // TODO: Complete environment variable merges for all configuration fields
+
+        // Observability — logging
+        if let Ok(v) = std::env::var("ARVAK_LOG_LEVEL") {
+            self.observability.logging.level = v;
+        }
+        if let Ok(v) = std::env::var("ARVAK_LOG_FORMAT") {
+            self.observability.logging.format = v;
+        }
+
+        // Observability — tracing
+        if let Ok(v) = std::env::var("ARVAK_OTLP_ENDPOINT") {
+            self.observability.tracing.enabled = true;
+            self.observability.tracing.otlp_endpoint = Some(v);
+        }
+
+        // Resource limits
+        if let Ok(v) = std::env::var("ARVAK_MAX_CONCURRENT_JOBS") {
+            if let Ok(val) = v.parse() {
+                self.limits.max_concurrent_jobs = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_MAX_QUEUED_JOBS") {
+            if let Ok(val) = v.parse() {
+                self.limits.max_queued_jobs = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_JOB_TIMEOUT") {
+            if let Ok(val) = v.parse() {
+                self.limits.job_timeout_seconds = val;
+            }
+        }
 
         self
     }

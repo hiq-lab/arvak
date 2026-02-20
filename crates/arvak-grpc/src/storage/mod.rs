@@ -85,6 +85,44 @@ impl JobFilter {
     }
 }
 
+/// Convert a `JobStatus` to its canonical storage string.
+///
+/// Shared by all storage backends to guarantee a consistent on-disk format.
+#[cfg(any(feature = "sqlite", feature = "postgres"))]
+pub(crate) fn job_status_to_string(status: &JobStatus) -> String {
+    match status {
+        JobStatus::Queued => "queued".to_string(),
+        JobStatus::Running => "running".to_string(),
+        JobStatus::Completed => "completed".to_string(),
+        JobStatus::Failed(msg) => format!("failed:{}", msg),
+        JobStatus::Cancelled => "cancelled".to_string(),
+    }
+}
+
+/// Parse a storage string back to `JobStatus`.
+///
+/// Returns an error for unrecognised strings so callers can surface storage
+/// corruption early rather than silently mis-classify jobs.
+#[cfg(any(feature = "sqlite", feature = "postgres"))]
+pub(crate) fn job_status_from_string(s: &str) -> Result<JobStatus> {
+    match s {
+        "queued" => Ok(JobStatus::Queued),
+        "running" => Ok(JobStatus::Running),
+        "completed" => Ok(JobStatus::Completed),
+        "cancelled" => Ok(JobStatus::Cancelled),
+        _ => {
+            if let Some(msg) = s.strip_prefix("failed:") {
+                Ok(JobStatus::Failed(msg.to_string()))
+            } else {
+                Err(crate::error::Error::StorageError(format!(
+                    "Invalid job status string: {:?}",
+                    s
+                )))
+            }
+        }
+    }
+}
+
 /// Trait for job storage backends.
 ///
 /// Implementations must be thread-safe (Send + Sync) and support async operations.

@@ -78,13 +78,12 @@ pub fn inverse_gate(gate: &StandardGate) -> UncomputeResult<StandardGate> {
         StandardGate::RYY(theta) => Ok(StandardGate::RYY(negate_param(theta))),
         StandardGate::RZZ(theta) => Ok(StandardGate::RZZ(negate_param(theta))),
 
-        // iSWAP is not self-inverse: iSWAP† ≠ iSWAP
-        // iSWAP† = iSWAP^(-1) which would need decomposition
-        // TODO: ISwap is mathematically invertible (ISwap†). Implement inverse.
+        // iSWAP is not self-inverse: iSWAP† ≠ iSWAP.
+        // iSWAP† has conjugated off-diagonal elements (−i instead of i).
+        // A full inverse requires decomposition into basis gates.
+        // TODO: implement ISwap† decomposition (e.g., two CX + Rz sequence).
         StandardGate::ISwap => {
-            // For simplicity, we report this as non-invertible directly
-            // A full implementation would decompose to basic gates
-            Err(UncomputeError::NonInvertibleGate("iswap".into()))
+            Err(UncomputeError::InversionNotImplemented("iswap".into()))
         }
 
         // CH (controlled-Hadamard) is self-inverse

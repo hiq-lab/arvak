@@ -61,16 +61,18 @@ pub async fn execute(
         compiled.dag().num_ops()
     );
 
-    // Save output
-    let output_path = output.unwrap_or_else(|| {
-        // Default: replace extension with _compiled.qasm
-        let p = Path::new(input);
-        let stem = p.file_stem().unwrap_or_default().to_string_lossy();
-        // Intentional leak: the CLI process exits shortly after, so this
-        // small allocation is never reclaimed. It lets us return a &str
-        // with 'static lifetime without an extra struct.
-        Box::leak(format!("{stem}_compiled.qasm").into_boxed_str())
-    });
+    // Save output. Use a local `String` as storage when no explicit path is given
+    // so the borrow checker is satisfied without leaking memory.
+    let default_path: String;
+    let output_path: &str = match output {
+        Some(p) => p,
+        None => {
+            let p = Path::new(input);
+            let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+            default_path = format!("{stem}_compiled.qasm");
+            &default_path
+        }
+    };
 
     save_circuit(&compiled, output_path)?;
     println!("  Output: {}", style(output_path).green());

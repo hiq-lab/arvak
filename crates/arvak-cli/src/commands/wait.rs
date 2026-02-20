@@ -36,6 +36,10 @@ pub async fn execute(job_id: &str, timeout: u64) -> Result<()> {
     let start = std::time::Instant::now();
     let timeout_duration = std::time::Duration::from_secs(timeout);
 
+    // Exponential backoff: 1s → 2s → 4s → … capped at 30s.
+    let mut poll_interval = std::time::Duration::from_secs(1);
+    const MAX_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
     loop {
         let status = scheduler
             .status(&parsed_id)
@@ -74,6 +78,7 @@ pub async fn execute(job_id: &str, timeout: u64) -> Result<()> {
             );
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(poll_interval).await;
+        poll_interval = (poll_interval * 2).min(MAX_POLL_INTERVAL);
     }
 }

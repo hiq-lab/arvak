@@ -361,7 +361,7 @@ impl IbmClient {
         backend: &str,
         circuits: Vec<String>,
         shots: u32,
-        _skip_transpilation: bool,
+        skip_transpilation: bool,
     ) -> IbmResult<SubmitResponse> {
         let url = format!("{}/v1/jobs", self.endpoint);
 
@@ -397,7 +397,7 @@ impl IbmClient {
                 "params": {
                     "circuits": circuits,
                     "shots": shots,
-                    "skip_transpilation": false
+                    "skip_transpilation": skip_transpilation
                 }
             });
             if let Some(hub) = &self.instance {

@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "valiant-ops": {
+      "url": "http://87.106.219.154:4041/sse"
+    }
+  }
+}

@@ -326,7 +326,17 @@ async fn get_job_result_handler(
 
     let result = state.job_store.get_result(&job_id).await.map_err(|e| {
         let msg = e.to_string();
-        if msg.contains("not completed") || msg.contains("not found") {
+        if msg.contains("not completed") {
+            // Job exists but hasn't finished yet — 202 Accepted signals "try again later"
+            (
+                StatusCode::ACCEPTED,
+                axum::Json(types::ErrorResponse {
+                    error: msg,
+                    code: 202,
+                }),
+            )
+                .into_response()
+        } else if msg.contains("not found") {
             error_response(StatusCode::NOT_FOUND, msg)
         } else {
             error_response(StatusCode::INTERNAL_SERVER_ERROR, msg)

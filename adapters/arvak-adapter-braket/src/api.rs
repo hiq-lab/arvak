@@ -195,6 +195,7 @@ impl BraketClient {
         let task_id = task_arn
             .rsplit('/')
             .next()
+            .filter(|id| !id.is_empty())
             .ok_or_else(|| BraketError::InvalidDeviceArn(task_arn.to_string()))?;
 
         let key = format!("{}/{}/results.json", self.s3_prefix, task_id);

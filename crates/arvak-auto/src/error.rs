@@ -34,6 +34,10 @@ pub enum UncomputeError {
     #[error("Gate {0} cannot be inverted")]
     NonInvertibleGate(String),
 
+    /// The gate IS mathematically invertible, but inversion is not yet implemented.
+    #[error("Gate {0} inversion not yet implemented (gate is invertible; requires decomposition)")]
+    InversionNotImplemented(String),
+
     /// Dependency cycle detected.
     #[error("Dependency cycle detected involving qubit {0}")]
     DependencyCycle(u32),
