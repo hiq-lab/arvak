@@ -383,7 +383,14 @@ impl CouplingMap {
             return if d == u32::MAX { None } else { Some(d) };
         }
 
-        // Fallback BFS (for manually-constructed maps without precompute)
+        // Fallback BFS (for manually-constructed maps without precompute).
+        // This is O(V+E) per call — call rebuild_caches() to precompute O(1) lookups.
+        tracing::warn!(
+            from,
+            to,
+            "CouplingMap: distance matrix not precomputed, falling back to BFS. \
+             Call rebuild_caches() after deserialization to avoid performance cliffs."
+        );
         self.distance_bfs(from, to)
     }
 

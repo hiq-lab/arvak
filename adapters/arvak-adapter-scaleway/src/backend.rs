@@ -437,6 +437,11 @@ impl Backend for ScalewayBackend {
             .create_model(&model_payload)
             .await
             .map_err(|e| HalError::Backend(e.to_string()))?;
+        if model.id.is_empty() {
+            return Err(HalError::Backend(
+                "Scaleway create_model returned an empty model ID".to_string(),
+            ));
+        }
         debug!("Model uploaded: {}", model.id);
 
         // Step 3: Create job referencing the model
@@ -447,6 +452,11 @@ impl Backend for ScalewayBackend {
             .create_job(&request)
             .await
             .map_err(|e| HalError::Backend(e.to_string()))?;
+        if response.id.is_empty() {
+            return Err(HalError::Backend(
+                "Scaleway create_job returned an empty job ID".to_string(),
+            ));
+        }
 
         let job_id = JobId::new(&response.id);
         info!("Job submitted: {} (status: {})", job_id, response.status);

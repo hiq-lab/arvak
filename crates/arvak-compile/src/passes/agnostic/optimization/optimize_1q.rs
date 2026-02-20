@@ -310,12 +310,14 @@ impl Pass for Optimize1qGates {
         // node's NodeIndex. Re-discovering after each run ensures all indices
         // are fresh. Bounded to prevent pathological cases.
         const MAX_ITERATIONS: usize = 200;
+        let mut converged = false;
         for _ in 0..MAX_ITERATIONS {
             let runs = self.find_1q_runs(dag);
 
             // Find the first actionable run (len >= 2)
             let run = runs.into_iter().find(|(_, nodes)| nodes.len() >= 2);
             let Some((qubit, nodes)) = run else {
+                converged = true;
                 break;
             };
 
@@ -378,6 +380,15 @@ impl Pass for Optimize1qGates {
                     }
                 }
             }
+        }
+
+        if !converged {
+            tracing::warn!(
+                max_iterations = MAX_ITERATIONS,
+                "Optimize1qGates: reached iteration limit; \
+                 circuit may not be fully optimized. \
+                 Consider increasing MAX_ITERATIONS for deeply nested single-qubit runs."
+            );
         }
 
         Ok(())

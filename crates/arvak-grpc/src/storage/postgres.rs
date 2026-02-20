@@ -129,33 +129,12 @@ impl PostgresStorage {
         Ok(arvak_ir::circuit::Circuit::new("stored"))
     }
 
-    /// Convert JobStatus to string for storage.
-    // TODO: Extract shared status conversion to storage/mod.rs (duplicated in sqlite.rs)
     fn status_to_string(status: &JobStatus) -> String {
-        match status {
-            JobStatus::Queued => "queued".to_string(),
-            JobStatus::Running => "running".to_string(),
-            JobStatus::Completed => "completed".to_string(),
-            JobStatus::Failed(msg) => format!("failed:{}", msg),
-            JobStatus::Cancelled => "cancelled".to_string(),
-        }
+        super::job_status_to_string(status)
     }
 
-    /// Convert string to JobStatus.
     fn string_to_status(s: &str) -> Result<JobStatus> {
-        if s == "queued" {
-            Ok(JobStatus::Queued)
-        } else if s == "running" {
-            Ok(JobStatus::Running)
-        } else if s == "completed" {
-            Ok(JobStatus::Completed)
-        } else if s == "cancelled" {
-            Ok(JobStatus::Cancelled)
-        } else if let Some(msg) = s.strip_prefix("failed:") {
-            Ok(JobStatus::Failed(msg.to_string()))
-        } else {
-            Err(Error::StorageError(format!("Invalid status: {}", s)))
-        }
+        super::job_status_from_string(s)
     }
 }
 
@@ -386,11 +365,15 @@ impl JobStorage for PostgresStorage {
              FROM jobs WHERE 1=1",
         );
 
-        // Keep concrete values in scope
-        let status_pattern = filter
-            .state
-            .as_ref()
-            .map(|s| format!("{}%", Self::status_to_string(s)));
+        // Keep concrete values in scope.
+        // Use exact match (=) for non-Failed statuses to avoid false positives.
+        // Use LIKE for Failed since the on-disk format is "failed:<message>" and
+        // we want to match all failures regardless of the embedded message.
+        let status_string = filter.state.as_ref().map(|s| match s {
+            JobStatus::Failed(_) => "failed:%".to_string(),
+            _ => Self::status_to_string(s),
+        });
+        let is_failed_filter = matches!(filter.state, Some(JobStatus::Failed(_)));
         let after_ts = filter.after.map(|dt| dt.timestamp());
         let before_ts = filter.before.map(|dt| dt.timestamp());
         let limit = filter.limit as i64;
@@ -398,9 +381,13 @@ impl JobStorage for PostgresStorage {
         let mut param_idx = 1;
         let mut param_values: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::new();
 
-        if let Some(ref pattern) = status_pattern {
-            query.push_str(&format!(" AND status LIKE ${}", param_idx));
-            param_values.push(pattern);
+        if let Some(ref status_str) = status_string {
+            if is_failed_filter {
+                query.push_str(&format!(" AND status LIKE ${}", param_idx));
+            } else {
+                query.push_str(&format!(" AND status = ${}", param_idx));
+            }
+            param_values.push(status_str);
             param_idx += 1;
         }
 
