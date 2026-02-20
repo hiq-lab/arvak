@@ -111,6 +111,9 @@ class HalAvailability:
             )
 
 
+# Quantinuum API constants
+_QUANTINUUM_API_BASE = "https://qapi.quantinuum.com/v1"
+
 # IBM Cloud API constants
 _IBM_IAM_URL = "https://iam.cloud.ibm.com/identity/token"
 _IBM_API_ENDPOINT = "https://quantum.cloud.ibm.com/api"
@@ -204,6 +207,17 @@ class ArvakProvider:
         'iqm_crystal':  'crystal',
     }
 
+    # Quantinuum backend names (H1/H2 ion trap + emulators)
+    _QUANTINUUM_BACKENDS = {
+        'quantinuum_h2', 'quantinuum_h1_emulator', 'quantinuum_h2_emulator',
+    }
+
+    _QUANTINUUM_DEVICE_MAP = {
+        'quantinuum_h2':          'H2-1',
+        'quantinuum_h1_emulator': 'H1-1E',
+        'quantinuum_h2_emulator': 'H2-1E',
+    }
+
     def __init__(self):
         """Initialize the Arvak provider."""
         self._backends = {}
@@ -259,6 +273,19 @@ class ArvakProvider:
                     f"Set IQM_TOKEN environment variable (from resonance.meetiqm.com)."
                 ) from e
 
+        # Lazily create Quantinuum backends on demand
+        if name and name in self._QUANTINUUM_BACKENDS and name not in self._backends:
+            try:
+                device = self._QUANTINUUM_DEVICE_MAP[name]
+                self._backends[name] = ArvakQuantinuumBackend(
+                    provider=self, device_name=device,
+                )
+            except (ValueError, ImportError) as e:
+                raise ValueError(
+                    f"Cannot connect to {name}: {e}. "
+                    f"Set QUANTINUUM_EMAIL and QUANTINUUM_PASSWORD environment variables."
+                ) from e
+
         if name:
             backend = self._backends.get(name)
             return [backend] if backend else []
@@ -285,6 +312,8 @@ class ArvakProvider:
                 b for b in self._SCALEWAY_BACKENDS if b not in self._backends
             ] + [
                 b for b in self._IQM_RESONANCE_BACKENDS if b not in self._backends
+            ] + [
+                b for b in self._QUANTINUUM_BACKENDS if b not in self._backends
             ]
             raise ValueError(
                 f"Unknown backend: {name}. "
@@ -1639,6 +1668,421 @@ class ArvakScalewayJob:
 
     def __repr__(self) -> str:
         return f"<ArvakScalewayJob(id='{self._job_id}', circuits={self._num_circuits})>"
+
+
+class ArvakQuantinuumBackend:
+    """Arvak Quantinuum backend — submits directly to Quantinuum's REST API.
+
+    Accepts Qiskit circuits, converts them to QASM 2.0 (using qiskit.qasm2),
+    and submits to Quantinuum's cloud API.  The Quantinuum cloud compiles
+    circuits to its native ion-trap gate set (ZZMax/ZZPhase/U1q/Rz) internally.
+
+    Requires QUANTINUUM_EMAIL and QUANTINUUM_PASSWORD environment variables.
+    Uses the noiseless H2 emulator (H2-1LE) by default — free to run.
+    """
+
+    # Map of supported machine names to their qubit counts.
+    _MACHINE_QUBITS = {
+        'H2-1LE': 32,
+        'H2-1E': 32,
+        'H2-1': 32,
+        'H1-1E': 20,
+        'H1-1': 20,
+    }
+
+    # Backend info cache TTL in seconds.
+    _MACHINE_INFO_TTL: int = 300
+
+    def __init__(self, provider: ArvakProvider, device_name: str = 'H2-1LE'):
+        import requests as _requests
+        self._requests = _requests
+
+        self._provider = provider
+        self._device = device_name
+        self._num_qubits = self._MACHINE_QUBITS.get(device_name, 32)
+        self.name = f"quantinuum_{device_name.lower().replace('-', '_')}"
+        self.description = f"Quantinuum {device_name} (via Arvak)"
+        self.backend_version = "1.0.0"
+
+        self._email = os.environ.get('QUANTINUUM_EMAIL')
+        self._password = os.environ.get('QUANTINUUM_PASSWORD')
+
+        if not self._email:
+            raise ValueError("QUANTINUUM_EMAIL environment variable not set")
+        if not self._password:
+            raise ValueError("QUANTINUUM_PASSWORD environment variable not set")
+
+        # JWT id-token (lazy — fetched on first API call)
+        self._id_token: Optional[str] = None
+
+        # Cached machine info
+        self._machine_info: Optional[dict] = None
+        self._info_fetched_at: float = 0.0
+
+    def _login(self) -> str:
+        """Exchange email + password for a JWT id-token."""
+        resp = self._requests.post(
+            f"{_QUANTINUUM_API_BASE}/login",
+            json={"email": self._email, "password": self._password},
+            timeout=30,
+        )
+        if resp.status_code == 401:
+            raise ArvakAuthenticationError(
+                "Quantinuum authentication failed — check QUANTINUUM_EMAIL and QUANTINUUM_PASSWORD"
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        self._id_token = data["id-token"]
+        return self._id_token
+
+    def _get_token(self) -> str:
+        """Return the cached JWT, logging in if needed."""
+        if not self._id_token:
+            self._login()
+        return self._id_token  # type: ignore[return-value]
+
+    def _headers(self) -> dict:
+        """Build request headers with the Quantinuum JWT.
+
+        Quantinuum uses ``Authorization: <id-token>`` (no "Bearer" prefix).
+        """
+        return {
+            "Authorization": self._get_token(),
+            "Content-Type": "application/json",
+        }
+
+    def _get_machine_info(self) -> dict:
+        """Fetch machine configuration and status, using a 5-minute cache."""
+        now = time.time()
+        if self._machine_info and (now - self._info_fetched_at) < self._MACHINE_INFO_TTL:
+            return self._machine_info
+
+        resp = self._requests.get(
+            f"{_QUANTINUUM_API_BASE}/machine/{self._device}",
+            headers=self._headers(),
+            timeout=30,
+        )
+        if resp.status_code == 401:
+            self._id_token = None
+            resp = self._requests.get(
+                f"{_QUANTINUUM_API_BASE}/machine/{self._device}",
+                headers=self._headers(),
+                timeout=30,
+            )
+        if not resp.ok:
+            return {"name": self._device, "status": "unknown", "n_qubits": self._num_qubits}
+
+        info = resp.json()
+        self._machine_info = info
+        self._info_fetched_at = now
+        return info
+
+    @property
+    def num_qubits(self) -> int:
+        return self._num_qubits
+
+    @property
+    def basis_gates(self) -> list[str]:
+        return ["rz", "rx", "ry", "h", "x", "y", "z", "s", "t", "cx", "cz", "swap", "ccx"]
+
+    @property
+    def coupling_map(self) -> Optional[list[list[int]]]:
+        return None  # All-to-all connectivity
+
+    def contract_version(self) -> str:
+        """Return the HAL contract version implemented by this backend."""
+        return "2.0"
+
+    def availability(self) -> HalAvailability:
+        """Return backend availability (HAL DEBT-05 fix)."""
+        try:
+            info = self._get_machine_info()
+            status = info.get("status", "unknown")
+            online = status.lower() in ("online", "available", "ready")
+            return HalAvailability(online=online, status_message=status)
+        except ArvakAuthenticationError:
+            raise
+        except Exception as e:
+            return HalAvailability(online=False, status_message=str(e))
+
+    def validate(self, circuits, shots: int = 1024) -> HalValidationResult:
+        """Validate circuits before submission (HAL DEBT-01 fix)."""
+        if not isinstance(circuits, list):
+            circuits = [circuits]
+        errors = []
+        if shots <= 0:
+            errors.append(f"shots must be > 0, got {shots}")
+        if shots > 10_000:
+            errors.append(f"shots {shots} exceeds Quantinuum maximum of 10,000")
+        for i, qc in enumerate(circuits):
+            if qc.num_qubits > self._num_qubits:
+                errors.append(
+                    f"Circuit {i}: {qc.num_qubits} qubits exceeds "
+                    f"{self._device} maximum {self._num_qubits}"
+                )
+        return HalValidationResult(valid=not errors, errors=errors)
+
+    def run(self, circuits: Union['QuantumCircuit', list['QuantumCircuit']],
+            shots: int = 1024, **options) -> 'ArvakQuantinuumJob':
+        """Submit circuits to Quantinuum hardware/emulator.
+
+        Converts Qiskit circuits to QASM 2.0 and submits via the Quantinuum
+        REST API.  The Quantinuum cloud handles native gate compilation.
+
+        Args:
+            circuits: Single circuit or list of circuits to execute
+            shots: Number of measurement shots (default: 1024; max: 10,000)
+            **options: Additional options passed to Quantinuum (e.g. no_opt=True)
+
+        Returns:
+            ArvakQuantinuumJob for polling results
+        """
+        if not isinstance(circuits, list):
+            circuits = [circuits]
+
+        # HAL pre-submission checks
+        self.availability().raise_if_unavailable()
+        self.validate(circuits, shots).raise_if_invalid()
+
+        job_ids = []
+        for qc in circuits:
+            # Convert Qiskit circuit to QASM 2.0.
+            from qiskit.qasm2 import dumps as _qasm2_dumps
+            qasm_str = _qasm2_dumps(qc)
+
+            # Build job request body.
+            body: dict = {
+                "name": f"arvak-{uuid.uuid4().hex[:8]}",
+                "count": shots,
+                "machine": self._device,
+                "language": "OPENQASM 2.0",
+                "program": qasm_str,
+            }
+
+            # Forward any caller-provided options (e.g. {"no-opt": True}).
+            if options:
+                body["options"] = {k.replace("_", "-"): v for k, v in options.items()}
+
+            headers = self._headers()
+            resp = self._requests.post(
+                f"{_QUANTINUUM_API_BASE}/job",
+                headers=headers,
+                json=body,
+                timeout=60,
+            )
+            if resp.status_code == 401:
+                # Token expired — re-auth once and retry.
+                self._id_token = None
+                headers = self._headers()
+                resp = self._requests.post(
+                    f"{_QUANTINUUM_API_BASE}/job",
+                    headers=headers,
+                    json=body,
+                    timeout=60,
+                )
+            if resp.status_code == 401:
+                raise ArvakAuthenticationError(
+                    "Quantinuum job submission rejected — check credentials"
+                )
+            if not resp.ok:
+                raise ArvakSubmissionError(
+                    f"Quantinuum job submission failed ({resp.status_code}): {resp.text}"
+                )
+            job_ids.append(resp.json()["job"])
+
+        return ArvakQuantinuumJob(
+            backend=self,
+            job_id=job_ids[0],
+            all_job_ids=job_ids,
+            shots=shots,
+            num_circuits=len(circuits),
+        )
+
+    # --- HAL contract split methods ---
+
+    def submit(self, circuits, shots: int = 1024, **options) -> str:
+        """Submit circuits and return the primary job ID."""
+        job = self.run(circuits, shots, **options)
+        return job.job_id()
+
+    def job_status(self, job_id: str) -> str:
+        """Return the current status of a submitted job."""
+        job = ArvakQuantinuumJob(
+            backend=self, job_id=job_id, all_job_ids=[job_id], shots=0, num_circuits=1
+        )
+        return job.status()
+
+    def job_result(self, job_id: str, num_circuits: int = 1, shots: int = 1024,
+                   timeout: int = 600, poll_interval: int = 5) -> 'ArvakResult':
+        """Wait for and return results of a submitted job."""
+        job = ArvakQuantinuumJob(
+            backend=self, job_id=job_id, all_job_ids=[job_id],
+            shots=shots, num_circuits=num_circuits,
+        )
+        return job.result(timeout=timeout, poll_interval=poll_interval)
+
+    def job_cancel(self, job_id: str) -> bool:
+        """Cancel a submitted job. Returns True if successful."""
+        job = ArvakQuantinuumJob(
+            backend=self, job_id=job_id, all_job_ids=[job_id], shots=0, num_circuits=1
+        )
+        try:
+            job.cancel()
+            return True
+        except (ArvakJobError, ArvakSubmissionError):
+            return False
+
+    def __repr__(self) -> str:
+        return f"<ArvakQuantinuumBackend('{self._device}')>"
+
+
+class ArvakQuantinuumJob:
+    """Job submitted to Quantinuum hardware or emulator.
+
+    Polls the Quantinuum REST API for status and results.  Multi-circuit
+    submissions create one Quantinuum job per circuit; this wrapper tracks
+    all job IDs.
+    """
+
+    def __init__(self, backend: ArvakQuantinuumBackend, job_id: str,
+                 all_job_ids: list, shots: int, num_circuits: int):
+        self._backend = backend
+        self._job_id = job_id
+        self._all_job_ids = all_job_ids
+        self._shots = shots
+        self._num_circuits = num_circuits
+
+    def job_id(self) -> str:
+        return self._job_id
+
+    def status(self) -> str:
+        """Return the current status of the primary job."""
+        headers = self._backend._headers()
+        resp = self._backend._requests.get(
+            f"{_QUANTINUUM_API_BASE}/job/{self._job_id}",
+            headers=headers,
+            timeout=30,
+        )
+        if not resp.ok:
+            return "UNKNOWN"
+        return resp.json().get("status", "UNKNOWN").upper()
+
+    def cancel(self) -> None:
+        """Cancel all submitted jobs.
+
+        Raises:
+            ArvakJobError: If any job cannot be found or is already terminal.
+            ArvakSubmissionError: If the API request fails.
+        """
+        headers = self._backend._headers()
+        for jid in self._all_job_ids:
+            resp = self._backend._requests.post(
+                f"{_QUANTINUUM_API_BASE}/job/{jid}/cancel",
+                headers=headers,
+                timeout=30,
+            )
+            if resp.status_code == 404:
+                raise ArvakJobError(f"Job {jid} not found")
+            if not resp.ok:
+                raise ArvakSubmissionError(f"Failed to cancel job {jid}: {resp.text}")
+
+    def _poll_one(self, job_id: str, timeout: int,
+                  poll_interval: int, start: float) -> dict:
+        """Poll a single Quantinuum job ID until complete; return its count dict."""
+        headers = self._backend._headers()
+
+        while True:
+            elapsed = time.time() - start
+            if elapsed > timeout:
+                raise ArvakTimeoutError(f"Job {job_id} timed out after {timeout}s")
+
+            resp = self._backend._requests.get(
+                f"{_QUANTINUUM_API_BASE}/job/{job_id}",
+                headers=headers,
+                timeout=30,
+            )
+            if resp.status_code == 401:
+                # Token expired during long poll — refresh.
+                self._backend._id_token = None
+                headers = self._backend._headers()
+                resp = self._backend._requests.get(
+                    f"{_QUANTINUUM_API_BASE}/job/{job_id}",
+                    headers=headers,
+                    timeout=30,
+                )
+            if not resp.ok:
+                raise ArvakJobError(f"Failed to check job status: {resp.text}")
+
+            data = resp.json()
+            status = data.get("status", "").lower()
+
+            if status == "completed":
+                print(f"\r  [{job_id[:8]}] completed, elapsed: {elapsed:.0f}s   ")
+                break
+            if status in ("failed", "error"):
+                error_msg = data.get("error", "unknown error")
+                raise ArvakJobError(f"Job {job_id} failed: {error_msg}")
+            if status in ("canceled", "cancelled"):
+                raise ArvakJobCancelledError(f"Job {job_id} was cancelled")
+
+            print(f"\r  [{job_id[:8]}] status: {status}, elapsed: {elapsed:.0f}s",
+                  end="", flush=True)
+            time.sleep(poll_interval)
+
+        # Parse the results field: {register_name: [bit_shot_0, bit_shot_1, ...]}
+        raw_results = data.get("results") or {}
+        if not raw_results:
+            return {}
+
+        # Sort register names for consistent bit ordering.
+        reg_names = sorted(raw_results.keys())
+        if not reg_names:
+            return {}
+
+        n_shots = len(raw_results[reg_names[0]])
+        counts: dict[str, int] = {}
+        for shot in range(n_shots):
+            bitstring = "".join(
+                str(raw_results[reg][shot]) if shot < len(raw_results[reg]) else "0"
+                for reg in reg_names
+            )
+            counts[bitstring] = counts.get(bitstring, 0) + 1
+
+        return counts
+
+    def result(self, timeout: int = 600, poll_interval: int = 5) -> 'ArvakResult':
+        """Wait for all submitted jobs to complete and return aggregated results.
+
+        Args:
+            timeout: Maximum total wait time in seconds (default: 600)
+            poll_interval: Seconds between status checks (default: 5)
+
+        Returns:
+            ArvakResult with measurement counts
+
+        Raises:
+            ArvakTimeoutError: If job does not complete within timeout
+            ArvakJobError: If job fails on the backend
+            ArvakJobCancelledError: If job is cancelled
+        """
+        start = time.time()
+        all_counts = []
+
+        for jid in self._all_job_ids:
+            counts = self._poll_one(jid, timeout, poll_interval, start)
+            all_counts.append(counts)
+
+        while len(all_counts) < self._num_circuits:
+            all_counts.append({})
+
+        return ArvakResult(
+            backend_name=self._backend.name,
+            counts=all_counts,
+            shots=self._shots,
+        )
+
+    def __repr__(self) -> str:
+        return f"<ArvakQuantinuumJob(id='{self._job_id}', circuits={self._num_circuits})>"
 
 
 class ArvakJob:

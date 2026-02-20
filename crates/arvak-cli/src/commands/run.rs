@@ -21,6 +21,9 @@ use arvak_adapter_braket::BraketBackend;
 #[cfg(feature = "scaleway")]
 use arvak_adapter_scaleway::ScalewayBackend;
 
+#[cfg(feature = "quantinuum")]
+use arvak_adapter_quantinuum::QuantinuumBackend;
+
 use super::common::{get_basis_gates, load_circuit, print_results};
 
 /// Execute the run command.
@@ -132,9 +135,35 @@ pub async fn execute(
         "scaleway" | "scaleway-garnet" | "scaleway-emerald" => {
             anyhow::bail!("Scaleway backend not available. Rebuild with --features scaleway");
         }
+        #[cfg(feature = "quantinuum")]
+        "quantinuum" | "quantinuum-h2" | "h2-1le" | "h2-1e" | "h1-1e" | "h2-1" | "h1-1" => {
+            println!("  Connecting to Quantinuum...");
+            let machine = match backend.to_lowercase().as_str() {
+                "quantinuum" | "quantinuum-h2" | "h2-1le" => "H2-1LE",
+                "h2-1e" => "H2-1E",
+                "h1-1e" => "H1-1E",
+                "h2-1" => "H2-1",
+                "h1-1" => "H1-1",
+                _ => "H2-1LE",
+            };
+            match QuantinuumBackend::with_target(machine) {
+                Ok(b) => Box::new(b),
+                Err(e) => {
+                    anyhow::bail!(
+                        "Failed to connect to Quantinuum: {}. \
+                         Set QUANTINUUM_EMAIL and QUANTINUUM_PASSWORD environment variables.",
+                        e
+                    );
+                }
+            }
+        }
+        #[cfg(not(feature = "quantinuum"))]
+        "quantinuum" | "quantinuum-h2" | "h2-1le" | "h2-1e" | "h1-1e" | "h2-1" | "h1-1" => {
+            anyhow::bail!("Quantinuum backend not available. Rebuild with --features quantinuum");
+        }
         other => {
             anyhow::bail!(
-                "Unknown backend: '{other}'. Available: simulator, iqm, ibm, braket, scaleway"
+                "Unknown backend: '{other}'. Available: simulator, iqm, ibm, braket, scaleway, quantinuum"
             );
         }
     };
