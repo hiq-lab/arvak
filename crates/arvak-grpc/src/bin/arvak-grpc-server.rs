@@ -101,6 +101,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         register_ibm_backends(&mut registry).await;
     }
 
+    #[cfg(feature = "quantinuum")]
+    {
+        use arvak_grpc::server::backend_registry::register_quantinuum_backends;
+        register_quantinuum_backends(&mut registry).await;
+    }
+
     let service = ArvakServiceImpl::with_limits(JobStore::new(), registry, config.limits.clone());
     let backend_registry = service.backends();
 

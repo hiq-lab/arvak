@@ -108,6 +108,22 @@ impl Capabilities {
             noise_profile: None,
         }
     }
+    /// Create capabilities for Quantinuum H1/H2 ion-trap devices.
+    ///
+    /// All Quantinuum hardware has all-to-all qubit connectivity.
+    pub fn quantinuum(name: impl Into<String>, num_qubits: u32) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits,
+            gate_set: GateSet::quantinuum(),
+            topology: Topology::full(num_qubits),
+            max_shots: 10_000,
+            is_simulator: false,
+            features: vec!["ion_trap".into(), "mid_circuit_measurement".into()],
+            noise_profile: None,
+        }
+    }
+
     /// Create capabilities for a neutral-atom device (e.g., planqc, Pasqal).
     pub fn neutral_atom(name: impl Into<String>, num_qubits: u32, zones: u32) -> Self {
         Self {
@@ -339,6 +355,35 @@ impl GateSet {
             two_qubit: vec!["xx".into()],
             three_qubit: vec![],
             native: vec!["rx".into(), "ry".into(), "rz".into(), "xx".into()],
+        }
+    }
+
+    /// Create Quantinuum gate set (H1/H2 ion-trap processors).
+    ///
+    /// Quantinuum's cloud service accepts standard QASM 2.0 gates and compiles
+    /// them to its native ion-trap gate set (ZZMax/ZZPhase/U1q/Rz) internally.
+    /// `rz` is listed as a "native" gate because it executes as a virtual Z
+    /// rotation (zero hardware cost).
+    pub fn quantinuum() -> Self {
+        Self {
+            single_qubit: vec![
+                "rz".into(),
+                "rx".into(),
+                "ry".into(),
+                "h".into(),
+                "x".into(),
+                "y".into(),
+                "z".into(),
+                "s".into(),
+                "t".into(),
+                "sdg".into(),
+                "tdg".into(),
+                "sx".into(),
+            ],
+            two_qubit: vec!["cx".into(), "cz".into(), "swap".into()],
+            three_qubit: vec!["ccx".into()],
+            // Rz is "free" (virtual Z); all others decompose on the server.
+            native: vec!["rz".into()],
         }
     }
 
@@ -644,6 +689,42 @@ mod tests {
         assert!(caps.gate_set.contains("rz"));
         assert!(caps.gate_set.contains("xx"));
         assert!(!caps.gate_set.contains("cx"));
+    }
+
+    #[test]
+    fn test_capabilities_quantinuum() {
+        let caps = Capabilities::quantinuum("H2-1LE", 32);
+        assert!(!caps.is_simulator);
+        assert_eq!(caps.num_qubits, 32);
+        assert!(caps.gate_set.contains("cx"));
+        assert!(caps.gate_set.contains("rz"));
+        assert!(caps.gate_set.contains("h"));
+        assert!(caps.gate_set.contains("ccx"));
+        assert!(!caps.gate_set.contains("prx"));
+        assert!(caps.features.contains(&"ion_trap".to_string()));
+        assert!(
+            caps.features
+                .contains(&"mid_circuit_measurement".to_string())
+        );
+        // All-to-all topology
+        assert!(caps.topology.is_connected(0, 1));
+        assert!(caps.topology.is_connected(0, 31));
+        assert!(caps.topology.is_connected(15, 31));
+    }
+
+    #[test]
+    fn test_gate_set_quantinuum() {
+        let gs = GateSet::quantinuum();
+        assert!(gs.contains("rz"));
+        assert!(gs.contains("rx"));
+        assert!(gs.contains("cx"));
+        assert!(gs.contains("cz"));
+        assert!(gs.contains("ccx"));
+        assert!(!gs.contains("prx"));
+        assert!(!gs.contains("ecr"));
+        // Rz is the only declared native gate
+        assert!(gs.is_native("rz"));
+        assert!(!gs.is_native("cx"));
     }
 
     #[test]

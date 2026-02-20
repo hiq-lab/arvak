@@ -90,7 +90,7 @@ mod error;
 mod lexer;
 mod parser;
 
-pub use emitter::emit;
+pub use emitter::{emit, emit_qasm2};
 pub use error::{ParseError, ParseResult};
 pub use parser::parse;
 
