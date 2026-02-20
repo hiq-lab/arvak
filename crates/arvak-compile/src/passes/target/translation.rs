@@ -495,6 +495,29 @@ fn translate_to_heron(
             result
         }
 
+        // RZZ(θ) = CX(a,b) · Rz(θ,b) · CX(a,b)
+        // CX on Heron = H(b) · CZ · H(b), H = Rz(π/2) · SX · Rz(π/2)
+        StandardGate::RZZ(theta) => {
+            let q1 = qubits[1];
+            let h1 = translate_to_heron(&StandardGate::H, &[q1])?;
+            let cz = Instruction::two_qubit_gate(StandardGate::CZ, q0, q1);
+            // CX(a,b) = H(b) · CZ(a,b) · H(b)
+            // RZZ(θ,a,b) = CX · Rz(θ,b) · CX
+            //            = H(b)·CZ·H(b) · Rz(θ,b) · H(b)·CZ·H(b)
+            let mut result = Vec::with_capacity(h1.len() * 4 + 3);
+            result.extend_from_slice(&h1); // H(b) before first CZ
+            result.push(cz.clone()); // CZ
+            result.extend_from_slice(&h1); // H(b) after first CZ → Rz(θ) before next H
+            result.push(Instruction::single_qubit_gate(
+                StandardGate::Rz(theta.clone()),
+                q1,
+            ));
+            result.extend_from_slice(&h1); // H(b) before second CZ
+            result.push(cz); // CZ
+            result.extend_from_slice(&h1); // H(b) after second CZ
+            result
+        }
+
         // SWAP = CX(a,b) · CX(b,a) · CX(a,b), each CX decomposed to H·CZ·H
         StandardGate::Swap => {
             let q1 = qubits[1];

@@ -265,10 +265,13 @@ impl IbmBackend {
     /// IBM's QASM loader can resolve standard gate definitions.
     fn circuit_to_qasm(circuit: &Circuit) -> IbmResult<String> {
         let qasm = emit(circuit).map_err(|e| IbmError::CircuitError(e.to_string()))?;
-        // Insert stdgates include after OPENQASM version line
+        // Insert stdgates include and rzz gate definition after OPENQASM version line.
+        // IBM's stdgates.inc does not define rzz, so we supply the definition here.
+        // The same approach is used in the Python backend.
         Ok(qasm.replacen(
             "OPENQASM 3.0;",
-            "OPENQASM 3.0;\ninclude \"stdgates.inc\";",
+            "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n\
+             gate rzz(theta) a, b { cx a, b; rz(theta) b; cx a, b; }",
             1,
         ))
     }

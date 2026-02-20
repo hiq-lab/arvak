@@ -226,13 +226,30 @@ impl GateSet {
 
     /// Create IBM Heron gate set (156-qubit processors: ibm_torino, ibm_marrakesh, etc.).
     ///
-    /// Heron native gates: `cz, rz, sx, x`. Matches `BasisGates::heron()`.
+    /// Heron native gates: `cz, rz, sx, x`. QAOA circuits use `h`, `rx`, and `rzz`;
+    /// these are listed as supported so `validate()` accepts them, but they are NOT
+    /// in `native` — Arvak's compiler decomposes them to true native gates before
+    /// submission. `h` → `rz·sx·rz`, `rx(θ)` → `rz·sx·rz`, `rzz(θ)` → `cx·rz·cx`
+    /// (cx further decomposes to `h·cz·h`). IBM then only handles physical routing.
     pub fn ibm_heron() -> Self {
         Self {
-            single_qubit: vec!["rz".into(), "sx".into(), "x".into(), "id".into()],
-            two_qubit: vec!["cz".into()],
+            single_qubit: vec![
+                "rz".into(),
+                "sx".into(),
+                "x".into(),
+                "id".into(),
+                "rx".into(),
+                "h".into(),
+            ],
+            two_qubit: vec!["cz".into(), "rzz".into()],
             three_qubit: vec![],
-            native: vec!["rz".into(), "sx".into(), "x".into(), "cz".into()],
+            native: vec![
+                "rz".into(),
+                "sx".into(),
+                "x".into(),
+                "cz".into(),
+                "id".into(),
+            ],
         }
     }
 
