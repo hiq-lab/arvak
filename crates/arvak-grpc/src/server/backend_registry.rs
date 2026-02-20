@@ -84,6 +84,25 @@ pub async fn register_braket_backends(registry: &mut BackendRegistry) {
     }
 }
 
+/// Register IBM Quantum backends (async — requires IAM token exchange).
+///
+/// Registers ibm_torino as "ibm-torino". Reads `IBM_API_KEY` and `IBM_SERVICE_CRN`
+/// from the environment. Logs a warning and skips if credentials are absent.
+#[cfg(feature = "ibm")]
+pub async fn register_ibm_backends(registry: &mut BackendRegistry) {
+    use arvak_adapter_ibm::IbmBackend;
+
+    match IbmBackend::connect("ibm_torino").await {
+        Ok(backend) => {
+            registry.register("ibm-torino".to_string(), Arc::new(backend));
+            tracing::info!("Registered IBM Quantum ibm_torino as 'ibm-torino'");
+        }
+        Err(e) => {
+            tracing::warn!("IBM Quantum backend not registered: {e}");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

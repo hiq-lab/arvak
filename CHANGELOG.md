@@ -5,6 +5,34 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-02-20
+
+### Added
+
+- **`arvak.demo()` and `arvak-demo` CLI launcher**: Interactive demo entry point for quick exploration of Arvak capabilities without manual setup.
+
+### Changed
+
+- **IQM Resonance integration via Scaleway QaaS** (`arvak-adapter-scaleway`): Promoted to first-class documented backend with explicit QPU platform labels:
+  - `QPU-SIRIUS-24PQ` — IQM Sirius 16-qubit, star topology
+  - `QPU-GARNET-20PQ` — IQM Garnet 20-qubit, crystal topology
+  - `QPU-EMERALD-54PQ` — IQM Emerald 54-qubit, crystal topology
+  - Submission flow: QASM3 → zlib compress → base64 → POST /models → POST /jobs → poll GET /jobs/{id}
+  - Native gate set: IQM basis (PRX + CZ)
+  - CLI: `arvak run bell.qasm --backend scaleway --shots 1000`
+  - Required env vars: `SCALEWAY_SECRET_KEY`, `SCALEWAY_PROJECT_ID`, `SCALEWAY_SESSION_ID`
+- **BQuant integration moved to Garm Platform**: `arvak-bquant` crate removed from this repository; BQuant REST gateway functionality is now owned by Garm.
+
+### Fixed
+
+- **RUSTSEC-2026-0013**: Upgraded `pyo3` to 0.28.2 to resolve use-after-free vulnerability in PyO3 Python bindings.
+
+### Cleared (HAL Contract Debt)
+
+- DEBT-01 through DEBT-18: All 12 tracked HAL contract technical debt items resolved, including API surface cleanup, error propagation consistency, and backend contract conformance.
+
+
+
 ## [1.6.0] - 2026-02-13
 
 ### Security

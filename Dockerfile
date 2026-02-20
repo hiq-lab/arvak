@@ -118,7 +118,7 @@ RUN find crates/ adapters/ demos/ -name "*.rs" -exec touch {} +
 # Build dashboard, CLI, gRPC server, and demos
 RUN cargo build --release -p arvak-dashboard --features "${DASHBOARD_FEATURES}"
 RUN cargo build --release -p arvak-cli
-RUN cargo build --release -p arvak-grpc --features "simulator,sqlite"
+RUN cargo build --release -p arvak-grpc --features "simulator,sqlite,ibm"
 RUN cargo build --release -p arvak-demos -p lumi-hybrid
 
 # ============================================================

@@ -32,6 +32,7 @@ arvak-types = { workspace = true }
 # Arvak backends (feature-gated)
 arvak-adapter-sim = { path = "../../adapters/arvak-adapter-sim", optional = true }
 arvak-adapter-braket = { path = "../../adapters/arvak-adapter-braket", optional = true }
+arvak-adapter-ibm = { path = "../../adapters/arvak-adapter-ibm", optional = true }
 
 # Storage backends (feature-gated)
 rusqlite = { version = "0.31", features = ["bundled"], optional = true }
@@ -87,6 +88,7 @@ async-stream = "0.3"
 default = ["simulator"]
 simulator = ["arvak-adapter-sim"]
 braket = ["arvak-adapter-braket"]
+ibm = ["arvak-adapter-ibm"]
 sqlite = ["rusqlite"]
 postgres = ["tokio-postgres"]
 

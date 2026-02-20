@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.8.0)
+[![Version](https://img.shields.io/badge/version-1.8.1-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.8.1)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.8.0 Released!** Multi-backend hardware support: Scaleway/IQM (Garnet, Emerald, Sirius) and AWS Braket adapters, IBM Cloud API adapter, Nathan code anonymization for PII protection, 100+ security and correctness fixes from architectural audits. See [CHANGELOG.md](CHANGELOG.md).
+> **v1.8.1 Released!** IQM Resonance integration via Scaleway QaaS (QPU-GARNET-20PQ 20q crystal, QPU-EMERALD-54PQ 54q crystal, QPU-SIRIUS-24PQ 16q star), pyo3 0.28.2 security fix (RUSTSEC-2026-0013), HAL contract debt clearance, and `arvak.demo()` launcher. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 

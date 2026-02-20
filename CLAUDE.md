@@ -132,3 +132,15 @@ fn name(&self) -> &str {
 ## Deployment
 
 Use `/deploydemo` skill to deploy to arvak.io (Docker build + scp + ssh restart).
+
+---
+
+## Valiant Ops — Multi-Instance Orchestration
+
+- **Task board:** `~/Projects/valiant-ops/board.yaml`
+- **Sync before work:** `cd ~/Projects/valiant-ops && git pull --rebase origin main`
+- **Claim tasks:** Set `assignee` + `instance` in board.yaml, commit+push
+- **Report results:** Write to `results/{task-id}/summary.md`, update board.yaml status → done
+- **Active task recovery:** If session compacted, check board.yaml for `in_progress` tasks assigned to this instance
+- **Cross-project Rust conventions:** See `~/Projects/valiant-ops/shared/rust-patterns.md` — unified patterns from both Arvak and Garm. Arvak is upstream for: strict clippy config, `try_from` pattern, DAG operations, API consistency rules. Garm is upstream for: `.clamp()` at SQL boundaries, service `main.rs` template, proto enum sync checklist, match arm logging.
+- **When Knuth audit finds a new Rust pattern:** Update both this CLAUDE.md AND `shared/rust-patterns.md`

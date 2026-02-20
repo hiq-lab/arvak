@@ -87,11 +87,22 @@ fn build_coupling_map(caps: &Capabilities) -> CouplingMap {
 }
 
 /// Build [`BasisGates`] from backend capabilities.
+///
+/// Uses the `native` gate list when non-empty (hardware backends), so the
+/// compiler decomposes non-native gates (e.g. `h` → `rz·sx·rz` on IBM Heron).
+/// Falls back to all supported gates for simulators (empty `native` list).
 fn build_basis_gates(caps: &Capabilities) -> BasisGates {
-    let mut gates: Vec<String> = Vec::new();
-    gates.extend(caps.gate_set.single_qubit.iter().cloned());
-    gates.extend(caps.gate_set.two_qubit.iter().cloned());
-    gates.extend(caps.gate_set.three_qubit.iter().cloned());
+    let mut gates: Vec<String> = if caps.gate_set.native.is_empty() {
+        // Simulator: all supported gates are native — no decomposition needed.
+        let mut g: Vec<String> = caps.gate_set.single_qubit.iter().cloned().collect();
+        g.extend(caps.gate_set.two_qubit.iter().cloned());
+        g.extend(caps.gate_set.three_qubit.iter().cloned());
+        g
+    } else {
+        // Hardware: compile only to truly native gates; non-native gates get
+        // decomposed by the BasisTranslation pass.
+        caps.gate_set.native.iter().cloned().collect()
+    };
     // Always include measurement and barrier
     if !gates.iter().any(|g| g == "measure") {
         gates.push("measure".to_string());
