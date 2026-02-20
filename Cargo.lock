@@ -394,6 +394,7 @@ version = "1.8.0"
 dependencies = [
  "anyhow",
  "arvak-adapter-braket",
+ "arvak-adapter-ibm",
  "arvak-adapter-sim",
  "arvak-compile",
  "arvak-hal",

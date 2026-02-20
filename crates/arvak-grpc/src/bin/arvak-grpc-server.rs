@@ -92,11 +92,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create service with resource limits
     use arvak_grpc::server::{JobStore, backend_registry::create_default_registry};
-    let service = ArvakServiceImpl::with_limits(
-        JobStore::new(),
-        create_default_registry(),
-        config.limits.clone(),
-    );
+    #[allow(unused_mut)] // mut is needed when the ibm feature is enabled
+    let mut registry = create_default_registry();
+
+    #[cfg(feature = "ibm")]
+    {
+        use arvak_grpc::server::backend_registry::register_ibm_backends;
+        register_ibm_backends(&mut registry).await;
+    }
+
+    let service = ArvakServiceImpl::with_limits(JobStore::new(), registry, config.limits.clone());
     let backend_registry = service.backends();
 
     // Set up graceful shutdown
