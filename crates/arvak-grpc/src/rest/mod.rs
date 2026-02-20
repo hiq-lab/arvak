@@ -155,7 +155,10 @@ async fn get_backend_handler(
 
     let caps = backend.capabilities();
     let is_available = backend.availability().await.is_ok_and(|a| a.is_available);
-    let topology_json = serde_json::to_string(&caps.topology).unwrap_or_else(|_| "{}".to_string());
+    let topology_json = serde_json::to_string(&caps.topology).unwrap_or_else(|e| {
+        tracing::warn!(backend_id = %id, error = %e, "Failed to serialize topology; returning empty object");
+        "{}".to_string()
+    });
 
     let mut supported_gates = caps.gate_set.single_qubit.clone();
     supported_gates.extend(caps.gate_set.two_qubit.clone());
