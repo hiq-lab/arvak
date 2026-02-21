@@ -82,9 +82,7 @@ pub fn inverse_gate(gate: &StandardGate) -> UncomputeResult<StandardGate> {
         // iSWAP† has conjugated off-diagonal elements (−i instead of i).
         // A full inverse requires decomposition into basis gates.
         // TODO: implement ISwap† decomposition (e.g., two CX + Rz sequence).
-        StandardGate::ISwap => {
-            Err(UncomputeError::InversionNotImplemented("iswap".into()))
-        }
+        StandardGate::ISwap => Err(UncomputeError::InversionNotImplemented("iswap".into())),
 
         // CH (controlled-Hadamard) is self-inverse
         StandardGate::CH => Ok(StandardGate::CH),

@@ -179,7 +179,7 @@ impl IbmBackend {
                 target,
                 backend_info,
                 skip_transpilation: false,
-            shots_cache: Arc::new(Mutex::new(HashMap::new())),
+                shots_cache: Arc::new(Mutex::new(HashMap::new())),
             });
         }
 
@@ -194,7 +194,7 @@ impl IbmBackend {
                 target,
                 backend_info: Arc::new(RwLock::new(None)),
                 skip_transpilation: false,
-            shots_cache: Arc::new(Mutex::new(HashMap::new())),
+                shots_cache: Arc::new(Mutex::new(HashMap::new())),
             });
         }
 
@@ -292,7 +292,11 @@ impl IbmBackend {
     /// `submitted_shots` is the number of shots requested at submission time.
     /// It is used as the denominator when converting quasi-probability
     /// distributions to counts, taking priority over metadata or the 1024 fallback.
-    fn results_to_counts(results: &crate::api::JobResultResponse, num_qubits: usize, submitted_shots: Option<u32>) -> Counts {
+    fn results_to_counts(
+        results: &crate::api::JobResultResponse,
+        num_qubits: usize,
+        submitted_shots: Option<u32>,
+    ) -> Counts {
         let mut counts = Counts::new();
 
         // Handle sampler results

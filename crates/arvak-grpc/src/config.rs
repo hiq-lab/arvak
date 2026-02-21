@@ -585,7 +585,8 @@ impl Config {
         if let Some(ref key) = self.server.api_key {
             if key.is_empty() {
                 return Err(ConfigError::ValidationError(
-                    "api_key must not be empty; omit the field to disable authentication".to_string(),
+                    "api_key must not be empty; omit the field to disable authentication"
+                        .to_string(),
                 ));
             }
         }

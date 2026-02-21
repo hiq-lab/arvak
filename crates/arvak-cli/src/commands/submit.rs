@@ -71,26 +71,34 @@ pub async fn execute(
                 let parts: Vec<&str> = t.split(':').collect();
                 let minutes: u32 = match parts.len() {
                     3 => {
-                        let h: u32 = parts[0].parse()
-                            .map_err(|_| anyhow::anyhow!("Invalid time format '{t}': expected HH:MM:SS"))?;
-                        let m: u32 = parts[1].parse()
-                            .map_err(|_| anyhow::anyhow!("Invalid time format '{t}': expected HH:MM:SS"))?;
-                        let s: u32 = parts[2].parse()
-                            .map_err(|_| anyhow::anyhow!("Invalid time format '{t}': expected HH:MM:SS"))?;
+                        let h: u32 = parts[0].parse().map_err(|_| {
+                            anyhow::anyhow!("Invalid time format '{t}': expected HH:MM:SS")
+                        })?;
+                        let m: u32 = parts[1].parse().map_err(|_| {
+                            anyhow::anyhow!("Invalid time format '{t}': expected HH:MM:SS")
+                        })?;
+                        let s: u32 = parts[2].parse().map_err(|_| {
+                            anyhow::anyhow!("Invalid time format '{t}': expected HH:MM:SS")
+                        })?;
                         // Ceiling-divide seconds into an extra minute so the job
                         // doesn't get killed before it completes.
                         h * 60 + m + u32::from(s > 0)
                     }
                     2 => {
-                        let h: u32 = parts[0].parse()
-                            .map_err(|_| anyhow::anyhow!("Invalid time format '{t}': expected HH:MM"))?;
-                        let m: u32 = parts[1].parse()
-                            .map_err(|_| anyhow::anyhow!("Invalid time format '{t}': expected HH:MM"))?;
+                        let h: u32 = parts[0].parse().map_err(|_| {
+                            anyhow::anyhow!("Invalid time format '{t}': expected HH:MM")
+                        })?;
+                        let m: u32 = parts[1].parse().map_err(|_| {
+                            anyhow::anyhow!("Invalid time format '{t}': expected HH:MM")
+                        })?;
                         h * 60 + m
                     }
-                    1 => parts[0].parse()
-                        .map_err(|_| anyhow::anyhow!("Invalid time limit '{t}': expected whole minutes"))?,
-                    _ => anyhow::bail!("Invalid time format '{t}': expected HH:MM:SS, HH:MM, or MM"),
+                    1 => parts[0].parse().map_err(|_| {
+                        anyhow::anyhow!("Invalid time limit '{t}': expected whole minutes")
+                    })?,
+                    _ => {
+                        anyhow::bail!("Invalid time format '{t}': expected HH:MM:SS, HH:MM, or MM")
+                    }
                 };
                 slurm.time_limit = minutes;
             }
