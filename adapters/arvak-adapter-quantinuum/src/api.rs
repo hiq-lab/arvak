@@ -110,7 +110,7 @@ impl QuantinuumClient {
         }
         {
             let mut rt = self.refresh_token.lock().await;
-            *rt = data.refresh_token.clone();
+            rt.clone_from(&data.refresh_token);
         }
 
         debug!("Quantinuum login successful");
@@ -473,8 +473,7 @@ impl MachineInfo {
     pub fn is_online(&self) -> bool {
         self.status
             .as_deref()
-            .map(|s| matches!(s.to_lowercase().as_str(), "online" | "available" | "ready"))
-            .unwrap_or(false)
+            .is_some_and(|s| matches!(s.to_lowercase().as_str(), "online" | "available" | "ready"))
     }
 }
 

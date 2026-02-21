@@ -94,14 +94,14 @@ fn build_coupling_map(caps: &Capabilities) -> CouplingMap {
 fn build_basis_gates(caps: &Capabilities) -> BasisGates {
     let mut gates: Vec<String> = if caps.gate_set.native.is_empty() {
         // Simulator: all supported gates are native — no decomposition needed.
-        let mut g = caps.gate_set.single_qubit.to_vec();
+        let mut g = caps.gate_set.single_qubit.clone();
         g.extend(caps.gate_set.two_qubit.iter().cloned());
         g.extend(caps.gate_set.three_qubit.iter().cloned());
         g
     } else {
         // Hardware: compile only to truly native gates; non-native gates get
         // decomposed by the BasisTranslation pass.
-        caps.gate_set.native.to_vec()
+        caps.gate_set.native.clone()
     };
     // Always include measurement and barrier
     if !gates.iter().any(|g| g == "measure") {

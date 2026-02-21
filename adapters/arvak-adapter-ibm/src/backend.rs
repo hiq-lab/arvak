@@ -337,7 +337,7 @@ impl IbmBackend {
                 // Prefer shots from the original submission, fall back to
                 // IBM metadata, then to the IBM default of 1024.
                 let effective_shots = submitted_shots
-                    .map(|s| s as f64)
+                    .map(f64::from)
                     .or_else(|| {
                         result
                             .metadata
