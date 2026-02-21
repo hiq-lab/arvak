@@ -111,6 +111,9 @@ class HalAvailability:
             )
 
 
+# AQT Arnica cloud API constants
+_AQT_API_BASE = "https://arnica.aqt.eu/api/v1"
+
 # Quantinuum API constants
 _QUANTINUUM_API_BASE = "https://qapi.quantinuum.com/v1"
 
@@ -218,6 +221,19 @@ class ArvakProvider:
         'quantinuum_h2_emulator': 'H2-1E',
     }
 
+    # AQT backend names (ion trap — offline simulators and IBEX Q1 hardware)
+    _AQT_BACKENDS = {
+        'aqt_offline_sim',   # offline_simulator_no_noise (any token, free)
+        'aqt_noise_sim',     # offline_simulator_noise (any token, free)
+        'aqt_cloud_sim',     # cloud simulator_noise (needs AQT_TOKEN)
+    }
+
+    _AQT_RESOURCE_MAP = {
+        'aqt_offline_sim': ('default', 'offline_simulator_no_noise'),
+        'aqt_noise_sim':   ('default', 'offline_simulator_noise'),
+        'aqt_cloud_sim':   ('aqt_simulators', 'simulator_noise'),
+    }
+
     def __init__(self):
         """Initialize the Arvak provider."""
         self._backends = {}
@@ -286,6 +302,13 @@ class ArvakProvider:
                     f"Set QUANTINUUM_EMAIL and QUANTINUUM_PASSWORD environment variables."
                 ) from e
 
+        # Lazily create AQT backends on demand
+        if name and name in self._AQT_BACKENDS and name not in self._backends:
+            workspace, resource = self._AQT_RESOURCE_MAP[name]
+            self._backends[name] = ArvakAQTBackend(
+                provider=self, workspace=workspace, resource=resource,
+            )
+
         if name:
             backend = self._backends.get(name)
             return [backend] if backend else []
@@ -314,6 +337,8 @@ class ArvakProvider:
                 b for b in self._IQM_RESONANCE_BACKENDS if b not in self._backends
             ] + [
                 b for b in self._QUANTINUUM_BACKENDS if b not in self._backends
+            ] + [
+                b for b in self._AQT_BACKENDS if b not in self._backends
             ]
             raise ValueError(
                 f"Unknown backend: {name}. "
@@ -2353,3 +2378,373 @@ def _iqm_postprocess_qasm(qasm: str) -> str:
     qasm = qasm.replace("OPENQASM 3.0;", f"OPENQASM 3.0;\n{_PREAMBLE}", 1)
 
     return qasm
+
+
+# ---------------------------------------------------------------------------
+# AQT backend
+# ---------------------------------------------------------------------------
+
+class ArvakAQTBackend:
+    """Arvak AQT backend — submits directly to AQT's Arnica REST API.
+
+    Transpiles Qiskit circuits to the AQT native gate set (rz, rx, rxx) using
+    Qiskit's transpiler, then serialises to AQT's JSON circuit format and
+    submits to `https://arnica.aqt.eu/api/v1`.
+
+    Offline simulators (`offline_simulator_no_noise`, `offline_simulator_noise`)
+    accept any value for ``AQT_TOKEN`` — no AQT account is required for local
+    testing.
+
+    Args:
+        provider: Parent ArvakProvider instance.
+        workspace: AQT workspace ID (default: ``"default"``).
+        resource: AQT resource ID (default: ``"offline_simulator_no_noise"``).
+    """
+
+    # AQT API constraints
+    MAX_QUBITS = 20
+    MAX_SHOTS = 2000
+    MAX_OPS = 2000
+
+    def __init__(
+        self,
+        provider,
+        workspace: str = 'default',
+        resource: str = 'offline_simulator_no_noise',
+    ):
+        import requests as _requests
+        self._requests = _requests
+
+        self._provider = provider
+        self._workspace = workspace
+        self._resource = resource
+
+        # Read auth token — may be empty for offline simulators.
+        self._token = os.environ.get('AQT_TOKEN', '')
+        base_url = os.environ.get('AQT_PORTAL_URL', _AQT_API_BASE)
+        self._base_url = base_url.rstrip('/')
+
+        self.name = f"aqt_{resource}"
+        self.description = f"AQT {resource} (via Arvak)"
+
+    # ------------------------------------------------------------------
+    # HAL-compliant interface
+    # ------------------------------------------------------------------
+
+    def contract_version(self) -> str:
+        """Return HAL contract version."""
+        return "2.0"
+
+    def availability(self) -> HalAvailability:
+        """Check resource availability via the AQT API."""
+        try:
+            resp = self._requests.get(
+                f"{self._base_url}/resources/{self._resource}",
+                headers=self._auth_headers(),
+                timeout=10,
+            )
+            if resp.ok:
+                data = resp.json()
+                status = data.get('status', '')
+                online = not status or status.lower() in ('online', 'available', 'ready')
+                return HalAvailability(
+                    online=online,
+                    queue_depth=None,
+                    status_message=status or "online",
+                )
+            # Offline simulators may not expose this endpoint — treat as available.
+            if self._resource.startswith('offline_simulator'):
+                return HalAvailability(
+                    online=True,
+                    queue_depth=None,
+                    status_message="offline simulator (status check unavailable)",
+                )
+            return HalAvailability(
+                online=False,
+                queue_depth=None,
+                status_message=f"HTTP {resp.status_code}: {resp.text[:200]}",
+            )
+        except Exception as exc:
+            if self._resource.startswith('offline_simulator'):
+                return HalAvailability(online=True, queue_depth=None, status_message=str(exc))
+            return HalAvailability(online=False, queue_depth=None, status_message=str(exc))
+
+    def validate(self, circuit, shots: int = 1024) -> HalValidationResult:
+        """Validate a Qiskit circuit against AQT constraints."""
+        errors = []
+
+        n_qubits = circuit.num_qubits
+        if n_qubits > self.MAX_QUBITS:
+            errors.append(
+                f"Circuit has {n_qubits} qubits; AQT {self._resource} supports at most "
+                f"{self.MAX_QUBITS}"
+            )
+
+        if shots < 1 or shots > self.MAX_SHOTS:
+            errors.append(f"shots {shots} must be in [1, {self.MAX_SHOTS}]")
+
+        # Count non-measurement gate ops (after transpilation we'll have rz/rx/rxx only).
+        gate_ops = sum(1 for instr in circuit.data if instr.operation.name != 'measure')
+        if gate_ops > self.MAX_OPS:
+            errors.append(
+                f"Circuit has {gate_ops} gates; AQT allows at most {self.MAX_OPS}"
+            )
+
+        return HalValidationResult(valid=not errors, errors=errors)
+
+    def submit(self, circuit, shots: int = 1024) -> str:
+        """Transpile and submit a Qiskit circuit to AQT; return job_id string."""
+        from qiskit import transpile
+
+        # Transpile to AQT native basis: rz, rx, rxx (all-to-all connectivity).
+        transpiled = transpile(
+            circuit,
+            basis_gates=['rz', 'rx', 'rxx'],
+            optimization_level=1,
+        )
+
+        ops = self._serialize_circuit(transpiled)
+
+        n_qubits = transpiled.num_qubits
+        payload = {
+            "job_type": "quantum_circuit",
+            "label": f"arvak-{uuid.uuid4()}",
+            "payload": {
+                "circuits": [
+                    {
+                        "repetitions": shots,
+                        "number_of_qubits": n_qubits,
+                        "quantum_circuit": ops,
+                    }
+                ]
+            },
+        }
+
+        resp = self._requests.post(
+            f"{self._base_url}/submit/{self._workspace}/{self._resource}",
+            headers=self._auth_headers(),
+            json=payload,
+            timeout=30,
+        )
+
+        if not resp.ok:
+            raise ArvakSubmissionError(
+                f"AQT job submission failed ({resp.status_code}): {resp.text}"
+            )
+
+        data = resp.json()
+        return data['job']['job_id']
+
+    def job_status(self, job_id: str) -> str:
+        """Return current job status string."""
+        resp = self._requests.get(
+            f"{self._base_url}/result/{job_id}",
+            headers=self._auth_headers(),
+            timeout=10,
+        )
+        if resp.status_code == 404 or resp.status_code == 410:
+            raise ArvakJobError(f"AQT job not found or expired: {job_id}")
+        resp.raise_for_status()
+        return resp.json()['response']['status']
+
+    def job_result(self, job_id: str) -> dict:
+        """Fetch results for a completed job. Returns counts dict."""
+        resp = self._requests.get(
+            f"{self._base_url}/result/{job_id}",
+            headers=self._auth_headers(),
+            timeout=10,
+        )
+        if resp.status_code in (404, 410):
+            raise ArvakJobError(f"AQT job not found or expired: {job_id}")
+        resp.raise_for_status()
+
+        body = resp.json()['response']
+        if body['status'] == 'error':
+            raise ArvakJobError(f"AQT job failed: {body.get('message', 'unknown error')}")
+        if body['status'] != 'finished':
+            raise ArvakJobError(f"AQT job {job_id} not finished (status: {body['status']})")
+
+        raw = body.get('result', {}).get('0', [])
+        return self._aggregate_counts(raw)
+
+    def job_cancel(self, job_id: str) -> None:
+        """Cancel a queued or running job."""
+        resp = self._requests.delete(
+            f"{self._base_url}/jobs/{job_id}",
+            headers=self._auth_headers(),
+            timeout=10,
+        )
+        # 204 = cancelled, 208 = already cancelled — both are success.
+        if not resp.ok:
+            raise ArvakJobError(f"AQT job cancel failed ({resp.status_code}): {resp.text}")
+
+    def run(self, circuit, shots: int = 1024, **_options) -> 'ArvakAQTJob':
+        """Submit a circuit and return an ArvakAQTJob for polling results."""
+        self.availability().raise_if_unavailable()
+        self.validate(circuit, shots=shots).raise_if_invalid()
+        job_id = self.submit(circuit, shots=shots)
+        return ArvakAQTJob(backend=self, job_id=job_id, shots=shots)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _auth_headers(self) -> dict:
+        """Build Authorization header (standard Bearer token)."""
+        return {
+            "Authorization": f"Bearer {self._token}",
+            "Content-Type": "application/json",
+        }
+
+    def _serialize_circuit(self, transpiled_circuit) -> list:
+        """Serialize a transpiled Qiskit circuit to AQT JSON gate format.
+
+        The circuit must use only ``rz``, ``rx``, and ``rxx`` gates.
+        All angles are converted to units of π (radians ÷ π).
+
+        Gate mappings:
+          - ``rz(theta)``       → AQT ``RZ`` with ``phi = theta / π``
+          - ``rx(theta)``       → AQT ``R`` with ``theta = theta / π``, ``phi = 0``
+          - ``rxx(theta)``      → AQT ``RXX`` with ``theta = theta / π``
+
+        A terminal ``MEASURE`` is always appended.
+        """
+        import math
+
+        ops = []
+        for instr in transpiled_circuit.data:
+            gate_name = instr.operation.name
+            qargs = [transpiled_circuit.find_bit(q).index for q in instr.qubits]
+            params = instr.operation.params
+
+            if gate_name == 'rz':
+                theta_rad = float(params[0])
+                ops.append({"operation": "RZ", "qubit": qargs[0], "phi": theta_rad / math.pi})
+
+            elif gate_name == 'rx':
+                theta_rad = float(params[0])
+                ops.append({
+                    "operation": "R",
+                    "qubit": qargs[0],
+                    "theta": theta_rad / math.pi,
+                    "phi": 0.0,
+                })
+
+            elif gate_name == 'rxx':
+                theta_rad = float(params[0])
+                ops.append({
+                    "operation": "RXX",
+                    "qubits": [qargs[0], qargs[1]],
+                    "theta": theta_rad / math.pi,
+                })
+
+            elif gate_name == 'measure':
+                pass  # AQT uses a single terminal MEASURE for all qubits
+
+            else:
+                raise ArvakValidationError(
+                    f"Unexpected gate after transpilation: {gate_name}. "
+                    f"Expected only rz, rx, rxx."
+                )
+
+        # AQT requires exactly one terminal MEASURE.
+        ops.append({"operation": "MEASURE"})
+        return ops
+
+    @staticmethod
+    def _aggregate_counts(raw_shots: list) -> dict:
+        """Convert AQT raw samples `[[bit, ...], ...]` to a counts dict."""
+        counts: dict = {}
+        for shot in raw_shots:
+            bitstring = ''.join(str(b) for b in shot)
+            counts[bitstring] = counts.get(bitstring, 0) + 1
+        return counts
+
+    def __repr__(self) -> str:
+        return f"<ArvakAQTBackend('{self._workspace}/{self._resource}')>"
+
+
+class ArvakAQTJob:
+    """Job submitted to an AQT backend.
+
+    Polls the AQT Arnica API for status and results.
+
+    Args:
+        backend: Parent ArvakAQTBackend instance.
+        job_id: AQT job UUID string.
+        shots: Number of shots requested.
+    """
+
+    def __init__(self, backend: ArvakAQTBackend, job_id: str, shots: int):
+        self._backend = backend
+        self._job_id = job_id
+        self._shots = shots
+        self._counts: Optional[dict] = None
+
+    def job_id(self) -> str:
+        """Return the AQT job UUID."""
+        return self._job_id
+
+    def status(self) -> str:
+        """Poll and return the current job status."""
+        return self._backend.job_status(self._job_id)
+
+    def cancel(self) -> None:
+        """Cancel the job."""
+        self._backend.job_cancel(self._job_id)
+
+    def result(self, timeout: int = 300, poll_interval: int = 3) -> 'ArvakAQTResult':
+        """Wait for job completion and return an ArvakAQTResult.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 300).
+            poll_interval: Seconds between status polls (default: 3).
+
+        Raises:
+            ArvakTimeoutError: If the job does not complete within ``timeout``.
+            ArvakJobError: If the job fails or is cancelled.
+        """
+        import time
+
+        elapsed = 0
+        while elapsed < timeout:
+            status = self.status()
+            if status == 'finished':
+                counts = self._backend.job_result(self._job_id)
+                self._counts = counts
+                return ArvakAQTResult(counts=counts, shots=self._shots, job_id=self._job_id)
+            if status == 'error':
+                raise ArvakJobError(f"AQT job {self._job_id} failed")
+            if status == 'cancelled':
+                raise ArvakJobCancelledError(f"AQT job {self._job_id} was cancelled")
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+
+        raise ArvakTimeoutError(
+            f"AQT job {self._job_id} did not complete within {timeout}s"
+        )
+
+    def __repr__(self) -> str:
+        return f"<ArvakAQTJob(id='{self._job_id}', shots={self._shots})>"
+
+
+class ArvakAQTResult:
+    """Result from an AQT job.
+
+    Args:
+        counts: Bitstring → count dictionary.
+        shots: Total number of shots.
+        job_id: AQT job UUID.
+    """
+
+    def __init__(self, counts: dict, shots: int, job_id: str):
+        self._counts = counts
+        self._shots = shots
+        self._job_id = job_id
+
+    def get_counts(self, circuit=None) -> dict:
+        """Return the bitstring counts dictionary."""
+        return dict(self._counts)
+
+    def __repr__(self) -> str:
+        return f"<ArvakAQTResult(job_id='{self._job_id}', counts={self._counts})>"

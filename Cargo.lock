@@ -116,6 +116,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvak-adapter-aqt"
+version = "1.8.1"
+dependencies = [
+ "arvak-hal",
+ "arvak-ir",
+ "async-trait",
+ "chrono",
+ "reqwest",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "arvak-adapter-braket"
 version = "1.8.1"
 dependencies = [
@@ -299,6 +317,7 @@ name = "arvak-cli"
 version = "1.8.1"
 dependencies = [
  "anyhow",
+ "arvak-adapter-aqt",
  "arvak-adapter-braket",
  "arvak-adapter-ibm",
  "arvak-adapter-iqm",
@@ -413,6 +432,7 @@ name = "arvak-grpc"
 version = "1.8.1"
 dependencies = [
  "anyhow",
+ "arvak-adapter-aqt",
  "arvak-adapter-braket",
  "arvak-adapter-ibm",
  "arvak-adapter-quantinuum",
