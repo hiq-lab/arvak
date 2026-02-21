@@ -364,7 +364,7 @@ impl Qasm2Emitter {
             InstructionKind::Measure => {
                 if instruction.qubits.len() == 1 {
                     let q = instruction.qubits[0].0;
-                    let c = instruction.clbits.first().map(|b| b.0).unwrap_or(q);
+                    let c = instruction.clbits.first().map_or(q, |b| b.0);
                     self.writeln(&format!("measure q[{q}] -> c[{c}];"));
                 } else {
                     for (q, c) in instruction.qubits.iter().zip(instruction.clbits.iter()) {
