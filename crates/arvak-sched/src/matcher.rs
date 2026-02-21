@@ -361,6 +361,7 @@ mod tests {
                         .collect(),
                 },
                 max_shots: 10000,
+                max_circuit_ops: None,
                 is_simulator,
                 features: vec![],
                 noise_profile: None,
