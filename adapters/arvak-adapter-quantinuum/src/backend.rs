@@ -158,7 +158,7 @@ impl QuantinuumBackend {
         }
 
         // Number of shots is the length of any register's array.
-        let n_shots = results.values().next().map(|v| v.len()).unwrap_or(0);
+        let n_shots = results.values().next().map_or(0, Vec::len);
         if n_shots == 0 {
             return counts;
         }
