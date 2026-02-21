@@ -134,7 +134,11 @@ impl BraketBackend {
     /// `submitted_shots` is used as the denominator when the only available
     /// result format is `measurementProbabilities`. Pass 0 to use the default
     /// fallback of 1000 (for callers that don't have the shot count available).
-    fn parse_result(result: &crate::api::TaskResult, _num_qubits: usize, submitted_shots: u32) -> Counts {
+    fn parse_result(
+        result: &crate::api::TaskResult,
+        _num_qubits: usize,
+        submitted_shots: u32,
+    ) -> Counts {
         let mut counts = Counts::new();
 
         // Prefer measurementCounts (bitstring -> count)
@@ -159,7 +163,11 @@ impl BraketBackend {
 
         // Fall back to measurementProbabilities
         if let Some(probs) = &result.measurement_probabilities {
-            let total_shots = if submitted_shots > 0 { submitted_shots as f64 } else { 1000.0_f64 };
+            let total_shots = if submitted_shots > 0 {
+                submitted_shots as f64
+            } else {
+                1000.0_f64
+            };
             for (bitstring, &prob) in probs {
                 let count = (prob * total_shots).max(0.0).round() as u64;
                 if count > 0 {
@@ -379,10 +387,10 @@ impl Backend for BraketBackend {
         // Get num_qubits and shots from cache or capabilities
         let (num_qubits, submitted_shots) = {
             let jobs = self.jobs.lock().await;
-            jobs.get(&job_id.0).map_or(
-                (self.capabilities.num_qubits as usize, 0u32),
-                |j| (j.num_qubits, j.shots),
-            )
+            jobs.get(&job_id.0)
+                .map_or((self.capabilities.num_qubits as usize, 0u32), |j| {
+                    (j.num_qubits, j.shots)
+                })
         };
 
         let counts = Self::parse_result(&task_result, num_qubits, submitted_shots);
