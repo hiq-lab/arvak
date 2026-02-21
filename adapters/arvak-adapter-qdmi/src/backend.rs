@@ -123,6 +123,47 @@ unsafe impl Send for SystemState {}
 unsafe impl Sync for SystemState {}
 
 // ============================================================================
+// Shared Helpers
+// ============================================================================
+
+/// Build a [`GateSet`] from a list of `(operation_name, num_qubits)` pairs
+/// discovered at runtime (e.g., via QDMI device property queries).
+///
+/// All discovered operations are treated as native — QDMI drivers only
+/// advertise gates the device can execute without further decomposition.
+fn gate_set_from_operations(ops: &[(String, usize)]) -> GateSet {
+    let mut single_qubit: Vec<String> = Vec::new();
+    let mut two_qubit: Vec<String> = Vec::new();
+    let mut three_qubit: Vec<String> = Vec::new();
+    let mut native: Vec<String> = Vec::new();
+
+    for (name, arity) in ops {
+        match arity {
+            1 => {
+                single_qubit.push(name.clone());
+                native.push(name.clone());
+            }
+            2 => {
+                two_qubit.push(name.clone());
+                native.push(name.clone());
+            }
+            3 => {
+                three_qubit.push(name.clone());
+                native.push(name.clone());
+            }
+            _ => {} // Arity 0 (barriers, etc.) and ≥4 are not represented in GateSet
+        }
+    }
+
+    GateSet {
+        single_qubit,
+        two_qubit,
+        three_qubit,
+        native,
+    }
+}
+
+// ============================================================================
 // Mock Mode Implementation
 // ============================================================================
 
@@ -217,6 +258,10 @@ impl QdmiBackend {
     }
 
     /// Build capabilities from QDMI device properties (mock mode).
+    ///
+    /// Reads `MockDevice::operations` and `MockDevice::coupling_map` to
+    /// build a realistic `GateSet` and `Topology` — the same logic that the
+    /// system-QDMI path will use once a real driver is available.
     fn build_capabilities(&self) -> QdmiResult<Capabilities> {
         let state = self
             .state
@@ -225,11 +270,32 @@ impl QdmiBackend {
 
         let device = state.device.as_ref().ok_or(QdmiError::NoDevice)?;
 
+        let num_qubits = u32::try_from(device.num_qubits).unwrap_or(u32::MAX);
+
+        // Build gate set from device-reported operations.
+        let ops: Vec<(String, usize)> = device
+            .operations
+            .iter()
+            .map(|op| (op.name.clone(), op.num_qubits))
+            .collect();
+        let gate_set = if ops.is_empty() {
+            GateSet::universal()
+        } else {
+            gate_set_from_operations(&ops)
+        };
+
+        // Build topology from device-reported coupling map.
+        let topology = if device.coupling_map.is_empty() {
+            Topology::full(num_qubits)
+        } else {
+            Topology::custom(device.coupling_map.clone())
+        };
+
         Ok(Capabilities {
             name: device.name.clone(),
-            num_qubits: device.num_qubits as u32,
-            gate_set: GateSet::universal(),
-            topology: Topology::full(device.num_qubits as u32),
+            num_qubits,
+            gate_set,
+            topology,
             max_shots: 100_000,
             max_circuit_ops: None,
             is_simulator: false,
@@ -254,6 +320,7 @@ impl QdmiBackend {
             gate_set: GateSet::universal(),
             topology: Topology::full(1),
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec!["qdmi".into(), "mqss".into(), "system".into()],
             noise_profile: None,
@@ -402,6 +469,11 @@ impl QdmiBackend {
     }
 
     /// Build capabilities by querying QDMI device properties via FFI.
+    ///
+    /// Queries:
+    /// - `Name` and `QubitsNum` — device identity
+    /// - `Operations` + per-operation `Name`/`QubitsNum` → dynamic `GateSet`
+    /// - `CouplingMap` + per-site `Index` queries → dynamic `Topology`
     fn build_capabilities(&self) -> QdmiResult<Capabilities> {
         let state = self
             .state
@@ -415,9 +487,8 @@ impl QdmiBackend {
         unsafe {
             use crate::ffi::QdmiDeviceProperty;
 
-            // Query device name (buffer-query pattern)
+            // ── Device name ──────────────────────────────────────────────────
             let mut name_size: usize = 0;
-            // First call: get required size
             let _status = ffi::QDMI_device_query_device_property(
                 state.device,
                 QdmiDeviceProperty::Name as c_int,
@@ -443,33 +514,39 @@ impl QdmiBackend {
                 "QDMI Device".to_string()
             };
 
-            // Query number of qubits (QubitsNum is size_t in v1.2.1)
-            let mut num_qubits: usize = 0;
+            // ── Qubit count ──────────────────────────────────────────────────
+            let mut num_qubits_raw: usize = 0;
             let mut qubits_size = std::mem::size_of::<usize>();
             let status = ffi::QDMI_device_query_device_property(
                 state.device,
                 QdmiDeviceProperty::QubitsNum as c_int,
                 qubits_size,
-                &mut num_qubits as *mut usize as *mut c_void,
+                &mut num_qubits_raw as *mut usize as *mut c_void,
                 &mut qubits_size,
             );
             let num_qubits = if ffi::check_status(status).is_ok() {
-                num_qubits as u32
+                u32::try_from(num_qubits_raw).unwrap_or_else(|_| {
+                    warn!("Qubit count {} overflows u32; using 0", num_qubits_raw);
+                    0
+                })
             } else {
                 warn!("Failed to query qubit count, defaulting to 0");
                 0
             };
 
+            // ── Gate set (from QDMI Operations property) ─────────────────────
+            let gate_set = query_gate_set_from_qdmi(state.device, num_qubits);
+
+            // ── Topology (from QDMI CouplingMap property) ────────────────────
+            let topology = query_topology_from_qdmi(state.device, num_qubits);
+
             Ok(Capabilities {
                 name: device_name,
                 num_qubits,
-                gate_set: GateSet::universal(),
-                topology: if num_qubits > 0 {
-                    Topology::full(num_qubits)
-                } else {
-                    Topology::full(1)
-                },
+                gate_set,
+                topology,
                 max_shots: 100_000,
+                max_circuit_ops: None,
                 is_simulator: false,
                 features: vec!["qdmi".into(), "mqss".into(), "system".into()],
                 noise_profile: None,
@@ -506,6 +583,199 @@ impl Drop for QdmiBackend {
 impl Default for QdmiBackend {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// ============================================================================
+// System QDMI Capability Query Helpers
+// ============================================================================
+
+/// Query the gate set from QDMI by enumerating all supported operations.
+///
+/// Uses `QDMI_DEVICE_PROPERTY_OPERATIONS` to get a list of `QdmiOperation*`
+/// pointers, then queries `Name` and `QubitsNum` for each. Falls back to
+/// `GateSet::universal()` if the device doesn't support the Operations
+/// property or returns no operations.
+#[cfg(feature = "system-qdmi")]
+unsafe fn query_gate_set_from_qdmi(device: *mut ffi::QdmiDevice, _num_qubits: u32) -> GateSet {
+    use std::ffi::{c_int, c_void};
+
+    // First call: get required buffer size for operation pointer array.
+    let mut ops_size: usize = 0;
+    let _status = ffi::QDMI_device_query_device_property(
+        device,
+        ffi::QdmiDeviceProperty::Operations as c_int,
+        0,
+        std::ptr::null_mut(),
+        &mut ops_size,
+    );
+    if ops_size == 0 {
+        return GateSet::universal();
+    }
+
+    // Second call: retrieve operation pointers.
+    let op_count = ops_size / std::mem::size_of::<*mut ffi::QdmiOperation>();
+    let mut op_ptrs: Vec<*mut ffi::QdmiOperation> = vec![std::ptr::null_mut(); op_count];
+    let status = ffi::QDMI_device_query_device_property(
+        device,
+        ffi::QdmiDeviceProperty::Operations as c_int,
+        ops_size,
+        op_ptrs.as_mut_ptr() as *mut c_void,
+        &mut ops_size,
+    );
+    if ffi::check_status(status).is_err() {
+        return GateSet::universal();
+    }
+
+    let mut ops: Vec<(String, usize)> = Vec::with_capacity(op_count);
+    for &op_ptr in &op_ptrs {
+        if op_ptr.is_null() {
+            continue;
+        }
+
+        // Query operation name.
+        let mut name_size: usize = 0;
+        let _s = ffi::QDMI_device_query_operation_property(
+            device,
+            op_ptr,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            ffi::QdmiOperationProperty::Name as c_int,
+            0,
+            std::ptr::null_mut(),
+            &mut name_size,
+        );
+        if name_size == 0 {
+            continue;
+        }
+        let mut name_buf = vec![0u8; name_size];
+        let status = ffi::QDMI_device_query_operation_property(
+            device,
+            op_ptr,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            ffi::QdmiOperationProperty::Name as c_int,
+            name_size,
+            name_buf.as_mut_ptr() as *mut c_void,
+            &mut name_size,
+        );
+        if ffi::check_status(status).is_err() {
+            continue;
+        }
+        let op_name = String::from_utf8_lossy(&name_buf[..name_size.saturating_sub(1)]).to_string();
+
+        // Query qubit arity.
+        let mut qn: usize = 0;
+        let mut qn_size = std::mem::size_of::<usize>();
+        let status = ffi::QDMI_device_query_operation_property(
+            device,
+            op_ptr,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            ffi::QdmiOperationProperty::QubitsNum as c_int,
+            qn_size,
+            &mut qn as *mut usize as *mut c_void,
+            &mut qn_size,
+        );
+        if ffi::check_status(status).is_ok() {
+            ops.push((op_name, qn));
+        }
+    }
+
+    if ops.is_empty() {
+        GateSet::universal()
+    } else {
+        gate_set_from_operations(&ops)
+    }
+}
+
+/// Query the coupling map from QDMI and build a [`Topology`].
+///
+/// Uses `QDMI_DEVICE_PROPERTY_COUPLING_MAP` which returns a flattened array
+/// of `(QdmiSite*, QdmiSite*)` pairs. For each pair, the site index is read
+/// via `QDMI_SITE_PROPERTY_INDEX`. Falls back to `Topology::full(num_qubits)`
+/// if the property is unsupported or returns no edges.
+#[cfg(feature = "system-qdmi")]
+unsafe fn query_topology_from_qdmi(device: *mut ffi::QdmiDevice, num_qubits: u32) -> Topology {
+    use std::ffi::{c_int, c_void};
+
+    let mut cm_size: usize = 0;
+    let _status = ffi::QDMI_device_query_device_property(
+        device,
+        ffi::QdmiDeviceProperty::CouplingMap as c_int,
+        0,
+        std::ptr::null_mut(),
+        &mut cm_size,
+    );
+    if cm_size == 0 {
+        return Topology::full(num_qubits);
+    }
+
+    let site_count = cm_size / std::mem::size_of::<*mut ffi::QdmiSite>();
+    if site_count % 2 != 0 {
+        // Coupling map must be flattened pairs — odd count is malformed.
+        return Topology::full(num_qubits);
+    }
+
+    let mut site_ptrs: Vec<*mut ffi::QdmiSite> = vec![std::ptr::null_mut(); site_count];
+    let status = ffi::QDMI_device_query_device_property(
+        device,
+        ffi::QdmiDeviceProperty::CouplingMap as c_int,
+        cm_size,
+        site_ptrs.as_mut_ptr() as *mut c_void,
+        &mut cm_size,
+    );
+    if ffi::check_status(status).is_err() {
+        return Topology::full(num_qubits);
+    }
+
+    let pair_count = site_count / 2;
+    let mut edges: Vec<(u32, u32)> = Vec::with_capacity(pair_count);
+    for pair_idx in 0..pair_count {
+        let site_a = site_ptrs[pair_idx * 2];
+        let site_b = site_ptrs[pair_idx * 2 + 1];
+        if site_a.is_null() || site_b.is_null() {
+            continue;
+        }
+        let idx_a = query_site_index(device, site_a);
+        let idx_b = query_site_index(device, site_b);
+        if let (Some(a), Some(b)) = (idx_a, idx_b) {
+            edges.push((a, b));
+        }
+    }
+
+    if edges.is_empty() {
+        Topology::full(num_qubits)
+    } else {
+        Topology::custom(edges)
+    }
+}
+
+/// Query the index of a QDMI site via `QDMI_SITE_PROPERTY_INDEX`.
+#[cfg(feature = "system-qdmi")]
+unsafe fn query_site_index(device: *mut ffi::QdmiDevice, site: *mut ffi::QdmiSite) -> Option<u32> {
+    use std::ffi::{c_int, c_void};
+
+    let mut idx: usize = 0;
+    let mut size = std::mem::size_of::<usize>();
+    let status = ffi::QDMI_device_query_site_property(
+        device,
+        site,
+        ffi::QdmiSiteProperty::Index as c_int,
+        size,
+        &mut idx as *mut usize as *mut c_void,
+        &mut size,
+    );
+    if ffi::check_status(status).is_ok() {
+        u32::try_from(idx).ok()
+    } else {
+        None
     }
 }
 
@@ -1056,5 +1326,93 @@ mod tests {
 
         let status = backend.status(&job_id).await.unwrap();
         assert!(matches!(status, JobStatus::Cancelled));
+    }
+
+    /// Gate set is now built from `MockDevice::operations`, not hardcoded to universal.
+    #[tokio::test]
+    async fn test_qdmi_gate_set_from_device_operations() {
+        let backend = QdmiBackend::new();
+        backend.initialize().unwrap();
+        let caps = backend.build_capabilities().unwrap();
+
+        // MockDevice defaults to neutral-atom gate set.
+        assert!(caps.gate_set.contains("rz"), "rz should be supported");
+        assert!(caps.gate_set.contains("rx"), "rx should be supported");
+        assert!(caps.gate_set.contains("ry"), "ry should be supported");
+        assert!(caps.gate_set.contains("cz"), "cz should be supported");
+
+        // Universal gates not in the neutral-atom basis should be absent.
+        assert!(
+            !caps.gate_set.contains("h"),
+            "h should not be in neutral-atom set"
+        );
+        assert!(
+            !caps.gate_set.contains("cx"),
+            "cx should not be in neutral-atom set"
+        );
+        assert!(
+            !caps.gate_set.contains("sx"),
+            "sx should not be in neutral-atom set"
+        );
+
+        // All discovered gates are native.
+        assert!(caps.gate_set.is_native("rz"));
+        assert!(caps.gate_set.is_native("cz"));
+    }
+
+    /// Topology is now built from `MockDevice::coupling_map` (linear chain by default).
+    #[tokio::test]
+    async fn test_qdmi_topology_from_coupling_map() {
+        let backend = QdmiBackend::new();
+        backend.initialize().unwrap();
+        let caps = backend.build_capabilities().unwrap();
+
+        // Mock defaults to linear chain: (0,1), (1,2), ..., (18,19) for 20 qubits.
+        assert!(caps.topology.is_connected(0, 1), "0-1 should be connected");
+        assert!(caps.topology.is_connected(1, 2), "1-2 should be connected");
+        assert!(
+            caps.topology.is_connected(18, 19),
+            "18-19 should be connected"
+        );
+
+        // Non-adjacent qubits are not directly connected.
+        assert!(
+            !caps.topology.is_connected(0, 2),
+            "0-2 should not be connected"
+        );
+        assert!(
+            !caps.topology.is_connected(0, 19),
+            "0-19 should not be connected"
+        );
+    }
+
+    #[test]
+    fn test_gate_set_from_operations_single_and_two_qubit() {
+        let ops = vec![
+            ("rx".to_string(), 1),
+            ("rz".to_string(), 1),
+            ("cz".to_string(), 2),
+        ];
+        let gs = gate_set_from_operations(&ops);
+        assert!(gs.contains("rx"));
+        assert!(gs.contains("rz"));
+        assert!(gs.contains("cz"));
+        assert!(!gs.contains("h"));
+        assert!(gs.is_native("rx"));
+        assert!(gs.is_native("cz"));
+    }
+
+    #[test]
+    fn test_gate_set_from_operations_empty_falls_back_to_universal() {
+        // This tests the calling code's fallback, not gate_set_from_operations itself.
+        let ops: Vec<(String, usize)> = vec![];
+        // Callers use: if ops.is_empty() { GateSet::universal() } else { ... }
+        let gs = if ops.is_empty() {
+            GateSet::universal()
+        } else {
+            gate_set_from_operations(&ops)
+        };
+        assert!(gs.contains("h"), "universal set should contain h");
+        assert!(gs.contains("cx"), "universal set should contain cx");
     }
 }

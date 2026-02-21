@@ -681,11 +681,23 @@ pub mod mock {
         pub initialized: bool,
     }
 
+    /// A mock gate operation supported by the device.
+    pub struct MockOperation {
+        /// Gate name (OpenQASM 3 convention, e.g., "cz", "rx").
+        pub name: String,
+        /// Number of qubits this operation acts on.
+        pub num_qubits: usize,
+    }
+
     /// Mock device for testing.
     pub struct MockDevice {
         pub name: String,
         pub num_qubits: usize,
         pub status: QdmiDeviceStatus,
+        /// Supported operations (name + arity). Used by `build_capabilities()`.
+        pub operations: Vec<MockOperation>,
+        /// Coupling map: qubit index pairs (bidirectional edges).
+        pub coupling_map: Vec<(u32, u32)>,
     }
 
     /// Mock job for testing.
@@ -717,10 +729,34 @@ pub mod mock {
 
     impl MockDevice {
         pub fn new(name: &str, num_qubits: usize) -> Self {
+            // Default to neutral-atom gate set — realistic for planqc/PASQAL targets.
+            let operations = vec![
+                MockOperation {
+                    name: "rz".into(),
+                    num_qubits: 1,
+                },
+                MockOperation {
+                    name: "rx".into(),
+                    num_qubits: 1,
+                },
+                MockOperation {
+                    name: "ry".into(),
+                    num_qubits: 1,
+                },
+                MockOperation {
+                    name: "cz".into(),
+                    num_qubits: 2,
+                },
+            ];
+            // Default to linear chain coupling map.
+            let n_minus_1 = u32::try_from(num_qubits.saturating_sub(1)).unwrap_or(0);
+            let coupling_map: Vec<(u32, u32)> = (0..n_minus_1).map(|i| (i, i + 1)).collect();
             MockDevice {
                 name: name.to_string(),
                 num_qubits,
                 status: QdmiDeviceStatus::Idle,
+                operations,
+                coupling_map,
             }
         }
     }
