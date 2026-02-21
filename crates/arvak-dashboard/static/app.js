@@ -1433,7 +1433,7 @@ async function cancelJob(jobId) {
 // Utility functions
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = text || '';
     return div.innerHTML;
 }
 
@@ -1912,7 +1912,7 @@ function renderNathanResults(data) {
             <div class="nathan-stat"><span class="nathan-stat-label">Qubits</span><span class="nathan-stat-value">${c.num_qubits}</span></div>
             <div class="nathan-stat"><span class="nathan-stat-label">Gates</span><span class="nathan-stat-value">${c.total_gates}</span></div>
             <div class="nathan-stat"><span class="nathan-stat-label">Depth</span><span class="nathan-stat-value">${c.depth}</span></div>
-            <div class="nathan-stat"><span class="nathan-stat-label">Pattern</span><span class="nathan-stat-value">${c.detected_pattern}</span></div>
+            <div class="nathan-stat"><span class="nathan-stat-label">Pattern</span><span class="nathan-stat-value">${escapeHtml(c.detected_pattern)}</span></div>
         </div>`;
     }
 
@@ -1920,10 +1920,10 @@ function renderNathanResults(data) {
     const suitPct = Math.round((data.suitability || 0) * 100);
     const suitColor = suitPct >= 60 ? 'var(--accent)' : suitPct >= 35 ? '#eab308' : '#ef4444';
     html += `<div class="nathan-classification">
-        <div><strong>Problem:</strong> ${data.problem_type || 'unknown'}</div>
-        <div><strong>Algorithm:</strong> ${data.recommended_algorithm || 'N/A'}</div>
+        <div><strong>Problem:</strong> ${escapeHtml(data.problem_type || 'unknown')}</div>
+        <div><strong>Algorithm:</strong> ${escapeHtml(data.recommended_algorithm || 'N/A')}</div>
         <div><strong>Suitability:</strong> <span style="color:${suitColor};font-weight:600;">${suitPct}%</span></div>
-        <div><strong>Est. Qubits:</strong> ${data.estimated_qubits || 'N/A'}</div>
+        <div><strong>Est. Qubits:</strong> ${escapeHtml(data.estimated_qubits || 'N/A')}</div>
     </div>`;
 
     // Papers
@@ -1945,7 +1945,7 @@ function renderNathanResults(data) {
             html += `<div class="nathan-suggestion">
                 <div class="nathan-suggestion-header">
                     <span>${escapeHtml(s.title)}</span>
-                    ${s.impact ? `<span class="nathan-impact nathan-impact-${s.impact}">${s.impact}</span>` : ''}
+                    ${s.impact ? `<span class="nathan-impact nathan-impact-${escapeHtml(s.impact)}">${escapeHtml(s.impact)}</span>` : ''}
                 </div>
                 <p>${escapeHtml(s.description)}</p>
                 ${s.qasm3 ? `<pre class="nathan-code">${escapeHtml(s.qasm3)}</pre>` : ''}
@@ -1961,11 +1961,6 @@ function renderNathanResults(data) {
     results.innerHTML = html;
 }
 
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
-}
 
 async function nathanLoadTemplate() {
     const templateId = document.getElementById('nathan-template-select').value;
