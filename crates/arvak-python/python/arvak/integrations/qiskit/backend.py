@@ -222,10 +222,12 @@ class ArvakProvider:
     }
 
     # AQT backend names (ion trap — offline simulators and IBEX Q1 hardware)
+    # Note: all AQT resources require a real AQT_TOKEN — the Arnica cloud API
+    # validates tokens even for offline simulators (confirmed 2026-02-21).
     _AQT_BACKENDS = {
-        'aqt_offline_sim',   # offline_simulator_no_noise (any token, free)
-        'aqt_noise_sim',     # offline_simulator_noise (any token, free)
-        'aqt_cloud_sim',     # cloud simulator_noise (needs AQT_TOKEN)
+        'aqt_offline_sim',   # offline_simulator_no_noise (requires AQT_TOKEN)
+        'aqt_noise_sim',     # offline_simulator_noise (requires AQT_TOKEN)
+        'aqt_cloud_sim',     # cloud simulator_noise (requires AQT_TOKEN)
     }
 
     _AQT_RESOURCE_MAP = {
@@ -2547,8 +2549,16 @@ class ArvakAQTBackend:
         resp.raise_for_status()
         return resp.json()['response']['status']
 
-    def job_result(self, job_id: str) -> dict:
-        """Fetch results for a completed job. Returns counts dict."""
+    def job_result(self, job_id: str) -> 'ArvakAQTResult':
+        """Fetch results for a completed job.
+
+        Returns an :class:`ArvakAQTResult` wrapping the bitstring counts and
+        the total shot count derived from the raw sample array.
+
+        Raises:
+            ArvakJobError: If the job is not found, has expired (HTTP 410),
+                has failed, or is not yet finished.
+        """
         resp = self._requests.get(
             f"{self._base_url}/result/{job_id}",
             headers=self._auth_headers(),
@@ -2565,7 +2575,9 @@ class ArvakAQTBackend:
             raise ArvakJobError(f"AQT job {job_id} not finished (status: {body['status']})")
 
         raw = body.get('result', {}).get('0', [])
-        return self._aggregate_counts(raw)
+        counts = self._aggregate_counts(raw)
+        shots = len(raw)
+        return ArvakAQTResult(counts=counts, shots=shots, job_id=job_id)
 
     def job_cancel(self, job_id: str) -> None:
         """Cancel a queued or running job."""
@@ -2599,15 +2611,27 @@ class ArvakAQTBackend:
     def _serialize_circuit(self, transpiled_circuit) -> list:
         """Serialize a transpiled Qiskit circuit to AQT JSON gate format.
 
-        The circuit must use only ``rz``, ``rx``, and ``rxx`` gates.
-        All angles are converted to units of π (radians ÷ π).
+        The circuit must use only ``rz``, ``rx``, and ``rxx`` gates — the
+        Qiskit basis used in :meth:`submit`.  All angles are converted to
+        units of π (radians ÷ π).
 
         Gate mappings:
           - ``rz(theta)``       → AQT ``RZ`` with ``phi = theta / π``
-          - ``rx(theta)``       → AQT ``R`` with ``theta = theta / π``, ``phi = 0``
+          - ``rx(theta)``       → AQT ``R``  with ``theta = theta / π``, ``phi = 0``
           - ``rxx(theta)``      → AQT ``RXX`` with ``theta = theta / π``
 
         A terminal ``MEASURE`` is always appended.
+
+        Note — rx vs PRX:
+            The Rust AQT adapter works with Arvak IR's ``PRX(θ, φ)`` gate and
+            serialises it directly to AQT's ``R(θ/π, −φ/π rem 2)`` with the
+            correct phase sign.  This Python path uses Qiskit's ``rx`` gate
+            (which is ``PRX(θ, 0)``) and therefore always emits ``phi = 0``.
+            For circuits containing a ``PRX`` gate with a non-zero phase, Qiskit
+            transpilation decomposes it into ``rz + rx + rz`` sequences, which
+            is unitarily equivalent but produces more AQT operations than the
+            direct Rust path.  The results are always correct; the circuit depth
+            may be higher than strictly necessary.
         """
         import math
 
@@ -2710,9 +2734,9 @@ class ArvakAQTJob:
         while elapsed < timeout:
             status = self.status()
             if status == 'finished':
-                counts = self._backend.job_result(self._job_id)
-                self._counts = counts
-                return ArvakAQTResult(counts=counts, shots=self._shots, job_id=self._job_id)
+                result = self._backend.job_result(self._job_id)
+                self._counts = result.get_counts()
+                return result
             if status == 'error':
                 raise ArvakJobError(f"AQT job {self._job_id} failed")
             if status == 'cancelled':

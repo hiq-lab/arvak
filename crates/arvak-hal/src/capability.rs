@@ -40,10 +40,16 @@ pub struct Capabilities {
     pub topology: Topology,
     /// Maximum number of shots per job.
     pub max_shots: u32,
-    /// Whether this is a simulator (not real hardware).
+    /// Maximum gate operations per circuit. `None` means no backend-imposed
+    /// limit (HAL Contract v2.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_circuit_ops: Option<u32>,
+    /// Whether this is a simulator or emulator (`true`) vs real hardware (`false`).
+    /// MUST be set from authoritative source data, not string heuristics.
     pub is_simulator: bool,
-    /// Arvak extension — not part of HAL Contract v2 spec.
-    /// Additional features supported by this backend.
+    /// Additional capability flags (HAL Contract v2.1 standardised vocabulary):
+    /// `"statevector"`, `"dynamic_circuits"`, `"mid_circuit_measurement"`,
+    /// `"shuttling"`, `"ion_trap"`, `"neutral_atom"`, `"photonic"`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub features: Vec<String>,
     /// Device-wide noise averages.
@@ -60,6 +66,7 @@ impl Capabilities {
             gate_set: GateSet::universal(),
             topology: Topology::full(num_qubits),
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: true,
             features: vec!["statevector".into(), "unitary".into()],
             noise_profile: None,
@@ -74,6 +81,7 @@ impl Capabilities {
             gate_set: GateSet::iqm(),
             topology: Topology::star(num_qubits),
             max_shots: 20_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec![],
             noise_profile: None,
@@ -103,11 +111,13 @@ impl Capabilities {
             gate_set: GateSet::ibm(),
             topology: Topology::linear(num_qubits), // placeholder — use connect() for real topology
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec!["dynamic_circuits".into()],
             noise_profile: None,
         }
     }
+
     /// Create capabilities for AQT (Alpine Quantum Technologies) ion-trap devices.
     ///
     /// AQT hardware and simulators have all-to-all qubit connectivity.
@@ -119,6 +129,7 @@ impl Capabilities {
             gate_set: GateSet::aqt(),
             topology: Topology::full(num_qubits),
             max_shots: 2_000,
+            max_circuit_ops: Some(2_000),
             is_simulator: false,
             features: vec!["ion_trap".into()],
             noise_profile: None,
@@ -135,6 +146,7 @@ impl Capabilities {
             gate_set: GateSet::quantinuum(),
             topology: Topology::full(num_qubits),
             max_shots: 10_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec!["ion_trap".into(), "mid_circuit_measurement".into()],
             noise_profile: None,
@@ -149,6 +161,7 @@ impl Capabilities {
             gate_set: GateSet::neutral_atom(),
             topology: Topology::neutral_atom(num_qubits, zones),
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec!["shuttling".into(), "zoned".into()],
             noise_profile: None,
@@ -166,6 +179,7 @@ impl Capabilities {
                 f64::from(num_qubits).sqrt().ceil() as u32,
             ),
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec![],
             noise_profile: None,
@@ -180,6 +194,7 @@ impl Capabilities {
             gate_set: GateSet::ionq(),
             topology: Topology::full(num_qubits),
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec![],
             noise_profile: None,
@@ -194,6 +209,7 @@ impl Capabilities {
             gate_set: GateSet::universal(),
             topology: Topology::full(num_qubits),
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: true,
             features: vec!["braket_simulator".into()],
             noise_profile: None,

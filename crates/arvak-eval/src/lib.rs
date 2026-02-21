@@ -119,6 +119,7 @@ impl EvalConfig {
                 gate_set: GateSet::ibm_heron(),
                 topology: Topology::linear(self.target_qubits),
                 max_shots: 100_000,
+                max_circuit_ops: None,
                 is_simulator: false,
                 features: vec!["dynamic_circuits".into()],
                 noise_profile: None,

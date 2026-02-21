@@ -54,6 +54,7 @@ fn capabilities_stub(target: &str, num_qubits: u32) -> Capabilities {
         gate_set: gate_set_for_target(target),
         topology: Topology::linear(num_qubits), // placeholder
         max_shots: 100_000,
+        max_circuit_ops: None,
         is_simulator: false,
         features: vec!["dynamic_circuits".into()],
         noise_profile: None,
@@ -76,6 +77,7 @@ fn capabilities_from_real_info(target: &str, num_qubits: u32, topology: Topology
         gate_set,
         topology,
         max_shots: 100_000,
+        max_circuit_ops: None,
         is_simulator: false,
         features: vec!["dynamic_circuits".into()],
         noise_profile: None,
