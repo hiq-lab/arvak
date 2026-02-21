@@ -108,6 +108,23 @@ impl Capabilities {
             noise_profile: None,
         }
     }
+    /// Create capabilities for AQT (Alpine Quantum Technologies) ion-trap devices.
+    ///
+    /// AQT hardware and simulators have all-to-all qubit connectivity.
+    /// Maximum: 20 qubits, 2000 shots, 2000 operations per circuit.
+    pub fn aqt(name: impl Into<String>, num_qubits: u32) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits,
+            gate_set: GateSet::aqt(),
+            topology: Topology::full(num_qubits),
+            max_shots: 2_000,
+            is_simulator: false,
+            features: vec!["ion_trap".into()],
+            noise_profile: None,
+        }
+    }
+
     /// Create capabilities for Quantinuum H1/H2 ion-trap devices.
     ///
     /// All Quantinuum hardware has all-to-all qubit connectivity.
@@ -218,6 +235,22 @@ pub struct GateSet {
 }
 
 impl GateSet {
+    /// Create AQT (Alpine Quantum Technologies) gate set.
+    ///
+    /// AQT native gates: `rz` (Z rotation), `prx` (phased-X / R gate),
+    /// `rxx` (Mølmer-Sørensen XX rotation).
+    ///
+    /// In Arvak's IR, AQT's `R` (phased-X) gate is represented as `PRX(θ, φ)`.
+    /// All angles must be concrete (non-symbolic) at submission time.
+    pub fn aqt() -> Self {
+        Self {
+            single_qubit: vec!["rz".into(), "prx".into()],
+            two_qubit: vec!["rxx".into()],
+            three_qubit: vec![],
+            native: vec!["rz".into(), "prx".into(), "rxx".into()],
+        }
+    }
+
     /// Create IQM gate set.
     pub fn iqm() -> Self {
         Self {
