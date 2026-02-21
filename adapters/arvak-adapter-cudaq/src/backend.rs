@@ -155,6 +155,7 @@ impl CudaqBackend {
             gate_set: GateSet::universal(),
             topology: Topology::full(num_qubits),
             max_shots: 1_000_000,
+            max_circuit_ops: None,
             is_simulator,
             features: vec!["gpu-accelerated".into(), "qasm3".into()],
             noise_profile: None,

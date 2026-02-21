@@ -4,8 +4,9 @@
 Runs a 2-qubit Bell-state circuit on the AQT offline noiseless simulator
 and verifies the ~50/50 distribution of |00⟩ and |11⟩ outcomes.
 
-No AQT account is needed — the offline simulator accepts any token value
-(even empty string).
+An AQT account token is required. Despite the name "offline simulator",
+arnica.aqt.eu validates Bearer tokens for all resources. Request an account
+at https://arnica.aqt.eu (OIDC sign-up). Set AQT_TOKEN to your static token.
 
 Prerequisites
 -------------
@@ -15,11 +16,11 @@ Install the Python package:
 
 Usage
 -----
-    python demos/aqt_test.py
+    AQT_TOKEN=<your-token> python demos/aqt_test.py
 
 Optional environment variables
 -------------------------------
-    AQT_TOKEN        — AQT Bearer token (default: empty, fine for offline sim)
+    AQT_TOKEN        — AQT Bearer token (required — see arnica.aqt.eu)
     AQT_WORKSPACE    — AQT workspace (default: default)
     AQT_RESOURCE     — AQT resource (default: offline_simulator_no_noise)
     AQT_SHOTS        — shot count (default: 200)

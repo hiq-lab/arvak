@@ -191,9 +191,8 @@ fn build_capabilities(target: &str, num_qubits: u32) -> Capabilities {
 
 #[async_trait]
 impl Backend for QuantinuumBackend {
-    #[allow(clippy::unnecessary_literal_bound)]
     fn name(&self) -> &str {
-        "quantinuum"
+        &self.target
     }
 
     fn capabilities(&self) -> &Capabilities {

@@ -57,8 +57,9 @@ struct CachedJob {
 ///
 /// # Authentication
 ///
-/// Set `AQT_TOKEN` in the environment.  Offline simulators accept any token
-/// value (even an empty string) — no account is required for local testing.
+/// Set `AQT_TOKEN` in the environment.  A real AQT account token is required
+/// for all resources — the Arnica cloud API validates tokens even for offline
+/// simulators.  Request an account at <https://arnica.aqt.eu>.
 ///
 /// # Example
 ///
@@ -78,6 +79,8 @@ pub struct AqtBackend {
     workspace: String,
     /// AQT resource (backend) identifier.
     resource: String,
+    /// Instance-unique name: `"{workspace}/{resource}"`.
+    name: String,
     /// Cached HAL capabilities.
     capabilities: Capabilities,
     /// Cached job metadata and results.
@@ -113,12 +116,14 @@ impl AqtBackend {
 
         let workspace = workspace.into();
         let resource = resource.into();
+        let name = format!("{workspace}/{resource}");
         let capabilities = build_capabilities(&resource, AQT_MAX_QUBITS);
 
         Ok(Self {
             client,
             workspace,
             resource,
+            name,
             capabilities,
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             resource_info: Arc::new(Mutex::new(None)),
@@ -133,6 +138,7 @@ impl AqtBackend {
     ) -> AqtResult<Self> {
         let workspace = workspace.into();
         let resource = resource.into();
+        let name = format!("{workspace}/{resource}");
         let client = AqtClient::new(token)?;
         let capabilities = build_capabilities(&resource, AQT_MAX_QUBITS);
 
@@ -140,6 +146,7 @@ impl AqtBackend {
             client,
             workspace,
             resource,
+            name,
             capabilities,
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             resource_info: Arc::new(Mutex::new(None)),
@@ -318,9 +325,8 @@ fn build_capabilities(resource: &str, num_qubits: u32) -> Capabilities {
 
 #[async_trait]
 impl Backend for AqtBackend {
-    #[allow(clippy::unnecessary_literal_bound)]
     fn name(&self) -> &str {
-        "aqt"
+        &self.name
     }
 
     fn capabilities(&self) -> &Capabilities {

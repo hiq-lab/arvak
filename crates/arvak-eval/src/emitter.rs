@@ -445,6 +445,7 @@ mod tests {
             gate_set: GateSet::ibm_heron(),
             topology: Topology::linear(20),
             max_shots: 100_000,
+            max_circuit_ops: None,
             is_simulator: false,
             features: vec![],
             noise_profile: None,
