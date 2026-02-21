@@ -104,6 +104,26 @@ pub async fn register_quantinuum_backends(registry: &mut BackendRegistry) {
     }
 }
 
+/// Register AQT backends.
+///
+/// Registers the offline noiseless simulator as `"aqt-offline-sim"`.
+/// Reads `AQT_TOKEN` from the environment (may be empty for offline simulators).
+/// Reads `AQT_PORTAL_URL` to override the default base URL.
+#[cfg(feature = "aqt")]
+pub async fn register_aqt_backends(registry: &mut BackendRegistry) {
+    use arvak_adapter_aqt::AqtBackend;
+
+    match AqtBackend::new() {
+        Ok(backend) => {
+            registry.register("aqt-offline-sim".to_string(), Arc::new(backend));
+            tracing::info!("Registered AQT offline_simulator_no_noise as 'aqt-offline-sim'");
+        }
+        Err(e) => {
+            tracing::warn!("AQT backend not registered: {e}");
+        }
+    }
+}
+
 /// Register IBM Quantum backends (async — requires IAM token exchange).
 ///
 /// Registers ibm_torino as "ibm-torino". Reads `IBM_API_KEY` and `IBM_SERVICE_CRN`
