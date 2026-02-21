@@ -4,7 +4,8 @@ Deviations between the HAL Contract v2 specification (`crates/arvak-hal/src/back
 and the current IBM and Scaleway/IQM backend implementations (Rust adapters + Python backends).
 
 Audited: 2026-02-18 (updated with Scaleway/IQM findings)
-Updated: 2026-02-19 — **ALL 12 items resolved.** Full clearance commit includes DEBT-01 through DEBT-18.
+Updated: 2026-02-19 — ALL 12 items resolved. Full clearance commit includes DEBT-01 through DEBT-18.
+Updated: 2026-02-21 — **5 new items (DEBT-19–DEBT-23) from Quantinuum + AQT adapter audit.**
 
 ---
 
@@ -219,15 +220,115 @@ H = PRX(π, 0) · PRX(π/2, π/2)   →  -i · H  (global phase -i, unobservable
 | DEBT-16 | High | Rust Scaleway | **FIXED 2026-02-19** |
 | DEBT-17 | Medium | Rust Scaleway | **FIXED 2026-02-19** |
 | DEBT-18 | Critical | Rust IQM compiler | **FIXED 2026-02-19** |
+| DEBT-19 | Medium | Python AQT | **OPEN** — PRX/RX serialisation discrepancy (VQ-046) |
+| DEBT-20 | Medium | Rust trait + spec | **OPEN** — validate() lacks shots param (VQ-047) |
+| DEBT-21 | Medium | Python AQT | **OPEN** — job_result() returns dict not ArvakResult (VQ-046) |
+| DEBT-22 | Low | Rust Quantinuum + AQT | **OPEN** — name() not instance-specific (VQ-046) |
+| DEBT-23 | Medium | Rust HAL + spec | **OPEN** — estimated_wait type mismatch (VQ-047) |
 
-**Open items: 0** (DEBT-13 deferred by design — optional Layer 3 extensions).
+---
 
-### Compliance matrix (post-clearance)
+## Open Items — from Quantinuum + AQT Audit (2026-02-21)
+
+### DEBT-19: Python AQT PRX→R serialisation always sets phi=0 (wrong for phase-rotated gates)
+
+**Status: OPEN — Medium — VQ-046**
+**Component:** `crates/arvak-python/python/arvak/integrations/qiskit/backend.py` — `ArvakAQTBackend._serialize_circuit()`
+
+The Python AQT backend transpiles via Qiskit with `basis_gates=['rz', 'rx', 'rxx']`. It then maps `rx(theta)` to AQT `R` with `phi=0.0` (axis-aligned X rotation). This is correct for `rx` gates, but the Rust adapter correctly handles `PRX(θ, φ)` → AQT `R(θ/π, -φ/π rem_euclid 2.0)` with a phase-sign flip.
+
+The two paths diverge for any circuit that uses a PRX gate with a non-zero phase angle. After Qiskit transpilation, `PRX(θ, φ≠0)` becomes a sequence of `rz+rx+rz` that the Python serializer maps to multiple AQT ops — which is correct in terms of equivalent unitaries, but the Rust path is simpler and more direct. More critically: `GateSet::aqt()` in Rust names the gate `prx`, while the Python Qiskit transpilation uses `rx`. These naming differences can cause confusion when validating circuits.
+
+The concrete correctness risk: if a Python caller constructs a `PRX` gate via the Arvak Python bindings and submits it through `ArvakAQTBackend`, the transpilation will decompose it to `rz+rx+rz` chains rather than the native `R` op, inflating circuit depth unnecessarily.
+
+**Fix needed (VQ-046):** Document explicitly that the Python path uses `rx`-based decomposition (not `prx`), and add a comment explaining why this is correct but suboptimal vs the Rust path. Add a gate-set note to `ArvakAQTBackend` docstring. No semantic bug for correctly transpiled circuits, but the inconsistency needs documentation and a test.
+
+---
+
+### DEBT-20: Rust `validate()` trait does not accept `shots` — shot-count validation skipped or duplicated in `submit()`
+
+**Status: OPEN — Medium — VQ-047 (spec change)**
+**Component:** `crates/arvak-hal/src/backend.rs` — `Backend::validate()` signature; AQT and Quantinuum `backend.rs`
+
+The spec §3.2 `validate(circuit)` signature does not include `shots`. AQT has a 2000-shot hard limit and a 2000-op hard limit; Quantinuum has a 10,000-shot limit. These are checked in `submit()` directly (Quantinuum `backend.rs` lines 267–280; AQT `backend.rs` lines 437–457) but not in `validate()`, since `validate()` has no `shots` parameter.
+
+Python backends independently patched this: `ArvakAQTBackend.validate(circuit, shots=1024)` and `ArvakQuantinuumBackend.validate(circuits, shots=1024)` both accept shots. The Rust trait does not.
+
+**Fix needed (VQ-047 spec + VQ-046 Rust):** The spec must update `validate()` to `validate(circuit, shots: u32)`. Then the Rust trait is updated and all adapters can consolidate shot-limit checks into `validate()`, with `submit()` calling `validate()` (per DEBT-01 pattern, which the new adapters are missing — see spec gap A-2).
+
+---
+
+### DEBT-21: Python AQT `job_result()` returns raw `dict`, not `ArvakResult` or `ArvakAQTResult`
+
+**Status: OPEN — Medium — VQ-046**
+**Component:** `crates/arvak-python/python/arvak/integrations/qiskit/backend.py` — `ArvakAQTBackend.job_result()`
+
+The HAL contract §6.1 `job_result()` must return an `ExecutionResult`-equivalent object with `counts`, `shots`, `execution_time_ms`, and `metadata`. `ArvakAQTResult` is defined in `backend.py` and has `get_counts()` — but `job_result()` returns the raw counts dict, not an `ArvakAQTResult` instance.
+
+Compare: `ArvakQuantinuumBackend.job_result()` and `ArvakIBMBackend.job_result()` both return proper result wrapper objects. AQT is inconsistent.
+
+Additionally, the compliance matrix in this file does not yet include Quantinuum or AQT rows.
+
+**Fix needed (VQ-046):** `ArvakAQTBackend.job_result()` should return `ArvakAQTResult(counts, shots)`. Update compliance matrix.
+
+---
+
+### DEBT-22: Rust `name()` returns generic type name, not instance-specific target
+
+**Status: OPEN — Low — VQ-046**
+**Component:** `adapters/arvak-adapter-quantinuum/src/backend.rs:195`, `adapters/arvak-adapter-aqt/src/backend.rs:322`
+
+`QuantinuumBackend::name()` returns `"quantinuum"` even when `self.target` is `"H2-1"`. `AqtBackend::name()` returns `"aqt"` even when `self.resource` is `"offline_simulator_no_noise"`. Two instances targeting different machines are indistinguishable by `name()`.
+
+Python adapters do this correctly: `self.name = f"quantinuum_{device}"` and `self.name = f"aqt_{resource}"`.
+
+**Fix needed (VQ-046):** Return `self.target.as_str()` (Quantinuum) and `format!("aqt/{}/{}", self.workspace, self.resource)` (AQT). Also update `AqtBackend::name()` test in `backend.rs`.
+
+---
+
+### DEBT-23: `BackendAvailability.estimated_wait` type diverges from spec
+
+**Status: OPEN — Medium — VQ-047 (spec clarification)**
+**Component:** `crates/arvak-hal/src/backend.rs` — `BackendAvailability` struct
+
+Spec §4.5 table: `estimated_wait_secs: Option<f64>`. Rust implementation: `estimated_wait: Option<Duration>`. Both new adapters set it to `None`, so currently harmless. Python backends don't expose this field at all.
+
+**Fix needed (VQ-047 spec):** Spec should explicitly say `Option<Duration>` (Rust idiomatic), or the Rust implementation should align to `Option<f64>`. Either way, the field needs a spec-endorsed type. Python backends should expose it via `HalAvailability`.
+
+---
+
+## Spec-Level Gaps (VQ-047 — HAL Contract Spec Update)
+
+These are gaps in the spec itself (not Arvak implementation bugs). All addressed by VQ-047.
+
+| Gap | Spec section | Finding |
+|-----|-------------|---------|
+| **A-1** | §2.3 | Auth patterns are fully out-of-scope; JWT re-auth logic duplicated across adapters |
+| **A-2** | §3.3 rule 4 | `submit()` not required to call `validate()` first — guards diverge per adapter |
+| **A-3** | §3.2 | `validate()` lacks `shots` — Python patched it unilaterally; spec needs update |
+| **A-4** | §8 | Gate-set reference table missing Quantinuum and AQT entries |
+| **A-5** | §5.1 | HTTP 410 "result expired" has no state-machine representation; mapped to `JobNotFound` |
+| **A-6** | §3.3 rule 5 | Calling `result()` on non-Completed job is "undefined behavior" — should specify return |
+| **B-1** | §3.3 | `BackendFactory` / `BackendConfig` are Arvak extensions; should be Layer 2 in spec |
+| **B-2** | §3.2 | Workspace/resource hierarchy (AQT model) has no spec representation; `name()` must be unique |
+| **B-3** | §4.1 | Emulator/hardware distinction relies on string heuristics; spec should require authoritative source |
+| **B-4** | §4.1 | `max_circuit_ops` constraint not in `Capabilities`; AQT hard-codes 2000 as a constant |
+| **D-1** | DEBT-13 | `mid_circuit_measurement` feature flag in Quantinuum caps signals Layer 3 is active — elevate from "deferred by design" |
+
+---
+
+**Open items: 5** (DEBT-19–DEBT-23). Spec gaps tracked under VQ-047.
+
+### Compliance matrix (post 2026-02-21 audit)
 
 | Component | validate() | submit() | status() | result() | cancel() | availability() | contract_version() |
 |-----------|-----------|----------|----------|----------|----------|---------------|-------------------|
 | Rust IBM | ✓ (shots+qubits+gates) | ✓ (calls validate) | ✓ | ✓ | ✓ | ✓ | — |
 | Rust Scaleway | ✓ (shots+qubits+gates) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Rust Quantinuum | ✓ (qubits+shots) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Rust AQT | ✓ (qubits+shots+ops) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | Python IBM | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
 | Python Scaleway | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
 | Python IQM Resonance | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
+| Python Quantinuum | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
+| Python AQT | ✓ | ✓ (submit + run) | ✓ (job_status) | ⚠ dict not ArvakResult (DEBT-21) | ✓ | ✓ | ✓ "2.0" |
