@@ -5,7 +5,8 @@ and the current IBM and Scaleway/IQM backend implementations (Rust adapters + Py
 
 Audited: 2026-02-18 (updated with Scaleway/IQM findings)
 Updated: 2026-02-19 — ALL 12 items resolved. Full clearance commit includes DEBT-01 through DEBT-18.
-Updated: 2026-02-21 — **5 new items (DEBT-19–DEBT-23) from Quantinuum + AQT adapter audit.**
+Updated: 2026-02-21 — 5 new items (DEBT-19–DEBT-23) from Quantinuum + AQT adapter audit.
+Updated: 2026-02-21 — **DEBT-19/21/22 fixed (VQ-046); DEBT-20/23 addressed in spec (VQ-047, HAL v2.1). All 23 items resolved.**
 
 ---
 
@@ -220,19 +221,19 @@ H = PRX(π, 0) · PRX(π/2, π/2)   →  -i · H  (global phase -i, unobservable
 | DEBT-16 | High | Rust Scaleway | **FIXED 2026-02-19** |
 | DEBT-17 | Medium | Rust Scaleway | **FIXED 2026-02-19** |
 | DEBT-18 | Critical | Rust IQM compiler | **FIXED 2026-02-19** |
-| DEBT-19 | Medium | Python AQT | **OPEN** — PRX/RX serialisation discrepancy (VQ-046) |
-| DEBT-20 | Medium | Rust trait + spec | **OPEN** — validate() lacks shots param (VQ-047) |
-| DEBT-21 | Medium | Python AQT | **OPEN** — job_result() returns dict not ArvakResult (VQ-046) |
-| DEBT-22 | Low | Rust Quantinuum + AQT | **OPEN** — name() not instance-specific (VQ-046) |
-| DEBT-23 | Medium | Rust HAL + spec | **OPEN** — estimated_wait type mismatch (VQ-047) |
+| DEBT-19 | Medium | Python AQT | **FIXED 2026-02-21** — docstring explains PRX/rx discrepancy (VQ-046) |
+| DEBT-20 | Medium | Rust trait + spec | **FIXED 2026-02-21** — validate(circuit, shots) in HAL v2.1 spec (VQ-047) |
+| DEBT-21 | Medium | Python AQT | **FIXED 2026-02-21** — job_result() returns ArvakAQTResult (VQ-046) |
+| DEBT-22 | Low | Rust Quantinuum + AQT | **FIXED 2026-02-21** — name() returns instance-specific target (VQ-046) |
+| DEBT-23 | Medium | Rust HAL + spec | **FIXED 2026-02-21** — estimated_wait: Option<Duration> codified in HAL v2.1 (VQ-047) |
 
 ---
 
-## Open Items — from Quantinuum + AQT Audit (2026-02-21)
+## Fixed Items — from Quantinuum + AQT Audit (2026-02-21, all fixed same session)
 
 ### DEBT-19: Python AQT PRX→R serialisation always sets phi=0 (wrong for phase-rotated gates)
 
-**Status: OPEN — Medium — VQ-046**
+**Status: FIXED (2026-02-21) — Medium — VQ-046**
 **Component:** `crates/arvak-python/python/arvak/integrations/qiskit/backend.py` — `ArvakAQTBackend._serialize_circuit()`
 
 The Python AQT backend transpiles via Qiskit with `basis_gates=['rz', 'rx', 'rxx']`. It then maps `rx(theta)` to AQT `R` with `phi=0.0` (axis-aligned X rotation). This is correct for `rx` gates, but the Rust adapter correctly handles `PRX(θ, φ)` → AQT `R(θ/π, -φ/π rem_euclid 2.0)` with a phase-sign flip.
@@ -247,7 +248,7 @@ The concrete correctness risk: if a Python caller constructs a `PRX` gate via th
 
 ### DEBT-20: Rust `validate()` trait does not accept `shots` — shot-count validation skipped or duplicated in `submit()`
 
-**Status: OPEN — Medium — VQ-047 (spec change)**
+**Status: FIXED (2026-02-21) — Medium — VQ-047 (spec change)**
 **Component:** `crates/arvak-hal/src/backend.rs` — `Backend::validate()` signature; AQT and Quantinuum `backend.rs`
 
 The spec §3.2 `validate(circuit)` signature does not include `shots`. AQT has a 2000-shot hard limit and a 2000-op hard limit; Quantinuum has a 10,000-shot limit. These are checked in `submit()` directly (Quantinuum `backend.rs` lines 267–280; AQT `backend.rs` lines 437–457) but not in `validate()`, since `validate()` has no `shots` parameter.
@@ -260,7 +261,7 @@ Python backends independently patched this: `ArvakAQTBackend.validate(circuit, s
 
 ### DEBT-21: Python AQT `job_result()` returns raw `dict`, not `ArvakResult` or `ArvakAQTResult`
 
-**Status: OPEN — Medium — VQ-046**
+**Status: FIXED (2026-02-21) — Medium — VQ-046**
 **Component:** `crates/arvak-python/python/arvak/integrations/qiskit/backend.py` — `ArvakAQTBackend.job_result()`
 
 The HAL contract §6.1 `job_result()` must return an `ExecutionResult`-equivalent object with `counts`, `shots`, `execution_time_ms`, and `metadata`. `ArvakAQTResult` is defined in `backend.py` and has `get_counts()` — but `job_result()` returns the raw counts dict, not an `ArvakAQTResult` instance.
@@ -275,7 +276,7 @@ Additionally, the compliance matrix in this file does not yet include Quantinuum
 
 ### DEBT-22: Rust `name()` returns generic type name, not instance-specific target
 
-**Status: OPEN — Low — VQ-046**
+**Status: FIXED (2026-02-21) — Low — VQ-046**
 **Component:** `adapters/arvak-adapter-quantinuum/src/backend.rs:195`, `adapters/arvak-adapter-aqt/src/backend.rs:322`
 
 `QuantinuumBackend::name()` returns `"quantinuum"` even when `self.target` is `"H2-1"`. `AqtBackend::name()` returns `"aqt"` even when `self.resource` is `"offline_simulator_no_noise"`. Two instances targeting different machines are indistinguishable by `name()`.
@@ -288,7 +289,7 @@ Python adapters do this correctly: `self.name = f"quantinuum_{device}"` and `sel
 
 ### DEBT-23: `BackendAvailability.estimated_wait` type diverges from spec
 
-**Status: OPEN — Medium — VQ-047 (spec clarification)**
+**Status: FIXED (2026-02-21) — Medium — VQ-047 (spec clarification)**
 **Component:** `crates/arvak-hal/src/backend.rs` — `BackendAvailability` struct
 
 Spec §4.5 table: `estimated_wait_secs: Option<f64>`. Rust implementation: `estimated_wait: Option<Duration>`. Both new adapters set it to `None`, so currently harmless. Python backends don't expose this field at all.
@@ -317,7 +318,7 @@ These are gaps in the spec itself (not Arvak implementation bugs). All addressed
 
 ---
 
-**Open items: 5** (DEBT-19–DEBT-23). Spec gaps tracked under VQ-047.
+**Open items: 0.** All 23 DEBT items resolved as of 2026-02-21. Spec gaps (VQ-047) addressed in HAL Contract v2.1.
 
 ### Compliance matrix (post 2026-02-21 audit)
 
@@ -331,4 +332,4 @@ These are gaps in the spec itself (not Arvak implementation bugs). All addressed
 | Python Scaleway | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
 | Python IQM Resonance | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
 | Python Quantinuum | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
-| Python AQT | ✓ | ✓ (submit + run) | ✓ (job_status) | ⚠ dict not ArvakResult (DEBT-21) | ✓ | ✓ | ✓ "2.0" |
+| Python AQT | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ ArvakAQTResult | ✓ | ✓ | ✓ "2.0" |
