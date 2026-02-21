@@ -164,7 +164,7 @@ impl BraketBackend {
         // Fall back to measurementProbabilities
         if let Some(probs) = &result.measurement_probabilities {
             let total_shots = if submitted_shots > 0 {
-                submitted_shots as f64
+                f64::from(submitted_shots)
             } else {
                 1000.0_f64
             };
