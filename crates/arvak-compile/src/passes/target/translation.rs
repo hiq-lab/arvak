@@ -17,6 +17,7 @@ use crate::property::PropertySet;
 /// - IQM basis: PRX + CZ
 /// - IBM basis: RZ + SX + X + CX
 /// - IBM Heron basis: RZ + SX + X + CZ
+/// - Neutral-atom basis: RZ + RX + RY + CZ (planqc, PASQAL digital mode)
 pub struct BasisTranslation;
 
 impl Pass for BasisTranslation {
@@ -107,6 +108,14 @@ fn translate_gate(
         && basis.contains("cz")
         && !is_ibm
         && !is_eagle;
+    // Check if it's neutral-atom basis (RZ + RX + RY + CZ; no SX, no PRX)
+    // Used for planqc (Rydberg CZ, global rotations) and PASQAL digital mode.
+    let is_neutral_atom = basis.contains("rz")
+        && basis.contains("rx")
+        && basis.contains("ry")
+        && basis.contains("cz")
+        && !basis.contains("sx")
+        && !is_iqm;
 
     match &gate.kind {
         GateKind::Standard(std_gate) => {
@@ -118,6 +127,8 @@ fn translate_gate(
                 translate_to_eagle(std_gate, &instruction.qubits)
             } else if is_heron {
                 translate_to_heron(std_gate, &instruction.qubits)
+            } else if is_neutral_atom {
+                translate_to_neutral_atom(std_gate, &instruction.qubits)
             } else {
                 // Unknown basis, return as-is
                 Ok(vec![instruction.clone()])
@@ -547,6 +558,164 @@ fn translate_to_heron(
     })
 }
 
+/// Translate a standard gate to neutral-atom basis (RZ + RX + RY + CZ).
+///
+/// Used for planqc (Strontium-88 Rydberg, global rotations) and PASQAL digital mode.
+/// Native gates: `rz`, `rx`, `ry` (single-qubit), `cz` (Rydberg two-qubit).
+///
+/// # Decompositions
+///
+/// - `H = Ry(π/2) · Rz(π)` (applied right-to-left: Rz first, then Ry) → −i·H (global phase)
+/// - `CX = H(target) · CZ · H(target)` (same as IQM/Heron)
+/// - `PRX(θ, φ) = Rz(φ) · Rx(θ) · Rz(−φ)` (axis rotation in XY plane)
+///
+/// # Caution
+///
+/// Decompositions are derived from standard quantum gate algebra.
+/// They must be verified against planqc documentation once the QDMI driver
+/// and calibration data are available. Do NOT derive from trial-and-error
+/// against calibration data or hardware probing.
+fn translate_to_neutral_atom(
+    gate: &StandardGate,
+    qubits: &[arvak_ir::QubitId],
+) -> CompileResult<Vec<Instruction>> {
+    let q0 = qubits[0];
+
+    Ok(match gate {
+        // Identity — no operation
+        StandardGate::I => vec![],
+
+        // X = Rx(π)
+        StandardGate::X => vec![Instruction::single_qubit_gate(
+            StandardGate::Rx(PI.into()),
+            q0,
+        )],
+
+        // Y = Ry(π)
+        StandardGate::Y => vec![Instruction::single_qubit_gate(
+            StandardGate::Ry(PI.into()),
+            q0,
+        )],
+
+        // Z = Rz(π)
+        StandardGate::Z => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz(PI.into()),
+            q0,
+        )],
+
+        // H = Ry(π/2) · Rz(π)  (Rz applied first, then Ry)
+        //
+        // Derivation:
+        //   Rz(π)   = diag(e^{-iπ/2}, e^{iπ/2}) = -i·diag(1,-1) (up to phase)
+        //   Ry(π/2) = [[1/√2, -1/√2], [1/√2, 1/√2]]
+        //
+        //   Ry(π/2) · Rz(π) = (1/√2)[[-i,-i],[-i,i]] = -i · H  ✓
+        //
+        // Global phase -i is unobservable. Consistent with IQM H decomposition.
+        StandardGate::H => vec![
+            Instruction::single_qubit_gate(StandardGate::Rz(PI.into()), q0),
+            Instruction::single_qubit_gate(StandardGate::Ry((PI / 2.0).into()), q0),
+        ],
+
+        // S = Rz(π/2)
+        StandardGate::S => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 2.0).into()),
+            q0,
+        )],
+
+        // Sdg = Rz(-π/2)
+        StandardGate::Sdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 2.0).into()),
+            q0,
+        )],
+
+        // T = Rz(π/4)
+        StandardGate::T => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 4.0).into()),
+            q0,
+        )],
+
+        // Tdg = Rz(-π/4)
+        StandardGate::Tdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 4.0).into()),
+            q0,
+        )],
+
+        // Rx is native
+        StandardGate::Rx(theta) => vec![Instruction::single_qubit_gate(
+            StandardGate::Rx(theta.clone()),
+            q0,
+        )],
+
+        // Ry is native
+        StandardGate::Ry(theta) => vec![Instruction::single_qubit_gate(
+            StandardGate::Ry(theta.clone()),
+            q0,
+        )],
+
+        // Rz is native
+        StandardGate::Rz(theta) => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz(theta.clone()),
+            q0,
+        )],
+
+        // CZ is native (Rydberg interaction)
+        StandardGate::CZ => {
+            let q1 = qubits[1];
+            vec![Instruction::two_qubit_gate(StandardGate::CZ, q0, q1)]
+        }
+
+        // CX = H(target) · CZ · H(target), where H = Rz(π) then Ry(π/2)
+        StandardGate::CX => {
+            let q1 = qubits[1];
+            let h_gates = translate_to_neutral_atom(&StandardGate::H, &[q1])?;
+            let mut result = Vec::with_capacity(h_gates.len() * 2 + 1);
+            result.extend_from_slice(&h_gates);
+            result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
+            result.extend_from_slice(&h_gates);
+            result
+        }
+
+        // SWAP = CX(a,b) · CX(b,a) · CX(a,b), each CX = H(target)·CZ·H(target)
+        StandardGate::Swap => {
+            let q1 = qubits[1];
+            let h0 = translate_to_neutral_atom(&StandardGate::H, &[q0])?;
+            let h1 = translate_to_neutral_atom(&StandardGate::H, &[q1])?;
+            let cz = Instruction::two_qubit_gate(StandardGate::CZ, q0, q1);
+
+            let mut result = Vec::with_capacity(h0.len() * 2 + h1.len() * 4 + 3);
+            result.extend_from_slice(&h1);
+            result.push(cz.clone());
+            result.extend_from_slice(&h1);
+            result.extend_from_slice(&h0);
+            result.push(cz.clone());
+            result.extend_from_slice(&h0);
+            result.extend_from_slice(&h1);
+            result.push(cz);
+            result.extend_from_slice(&h1);
+            result
+        }
+
+        // PRX(θ, φ) = Rz(φ) · Rx(θ) · Rz(−φ)  [matrix notation, applied right-to-left]
+        //
+        // Circuit order (applied left-to-right): [Rz(−φ), Rx(θ), Rz(φ)]
+        // Check: PRX(θ, 0) = Rz(0)·Rx(θ)·Rz(0) = Rx(θ) ✓
+        //        PRX(θ, π/2) = Rz(π/2)·Rx(θ)·Rz(−π/2) = Ry(θ) ✓ (standard identity)
+        StandardGate::PRX(theta, phi) => vec![
+            Instruction::single_qubit_gate(
+                StandardGate::Rz(ParameterExpression::constant(-1.0) * phi.clone()),
+                q0,
+            ),
+            Instruction::single_qubit_gate(StandardGate::Rx(theta.clone()), q0),
+            Instruction::single_qubit_gate(StandardGate::Rz(phi.clone()), q0),
+        ],
+
+        other => {
+            return Err(CompileError::GateNotInBasis(format!("{other:?}")));
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -766,5 +935,123 @@ mod tests {
             q0_gates_before_cz.iter().all(|n| *n == "rz" || *n == "sx"),
             "Gates before CZ on q[0] should be rz/sx (H decomposition), got: {q0_gates_before_cz:?}"
         );
+    }
+
+    /// Verify that the neutral-atom H decomposition is unitarily correct.
+    ///
+    /// H = Ry(π/2) · Rz(π) must equal H up to global phase.
+    #[test]
+    fn test_neutral_atom_h_unitary_correct() {
+        // H = Ry(π/2) · Rz(π)  [Rz applied first, then Ry]
+        let u = Unitary2x2::ry(PI / 2.0) * Unitary2x2::rz(PI);
+        let h = Unitary2x2::h();
+
+        // Must be equal up to global phase: u† · H must be a scalar multiple of I
+        let product = u.dagger() * h;
+        let [a, b, c, d] = product.data;
+        let eps = 1e-10;
+        assert!(
+            b.norm() < eps && c.norm() < eps,
+            "Neutral-atom H decomposition Ry(π/2)·Rz(π) is not H up to global phase: \
+             off-diagonal [{b}, {c}] should be zero"
+        );
+        assert!((a - d).norm() < eps, "Diagonal elements differ: [{a}, {d}]");
+        assert!(
+            (a.norm() - 1.0).abs() < eps,
+            "Phase magnitude is not 1: |{a}| = {}",
+            a.norm()
+        );
+    }
+
+    /// Verify that the neutral-atom PRX decomposition is unitarily correct.
+    ///
+    /// PRX(θ, φ) = Rz(φ) · Rx(θ) · Rz(−φ) [matrix form; circuit vec = Rz(−φ), Rx(θ), Rz(φ)].
+    /// Spot-checks: PRX(θ, 0) = Rx(θ), PRX(θ, π/2) = Ry(θ).
+    #[test]
+    fn test_neutral_atom_prx_decomposition_correct() {
+        // Matrix multiplication order (right = applied first):
+        // Rz(phi) * Rx(theta) * Rz(-phi) = Rz(phi)·Rx(theta)·Rz(-phi)
+        let prx_decomp = |theta: f64, phi: f64| -> Unitary2x2 {
+            Unitary2x2::rz(phi) * Unitary2x2::rx(theta) * Unitary2x2::rz(-phi)
+        };
+        let eps = 1e-10;
+
+        // PRX(π/3, 0) = Rx(π/3)
+        let u = prx_decomp(PI / 3.0, 0.0);
+        let rx = Unitary2x2::rx(PI / 3.0);
+        let diff = u.dagger() * rx;
+        let [a, b, c, _d] = diff.data;
+        assert!(
+            b.norm() < eps && c.norm() < eps,
+            "PRX(π/3, 0) should equal Rx(π/3): off-diagonal [{b}, {c}]"
+        );
+        assert!(
+            (a.norm() - 1.0).abs() < eps,
+            "Phase not unitary: {}",
+            a.norm()
+        );
+
+        // PRX(π/3, π/2) = Ry(π/3)
+        let u2 = prx_decomp(PI / 3.0, PI / 2.0);
+        let ry = Unitary2x2::ry(PI / 3.0);
+        let diff2 = u2.dagger() * ry;
+        let [a2, b2, c2, _d2] = diff2.data;
+        assert!(
+            b2.norm() < eps && c2.norm() < eps,
+            "PRX(π/3, π/2) should equal Ry(π/3): off-diagonal [{b2}, {c2}]"
+        );
+        assert!(
+            (a2.norm() - 1.0).abs() < eps,
+            "Phase not unitary: {}",
+            a2.norm()
+        );
+    }
+
+    #[test]
+    fn test_neutral_atom_translation_h() {
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.h(QubitId(0)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props =
+            PropertySet::new().with_target(CouplingMap::full(5), BasisGates::neutral_atom());
+        BasisTranslation.run(&mut dag, &mut props).unwrap();
+
+        // H = Rz(π) · Ry(π/2) = 2 gates
+        assert_eq!(dag.num_ops(), 2);
+    }
+
+    #[test]
+    fn test_neutral_atom_translation_cx() {
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props =
+            PropertySet::new().with_target(CouplingMap::full(5), BasisGates::neutral_atom());
+        BasisTranslation.run(&mut dag, &mut props).unwrap();
+
+        // CX = H(target) · CZ · H(target), where H = 2 gates
+        // So CX = 2 + 1 + 2 = 5 gates
+        assert_eq!(dag.num_ops(), 5);
+    }
+
+    #[test]
+    fn test_neutral_atom_translation_x() {
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.x(QubitId(0)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props =
+            PropertySet::new().with_target(CouplingMap::full(1), BasisGates::neutral_atom());
+        BasisTranslation.run(&mut dag, &mut props).unwrap();
+
+        // X = Rx(π) = 1 gate
+        assert_eq!(dag.num_ops(), 1);
+        let (_, inst) = dag.topological_ops().next().unwrap();
+        let InstructionKind::Gate(g) = &inst.kind else {
+            panic!("expected gate")
+        };
+        assert_eq!(g.name(), "rx");
     }
 }
