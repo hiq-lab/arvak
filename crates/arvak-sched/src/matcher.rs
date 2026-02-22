@@ -365,6 +365,7 @@ mod tests {
                 is_simulator,
                 features: vec![],
                 noise_profile: None,
+                cooling_profile: None,
             },
             available: true,
         })
