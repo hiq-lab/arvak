@@ -11,7 +11,17 @@
 //! - [`Capabilities`] — top-level hardware descriptor
 //! - [`GateSet`] — supported gate operations (OpenQASM 3 naming)
 //! - [`Topology`] / [`TopologyKind`] — qubit connectivity graph
-//! - [`NoiseProfile`] — device-wide noise averages
+//! - [`NoiseProfile`] — device-wide noise averages (gate layer, QEC-visible)
+//!
+//! # HAL Contract v2.2 — Alsvid Extension
+//!
+//! The following types extend the contract for physical-layer attestation:
+//! - [`CoolingProfile`] — physical cooling layer descriptor (QEC-invisible)
+//! - [`CompressorSpec`] — cryogenic compressor hardware specification
+//! - [`TransferFunctionSample`] — H(f) vibration-to-decoherence coupling point
+//! - [`QuietWindow`] — low-vibration scheduling window within compressor cycle
+//! - [`PufEnrollment`] — PUF enrollment record for hardware provenance
+//! - [`DecoherenceMonitor`] — trait for real-time T1/T2* measurement and fingerprinting
 //!
 //! All edges in [`Topology`] are bidirectional: if `(a, b)` is present,
 //! both `a → b` and `b → a` are valid two-qubit interactions.
@@ -52,9 +62,16 @@ pub struct Capabilities {
     /// `"shuttling"`, `"ion_trap"`, `"neutral_atom"`, `"photonic"`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub features: Vec<String>,
-    /// Device-wide noise averages.
+    /// Device-wide noise averages (gate layer, visible to QEC).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub noise_profile: Option<NoiseProfile>,
+    /// Physical cooling layer profile (HAL Contract v2.2, Alsvid extension).
+    ///
+    /// Captures the cryogenic cooling infrastructure characteristics used by
+    /// Alsvid for hardware attestation, tamper detection, and quiet-window
+    /// scheduling. Invisible to Quantum Error Correction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooling_profile: Option<CoolingProfile>,
 }
 
 impl Capabilities {
@@ -70,6 +87,7 @@ impl Capabilities {
             is_simulator: true,
             features: vec!["statevector".into(), "unitary".into()],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -85,6 +103,7 @@ impl Capabilities {
             is_simulator: false,
             features: vec![],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -115,6 +134,7 @@ impl Capabilities {
             is_simulator: false,
             features: vec!["dynamic_circuits".into()],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -133,6 +153,7 @@ impl Capabilities {
             is_simulator: false,
             features: vec!["ion_trap".into()],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -150,6 +171,7 @@ impl Capabilities {
             is_simulator: false,
             features: vec!["ion_trap".into(), "mid_circuit_measurement".into()],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -165,6 +187,7 @@ impl Capabilities {
             is_simulator: false,
             features: vec!["shuttling".into(), "zoned".into()],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -183,6 +206,7 @@ impl Capabilities {
             is_simulator: false,
             features: vec![],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -198,6 +222,7 @@ impl Capabilities {
             is_simulator: false,
             features: vec![],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -213,6 +238,7 @@ impl Capabilities {
             is_simulator: true,
             features: vec!["braket_simulator".into()],
             noise_profile: None,
+            cooling_profile: None,
         }
     }
 
@@ -225,6 +251,15 @@ impl Capabilities {
     /// Attach a noise profile to these capabilities.
     pub fn with_noise_profile(mut self, profile: NoiseProfile) -> Self {
         self.noise_profile = Some(profile);
+        self
+    }
+
+    /// Attach a cooling profile to these capabilities (HAL Contract v2.2).
+    ///
+    /// Enables Alsvid hardware attestation, tamper detection, and
+    /// quiet-window scheduling for this backend.
+    pub fn with_cooling_profile(mut self, profile: CoolingProfile) -> Self {
+        self.cooling_profile = Some(profile);
         self
     }
 }
@@ -603,7 +638,7 @@ pub enum TopologyKind {
     },
 }
 
-/// Device-wide noise averages reported by a backend.
+/// Device-wide noise averages reported by a backend (gate layer, QEC-visible).
 ///
 /// These are aggregate characterization numbers — suitable for routing
 /// and coarse-grained compilation decisions. Per-qubit / per-gate detail
@@ -612,6 +647,12 @@ pub enum TopologyKind {
 ///
 /// All fidelity values are in `[0.0, 1.0]` where `1.0` means perfect.
 /// Time values (T1, T2, gate_time) are in **microseconds**.
+///
+/// # Note
+///
+/// This profile captures noise at the gate layer (L2+), which is visible
+/// to Quantum Error Correction. For physical-layer noise originating in
+/// the cryogenic cooling infrastructure (QEC-invisible), see [`CoolingProfile`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoiseProfile {
     /// T1 relaxation time (device average, microseconds).
@@ -632,6 +673,267 @@ pub struct NoiseProfile {
     /// Average gate execution time (microseconds).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gate_time: Option<f64>,
+}
+
+// ─── HAL Contract v2.2 — Alsvid Physical Layer Extension ────────────────────
+
+/// Cryogenic compressor hardware specification.
+///
+/// Describes the physical compressor that cools the QPU to operating
+/// temperature. Used by Alsvid to characterise the Physical Unclonable
+/// Function (PUF) derived from compressor vibration coupling to qubit
+/// decoherence.
+///
+/// The dominant vibration source in rotary-valve pulse-tube compressors
+/// is the valve mechanism itself (not the compressor body), producing a
+/// characteristic 1–1.2 Hz oscillation that is measurably synchronised
+/// with T1 fluctuations in transmon qubits (Kosen et al., 2024).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompressorSpec {
+    /// Manufacturer and model (e.g., `"Pressure Wave Systems PWG500"`).
+    pub model: String,
+    /// Dominant mechanical cycle frequency in Hz.
+    ///
+    /// Typically 1.0–1.2 Hz for rotary-valve pulse-tube compressors (PWG500,
+    /// IGLU/attoCMC). This frequency sets the fundamental PUF signal period.
+    pub cycle_frequency_hz: f64,
+    /// Cooling stage temperatures in Kelvin, outermost to coldest plate.
+    ///
+    /// Typical superconducting QPU: `[50.0, 4.0, 0.8, 0.1, 0.01]`
+    /// (50K shield, 4K stage, 800mK still, 100mK cold plate, 10mK mixing chamber).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stage_temperatures_k: Vec<f64>,
+    /// Whether the compressor uses a rotary valve (pulse-tube).
+    ///
+    /// `true` — rotary-valve pulse-tube (e.g., PWG500, PT415): produces the
+    /// characteristic ~1 Hz vibration that couples to qubit decoherence.
+    /// This is the Alsvid PUF signal source.
+    ///
+    /// `false` — Gifford-McMahon (piston): different vibration signature,
+    /// typically 1–2 Hz but with different harmonic content.
+    pub rotary_valve: bool,
+}
+
+/// One sample of the H(f) vibration-to-decoherence transfer function.
+///
+/// Represents the measured coupling strength between compressor vibration
+/// at frequency `freq_hz` and T1 modulation amplitude `t1_modulation`.
+/// A full set of samples across the relevant frequency range (0.1–100 Hz)
+/// constitutes the installation fingerprint.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferFunctionSample {
+    /// Frequency in Hz.
+    pub freq_hz: f64,
+    /// T1 modulation amplitude (normalised, unitless).
+    ///
+    /// `0.0` — no coupling at this frequency.
+    /// `1.0` — full modulation of the T1 baseline at this frequency.
+    /// Typical values near the compressor fundamental: 0.05–0.20.
+    pub t1_modulation: f64,
+}
+
+/// A quiet window: a sub-interval of the compressor cycle with minimal
+/// vibration coupling to qubits.
+///
+/// The compressor cycle (typically ~1 second for rotary-valve units)
+/// is not uniformly noisy. Dead zones around valve transitions produce
+/// intervals of reduced vibration. Circuits scheduled in quiet windows
+/// see lower effective decoherence.
+///
+/// Both `cycle_offset` and `cycle_fraction` are fractions of the full
+/// cycle period (dimensionless, `[0.0, 1.0)`). To convert to absolute
+/// time: multiply by `1.0 / compressor.cycle_frequency_hz`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuietWindow {
+    /// Start of the quiet window as a fraction of the compressor cycle `[0.0, 1.0)`.
+    pub cycle_offset: f64,
+    /// Duration of the quiet window as a fraction of the compressor cycle `(0.0, 1.0]`.
+    pub cycle_fraction: f64,
+    /// Estimated T1 improvement factor relative to the cycle average.
+    ///
+    /// `1.0` — no improvement (same as average).
+    /// `1.15` — 15% longer T1 during this window.
+    /// Populated by the decoherence monitor after measurement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub t1_improvement_factor: Option<f64>,
+}
+
+impl QuietWindow {
+    /// Duration of this quiet window in seconds.
+    pub fn duration_secs(&self, cycle_frequency_hz: f64) -> f64 {
+        self.cycle_fraction / cycle_frequency_hz
+    }
+}
+
+/// PUF enrollment record — the reference fingerprint for this installation.
+///
+/// Captured once during the enrollment phase by `DecoherenceMonitor::compute_fingerprint`.
+/// Stored in the `CoolingProfile` and embedded in Provenance Certificates.
+/// Subsequent verification measurements are compared to this record to
+/// confirm hardware identity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PufEnrollment {
+    /// Installation-unique identifier (e.g., serial number + site hash).
+    pub installation_id: String,
+    /// Unix timestamp (seconds since epoch) of the enrollment measurement.
+    pub enrolled_at: u64,
+    /// SHA-256 fingerprint hash of the T1 modulation spectrum vector.
+    ///
+    /// Computed by quantising the `TransferFunctionSample` amplitudes to
+    /// 8-bit bins and hashing the resulting byte vector. Hex-encoded,
+    /// 64 characters.
+    pub fingerprint_hash: String,
+    /// Number of measurement shots used per sample point during enrollment.
+    ///
+    /// Higher values → more stable fingerprint. Minimum recommended: 1000.
+    pub enrollment_shots: u32,
+    /// Maximum acceptable Hamming distance (fraction) between enrollment
+    /// and verification fingerprints for the same installation (intra-distance).
+    ///
+    /// For a reliable PUF at 3σ separation, `intra_distance_threshold` should
+    /// be below 10% of the total bit length. Typical value: 0.08.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intra_distance_threshold: Option<f64>,
+}
+
+/// Physical cooling layer profile for a superconducting QPU.
+///
+/// This is the Alsvid extension to the HAL Contract (v2.2). Where
+/// [`NoiseProfile`] captures gate-layer noise visible to Quantum Error
+/// Correction, `CoolingProfile` captures the *physical layer below the
+/// gate stack* — the vibration coupling of the cryogenic cooling
+/// infrastructure to qubit decoherence.
+///
+/// This layer is **invisible to QEC** because QEC operates at gate-layer
+/// frequencies (GHz clock). The compressor vibration signal lives at
+/// 1–10 Hz, orders of magnitude lower — outside every existing error
+/// correction band.
+///
+/// # Alsvid Use Cases
+///
+/// 1. **Hardware attestation** — enrol the T1 modulation spectrum as a PUF;
+///    verify on each job submission to prove hardware provenance (analogous
+///    to Intel SGX remote attestation, but for quantum hardware).
+///
+/// 2. **Tamper detection** — physical tampering (mass redistribution,
+///    remounting, adjacent equipment changes) measurably shifts the vibration
+///    coupling profile, invisible to any software-layer security check.
+///
+/// 3. **Compiler quiet-window scheduling** — inject timing hints so circuits
+///    execute during low-vibration intervals, reducing effective decoherence
+///    without changing any gate logic.
+///
+/// # References
+///
+/// Kosen et al., *Nature Communications* 15, 3950 (2024), `arXiv:2305.02591` —
+/// experimental proof that pulse-tube compressor vibration produces
+/// time-synchronised T1 oscillations in transmon qubits (ETH Zürich / Chalmers).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoolingProfile {
+    /// Physical compressor specification.
+    pub compressor: CompressorSpec,
+    /// H(f) transfer function: frequency-domain characterisation of
+    /// vibration-to-decoherence coupling for this specific installation.
+    ///
+    /// Empty until the first `DecoherenceMonitor::compute_fingerprint` run.
+    /// Manufacturing tolerances make this unique per installation.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transfer_function: Vec<TransferFunctionSample>,
+    /// Low-vibration scheduling windows within the compressor cycle.
+    ///
+    /// Populated by the decoherence monitor after a quiet-window scan.
+    /// Used by the Alsvid scheduler to time circuit execution.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quiet_windows: Vec<QuietWindow>,
+    /// PUF enrollment record. `None` if this installation has not yet
+    /// been enrolled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub puf_enrollment: Option<PufEnrollment>,
+}
+
+impl CoolingProfile {
+    /// Create a new `CoolingProfile` with only compressor spec populated.
+    ///
+    /// Transfer function, quiet windows, and PUF enrollment are populated
+    /// later by a `DecoherenceMonitor` implementation.
+    pub fn new(compressor: CompressorSpec) -> Self {
+        Self {
+            compressor,
+            transfer_function: vec![],
+            quiet_windows: vec![],
+            puf_enrollment: None,
+        }
+    }
+
+    /// Returns `true` if this installation has been enrolled as a PUF.
+    pub fn is_enrolled(&self) -> bool {
+        self.puf_enrollment.is_some()
+    }
+
+    /// Dominant compressor cycle frequency in Hz.
+    pub fn cycle_frequency_hz(&self) -> f64 {
+        self.compressor.cycle_frequency_hz
+    }
+
+    /// Returns the best quiet window (highest T1 improvement factor), if any.
+    pub fn best_quiet_window(&self) -> Option<&QuietWindow> {
+        self.quiet_windows.iter().max_by(|a, b| {
+            let fa = a.t1_improvement_factor.unwrap_or(1.0);
+            let fb = b.t1_improvement_factor.unwrap_or(1.0);
+            fa.partial_cmp(&fb).unwrap_or(std::cmp::Ordering::Equal)
+        })
+    }
+}
+
+/// Decoherence monitor trait for Alsvid physical-layer attestation.
+///
+/// Implemented by backends that support real-time T1/T2* measurement
+/// synchronised with the cryogenic compressor cycle. Provides the
+/// measurement primitives required to:
+/// - Characterise the H(f) vibration-to-decoherence transfer function
+/// - Identify quiet windows for scheduler hints
+/// - Compute and verify the QPU-PUF fingerprint
+///
+/// # Contract
+///
+/// Implementations MUST:
+/// - Return `None` for all methods if the backend is a simulator.
+/// - Return `None` if the backend does not expose a compressor sync signal.
+/// - Use at least `shots` measurement repetitions for statistical stability.
+/// - Not expose raw qubit indices in `compute_fingerprint` output.
+pub trait DecoherenceMonitor {
+    /// Measure the current T1 relaxation time (microseconds), averaged over
+    /// the specified qubit indices.
+    ///
+    /// Returns `None` if the measurement is not supported by this backend
+    /// (e.g., simulator, or no inversion-recovery pulse sequence available).
+    fn measure_t1(&self, qubit_indices: &[u32], shots: u32) -> Option<f64>;
+
+    /// Measure the current T2* dephasing time (microseconds, Ramsey sequence),
+    /// averaged over the specified qubit indices.
+    ///
+    /// Returns `None` if the measurement is not supported by this backend.
+    fn measure_t2_star(&self, qubit_indices: &[u32], shots: u32) -> Option<f64>;
+
+    /// Compute a vibration fingerprint over one full compressor cycle.
+    ///
+    /// Samples T1 at `sample_count` evenly-spaced phase offsets within the
+    /// compressor cycle period, using `shots_per_sample` repetitions per point.
+    /// The resulting T1 modulation vector is quantised to 8-bit bins and
+    /// hashed (SHA-256) to produce the fingerprint.
+    ///
+    /// The hash is stable across measurements on the same physical installation
+    /// (Hamming distance < `intra_distance_threshold`) but unique across
+    /// installations due to manufacturing tolerances in compressor and
+    /// cryostat mounting (inter-distance >> intra-distance at 3σ).
+    ///
+    /// Returns `None` if the backend does not expose a compressor sync signal,
+    /// or if T1 measurement is not supported.
+    fn compute_fingerprint(
+        &self,
+        sample_count: u32,
+        shots_per_sample: u32,
+    ) -> Option<String>;
 }
 
 #[cfg(test)]
@@ -810,5 +1112,106 @@ mod tests {
         assert!(gs.is_native("h"));
         assert!(gs.is_native("cx"));
         assert!(!gs.is_native("cz"));
+    }
+
+    // ── CoolingProfile tests (HAL Contract v2.2) ──────────────────────────
+
+    fn pws_pwg500() -> CompressorSpec {
+        CompressorSpec {
+            model: "Pressure Wave Systems PWG500".into(),
+            cycle_frequency_hz: 1.1,
+            stage_temperatures_k: vec![50.0, 4.0, 0.8, 0.1, 0.01],
+            rotary_valve: true,
+        }
+    }
+
+    #[test]
+    fn test_cooling_profile_new() {
+        let profile = CoolingProfile::new(pws_pwg500());
+        assert_eq!(profile.compressor.model, "Pressure Wave Systems PWG500");
+        assert!((profile.cycle_frequency_hz() - 1.1).abs() < f64::EPSILON);
+        assert!(!profile.is_enrolled());
+        assert!(profile.transfer_function.is_empty());
+        assert!(profile.quiet_windows.is_empty());
+        assert!(profile.best_quiet_window().is_none());
+    }
+
+    #[test]
+    fn test_cooling_profile_quiet_windows() {
+        let mut profile = CoolingProfile::new(pws_pwg500());
+        profile.quiet_windows = vec![
+            QuietWindow {
+                cycle_offset: 0.1,
+                cycle_fraction: 0.15,
+                t1_improvement_factor: Some(1.12),
+            },
+            QuietWindow {
+                cycle_offset: 0.6,
+                cycle_fraction: 0.10,
+                t1_improvement_factor: Some(1.08),
+            },
+        ];
+        let best = profile.best_quiet_window().unwrap();
+        assert!((best.t1_improvement_factor.unwrap() - 1.12).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_quiet_window_duration() {
+        let qw = QuietWindow {
+            cycle_offset: 0.1,
+            cycle_fraction: 0.15,
+            t1_improvement_factor: Some(1.12),
+        };
+        // At 1.1 Hz, cycle period = 1/1.1 ≈ 0.909 s; 15% of that ≈ 0.136 s
+        let dur = qw.duration_secs(1.1);
+        assert!((dur - 0.15 / 1.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_cooling_profile_puf_enrollment() {
+        let enrollment = PufEnrollment {
+            installation_id: "PWG500-SN1234-MUENCHEN".into(),
+            enrolled_at: 1_740_000_000,
+            fingerprint_hash: "a".repeat(64),
+            enrollment_shots: 2000,
+            intra_distance_threshold: Some(0.08),
+        };
+        let mut profile = CoolingProfile::new(pws_pwg500());
+        assert!(!profile.is_enrolled());
+        profile.puf_enrollment = Some(enrollment);
+        assert!(profile.is_enrolled());
+    }
+
+    #[test]
+    fn test_capabilities_with_cooling_profile() {
+        let compressor = pws_pwg500();
+        let profile = CoolingProfile::new(compressor);
+        let caps = Capabilities::iqm("IQM Garnet", 20).with_cooling_profile(profile);
+        assert!(caps.cooling_profile.is_some());
+        let cp = caps.cooling_profile.unwrap();
+        assert!((cp.cycle_frequency_hz() - 1.1).abs() < f64::EPSILON);
+        assert!(cp.compressor.rotary_valve);
+    }
+
+    #[test]
+    fn test_cooling_profile_serialise_round_trip() {
+        let profile = CoolingProfile {
+            compressor: pws_pwg500(),
+            transfer_function: vec![
+                TransferFunctionSample { freq_hz: 1.1, t1_modulation: 0.12 },
+                TransferFunctionSample { freq_hz: 2.2, t1_modulation: 0.04 },
+            ],
+            quiet_windows: vec![QuietWindow {
+                cycle_offset: 0.1,
+                cycle_fraction: 0.15,
+                t1_improvement_factor: Some(1.12),
+            }],
+            puf_enrollment: None,
+        };
+        let json = serde_json::to_string(&profile).expect("serialise");
+        let decoded: CoolingProfile = serde_json::from_str(&json).expect("deserialise");
+        assert_eq!(decoded.transfer_function.len(), 2);
+        assert!((decoded.transfer_function[0].t1_modulation - 0.12).abs() < 1e-9);
+        assert_eq!(decoded.quiet_windows.len(), 1);
     }
 }
