@@ -58,6 +58,7 @@ fn capabilities_stub(target: &str, num_qubits: u32) -> Capabilities {
         is_simulator: false,
         features: vec!["dynamic_circuits".into()],
         noise_profile: None,
+        cooling_profile: None,
     }
 }
 
@@ -81,6 +82,7 @@ fn capabilities_from_real_info(target: &str, num_qubits: u32, topology: Topology
         is_simulator: false,
         features: vec!["dynamic_circuits".into()],
         noise_profile: None,
+        cooling_profile: None,
     }
 }
 

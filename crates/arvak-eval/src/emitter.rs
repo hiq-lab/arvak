@@ -449,6 +449,7 @@ mod tests {
             is_simulator: false,
             features: vec![],
             noise_profile: None,
+            cooling_profile: None,
         };
         let report = EmitterAnalyzer::analyze(&dag, &EmitTarget::Ibm, &caps).unwrap();
 
