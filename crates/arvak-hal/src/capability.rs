@@ -929,11 +929,7 @@ pub trait DecoherenceMonitor {
     ///
     /// Returns `None` if the backend does not expose a compressor sync signal,
     /// or if T1 measurement is not supported.
-    fn compute_fingerprint(
-        &self,
-        sample_count: u32,
-        shots_per_sample: u32,
-    ) -> Option<String>;
+    fn compute_fingerprint(&self, sample_count: u32, shots_per_sample: u32) -> Option<String>;
 }
 
 #[cfg(test)]
@@ -1198,8 +1194,14 @@ mod tests {
         let profile = CoolingProfile {
             compressor: pws_pwg500(),
             transfer_function: vec![
-                TransferFunctionSample { freq_hz: 1.1, t1_modulation: 0.12 },
-                TransferFunctionSample { freq_hz: 2.2, t1_modulation: 0.04 },
+                TransferFunctionSample {
+                    freq_hz: 1.1,
+                    t1_modulation: 0.12,
+                },
+                TransferFunctionSample {
+                    freq_hz: 2.2,
+                    t1_modulation: 0.04,
+                },
             ],
             quiet_windows: vec![QuietWindow {
                 cycle_offset: 0.1,
