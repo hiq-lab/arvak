@@ -7,6 +7,7 @@ Audited: 2026-02-18 (updated with Scaleway/IQM findings)
 Updated: 2026-02-19 — ALL 12 items resolved. Full clearance commit includes DEBT-01 through DEBT-18.
 Updated: 2026-02-21 — 5 new items (DEBT-19–DEBT-23) from Quantinuum + AQT adapter audit.
 Updated: 2026-02-21 — **DEBT-19/21/22 fixed (VQ-046); DEBT-20/23 addressed in spec (VQ-047, HAL v2.1). All 23 items resolved.**
+Updated: 2026-02-26 — DEBT-Q1–Q3 fixed (HAL Contract v2.3 photonic extension, VQ-048). DEBT-Q4/Q5 remain Open. Quandela adapter added (VQ-047).
 
 ---
 
@@ -318,7 +319,85 @@ These are gaps in the spec itself (not Arvak implementation bugs). All addressed
 
 ---
 
-**Open items: 0.** All 23 DEBT items resolved as of 2026-02-21. Spec gaps (VQ-047) addressed in HAL Contract v2.1.
+---
+
+## HAL Contract v2.3 — Photonic Extension (VQ-047/VQ-048, 2026-02-26)
+
+### DEBT-Q1: `DecoherenceMonitor` lacks photonic measurement methods
+
+**Status: FIXED (2026-02-26) — VQ-048**
+**Component:** `crates/arvak-hal/src/capability.rs` — `DecoherenceMonitor` trait
+
+Added two default methods with `None` implementations:
+- `measure_hom_visibility(shots) -> Option<f64>` — Hong-Ou-Mandel visibility (photonic backends)
+- `compute_hom_fingerprint(sample_count, shots_per_sample) -> Option<Vec<TransferFunctionSample>>` — HOM-based PUF fingerprint
+
+Non-photonic backends inherit the default `None` impls (non-breaking).
+`QuandelaBackend` explicitly returns `None` with DEBT-Q5 note; alsvid-lab path used instead.
+
+---
+
+### DEBT-Q2: `CompressorSpec::rotary_valve: bool` cannot express photonic cryocooler types
+
+**Status: FIXED (2026-02-26) — VQ-048**
+**Component:** `crates/arvak-hal/src/capability.rs` — `CompressorSpec` struct
+
+Replaced `pub rotary_valve: bool` with `pub compressor_type: CompressorType` (new enum).
+Added `CompressorType` variants: `RotaryValve`, `GiffordMcMahon`, `Stirling`, `PulseTube`, `Other(String)`.
+Added `CompressorSpec::is_rotary_valve()` helper for backward-compatible access.
+`Capabilities::quandela()` uses `CompressorType::GiffordMcMahon`.
+
+---
+
+### DEBT-Q3: `TransferFunctionSample` has no photonic metric
+
+**Status: FIXED (2026-02-26) — VQ-048**
+**Component:** `crates/arvak-hal/src/capability.rs` — `TransferFunctionSample` struct
+
+Added optional field:
+```rust
+pub visibility_modulation: Option<f64>,  // HOM visibility modulation; None for superconducting
+```
+All existing `TransferFunctionSample` construction sites updated with `visibility_modulation: None`.
+`QuandelaBackend::ingest_alsvid_enrollment()` populates from alsvid-lab per-phase HOM visibility.
+
+---
+
+### DEBT-Q4: Photonic dual-rail encoding pass not implemented
+
+**Status: Open**
+**Component:** `adapters/arvak-adapter-quandela/src/backend.rs`
+
+`QuandelaBackend::submit()` returns `HalError::Backend("DEBT-Q4: photonic encoding pass not implemented")`.
+`validate()` returns `RequiresTranspilation` to signal this to orchestrators.
+Blocked on: Rust Perceval client or QASM3 → perceval-interop transpiler.
+
+---
+
+### DEBT-Q5: Quandela REST API submission endpoint not documented
+
+**Status: Open**
+**Component:** `adapters/arvak-adapter-quandela/src/api.rs`
+
+`QuandelaClient::ping()` is a stub that checks for non-empty key only. Real availability check and circuit submission require the Quandela cloud API endpoint, which is not yet publicly documented. `availability()` returns `always_available()` when key is non-empty (optimistic stub).
+
+---
+
+### Summary — HAL Contract v2.3 photonic items
+
+| ID | Severity | Component | Status |
+|----|----------|-----------|--------|
+| DEBT-Q1 | Medium | `DecoherenceMonitor` trait | **FIXED 2026-02-26** (VQ-048) |
+| DEBT-Q2 | High | `CompressorSpec::rotary_valve` | **FIXED 2026-02-26** (VQ-048) |
+| DEBT-Q3 | Medium | `TransferFunctionSample` | **FIXED 2026-02-26** (VQ-048) |
+| DEBT-Q4 | High | Quandela encoding pass | **Open** — photonic encoding blocked on Perceval client |
+| DEBT-Q5 | Medium | Quandela REST API | **Open** — endpoint TBD |
+
+---
+
+**Open items: 2** (DEBT-Q4, DEBT-Q5). All other 26 items resolved.
+
+**Open items (prior):** All 23 DEBT items resolved as of 2026-02-21. Spec gaps (VQ-047) addressed in HAL Contract v2.1.
 
 ### Compliance matrix (post 2026-02-21 audit)
 

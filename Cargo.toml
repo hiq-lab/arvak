@@ -32,6 +32,7 @@ arvak-eval = { path = "crates/arvak-eval" }
 # Adapter crates
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
 arvak-adapter-braket = { path = "adapters/arvak-adapter-braket" }
+arvak-adapter-quandela = { path = "adapters/arvak-adapter-quandela" }
 
 # Async runtime — minimal workspace features; crates add extras as needed.
 tokio = { version = "1.43", features = ["macros", "rt-multi-thread", "sync", "time"] }
