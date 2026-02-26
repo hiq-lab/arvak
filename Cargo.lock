@@ -228,6 +228,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvak-adapter-quandela"
+version = "1.8.1"
+dependencies = [
+ "arvak-hal",
+ "arvak-ir",
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "arvak-adapter-quantinuum"
 version = "1.8.1"
 dependencies = [
@@ -435,6 +451,7 @@ dependencies = [
  "arvak-adapter-aqt",
  "arvak-adapter-braket",
  "arvak-adapter-ibm",
+ "arvak-adapter-quandela",
  "arvak-adapter-quantinuum",
  "arvak-adapter-sim",
  "arvak-compile",

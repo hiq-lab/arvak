@@ -18,10 +18,20 @@
 //! The following types extend the contract for physical-layer attestation:
 //! - [`CoolingProfile`] — physical cooling layer descriptor (QEC-invisible)
 //! - [`CompressorSpec`] — cryogenic compressor hardware specification
+//! - [`CompressorType`] — cryogenic compressor mechanism (HAL Contract v2.3)
 //! - [`TransferFunctionSample`] — H(f) vibration-to-decoherence coupling point
 //! - [`QuietWindow`] — low-vibration scheduling window within compressor cycle
 //! - [`PufEnrollment`] — PUF enrollment record for hardware provenance
 //! - [`DecoherenceMonitor`] — trait for real-time T1/T2* measurement and fingerprinting
+//!
+//! # HAL Contract v2.3 — Photonic Extension
+//!
+//! Additional types and methods for photonic QPU support:
+//! - [`CompressorType`] — replaces `rotary_valve: bool` with an extensible enum (DEBT-Q2)
+//! - [`TransferFunctionSample::visibility_modulation`] — HOM visibility metric for photonic
+//!   backends (DEBT-Q3)
+//! - [`DecoherenceMonitor::measure_hom_visibility`] — HOM visibility measurement (DEBT-Q1)
+//! - [`DecoherenceMonitor::compute_hom_fingerprint`] — photonic PUF fingerprint (DEBT-Q1)
 //!
 //! All edges in [`Topology`] are bidirectional: if `(a, b)` is present,
 //! both `a → b` and `b → a` are valid two-qubit interactions.
@@ -172,6 +182,31 @@ impl Capabilities {
             features: vec!["ion_trap".into(), "mid_circuit_measurement".into()],
             noise_profile: None,
             cooling_profile: None,
+        }
+    }
+
+    /// Create capabilities for Quandela Altair photonic QPU.
+    ///
+    /// 5 logical qubits encoded in 10 photonic modes (dual-rail encoding, 2 modes per qubit).
+    /// All-to-all connectivity via programmable beamsplitter network.
+    /// Transfer function and PUF enrollment are populated after Alsvid enrollment.
+    pub fn quandela(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits: 5,
+            gate_set: GateSet::quandela(),
+            topology: Topology::full(5),
+            max_shots: 100_000,
+            max_circuit_ops: None,
+            is_simulator: false,
+            features: vec!["photonic".into()],
+            noise_profile: None,
+            cooling_profile: Some(CoolingProfile::new(CompressorSpec {
+                model: "Quandela Altair 4K cryocooler".into(),
+                cycle_frequency_hz: 1.0,
+                stage_temperatures_k: vec![4.0],
+                compressor_type: CompressorType::GiffordMcMahon,
+            })),
         }
     }
 
@@ -471,6 +506,26 @@ impl GateSet {
         }
     }
 
+    /// Create Quandela gate set (photonic, dual-rail encoding via perceval-interop).
+    ///
+    /// Supported gates are those expressible via Perceval's dual-rail encoding.
+    /// Native basis: `rz`, `h`, `cx` (minimal perceval-interop basis).
+    pub fn quandela() -> Self {
+        Self {
+            single_qubit: vec![
+                "rz".into(),
+                "h".into(),
+                "x".into(),
+                "sx".into(),
+                "rx".into(),
+                "ry".into(),
+            ],
+            two_qubit: vec!["cx".into(), "cz".into()],
+            three_qubit: vec!["ccx".into(), "ccz".into()],
+            native: vec!["rz".into(), "h".into(), "cx".into()],
+        }
+    }
+
     /// Create a neutral-atom gate set.
     ///
     /// Native gates: Global RZ, Rydberg CZ/CCZ.
@@ -675,7 +730,29 @@ pub struct NoiseProfile {
     pub gate_time: Option<f64>,
 }
 
-// ─── HAL Contract v2.2 — Alsvid Physical Layer Extension ────────────────────
+// ─── HAL Contract v2.2 / v2.3 — Alsvid Physical Layer Extension ─────────────
+
+/// Cryogenic compressor mechanism type.
+///
+/// Determines the vibration signature and PUF signal characteristics.
+/// Extends the former `rotary_valve: bool` field (HAL Contract v2.2).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompressorType {
+    /// Rotary-valve pulse-tube (e.g., PWG500, PT415, PT407).
+    /// Produces characteristic ~1 Hz vibration. Primary Alsvid PUF signal.
+    RotaryValve,
+    /// Gifford-McMahon (piston-based). Typical 4K stage in photonic QPUs.
+    /// Different harmonic profile from rotary valve.
+    GiffordMcMahon,
+    /// Stirling-cycle (e.g., Pressure Wave Systems metal bellows, patent WO2014016415A2).
+    /// Odd harmonics only — triangular pressure wave.
+    Stirling,
+    /// Pulse-tube without rotary valve (passive pulse tube / double-inlet).
+    PulseTube,
+    /// Other or unknown compressor type.
+    Other(String),
+}
 
 /// Cryogenic compressor hardware specification.
 ///
@@ -703,15 +780,21 @@ pub struct CompressorSpec {
     /// (50K shield, 4K stage, 800mK still, 100mK cold plate, 10mK mixing chamber).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stage_temperatures_k: Vec<f64>,
-    /// Whether the compressor uses a rotary valve (pulse-tube).
+    /// Compressor mechanism type (HAL Contract v2.3).
     ///
-    /// `true` — rotary-valve pulse-tube (e.g., PWG500, PT415): produces the
-    /// characteristic ~1 Hz vibration that couples to qubit decoherence.
-    /// This is the Alsvid PUF signal source.
+    /// Replaces the former `rotary_valve: bool` field. Determines the
+    /// vibration harmonic profile and PUF signal characteristics.
+    pub compressor_type: CompressorType,
+}
+
+impl CompressorSpec {
+    /// Returns `true` if this compressor uses a rotary valve (pulse-tube).
     ///
-    /// `false` — Gifford-McMahon (piston): different vibration signature,
-    /// typically 1–2 Hz but with different harmonic content.
-    pub rotary_valve: bool,
+    /// Convenience method for backward-compatible reading. Equivalent to
+    /// `self.compressor_type == CompressorType::RotaryValve`.
+    pub fn is_rotary_valve(&self) -> bool {
+        self.compressor_type == CompressorType::RotaryValve
+    }
 }
 
 /// One sample of the H(f) vibration-to-decoherence transfer function.
@@ -720,6 +803,9 @@ pub struct CompressorSpec {
 /// at frequency `freq_hz` and T1 modulation amplitude `t1_modulation`.
 /// A full set of samples across the relevant frequency range (0.1–100 Hz)
 /// constitutes the installation fingerprint.
+///
+/// For photonic backends, `visibility_modulation` replaces `t1_modulation`
+/// as the primary coupling metric (HAL Contract v2.3, DEBT-Q3).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferFunctionSample {
     /// Frequency in Hz.
@@ -729,7 +815,15 @@ pub struct TransferFunctionSample {
     /// `0.0` — no coupling at this frequency.
     /// `1.0` — full modulation of the T1 baseline at this frequency.
     /// Typical values near the compressor fundamental: 0.05–0.20.
+    /// `None` for photonic backends (use `visibility_modulation` instead).
     pub t1_modulation: f64,
+    /// HOM visibility modulation amplitude (photonic backends only).
+    ///
+    /// Normalised [0.0, 1.0]: fraction of baseline HOM visibility degraded
+    /// by compressor vibration at this frequency.
+    /// `None` for superconducting backends (use `t1_modulation` instead).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_modulation: Option<f64>,
 }
 
 /// A quiet window: a sub-interval of the compressor cycle with minimal
@@ -894,6 +988,13 @@ impl CoolingProfile {
 /// - Identify quiet windows for scheduler hints
 /// - Compute and verify the QPU-PUF fingerprint
 ///
+/// # Photonic Backends (HAL Contract v2.3)
+///
+/// For photonic backends, `measure_t1` and `measure_t2_star` are not
+/// applicable (return `None`). Use `measure_hom_visibility` and
+/// `compute_hom_fingerprint` instead, which operate on HOM visibility
+/// rather than T1/T2* relaxation times.
+///
 /// # Contract
 ///
 /// Implementations MUST:
@@ -901,18 +1002,21 @@ impl CoolingProfile {
 /// - Return `None` if the backend does not expose a compressor sync signal.
 /// - Use at least `shots` measurement repetitions for statistical stability.
 /// - Not expose raw qubit indices in `compute_fingerprint` output.
+/// - Return `None` from `measure_t1`/`measure_t2_star` on photonic backends.
 pub trait DecoherenceMonitor {
     /// Measure the current T1 relaxation time (microseconds), averaged over
     /// the specified qubit indices.
     ///
     /// Returns `None` if the measurement is not supported by this backend
-    /// (e.g., simulator, or no inversion-recovery pulse sequence available).
+    /// (e.g., simulator, no inversion-recovery pulse sequence available, or
+    /// photonic backend — use `measure_hom_visibility` instead).
     fn measure_t1(&self, qubit_indices: &[u32], shots: u32) -> Option<f64>;
 
     /// Measure the current T2* dephasing time (microseconds, Ramsey sequence),
     /// averaged over the specified qubit indices.
     ///
     /// Returns `None` if the measurement is not supported by this backend.
+    /// Photonic backends should return `None` (use `measure_hom_visibility`).
     fn measure_t2_star(&self, qubit_indices: &[u32], shots: u32) -> Option<f64>;
 
     /// Compute a vibration fingerprint over one full compressor cycle.
@@ -928,8 +1032,38 @@ pub trait DecoherenceMonitor {
     /// cryostat mounting (inter-distance >> intra-distance at 3σ).
     ///
     /// Returns `None` if the backend does not expose a compressor sync signal,
-    /// or if T1 measurement is not supported.
+    /// or if T1 measurement is not supported. Photonic backends should return
+    /// `None` (use `compute_hom_fingerprint` instead).
     fn compute_fingerprint(&self, sample_count: u32, shots_per_sample: u32) -> Option<String>;
+
+    /// Measure HOM (Hong-Ou-Mandel) visibility for photonic backends.
+    ///
+    /// Submits a 2-photon 50:50 beamsplitter circuit and measures coincidence
+    /// rate. HOM visibility V = 1 - 2·P_coinc, where P_coinc is the probability
+    /// of both photons exiting the same output mode.
+    ///
+    /// Returns `None` for non-photonic backends (use `measure_t1` instead).
+    fn measure_hom_visibility(&self, shots: u32) -> Option<f64> {
+        let _ = shots;
+        None
+    }
+
+    /// Compute a PUF fingerprint from HOM visibility modulation over one
+    /// compressor cycle (photonic backends).
+    ///
+    /// Samples HOM visibility at `sample_count` evenly-spaced compressor
+    /// phase offsets. The visibility modulation vector is quantised to 8-bit
+    /// bins and hashed (SHA-256). Populates `TransferFunctionSample::visibility_modulation`.
+    ///
+    /// Returns `None` for non-photonic backends (use `compute_fingerprint` instead).
+    fn compute_hom_fingerprint(
+        &self,
+        sample_count: u32,
+        shots_per_sample: u32,
+    ) -> Option<Vec<TransferFunctionSample>> {
+        let _ = (sample_count, shots_per_sample);
+        None
+    }
 }
 
 #[cfg(test)]
@@ -1117,7 +1251,7 @@ mod tests {
             model: "Pressure Wave Systems PWG500".into(),
             cycle_frequency_hz: 1.1,
             stage_temperatures_k: vec![50.0, 4.0, 0.8, 0.1, 0.01],
-            rotary_valve: true,
+            compressor_type: CompressorType::RotaryValve,
         }
     }
 
@@ -1186,7 +1320,7 @@ mod tests {
         assert!(caps.cooling_profile.is_some());
         let cp = caps.cooling_profile.unwrap();
         assert!((cp.cycle_frequency_hz() - 1.1).abs() < f64::EPSILON);
-        assert!(cp.compressor.rotary_valve);
+        assert!(cp.compressor.is_rotary_valve());
     }
 
     #[test]
@@ -1197,10 +1331,12 @@ mod tests {
                 TransferFunctionSample {
                     freq_hz: 1.1,
                     t1_modulation: 0.12,
+                    visibility_modulation: None,
                 },
                 TransferFunctionSample {
                     freq_hz: 2.2,
                     t1_modulation: 0.04,
+                    visibility_modulation: None,
                 },
             ],
             quiet_windows: vec![QuietWindow {
