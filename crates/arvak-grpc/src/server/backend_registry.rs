@@ -143,6 +143,26 @@ pub async fn register_ibm_backends(registry: &mut BackendRegistry) {
     }
 }
 
+/// Register Quandela Altair backend.
+///
+/// Registers Quandela Altair as `"quandela-altair"`.
+/// Reads `QUANDELA_API_KEY` from the environment.
+/// Logs a warning and skips if the key is absent.
+#[cfg(feature = "quandela")]
+pub async fn register_quandela_backends(registry: &mut BackendRegistry) {
+    use arvak_adapter_quandela::QuandelaBackend;
+
+    match QuandelaBackend::new() {
+        Ok(backend) => {
+            registry.register("quandela-altair".to_string(), Arc::new(backend));
+            tracing::info!("Registered Quandela Altair as 'quandela-altair'");
+        }
+        Err(e) => {
+            tracing::warn!("Quandela backend not registered: {e}");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
