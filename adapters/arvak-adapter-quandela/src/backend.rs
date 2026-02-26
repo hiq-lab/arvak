@@ -27,6 +27,14 @@ use arvak_hal::capability::{
 pub struct AlsvidEnrollment {
     /// Installation-unique identifier.
     pub installation_id: String,
+    /// Compressor type as classified by alsvid spectral analysis.
+    ///
+    /// Possible values: `"rotary_valve"`, `"bellows"`, `"multi_motor"`.
+    /// `"bellows"` corresponds to Stirling-cycle / PWS metal-bellows compressors.
+    /// Note: for Quandela Altair the 4K cold head is always `GiffordMcMahon`
+    /// regardless of this field — alsvid analyses the *compressor drive*, not
+    /// the cold head thermodynamic cycle.
+    pub compressor_type: String,
     /// SHA-256 fingerprint hash (hex, 64 chars).
     pub fingerprint_hash: String,
     /// Unix timestamp of enrollment.
@@ -317,6 +325,7 @@ mod tests {
         let mut b = QuandelaBackend::with_key("k").unwrap();
         let enrollment = AlsvidEnrollment {
             installation_id: "altair-sn001-paris".into(),
+            compressor_type: "bellows".into(),
             fingerprint_hash: "a".repeat(64),
             enrolled_at: 1_740_000_000,
             enrollment_shots: 1000,
