@@ -535,8 +535,10 @@ dependencies = [
  "arvak-hal",
  "arvak-ir",
  "arvak-qasm3",
+ "arvak-sim",
  "num-complex",
  "pyo3",
+ "rand 0.8.5",
 ]
 
 [[package]]

@@ -83,7 +83,10 @@ class DenseEncoding:
         """
         bs = np.asarray(bitstrings, dtype=np.uint64)
         w = np.asarray(weights, dtype=np.float64)
-        w = w / w.sum()
+        w_sum = w.sum()
+        if w_sum == 0.0:
+            return np.zeros(len(self.parity_masks), dtype=np.float64)
+        w = w / w_sum
         parities = _popcount_parity(bs[:, None] & self.parity_masks[None, :]).astype(np.float64)
         # expectation of (-1)^parity:  +1 when parity=0, -1 when parity=1
         signed = 1.0 - 2.0 * parities      # shape (n_samples, n_vars)

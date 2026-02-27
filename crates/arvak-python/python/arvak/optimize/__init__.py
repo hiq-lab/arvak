@@ -30,7 +30,7 @@ Quick start::
     print(parts)  # e.g. [[0, 2], [1, 3]]
 """
 
-from ._backend import HalBackend
+from ._backend import HalBackend, NoisyBackend
 from ._encoding import DenseEncoding, Encoding, PolyEncoding
 from ._partition import spectral_partition
 from ._pce import Backend, PceResult, PCESolver
@@ -41,7 +41,9 @@ from ._problems import (
     qubo_from_tsp,
     tsp_tour_length,
 )
+from ._qaoa import QaoaResult, QAOASolver
 from ._qubo import BinaryQubo
+from ._vqe import SparsePauliOp, VqeResult, VQESolver
 
 __all__ = [
     # QUBO type
@@ -54,8 +56,16 @@ __all__ = [
     "PCESolver",
     "PceResult",
     "Backend",
-    # HAL backend adapter
+    # VQE
+    "VQESolver",
+    "VqeResult",
+    "SparsePauliOp",
+    # QAOA
+    "QAOASolver",
+    "QaoaResult",
+    # HAL backend adapters
     "HalBackend",
+    "NoisyBackend",
     # Graph partitioning
     "spectral_partition",
     # Problem encodings

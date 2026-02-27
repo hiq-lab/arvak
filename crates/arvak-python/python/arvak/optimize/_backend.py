@@ -107,7 +107,7 @@ class HalBackend:
     # ------------------------------------------------------------------
 
     @classmethod
-    def simulator(cls) -> "HalBackend":
+    def simulator(cls, noise_model=None) -> "HalBackend":
         """Return a HalBackend wrapping the Arvak built-in statevector simulator.
 
         This is equivalent to the default PCESolver backend (arvak.run_sim)
@@ -115,10 +115,18 @@ class HalBackend:
 
         Note: PCESolver already defaults to run_sim; this constructor is useful
         when you want to swap in a real backend later without changing the solver.
+
+        Args:
+            noise_model: Optional Qiskit NoiseModel. If provided, the simulator
+                         is wrapped in a NoisyBackend that passes the noise model
+                         to Aer on every circuit execution.
         """
         from arvak.integrations.qiskit.backend import ArvakProvider
         provider = ArvakProvider()
-        return cls(provider.get_backend("sim"), check_availability=False)
+        backend = cls(provider.get_backend("sim"), check_availability=False)
+        if noise_model is not None:
+            return NoisyBackend(backend, noise_model)  # type: ignore[return-value]
+        return backend
 
     @classmethod
     def ibm(cls, backend_name: str, **kwargs) -> "HalBackend":
@@ -183,6 +191,42 @@ class HalBackend:
     def __repr__(self) -> str:
         name = getattr(self._backend, "name", type(self._backend).__name__)
         return f"HalBackend({name!r}, timeout={self._poll_timeout}s)"
+
+
+class NoisyBackend:
+    """Wraps a backend with a noise model, forwarding it on every call.
+
+    Works with any backend that accepts noise_model as a keyword arg (e.g.
+    ArvakSimulatorBackend with Qiskit Aer). Silently ignores it for backends
+    that don't support it.
+
+    Args:
+        backend:     A callable with signature (circuit, shots) → dict[str, int].
+        noise_model: A Qiskit NoiseModel (or any noise model accepted by the
+                     wrapped backend).
+
+    Example::
+
+        from qiskit_aer.noise import NoiseModel
+        from arvak.optimize import HalBackend, NoisyBackend
+
+        noise = NoiseModel()
+        backend = NoisyBackend(HalBackend.simulator(), noise)
+    """
+
+    def __init__(self, backend, noise_model) -> None:
+        self._backend = backend
+        self._noise_model = noise_model
+
+    def __call__(self, circuit, shots: int) -> dict[str, int]:
+        try:
+            return self._backend(circuit, shots, noise_model=self._noise_model)
+        except TypeError:
+            # Backend doesn't accept noise_model — run without it.
+            return self._backend(circuit, shots)
+
+    def __repr__(self) -> str:
+        return f"NoisyBackend({self._backend!r}, noise_model={self._noise_model!r})"
 
 
 # ---------------------------------------------------------------------------
