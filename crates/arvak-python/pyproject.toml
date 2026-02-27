@@ -38,10 +38,14 @@ pennylane = ["pennylane>=0.32.0"]
 chemistry = ["pyscf>=2.4.0", "pennylane>=0.32.0"]
 # Nathan research optimizer
 nathan = ["httpx>=0.27"]
+# Variational QUBO solvers and graph partitioning
+optimize = ["numpy>=1.24", "scipy>=1.10"]
+# Spectral partitioning with faster k-means (optional)
+optimize-sklearn = ["arvak[optimize]", "scikit-learn>=1.3"]
 # Notebook support
 notebook = ["jupyter>=1.0.0", "matplotlib>=3.5.0"]
 # All integrations
-all = ["arvak[qiskit,qrisp,cirq,pennylane,chemistry,notebook,nathan]"]
+all = ["arvak[qiskit,qrisp,cirq,pennylane,chemistry,notebook,nathan,optimize-sklearn]"]
 
 [project.scripts]
 arvak-demo = "arvak.demo:main"
