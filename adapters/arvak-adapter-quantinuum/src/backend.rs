@@ -299,6 +299,12 @@ impl Backend for QuantinuumBackend {
             let mut jobs = self.jobs.lock().await;
             if jobs.len() >= MAX_CACHED_JOBS {
                 jobs.retain(|_, j| !j.job.status.is_terminal());
+                // Fallback: if retain() did not free space, evict the oldest entry.
+                if jobs.len() >= MAX_CACHED_JOBS {
+                    if let Some(key) = jobs.keys().next().cloned() {
+                        jobs.remove(&key);
+                    }
+                }
             }
             jobs.insert(job_id.0.clone(), CachedJob { job, result: None });
         }

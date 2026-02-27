@@ -21,4 +21,6 @@ arvak-compile = { workspace = true }
 arvak-qasm3 = { workspace = true }
 arvak-hal = { workspace = true }
 arvak-adapter-sim = { workspace = true, optional = true }
+arvak-sim = { workspace = true }
 num-complex = { workspace = true }
+rand = { workspace = true }

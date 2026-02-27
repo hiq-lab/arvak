@@ -25,6 +25,7 @@ mod compile;
 mod error;
 mod qasm;
 mod qubits;
+mod sim;
 mod simulate;
 
 use pyo3::prelude::*;
@@ -58,6 +59,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Compilation
     m.add_function(wrap_pyfunction!(compile::compile, m)?)?;
+
+    // Sim submodule
+    sim::register(m)?;
 
     Ok(())
 }

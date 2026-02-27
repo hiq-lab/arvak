@@ -199,6 +199,8 @@ class PCESolver:
         """Conditional Value at Risk: mean cost of the best top-fraction samples."""
         decoded = self.enc.decode_batch(bitstrings)
         costs = self.qubo.evaluate_batch(decoded)
+        if len(costs) == 0:
+            return 0.0
         n_keep = max(1, int(len(costs) * self.cvar_top))
         sorted_costs = np.sort(costs)
         return float(sorted_costs[:n_keep].mean())

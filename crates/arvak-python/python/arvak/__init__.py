@@ -46,6 +46,9 @@ from arvak.integrations import IntegrationRegistry
 # Nathan research optimizer (lazy import — only loaded when accessed)
 from arvak import nathan
 
+# Hamiltonian time-evolution synthesis (Trotter, QDrift)
+from arvak import sim
+
 # Variational QUBO solvers and graph decomposition tools
 from arvak import optimize
 
@@ -160,6 +163,8 @@ __all__ = [
     "get_integration",
     # Research optimizer
     "nathan",
+    # Time-evolution synthesis
+    "sim",
     # Variational solvers
     "optimize",
     # Demo

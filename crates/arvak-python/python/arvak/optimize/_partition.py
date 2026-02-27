@@ -176,7 +176,11 @@ def _numpy_kmeans(
     centers = [X[rng.integers(n)]]
     for _ in range(1, k):
         dists = np.array([min(np.linalg.norm(x - c) ** 2 for c in centers) for x in X])
-        probs = dists / dists.sum()
+        dists_sum = dists.sum()
+        if dists_sum == 0.0:
+            probs = np.ones(n) / n
+        else:
+            probs = dists / dists_sum
         centers.append(X[rng.choice(n, p=probs)])
     centers_arr = np.stack(centers)
 
