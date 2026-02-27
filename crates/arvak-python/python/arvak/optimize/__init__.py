@@ -34,6 +34,13 @@ from ._backend import HalBackend
 from ._encoding import DenseEncoding, Encoding, PolyEncoding
 from ._partition import spectral_partition
 from ._pce import Backend, PceResult, PCESolver
+from ._problems import (
+    decode_tsp,
+    qubo_from_maxcut,
+    qubo_from_portfolio,
+    qubo_from_tsp,
+    tsp_tour_length,
+)
 from ._qubo import BinaryQubo
 
 __all__ = [
@@ -51,4 +58,10 @@ __all__ = [
     "HalBackend",
     # Graph partitioning
     "spectral_partition",
+    # Problem encodings
+    "qubo_from_maxcut",
+    "qubo_from_tsp",
+    "qubo_from_portfolio",
+    "decode_tsp",
+    "tsp_tour_length",
 ]
