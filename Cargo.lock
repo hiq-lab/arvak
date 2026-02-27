@@ -584,6 +584,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvak-sim"
+version = "1.8.1"
+dependencies = [
+ "arvak-ir",
+ "rand 0.8.5",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "arvak-types"
 version = "1.8.1"
 dependencies = [
