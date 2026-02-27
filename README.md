@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.8.1-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.8.1)
+[![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.9.0)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.8.1 Released!** IQM Resonance integration via Scaleway QaaS (QPU-GARNET-20PQ 20q crystal, QPU-EMERALD-54PQ 54q crystal, QPU-SIRIUS-24PQ 16q star), pyo3 0.28.2 security fix (RUSTSEC-2026-0013), HAL contract debt clearance, and `arvak.demo()` launcher. See [CHANGELOG.md](CHANGELOG.md).
+> **v1.9.0 Released!** `arvak.sim` PyO3 bindings for Hamiltonian time-evolution (Trotter/QDrift), VQE and QAOA solvers in `arvak.optimize`, `NoisyBackend` noise-threading, and security hardening (XSS fix, bounded caches, overflow guards). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 
@@ -18,11 +18,13 @@ Arvak is a Rust-native quantum compilation and orchestration stack designed for 
 pip install arvak
 
 # With framework integrations
-pip install arvak[qiskit]      # IBM Quantum ecosystem
-pip install arvak[qrisp]       # High-level quantum programming
-pip install arvak[cirq]        # Google Quantum AI
-pip install arvak[pennylane]   # Quantum machine learning
-pip install arvak[all]         # All frameworks + Jupyter notebooks
+pip install arvak[qiskit]          # IBM Quantum ecosystem
+pip install arvak[qrisp]           # High-level quantum programming
+pip install arvak[cirq]            # Google Quantum AI
+pip install arvak[pennylane]       # Quantum machine learning
+pip install arvak[optimize]        # VQE, QAOA, PCE QUBO solvers (numpy + scipy)
+pip install arvak[optimize-sklearn] # arvak[optimize] + scikit-learn k-means
+pip install arvak[all]             # All frameworks + Jupyter notebooks
 ```
 
 ## Why Arvak?
@@ -86,6 +88,99 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 - **Zero-dependency core**: Framework integrations are optional extras
 - **Bidirectional**: Convert to/from any supported framework seamlessly
 - **Extensible**: Add new frameworks in ~30 minutes with template system
+
+## Hamiltonian Simulation (`arvak.sim`)
+
+Arvak exposes the Rust `arvak-sim` crate to Python via PyO3, giving direct access to Trotter-Suzuki and QDrift Hamiltonian time-evolution synthesis.
+
+```python
+from arvak.sim import (
+    PauliOp, PauliString, HamiltonianTerm, Hamiltonian,
+    TrotterEvolution, QDriftEvolution,
+)
+import arvak
+
+# Build a transverse-field Ising Hamiltonian  H = -ZZ - 0.5 XX
+h = Hamiltonian.from_terms([
+    HamiltonianTerm.zz(0, 1, -1.0),
+    HamiltonianTerm.new(-0.5, PauliString.from_ops([(0, PauliOp.X), (1, PauliOp.X)])),
+])
+
+# First-order Trotter circuit: e^{-iHt} with 4 steps
+trotter = TrotterEvolution.new(h, t=1.0, n_steps=4)
+circuit = trotter.first_order()   # → arvak.Circuit
+print(circuit.depth())
+
+# Second-order (Suzuki) decomposition
+circuit2 = trotter.second_order()
+
+# QDrift: random product formula, 200 Hamiltonian samples
+qdrift = QDriftEvolution.new(h, t=1.0, n_samples=200)
+circuit3 = qdrift.circuit(seed=42)
+
+# Simulate any of the above with the local statevector backend
+counts = arvak.run_sim(circuit, shots=1024)
+```
+
+## Variational Algorithms (`arvak.optimize`)
+
+### VQE — Ground-State Energy Estimation
+
+```python
+from arvak.optimize import VQESolver, SparsePauliOp
+
+# Define Hamiltonian as sum of weighted Pauli strings
+# H = -0.5 ZZ  −  0.3 XX  −  0.2 YY
+hamiltonian = SparsePauliOp([
+    (-0.5, {0: "Z", 1: "Z"}),
+    (-0.3, {0: "X", 1: "X"}),
+    (-0.2, {0: "Y", 1: "Y"}),
+])
+
+solver = VQESolver(hamiltonian, n_qubits=2, n_layers=2, shots=2048, seed=0)
+result = solver.solve()
+
+print(f"Ground state energy: {result.energy:.4f}")
+print(f"Optimal params: {result.params}")
+print(f"Converged: {result.converged}")
+```
+
+### QAOA — Combinatorial Optimisation
+
+```python
+from arvak.optimize import QAOASolver, BinaryQubo
+
+# MaxCut on a 4-node cycle graph
+Q = BinaryQubo.from_dict(
+    n=4,
+    quadratic={(0,1): -1, (1,2): -1, (2,3): -1, (0,3): -1},
+)
+
+solver = QAOASolver(Q, p=2, shots=2048, seed=0)
+result = solver.solve()
+
+print(f"Best cut: {result.solution}, cost: {result.cost:.4f}")
+print(f"γ={result.gamma}, β={result.beta}")
+```
+
+### Noise Threading
+
+Any variational solver accepts a `noise_model` that is forwarded to the backend on every circuit evaluation:
+
+```python
+from qiskit_aer.noise import NoiseModel
+from arvak.optimize import VQESolver, QAOASolver, SparsePauliOp, BinaryQubo, NoisyBackend
+
+noise = NoiseModel.from_backend(fake_backend)
+
+# Pass directly — solvers wrap the backend automatically
+vqe = VQESolver(hamiltonian, n_qubits=2, noise_model=noise)
+qaoa = QAOASolver(qubo, p=1, noise_model=noise)
+
+# Or wrap a custom backend manually
+from arvak.optimize import HalBackend
+backend = NoisyBackend(HalBackend.simulator(), noise)
+```
 
 ## Nathan: AI Research Optimizer
 
@@ -536,6 +631,8 @@ arvak/
 │   ├── arvak-grpc/        # gRPC service (Rust server)
 │   ├── arvak-python/      # Python bindings (PyO3) + integrations
 │   │   ├── python/arvak/              # Python package
+│   │   ├── python/arvak/sim.py        # Hamiltonian simulation (Trotter, QDrift)
+│   │   ├── python/arvak/optimize/     # Variational solvers (VQE, QAOA, PCE, QUBO)
 │   │   ├── python/arvak/integrations/ # Framework integrations
 │   │   ├── notebooks/                 # 5 Jupyter notebooks
 │   │   └── docs/                      # Integration guides
@@ -966,6 +1063,8 @@ fn main() -> anyhow::Result<()> {
 | Dashboard (`arvak-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
 | Python Bindings (`arvak-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations + real simulator |
 | **Framework Integrations** | ✅ Complete | **Qiskit, Qrisp, Cirq, PennyLane + 5 notebooks** |
+| **`arvak.sim`** | ✅ Complete | **PyO3 bindings: Hamiltonian, TrotterEvolution, QDriftEvolution** |
+| **`arvak.optimize`** | ✅ Complete | **VQE, QAOA, PCE QUBO solver, spectral partition, NoisyBackend** |
 | Demos | ✅ Complete | Grover, VQE, QAOA, QI-Nutshell, speed benchmarks (VQE/QML/QAOA) |
 
 ## Testing
@@ -1059,7 +1158,17 @@ python tests/verify_integration_system.py
 - [x] Comprehensive architectural audit (100+ security/correctness fixes)
 - [x] **v1.8.0 release**
 
-### Phase 10: Community & Ecosystem
+### Phase 10: Variational Algorithms & Simulation ✅ COMPLETE
+- [x] `arvak.sim`: PyO3 bindings for Hamiltonian time-evolution synthesis
+  - Trotter-Suzuki (first + second order) and QDrift product formulas
+  - `PauliOp`, `PauliString`, `HamiltonianTerm`, `Hamiltonian` Python classes
+- [x] VQE solver (`arvak.optimize._vqe`): hardware-efficient ansatz, parity expectations, COBYLA
+- [x] QAOA solver (`arvak.optimize._qaoa`): QUBO gadget circuit, Rx mixer, CVaR cost
+- [x] `NoisyBackend`: noise-model threading for any variational solver or custom backend
+- [x] Security hardening: XSS fix in dashboard, bounded caches, rate-counter overflow guards
+- [x] **v1.9.0 release**
+
+### Phase 11: Community & Ecosystem
 - [ ] Error mitigation (ZNE, readout correction, Pauli twirling)
 - [ ] Pulse-level control for IQM/IBM
 - [ ] Advanced routing algorithms (SABRE improvements)
