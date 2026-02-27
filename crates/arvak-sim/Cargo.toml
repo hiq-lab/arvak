@@ -1,0 +1,17 @@
+[package]
+name = "arvak-sim"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hamiltonian time-evolution synthesis for Arvak (Trotter / QDrift)"
+keywords = ["quantum", "trotter", "qdrift", "hamiltonian", "simulation"]
+categories = ["science", "compilers"]
+
+[dependencies]
+arvak-ir = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }

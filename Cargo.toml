@@ -28,6 +28,7 @@ arvak-auto = { path = "crates/arvak-auto" }
 arvak-dashboard = { path = "crates/arvak-dashboard" }
 arvak-bench = { path = "crates/arvak-bench" }
 arvak-eval = { path = "crates/arvak-eval" }
+arvak-sim = { path = "crates/arvak-sim" }
 
 # Adapter crates
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
