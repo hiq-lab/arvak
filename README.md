@@ -37,7 +37,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 4. **Enables** seamless interoperability: use Qiskit/Cirq/Qrisp circuits with Arvak backends
 5. **Offers** unified access to IQM, IBM Quantum, Scaleway QaaS, AWS Braket, NVIDIA CUDA-Q, and any QDMI-compliant device
 6. **Supports** neutral-atom architectures with zone-aware routing and shuttling
-7. **Includes** Nathan, an AI research optimizer grounded in 1,700+ quantum computing papers
+7. **Includes** Nathan, an AI research optimizer grounded in 1,700+ quantum computing papers and 680+ method mappings
 
 ## Architecture: Deep Modular Integration
 
@@ -89,102 +89,9 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 - **Bidirectional**: Convert to/from any supported framework seamlessly
 - **Extensible**: Add new frameworks in ~30 minutes with template system
 
-## Hamiltonian Simulation (`arvak.sim`)
-
-Arvak exposes the Rust `arvak-sim` crate to Python via PyO3, giving direct access to Trotter-Suzuki and QDrift Hamiltonian time-evolution synthesis.
-
-```python
-from arvak.sim import (
-    PauliOp, PauliString, HamiltonianTerm, Hamiltonian,
-    TrotterEvolution, QDriftEvolution,
-)
-import arvak
-
-# Build a transverse-field Ising Hamiltonian  H = -ZZ - 0.5 XX
-h = Hamiltonian.from_terms([
-    HamiltonianTerm.zz(0, 1, -1.0),
-    HamiltonianTerm.new(-0.5, PauliString.from_ops([(0, PauliOp.X), (1, PauliOp.X)])),
-])
-
-# First-order Trotter circuit: e^{-iHt} with 4 steps
-trotter = TrotterEvolution.new(h, t=1.0, n_steps=4)
-circuit = trotter.first_order()   # → arvak.Circuit
-print(circuit.depth())
-
-# Second-order (Suzuki) decomposition
-circuit2 = trotter.second_order()
-
-# QDrift: random product formula, 200 Hamiltonian samples
-qdrift = QDriftEvolution.new(h, t=1.0, n_samples=200)
-circuit3 = qdrift.circuit(seed=42)
-
-# Simulate any of the above with the local statevector backend
-counts = arvak.run_sim(circuit, shots=1024)
-```
-
-## Variational Algorithms (`arvak.optimize`)
-
-### VQE — Ground-State Energy Estimation
-
-```python
-from arvak.optimize import VQESolver, SparsePauliOp
-
-# Define Hamiltonian as sum of weighted Pauli strings
-# H = -0.5 ZZ  −  0.3 XX  −  0.2 YY
-hamiltonian = SparsePauliOp([
-    (-0.5, {0: "Z", 1: "Z"}),
-    (-0.3, {0: "X", 1: "X"}),
-    (-0.2, {0: "Y", 1: "Y"}),
-])
-
-solver = VQESolver(hamiltonian, n_qubits=2, n_layers=2, shots=2048, seed=0)
-result = solver.solve()
-
-print(f"Ground state energy: {result.energy:.4f}")
-print(f"Optimal params: {result.params}")
-print(f"Converged: {result.converged}")
-```
-
-### QAOA — Combinatorial Optimisation
-
-```python
-from arvak.optimize import QAOASolver, BinaryQubo
-
-# MaxCut on a 4-node cycle graph
-Q = BinaryQubo.from_dict(
-    n=4,
-    quadratic={(0,1): -1, (1,2): -1, (2,3): -1, (0,3): -1},
-)
-
-solver = QAOASolver(Q, p=2, shots=2048, seed=0)
-result = solver.solve()
-
-print(f"Best cut: {result.solution}, cost: {result.cost:.4f}")
-print(f"γ={result.gamma}, β={result.beta}")
-```
-
-### Noise Threading
-
-Any variational solver accepts a `noise_model` that is forwarded to the backend on every circuit evaluation:
-
-```python
-from qiskit_aer.noise import NoiseModel
-from arvak.optimize import VQESolver, QAOASolver, SparsePauliOp, BinaryQubo, NoisyBackend
-
-noise = NoiseModel.from_backend(fake_backend)
-
-# Pass directly — solvers wrap the backend automatically
-vqe = VQESolver(hamiltonian, n_qubits=2, noise_model=noise)
-qaoa = QAOASolver(qubo, p=1, noise_model=noise)
-
-# Or wrap a custom backend manually
-from arvak.optimize import HalBackend
-backend = NoisyBackend(HalBackend.simulator(), noise)
-```
-
 ## Nathan: AI Research Optimizer
 
-Arvak includes **Nathan**, an AI-powered quantum research optimizer grounded in 1,700+ quantum computing papers. Nathan provides hardware-aware circuit analysis and optimization recommendations.
+Arvak includes **Nathan**, an AI-powered quantum research optimizer grounded in 1,700+ peer-reviewed quantum computing papers and 680+ algorithm–hardware method mappings from arXiv, D-Wave, Qiskit, PennyLane, and Classiq. Nathan provides hardware-aware circuit analysis and optimization recommendations.
 
 ```python
 import arvak
@@ -208,7 +115,8 @@ print(response)
 ```
 
 **Features:**
-- **1,700+ sources**: Grounded in peer-reviewed quantum computing literature
+- **1,700+ papers**: Peer-reviewed quantum computing literature from arXiv, D-Wave, Qiskit, PennyLane, and Classiq
+- **680+ method mappings**: Algorithm–hardware pairings curated from vendor documentation and benchmarks
 - **Hardware-aware**: Recommendations tailored to target backend (IBM, IQM, etc.)
 - **Code anonymization**: Automatically strips PII before analysis
 - **Jupyter integration**: Works seamlessly in notebook workflows
@@ -697,6 +605,64 @@ compiled = arvak.compile_circuit(
 )
 ```
 
+### Hamiltonian Simulation
+
+```python
+from arvak.sim import PauliOp, HamiltonianTerm, Hamiltonian, TrotterEvolution, QDriftEvolution
+
+# Transverse-field Ising: H = -ZZ - 0.5 XX
+h = Hamiltonian.from_terms([
+    HamiltonianTerm.zz(0, 1, -1.0),
+    HamiltonianTerm.x(0, -0.5),
+])
+
+# Trotter-Suzuki product formula
+circuit = TrotterEvolution.new(h, t=1.0, n_steps=4).second_order()
+counts = arvak.run_sim(circuit, shots=1024)
+
+# QDrift (randomised)
+circuit = QDriftEvolution.new(h, t=1.0, n_samples=200).circuit(seed=42)
+```
+
+### VQE — Ground-State Energy
+
+```python
+from arvak.optimize import VQESolver, SparsePauliOp
+
+h = SparsePauliOp([
+    (-0.5, {0: "Z", 1: "Z"}),
+    (-0.3, {0: "X", 1: "X"}),
+    (-0.2, {0: "Y", 1: "Y"}),
+])
+
+result = VQESolver(h, n_qubits=2, n_layers=2, shots=2048, seed=0).solve()
+print(f"Ground state energy: {result.energy:.4f}")
+```
+
+### QAOA — Combinatorial Optimisation
+
+```python
+from arvak.optimize import QAOASolver, BinaryQubo
+
+# MaxCut on a 4-node cycle
+Q = BinaryQubo.from_dict(n=4, quadratic={(0,1):-1,(1,2):-1,(2,3):-1,(0,3):-1})
+result = QAOASolver(Q, p=2, shots=2048, seed=0).solve()
+print(f"Best cut: {result.solution}, cost: {result.cost:.4f}")
+```
+
+### Noise Threading
+
+```python
+from qiskit_aer.noise import NoiseModel
+from arvak.optimize import VQESolver, NoisyBackend, HalBackend
+
+noise = NoiseModel.from_backend(fake_backend)
+result = VQESolver(h, n_qubits=2, noise_model=noise).solve()
+
+# Or wrap any backend manually
+backend = NoisyBackend(HalBackend.simulator(), noise)
+```
+
 ### Rust API
 
 ```rust
@@ -1150,7 +1116,7 @@ python tests/verify_integration_system.py
 - [x] Scaleway QaaS adapter (IQM Garnet 20q, Emerald 54q, Sirius 16q)
 - [x] AWS Braket adapter (IonQ, Rigetti, IQM, simulators)
 - [x] IBM Cloud API adapter with Heron compilation support
-- [x] Nathan AI research optimizer (1,700+ papers, hardware-aware analysis)
+- [x] Nathan AI research optimizer (1,700+ papers, 680+ method mappings, hardware-aware analysis)
 - [x] Code anonymization for Nathan (PII protection before LLM analysis)
 - [x] Multi-backend CLI (`arvak run --backend scaleway/braket/ibm`)
 - [x] Python compile bindings
