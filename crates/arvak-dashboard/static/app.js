@@ -1884,7 +1884,7 @@ async function nathanAnalyze() {
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            results.innerHTML = `<p class="placeholder" style="color:#ef4444;">Error: ${err.detail || resp.status}</p>`;
+            results.innerHTML = `<p class="placeholder" style="color:#ef4444;">Error: ${escapeHtml(err.detail || String(resp.status))}</p>`;
             return;
         }
 

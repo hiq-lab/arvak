@@ -43,15 +43,34 @@ struct RateLimitState {
 
 impl ResourceManager {
     /// Create a new resource manager with the given limits.
+    ///
+    /// Spawns a background task that cleans up stale rate-limit entries every
+    /// 60 seconds, preventing unbounded growth from unique client IPs.
     pub fn new(limits: ResourceLimits) -> Self {
-        Self {
-            limits,
-            state: Arc::new(RwLock::new(ResourceState {
-                running_jobs: 0,
-                queued_jobs: 0,
-                rate_limits: HashMap::new(),
-            })),
+        let state = Arc::new(RwLock::new(ResourceState {
+            running_jobs: 0,
+            queued_jobs: 0,
+            rate_limits: HashMap::new(),
+        }));
+
+        // Periodically evict rate-limit entries older than 60 s.
+        // Only spawned when a Tokio runtime is active (no-op in sync tests).
+        if tokio::runtime::Handle::try_current().is_ok() {
+            let state_clone = Arc::clone(&state);
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(60));
+                loop {
+                    interval.tick().await;
+                    let now = Instant::now();
+                    let cleanup_window = Duration::from_secs(60);
+                    let mut s = state_clone.write().await;
+                    s.rate_limits
+                        .retain(|_, rs| now.duration_since(rs.window_start) < cleanup_window);
+                }
+            });
         }
+
+        Self { limits, state }
     }
 
     /// Check if a new job can be accepted (queued).
@@ -120,7 +139,7 @@ impl ResourceManager {
                 rate_state.count = 1;
                 rate_state.window_start = now;
             } else {
-                rate_state.count += 1;
+                rate_state.count = rate_state.count.saturating_add(1);
             }
         }
     }

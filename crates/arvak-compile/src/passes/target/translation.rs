@@ -130,8 +130,13 @@ fn translate_gate(
             } else if is_neutral_atom {
                 translate_to_neutral_atom(std_gate, &instruction.qubits)
             } else {
-                // Unknown basis, return as-is
-                Ok(vec![instruction.clone()])
+                // Unknown basis combination — fail explicitly rather than
+                // silently passing the gate through (CLAUDE.md: never skip
+                // unsupported operations).
+                Err(CompileError::GateNotInBasis(format!(
+                    "{} (basis unrecognised)",
+                    gate.name()
+                )))
             }
         }
         GateKind::Custom(_) => {

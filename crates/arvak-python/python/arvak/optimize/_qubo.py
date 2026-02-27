@@ -82,6 +82,10 @@ class BinaryQubo:
     def evaluate(self, x: Sequence[bool] | np.ndarray) -> float:
         """Evaluate QUBO cost for assignment x in {0,1}^n."""
         x = np.asarray(x, dtype=float)
+        if len(x) < self.n:
+            raise ValueError(
+                f"Assignment length {len(x)} is shorter than n={self.n}"
+            )
         cost = sum(c * x[i] for i, c in self.linear.items())
         cost += sum(c * x[i] * x[j] for (i, j), c in self.quadratic.items())
         return float(cost)

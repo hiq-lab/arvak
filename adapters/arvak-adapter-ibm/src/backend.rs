@@ -19,6 +19,10 @@ use crate::error::{IbmError, IbmResult};
 /// Default IBM Quantum backend (Heron processor, zero-queue).
 const DEFAULT_BACKEND: &str = "ibm_torino";
 
+/// Maximum number of job IDs to keep in the shots cache.
+/// Terminal-state jobs are evicted first; oldest entry evicted as fallback.
+const MAX_SHOTS_CACHE: usize = 10_000;
+
 /// Eagle backends (127-qubit, ECR native).
 const EAGLE_BACKENDS: &[&str] = &[
     "ibm_brussels",
@@ -542,8 +546,14 @@ impl Backend for IbmBackend {
             .map_err(|e| HalError::SubmissionFailed(e.to_string()))?;
 
         // Cache submitted shot count for accurate quasi-distribution conversion.
+        // Evict oldest entry if the cache is full to bound memory growth.
         {
             let mut cache = self.shots_cache.lock().await;
+            if cache.len() >= MAX_SHOTS_CACHE {
+                if let Some(key) = cache.keys().next().cloned() {
+                    cache.remove(&key);
+                }
+            }
             cache.insert(response.id.clone(), shots);
         }
 

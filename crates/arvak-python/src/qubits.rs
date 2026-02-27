@@ -39,7 +39,7 @@ impl PyQubitId {
     }
 
     fn __hash__(&self) -> u64 {
-        self.0 as u64
+        u64::from(self.0)
     }
 
     fn __eq__(&self, other: &PyQubitId) -> bool {
@@ -100,7 +100,7 @@ impl PyClbitId {
     }
 
     fn __hash__(&self) -> u64 {
-        self.0 as u64
+        u64::from(self.0)
     }
 
     fn __eq__(&self, other: &PyClbitId) -> bool {
