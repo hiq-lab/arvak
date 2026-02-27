@@ -5,6 +5,42 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-02-27
+
+### Added
+
+- **`arvak.sim` — PyO3 Hamiltonian simulation bindings**: Full Python access to the Rust `arvak-sim` crate.
+  - `PauliOp` (I, X, Y, Z), `PauliString`, `HamiltonianTerm`, `Hamiltonian` — construct arbitrary Pauli-sum Hamiltonians
+  - `TrotterEvolution.first_order()` / `.second_order()` — Trotter-Suzuki product formula circuits
+  - `QDriftEvolution.circuit(seed=None)` — randomised QDrift product formula circuits
+  - All methods return `arvak.Circuit` ready for `run_sim` or any HAL backend
+
+- **`arvak.optimize._vqe` — Variational Quantum Eigensolver**:
+  - `SparsePauliOp`: lightweight sum-of-Paulis as `list[tuple[float, dict[int, str]]]`
+  - `VQESolver`: hardware-efficient ansatz (RY layers + CNOT ring), basis-rotation expectation values, COBYLA optimizer
+  - `VqeResult`: `energy`, `params`, `n_iters`, `converged`, `energy_history`
+
+- **`arvak.optimize._qaoa` — QAOA solver**:
+  - `QAOASolver`: depth-`p` QAOA for arbitrary `BinaryQubo` problems; CX+Rz+CX gadget for quadratic terms, Rx mixer, CVaR(top 10%) cost
+  - `QaoaResult`: `solution`, `cost`, `gamma`, `beta`, `n_iters`, `converged`, `top_solutions`
+
+- **`arvak.optimize._backend.NoisyBackend`**: wraps any backend with a noise model, forwarding it as `noise_model=` kwarg on every circuit evaluation (graceful fallback for backends that don't support it).
+
+- **`HalBackend.simulator(noise_model=None)`**: classmethod now accepts and applies a Qiskit `NoiseModel` via Aer.
+
+### Fixed
+
+- **XSS in dashboard** (`crates/arvak-dashboard/static/app.js`): `err.detail` was interpolated into `innerHTML` without sanitisation — now wrapped in `escapeHtml()`.
+- **IBM `shots_cache` unbounded** (`arvak-adapter-ibm`): added `MAX_SHOTS_CACHE = 10_000` constant with FIFO eviction to prevent unbounded memory growth.
+- **Quantinuum job cache incomplete eviction** (`arvak-adapter-quantinuum`): added fallback hard eviction after `retain()` to guarantee the cache never exceeds `MAX_CACHED_JOBS`.
+- **Rate-counter integer overflow** (`arvak-grpc/resource_manager.rs`): `count += 1` replaced with `count.saturating_add(1)` to prevent silent wrap-around.
+- **`cleanup_rate_limits` never called** (`arvak-grpc/resource_manager.rs`): background tokio task now spawned in `ResourceManager::new()` (runtime-guarded with `Handle::try_current()`).
+- **Silent gate passthrough in compiler** (`arvak-compile/passes/target/translation.rs`): unrecognised gates now return `GateNotInBasis` error instead of silently passing through unchanged.
+- **Division by zero in `pauli_correlations`** (`arvak.optimize._encoding`): zero-guard added for both `DenseEncoding` and `PolyEncoding` when the weight sum is zero.
+- **Empty costs array in CVaR** (`arvak.optimize._pce`): `_cvar_cost` returns `0.0` instead of panicking on empty sample batches.
+- **Short assignment in `BinaryQubo.evaluate`** (`arvak.optimize._qubo`): raises `ValueError` with a clear message when the assignment is shorter than `n`.
+- **Division by zero in k-means++** (`arvak.optimize._partition`): unguarded `dists / dists.sum()` replaced with a zero-sum check that falls back to uniform sampling.
+
 ## [1.8.1] - 2026-02-20
 
 ### Added
