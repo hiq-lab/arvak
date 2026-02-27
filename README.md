@@ -37,7 +37,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 4. **Enables** seamless interoperability: use Qiskit/Cirq/Qrisp circuits with Arvak backends
 5. **Offers** unified access to IQM, IBM Quantum, Scaleway QaaS, AWS Braket, NVIDIA CUDA-Q, and any QDMI-compliant device
 6. **Supports** neutral-atom architectures with zone-aware routing and shuttling
-7. **Includes** Nathan, an AI research optimizer grounded in 1,700+ quantum computing papers and 680+ method mappings
+7. **Includes** Nathan, an AI research optimizer grounded in 7,900+ quantum computing papers and 680+ method mappings
 
 ## Architecture: Deep Modular Integration
 
@@ -91,7 +91,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 
 ## Nathan: AI Research Optimizer
 
-Arvak includes **Nathan**, an AI-powered quantum research optimizer grounded in 1,700+ peer-reviewed quantum computing papers and 680+ algorithm–hardware method mappings from arXiv, D-Wave, Qiskit, PennyLane, and Classiq. Nathan provides hardware-aware circuit analysis and optimization recommendations.
+Arvak includes **Nathan**, an AI-powered quantum research optimizer grounded in 7,900+ peer-reviewed quantum computing papers and 680+ algorithm–hardware method mappings from arXiv, D-Wave, Qiskit, PennyLane, and Classiq. Nathan provides hardware-aware circuit analysis and optimization recommendations.
 
 ```python
 import arvak
@@ -115,7 +115,7 @@ print(response)
 ```
 
 **Features:**
-- **1,700+ papers**: Peer-reviewed quantum computing literature from arXiv, D-Wave, Qiskit, PennyLane, and Classiq
+- **7,900+ papers**: Peer-reviewed quantum computing literature from arXiv, D-Wave, Qiskit, PennyLane, and Classiq
 - **680+ method mappings**: Algorithm–hardware pairings curated from vendor documentation and benchmarks
 - **Hardware-aware**: Recommendations tailored to target backend (IBM, IQM, etc.)
 - **Code anonymization**: Automatically strips PII before analysis
@@ -1116,7 +1116,7 @@ python tests/verify_integration_system.py
 - [x] Scaleway QaaS adapter (IQM Garnet 20q, Emerald 54q, Sirius 16q)
 - [x] AWS Braket adapter (IonQ, Rigetti, IQM, simulators)
 - [x] IBM Cloud API adapter with Heron compilation support
-- [x] Nathan AI research optimizer (1,700+ papers, 680+ method mappings, hardware-aware analysis)
+- [x] Nathan AI research optimizer (7,900+ papers, 680+ method mappings, hardware-aware analysis)
 - [x] Code anonymization for Nathan (PII protection before LLM analysis)
 - [x] Multi-backend CLI (`arvak run --backend scaleway/braket/ibm`)
 - [x] Python compile bindings
