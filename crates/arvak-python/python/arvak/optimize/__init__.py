@@ -30,6 +30,7 @@ Quick start::
     print(parts)  # e.g. [[0, 2], [1, 3]]
 """
 
+from ._backend import HalBackend
 from ._encoding import DenseEncoding, Encoding, PolyEncoding
 from ._partition import spectral_partition
 from ._pce import Backend, PceResult, PCESolver
@@ -46,6 +47,8 @@ __all__ = [
     "PCESolver",
     "PceResult",
     "Backend",
+    # HAL backend adapter
+    "HalBackend",
     # Graph partitioning
     "spectral_partition",
 ]
