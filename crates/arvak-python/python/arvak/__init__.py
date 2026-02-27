@@ -46,6 +46,9 @@ from arvak.integrations import IntegrationRegistry
 # Nathan research optimizer (lazy import — only loaded when accessed)
 from arvak import nathan
 
+# Variational QUBO solvers and graph decomposition tools
+from arvak import optimize
+
 # Demo launcher
 from arvak.demo import launch as demo
 
@@ -157,6 +160,8 @@ __all__ = [
     "get_integration",
     # Research optimizer
     "nathan",
+    # Variational solvers
+    "optimize",
     # Demo
     "demo",
 ]
