@@ -44,6 +44,9 @@ pub struct StoredJob {
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
     pub result: Option<ExecutionResult>,
+    /// Optional parameter bindings for parametric circuits (DEBT-25).
+    /// Keys are OpenQASM 3.0 `input float[64]` parameter names.
+    pub parameters: Option<std::collections::HashMap<String, f64>>,
 }
 
 /// Filter for querying jobs.
