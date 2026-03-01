@@ -164,6 +164,10 @@ async fn get_backend_handler(
     supported_gates.extend(caps.gate_set.two_qubit.clone());
     supported_gates.extend(caps.gate_set.three_qubit.iter().cloned());
 
+    let noise_profile_json = caps.noise_profile.as_ref().and_then(|np| {
+        serde_json::to_string(np).ok()
+    });
+
     Ok(Json(BackendDetailResponse {
         backend_id: id,
         name: caps.name.clone(),
@@ -172,6 +176,10 @@ async fn get_backend_handler(
         max_shots: caps.max_shots,
         supported_gates,
         topology_json,
+        noise_profile_json,
+        max_circuit_ops: caps.max_circuit_ops,
+        is_simulator: caps.is_simulator,
+        features: caps.features.clone(),
     }))
 }
 
@@ -259,7 +267,7 @@ async fn submit_job_handler(
     // Create job
     let job_id = state
         .job_store
-        .create_job(circuit, req.backend_id.clone(), req.shots)
+        .create_job(circuit, req.backend_id.clone(), req.shots, req.parameters)
         .await
         .map_err(|e| {
             error_response(
