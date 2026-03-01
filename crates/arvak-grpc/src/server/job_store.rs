@@ -37,6 +37,7 @@ impl JobStore {
         circuit: Circuit,
         backend_id: String,
         shots: u32,
+        parameters: Option<std::collections::HashMap<String, f64>>,
     ) -> Result<JobId> {
         let job_id = JobId::new(uuid::Uuid::new_v4().to_string());
 
@@ -50,6 +51,7 @@ impl JobStore {
             started_at: None,
             completed_at: None,
             result: None,
+            parameters,
         };
 
         self.storage.store_job(&job).await?;
@@ -97,7 +99,7 @@ mod tests {
         let circuit = Circuit::with_size("test", 2, 0);
 
         let job_id = store
-            .create_job(circuit, "simulator".to_string(), 1000)
+            .create_job(circuit, "simulator".to_string(), 1000, None)
             .await
             .unwrap();
 
@@ -113,7 +115,7 @@ mod tests {
         let store = JobStore::new();
         let circuit = Circuit::with_size("test", 2, 0);
         let job_id = store
-            .create_job(circuit, "simulator".to_string(), 1000)
+            .create_job(circuit, "simulator".to_string(), 1000, None)
             .await
             .unwrap();
 
