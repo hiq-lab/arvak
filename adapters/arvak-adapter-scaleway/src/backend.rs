@@ -375,7 +375,12 @@ impl Backend for ScalewayBackend {
     }
 
     #[instrument(skip(self, circuit))]
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        _parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
         info!(
             "Submitting circuit to Scaleway {} (session {}): {} qubits, {} shots",
             self.platform,
