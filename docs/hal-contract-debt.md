@@ -426,7 +426,7 @@ before the corresponding QUASI PRs can be finalised.
 
 ### DEBT-24: No `GET /hal/backends/{name}` capabilities endpoint
 
-**Status: Open**
+**Status: FIXED (2026-03-01) — ts-halcontract `getBackendCapabilities()` + spec §10**
 **Severity: High**
 **Identified by:** QUASI PR #368 (noise model spec) / Afana compiler boundary review (2026-03-01)
 **Component:** HAL Contract HTTP REST surface (ts-halcontract, Arvak HTTP adapter)
@@ -486,7 +486,7 @@ concern driven by the capabilities response.
 
 ### DEBT-25: No parameter binding in `submit()` for variational algorithms
 
-**Status: Open**
+**Status: FIXED (2026-03-01) — `Backend::submit(parameters)` trait + all 9 adapters + REST gateway**
 **Severity: High**
 **Identified by:** QUASI PR #364 (parametric Ehrenfest v0.2) / Afana compiler review (2026-03-01)
 **Component:** HAL Contract `Backend::submit()` trait method + `SubmitCircuitInput` HTTP type
@@ -553,8 +553,8 @@ the quasi-board passes a parameter map at `POST /hal/jobs` time.
 
 | ID | Severity | Component | Status |
 |----|----------|-----------|--------|
-| DEBT-24 | High | HAL HTTP REST surface — `GET /hal/backends/{name}` | **Open** |
-| DEBT-25 | High | `Backend::submit()` + `SubmitCircuitInput` — parameter binding | **Open** |
+| DEBT-24 | High | HAL HTTP REST surface — `GET /hal/backends/{name}` | **FIXED 2026-03-01** |
+| DEBT-25 | High | `Backend::submit()` + `SubmitCircuitInput` — parameter binding | **FIXED 2026-03-01** |
 
-**Open items: 4** (DEBT-Q4, DEBT-Q5, DEBT-24, DEBT-25).
+**Open items: 2** (DEBT-Q4, DEBT-Q5). DEBT-24 and DEBT-25 resolved 2026-03-01.
 
