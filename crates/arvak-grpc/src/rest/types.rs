@@ -30,6 +30,10 @@ pub struct SubmitJobRequest {
     /// Optimization level (0–3).
     #[serde(default = "default_optimization_level")]
     pub optimization_level: u32,
+    /// Optional parameter bindings for parametric circuits (DEBT-25).
+    /// Keys are OpenQASM 3.0 `input float[64]` parameter names.
+    #[serde(default)]
+    pub parameters: Option<std::collections::HashMap<String, f64>>,
 }
 
 fn default_shots() -> u32 {
@@ -76,6 +80,14 @@ pub struct BackendDetailResponse {
     pub max_shots: u32,
     pub supported_gates: Vec<String>,
     pub topology_json: String,
+    /// Device-wide noise averages; `null` when unavailable (DEBT-24).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub noise_profile_json: Option<String>,
+    /// Maximum gate operations per circuit; `null` = no limit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_circuit_ops: Option<u32>,
+    pub is_simulator: bool,
+    pub features: Vec<String>,
 }
 
 /// POST /v1/compile response
