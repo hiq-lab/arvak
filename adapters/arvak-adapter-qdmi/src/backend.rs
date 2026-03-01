@@ -913,7 +913,12 @@ impl Backend for QdmiBackend {
         }
     }
 
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        _parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
         debug!("Submitting circuit with {} shots via QDMI", shots);
 
         // Initialize if needed
