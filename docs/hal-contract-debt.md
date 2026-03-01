@@ -412,3 +412,149 @@ Blocked on: Rust Perceval client or QASM3 → perceval-interop transpiler.
 | Python IQM Resonance | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
 | Python Quantinuum | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ (job_result) | ✓ | ✓ | ✓ "2.0" |
 | Python AQT | ✓ | ✓ (submit + run) | ✓ (job_status) | ✓ ArvakAQTResult | ✓ | ✓ | ✓ "2.0" |
+
+---
+
+## QUASI-OS Integration Debt (2026-03-01)
+
+The following items were identified during QUASI quantum OS development. They describe
+gaps in the HAL Contract spec that caused architectural violations upstream in Afana
+(the Ehrenfest compiler) and quasi-board. Each item must be resolved in the HAL Contract
+before the corresponding QUASI PRs can be finalised.
+
+---
+
+### DEBT-24: No `GET /hal/backends/{name}` capabilities endpoint
+
+**Status: Open**
+**Severity: High**
+**Identified by:** QUASI PR #368 (noise model spec) / Afana compiler boundary review (2026-03-01)
+**Component:** HAL Contract HTTP REST surface (ts-halcontract, Arvak HTTP adapter)
+
+#### Problem
+
+The HAL Contract spec defines rich `Capabilities` on the `Backend<C>` trait (§4.1: gate_set,
+topology, noise_profile, max_shots, …), but the HTTP REST surface only exposes:
+
+- `GET /hal/backends` — list of backend name strings
+- `POST /hal/jobs` — job submission
+- `GET /hal/jobs/{id}` — job result polling
+
+There is **no endpoint to query per-backend capabilities over HTTP**.
+
+This gap forced an architectural violation in QUASI: `noise_channels` (a hardware-behaviour
+description: depolarizing `p`, amplitude damping `gamma`) was added to the Ehrenfest program
+itself (wrong layer — Ehrenfest describes physics, not hardware). Without a capabilities
+endpoint, the compiler has no way to discover what noise model a backend requires at program
+write time, so the information was incorrectly embedded in the program.
+
+The same gap affects gate-set selection, topology-aware routing, and backend selection
+logic in quasi-board — all decisions that require backend capabilities but cannot query them
+without an HTTP endpoint.
+
+#### Fix needed
+
+Add to the HAL Contract HTTP REST surface:
+
+```
+GET /hal/backends/{name}
+```
+
+Response body (JSON):
+```json
+{
+  "name": "ibm_torino",
+  "num_qubits": 156,
+  "gate_set": { "single_qubit": ["rz","sx","x"], "two_qubit": ["cz","ecr"], "native": ["rz","sx","x","cz"] },
+  "topology": { "kind": "HeavyHex", "edges": [[0,1],[1,2]] },
+  "max_shots": 300000,
+  "max_circuit_ops": null,
+  "is_simulator": false,
+  "features": ["dynamic_circuits","mid_circuit_measurement"],
+  "noise_profile": { "t1": 150.0, "t2": 80.0, "single_qubit_fidelity": 0.9998, "two_qubit_fidelity": 0.995, "readout_fidelity": 0.97 }
+}
+```
+
+The response maps directly to `Capabilities` (§4.1). Backends that cannot determine
+capabilities without I/O must cache at startup (spec §3.3 rule 1).
+
+**QUASI unblocked by:** Once this endpoint exists, `noise_channels` can be removed from
+the Ehrenfest CDDL (QUASI PR #368) and noise channel selection becomes a HAL submission
+concern driven by the capabilities response.
+
+---
+
+### DEBT-25: No parameter binding in `submit()` for variational algorithms
+
+**Status: Open**
+**Severity: High**
+**Identified by:** QUASI PR #364 (parametric Ehrenfest v0.2) / Afana compiler review (2026-03-01)
+**Component:** HAL Contract `Backend::submit()` trait method + `SubmitCircuitInput` HTTP type
+
+#### Problem
+
+Ehrenfest v0.2 introduces parametric programs (VQE, QAOA, Trotter sweeps) where the
+Hamiltonian contains `ParameterRef` coefficients and the compiled OpenQASM 3.0 output
+contains `input float[64] theta_0;` declarations.
+
+The current HAL Contract `submit(circuit, shots)` signature (§3.2) has no way to pass
+concrete parameter values at submission time. This forced an incorrect design decision
+in QUASI PR #364: the `compile-parametric` CLI reads parameter values from JSON and
+resolves them inside Afana (compiler layer), producing a fully-bound concrete circuit.
+
+This is wrong for two reasons:
+1. **Layer violation**: parameter binding is an execution concern, not a compilation
+   concern. The compiler should emit a parametric circuit; the caller binds values at
+   submission time (this is the standard model in Qiskit, Cirq, and PennyLane).
+2. **Ehrenfest has no JSON form**: Ehrenfest programs are CBOR binary (`.cbor.hex`).
+   A CLI that reads JSON to get parameter values is reading the wrong format.
+
+The correct model: Afana compiles once to a parametric OpenQASM 3.0 circuit with
+`input float[64]` declarations. The HAL driver receives the circuit + a parameter map
+at submission time and binds values before dispatch to hardware.
+
+#### Fix needed
+
+Extend `submit()` to accept optional parameter bindings:
+
+```rust
+// Trait method
+async fn submit(
+    &self,
+    circuit: C,
+    shots: u32,
+    parameters: Option<HashMap<String, f64>>,
+) -> HalResult<JobId>;
+```
+
+HTTP body extension for `POST /hal/jobs`:
+```json
+{
+  "qasm": "OPENQASM 3.0; input float[64] theta_0; ...",
+  "backend": "ibm_torino",
+  "shots": 1024,
+  "parameters": { "theta_0": 1.5707963, "theta_1": 0.7853981 }
+}
+```
+
+HAL drivers that do not support parametric circuits (OpenQASM 3.0 `input` declarations)
+MUST return `HalError::Unsupported` when `parameters` is non-empty.
+
+HAL drivers that do support parametric execution (IBM, IQM via OpenQASM 3.0) bind
+the parameter map before dispatching to hardware — no Afana involvement required.
+
+**QUASI unblocked by:** Once this is in the spec, QUASI PR #364 can be revised so
+`compile-parametric` reads `.cbor.hex` (not JSON), emits parametric QASM 3.0, and
+the quasi-board passes a parameter map at `POST /hal/jobs` time.
+
+---
+
+### Summary — QUASI-OS integration items
+
+| ID | Severity | Component | Status |
+|----|----------|-----------|--------|
+| DEBT-24 | High | HAL HTTP REST surface — `GET /hal/backends/{name}` | **Open** |
+| DEBT-25 | High | `Backend::submit()` + `SubmitCircuitInput` — parameter binding | **Open** |
+
+**Open items: 4** (DEBT-Q4, DEBT-Q5, DEBT-24, DEBT-25).
+
