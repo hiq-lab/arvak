@@ -504,7 +504,12 @@ impl Backend for IbmBackend {
         Ok(ValidationResult::Valid)
     }
 
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        _parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
         // Pre-submission validation (DEBT-01): catch unsupported gates and
         // qubit-count violations before burning queue time or quantum credits.
         if let ValidationResult::Invalid { reasons } = self.validate(circuit).await? {
