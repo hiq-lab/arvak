@@ -72,7 +72,7 @@ pub(super) async fn execute_job_sync(
             tokio::time::sleep(backoff).await;
         }
 
-        match backend.submit(&job.circuit, job.shots).await {
+        match backend.submit(&job.circuit, job.shots, job.parameters.as_ref()).await {
             Ok(backend_job_id) => match backend.wait(&backend_job_id).await {
                 Ok(result) => {
                     let duration = chrono::Utc::now()
@@ -200,7 +200,7 @@ pub(crate) async fn spawn_job_execution(
                 tokio::time::sleep(backoff).await;
             }
 
-            match backend.submit(&job.circuit, job.shots).await {
+            match backend.submit(&job.circuit, job.shots, job.parameters.as_ref()).await {
                 Ok(backend_job_id) => match backend.wait(&backend_job_id).await {
                     Ok(result) => {
                         let duration = chrono::Utc::now()
