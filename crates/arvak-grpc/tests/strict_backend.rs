@@ -98,7 +98,12 @@ impl Backend for StrictBackend {
         }
     }
 
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        _parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
         // Validate before accepting
         if let Err(rejected) = self.validate_gates(circuit) {
             return Err(HalError::InvalidCircuit(format!(
