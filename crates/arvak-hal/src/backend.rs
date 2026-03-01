@@ -155,7 +155,19 @@ pub trait Backend: Send + Sync {
     ///
     /// Returns a job ID that can be used to check status and retrieve results.
     /// The job MUST start in `Queued` status.
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId>;
+    /// Submit a circuit for execution with optional parameter bindings.
+    ///
+    /// `parameters` maps OpenQASM 3.0 `input float[64]` parameter names to
+    /// concrete float values.  Backends that do not support parametric circuits
+    /// MUST return `HalError::Unsupported` when `parameters` is `Some(_)` with
+    /// at least one entry.  Backends that do support it bind the values before
+    /// dispatching to hardware.
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId>;
 
     /// Get the status of a job.
     async fn status(&self, job_id: &JobId) -> HalResult<JobStatus>;
