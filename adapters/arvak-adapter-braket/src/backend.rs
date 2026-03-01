@@ -277,7 +277,12 @@ impl Backend for BraketBackend {
         }
     }
 
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        _parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
         // Validate qubit count
         if circuit.num_qubits() > self.capabilities.num_qubits as usize {
             return Err(HalError::CircuitTooLarge(format!(
