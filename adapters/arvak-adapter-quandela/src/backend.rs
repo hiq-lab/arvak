@@ -238,7 +238,12 @@ impl Backend for QuandelaBackend {
         })
     }
 
-    async fn submit(&self, _circuit: &Circuit, _shots: u32) -> HalResult<JobId> {
+    async fn submit(
+        &self,
+        _circuit: &Circuit,
+        _shots: u32,
+        _parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
         // DEBT-Q4: photonic dual-rail encoding pass not yet implemented.
         Err(HalError::Backend(
             "DEBT-Q4: photonic encoding pass not implemented".into(),
