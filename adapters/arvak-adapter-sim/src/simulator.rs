@@ -156,8 +156,20 @@ impl Backend for SimulatorBackend {
         Ok(ValidationResult::Valid)
     }
 
-    #[instrument(skip(self, circuit))]
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+    #[instrument(skip(self, circuit, parameters))]
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
+        // Simulator backend does not support parametric circuits
+        if parameters.is_some() && !parameters.unwrap().is_empty() {
+            return Err(HalError::Unsupported(
+                "Simulator backend does not support parametric circuits".to_string(),
+            ));
+        }
+
         // Validate circuit size
         if circuit.num_qubits() > self.max_qubits as usize {
             return Err(HalError::CircuitTooLarge(format!(
