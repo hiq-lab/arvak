@@ -66,6 +66,22 @@ def report_to_html(report: AnalysisReport) -> str:
             impact_color = {"high": "#22c55e", "medium": "#eab308", "low": "#a0a0b0"}.get(
                 s.impact, "#a0a0b0"
             )
+            # Verification badge
+            verified_badge = ""
+            if s.verified is True:
+                verified_badge = (
+                    '<span style="font-size:10px;padding:2px 8px;border-radius:10px;'
+                    'background:rgba(34,197,94,0.15);color:#22c55e;margin-left:6px;'
+                    'border:1px solid rgba(34,197,94,0.3);">'
+                    '&#10003; VERIFIED</span>'
+                )
+            elif s.verified is False:
+                verified_badge = (
+                    '<span style="font-size:10px;padding:2px 8px;border-radius:10px;'
+                    'background:rgba(239,68,68,0.15);color:#ef4444;margin-left:6px;'
+                    'border:1px solid rgba(239,68,68,0.3);">'
+                    '&#10007; UNVERIFIED</span>'
+                )
             code_block = ""
             if s.qasm3:
                 code_block = f"""
@@ -77,7 +93,7 @@ def report_to_html(report: AnalysisReport) -> str:
             <div style="background:#1a1a24;border:1px solid #2a2a35;border-radius:6px;
                         padding:10px;margin-bottom:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-size:13px;font-weight:500;color:#f0f0f5;">{_esc(s.title)}</span>
+                    <span style="font-size:13px;font-weight:500;color:#f0f0f5;">{_esc(s.title)}{verified_badge}</span>
                     {f'<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(0,0,0,0.3);color:{impact_color};">{s.impact.upper()}</span>' if s.impact else ''}
                 </div>
                 <div style="font-size:12px;color:#a0a0b0;margin-top:4px;">{_esc(s.description)}</div>

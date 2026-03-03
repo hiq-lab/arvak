@@ -21,17 +21,32 @@ class Paper:
 
 @dataclass
 class Suggestion:
-    """A concrete optimization suggestion with optional QASM3 rewrite."""
+    """A concrete optimization suggestion with optional QASM3 rewrite.
+
+    When verification is available (mqt.qcec installed), suggestions with
+    QASM3 rewrites are checked for semantic equivalence with the original
+    circuit.  The ``verified`` field indicates the result.
+    """
 
     title: str
     description: str
     qasm3: str = ""
     impact: str = ""  # "high", "medium", "low"
+    verified: bool | None = None  # None = not checked, True/False = QCEC result
+    verification_status: str = "not_checked"  # "verified", "not_equivalent", "timeout", "error", "not_checked"
+    verification_message: str = ""
 
     @property
     def circuit(self):
-        """Convert the QASM3 suggestion to an arvak.Circuit (if available)."""
+        """Convert the QASM3 suggestion to an arvak.Circuit (if available).
+
+        Only returns a circuit if the suggestion has been verified as
+        equivalent (or verification was not performed).  Returns None
+        for suggestions proven non-equivalent.
+        """
         if not self.qasm3:
+            return None
+        if self.verified is False:
             return None
         try:
             import arvak
@@ -40,7 +55,12 @@ class Suggestion:
             return None
 
     def __repr__(self) -> str:
-        return f"Suggestion({self.title!r}, impact={self.impact!r})"
+        verified_str = ""
+        if self.verified is True:
+            verified_str = ", verified=True"
+        elif self.verified is False:
+            verified_str = ", verified=False"
+        return f"Suggestion({self.title!r}, impact={self.impact!r}{verified_str})"
 
 
 @dataclass
