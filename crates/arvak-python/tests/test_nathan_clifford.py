@@ -570,6 +570,7 @@ class TestAnalyzeOptimizeClifford:
 
         mock_report = nathan_mod.AnalysisReport(
             summary="test",
+            suitability=1.0,  # above QEC threshold — only test Clifford behavior
             suggestions=[
                 Suggestion(title="LLM opt", description="d"),
             ],
@@ -607,6 +608,7 @@ class TestAnalyzeOptimizeClifford:
         import arvak.nathan as nathan_mod
 
         mock_report = nathan_mod.AnalysisReport(
+            suitability=1.0,  # above QEC threshold — only test Clifford behavior
             suggestions=[
                 Suggestion(title="LLM opt", description="d"),
             ],
@@ -628,6 +630,7 @@ class TestAnalyzeOptimizeClifford:
         import arvak.nathan.clifford as cliff_mod
 
         mock_report = nathan_mod.AnalysisReport(
+            suitability=1.0,  # above QEC threshold — only test Clifford behavior
             suggestions=[Suggestion(title="LLM", description="d")],
         )
 

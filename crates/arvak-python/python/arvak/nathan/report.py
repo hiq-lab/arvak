@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .bench import BenchReference
+    from .noise import FidelityEstimate
+    from .qecc import QecRecommendation
 
 
 @dataclass
@@ -121,6 +127,56 @@ class AnalysisReport:
     recommended_shots: int = 1024
     recommended_device: str = ""
     device_ranking: list = field(default_factory=list)  # list[DeviceScore]
+    # P1 #3 — MQT Bench references
+    reference_circuits: list = field(default_factory=list)  # list[BenchReference]
+    # P1 #4 — DDSIM fidelity
+    simulated_fidelity: float | None = None
+    fidelity_estimate: object | None = None  # FidelityEstimate | None
+    # P1 #5 — QEC recommendation
+    qec_recommendation: object | None = None  # QecRecommendation | None
+    # P2 #7 — original circuit reference (set by analyze())
+    _original_circuit: object = field(default=None, repr=False)
+
+    def apply(self, index: int):
+        """Apply suggestion[index] rewrite and return a new arvak.Circuit.
+
+        Args:
+            index: Index into ``suggestions`` list.
+
+        Returns:
+            A new ``arvak.Circuit`` built from the suggestion's QASM3 rewrite.
+
+        Raises:
+            IndexError: If index is out of range.
+            ValueError: If the suggestion has no qasm3 or is not verified.
+        """
+        if index < 0 or index >= len(self.suggestions):
+            raise IndexError(
+                f"Index {index} out of range (0 – {len(self.suggestions) - 1})"
+            )
+        suggestion = self.suggestions[index]
+        if not suggestion.qasm3:
+            raise ValueError(
+                f"Suggestion {index} ({suggestion.title!r}) has no QASM3 rewrite "
+                "and cannot be applied."
+            )
+        if suggestion.verified is False:
+            raise ValueError(
+                f"Suggestion {index} ({suggestion.title!r}) was proven non-equivalent "
+                f"(verified={suggestion.verified}) and cannot be applied."
+            )
+        circuit = suggestion.circuit
+        if circuit is None:
+            raise ValueError(
+                f"Suggestion {index} ({suggestion.title!r}) could not be converted "
+                "to an arvak.Circuit (check that arvak is installed)."
+            )
+        return circuit
+
+    @property
+    def original_circuit(self):
+        """The original circuit passed to analyze()."""
+        return self._original_circuit
 
     def _repr_html_(self) -> str:
         """Rich HTML rendering for Jupyter notebooks."""
