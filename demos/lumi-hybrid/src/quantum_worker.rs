@@ -179,7 +179,7 @@ async fn execute_on_simulator(
     shots: u32,
 ) -> Result<std::collections::HashMap<String, u64>> {
     let backend = arvak_adapter_sim::SimulatorBackend::new();
-    let job_id = backend.submit(circuit, shots).await?;
+    let job_id = backend.submit(circuit, shots, None).await?;
     let result = backend.wait(&job_id).await?;
 
     Ok(result
@@ -203,7 +203,7 @@ async fn execute_on_iqm(
         // Real IQM execution
         match arvak_adapter_iqm::IqmBackend::new() {
             Ok(backend) => {
-                let job_id = backend.submit(circuit, shots).await?;
+                let job_id = backend.submit(circuit, shots, None).await?;
                 let result = backend.wait(&job_id).await?;
 
                 Ok(result

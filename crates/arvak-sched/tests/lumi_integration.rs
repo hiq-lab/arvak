@@ -55,7 +55,12 @@ impl Backend for MockHelmiBackend {
         Ok(ValidationResult::Valid)
     }
 
-    async fn submit(&self, _circuit: &Circuit, _shots: u32) -> HalResult<JobId> {
+    async fn submit(
+        &self,
+        _circuit: &Circuit,
+        _shots: u32,
+        _parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
         Ok(JobId::new("mock-helmi-job-12345"))
     }
 

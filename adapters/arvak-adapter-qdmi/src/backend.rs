@@ -55,7 +55,7 @@ use std::ffi::{CString, c_int, c_void};
 ///
 /// // Submit a circuit
 /// let circuit = Circuit::bell()?;
-/// let job_id = backend.submit(&circuit, 1000).await?;
+/// let job_id = backend.submit(&circuit, 1000, None).await?;
 /// let result = backend.wait(&job_id).await?;
 /// ```
 pub struct QdmiBackend {
@@ -1313,7 +1313,7 @@ mod tests {
         let _ = circuit.measure_all();
 
         // Submit
-        let job_id = backend.submit(&circuit, 1000).await.unwrap();
+        let job_id = backend.submit(&circuit, 1000, None).await.unwrap();
         assert!(!job_id.0.is_empty());
 
         // Wait for completion
@@ -1330,7 +1330,7 @@ mod tests {
         let mut circuit = Circuit::with_size("test", 1, 1);
         circuit.h(arvak_ir::QubitId(0)).unwrap();
 
-        let job_id = backend.submit(&circuit, 100).await.unwrap();
+        let job_id = backend.submit(&circuit, 100, None).await.unwrap();
         backend.cancel(&job_id).await.unwrap();
 
         let status = backend.status(&job_id).await.unwrap();

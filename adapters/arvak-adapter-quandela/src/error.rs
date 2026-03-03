@@ -5,12 +5,16 @@ use thiserror::Error;
 /// Result type for Quandela operations.
 pub type QuandelaResult<T> = Result<T, QuandelaError>;
 
-/// Errors that can occur when interacting with Quandela Altair.
+/// Errors that can occur when interacting with Quandela / Perceval cloud.
 #[derive(Debug, Error)]
 pub enum QuandelaError {
-    /// Missing Quandela API key (`QUANDELA_API_KEY` not set).
-    #[error("Missing Quandela API key: set QUANDELA_API_KEY environment variable")]
-    MissingApiKey,
+    /// Missing cloud token (`PCVL_CLOUD_TOKEN` not set).
+    #[error("Missing Quandela cloud token: set PCVL_CLOUD_TOKEN environment variable")]
+    MissingToken,
+
+    /// Perceval bridge subprocess failed or returned an error.
+    #[error("Perceval bridge error: {0}")]
+    BridgeError(String),
 
     /// HTTP request failed.
     #[error("HTTP error: {0}")]
@@ -22,17 +26,25 @@ pub enum QuandelaError {
 
     /// Circuit contains a gate not in the Quandela / perceval-interop gate set.
     #[error("Unsupported gate: {0}")]
-    QasmError(String),
+    UnsupportedGate(String),
+
+    /// Circuit serialization error.
+    #[error("Circuit serialization error: {0}")]
+    Serialization(String),
 }
 
 impl From<QuandelaError> for arvak_hal::HalError {
     fn from(e: QuandelaError) -> Self {
         match e {
-            QuandelaError::MissingApiKey => {
-                arvak_hal::HalError::AuthenticationFailed(e.to_string())
-            }
+            QuandelaError::MissingToken => arvak_hal::HalError::AuthenticationFailed(e.to_string()),
             _ => arvak_hal::HalError::Backend(e.to_string()),
         }
+    }
+}
+
+impl From<serde_json::Error> for QuandelaError {
+    fn from(e: serde_json::Error) -> Self {
+        QuandelaError::Serialization(e.to_string())
     }
 }
 
@@ -41,9 +53,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_missing_api_key_display() {
-        let err = QuandelaError::MissingApiKey;
-        assert!(err.to_string().contains("QUANDELA_API_KEY"));
+    fn test_missing_token_display() {
+        let err = QuandelaError::MissingToken;
+        assert!(err.to_string().contains("PCVL_CLOUD_TOKEN"));
+    }
+
+    #[test]
+    fn test_bridge_error_display() {
+        let err = QuandelaError::BridgeError("script not found".into());
+        assert!(err.to_string().contains("script not found"));
     }
 
     #[test]
@@ -53,20 +71,20 @@ mod tests {
     }
 
     #[test]
-    fn test_qasm_error_display() {
-        let err = QuandelaError::QasmError("rxx".into());
+    fn test_unsupported_gate_display() {
+        let err = QuandelaError::UnsupportedGate("rxx".into());
         assert!(err.to_string().contains("rxx"));
     }
 
     #[test]
-    fn test_missing_api_key_to_hal() {
-        let hal: arvak_hal::HalError = QuandelaError::MissingApiKey.into();
+    fn test_missing_token_to_hal() {
+        let hal: arvak_hal::HalError = QuandelaError::MissingToken.into();
         assert!(matches!(hal, arvak_hal::HalError::AuthenticationFailed(_)));
     }
 
     #[test]
-    fn test_api_error_to_hal() {
-        let hal: arvak_hal::HalError = QuandelaError::ApiError("err".into()).into();
+    fn test_bridge_error_to_hal() {
+        let hal: arvak_hal::HalError = QuandelaError::BridgeError("err".into()).into();
         assert!(matches!(hal, arvak_hal::HalError::Backend(_)));
     }
 }

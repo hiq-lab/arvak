@@ -312,6 +312,7 @@ mod tests {
             &self,
             _circuit: &arvak_ir::Circuit,
             _shots: u32,
+            _parameters: Option<&std::collections::HashMap<String, f64>>,
         ) -> arvak_hal::HalResult<arvak_hal::JobId> {
             Ok(arvak_hal::JobId("mock".to_string()))
         }

@@ -1,39 +1,64 @@
-//! Quandela Altair photonic QPU backend.
+//! Quandela photonic QPU backend (Ascella, Belenos).
+//!
+//! Submits circuits to the Quandela Cloud via the Perceval Python bridge
+//! (`perceval_bridge.py`).  Dual-rail encoding and serialisation are handled
+//! entirely by the bridge; this crate calls it as a subprocess and marshals
+//! the JSON output into HAL types.
+//!
+//! # Supported platforms
+//!
+//! | Platform name   | Qubits | Notes                               |
+//! |-----------------|--------|-------------------------------------|
+//! | `sim:ascella`   | 6      | Ascella simulator (free)            |
+//! | `qpu:ascella`   | 6      | Ascella physical QPU                |
+//! | `sim:belenos`   | 12     | Belenos simulator                   |
+//! | `qpu:belenos`   | 12     | Belenos physical QPU (12q, 2025)    |
+//! | `quandela_altair` | 5    | Legacy Altair (4K cryocooled)       |
+//!
+//! # Authentication
+//!
+//! Set `PCVL_CLOUD_TOKEN` (or place the token in
+//! `~/.openclaw/credentials/quandela/cloud.key`).
+//!
+//! # Circuit constraints
+//!
+//! The Perceval bridge supports H, X, Y, Z, S, Sdg, T, Tdg, Rx, Ry, Rz, CX,
+//! and CZ.  For two-qubit gates the bridge currently requires adjacent qubit
+//! pairs (ctrl = i, data = i+1).  Non-adjacent pairs will fail at `submit()`
+//! time with a clear error.
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::sync::Mutex;
 use tracing::instrument;
 
 use arvak_hal::{
     Backend, BackendAvailability, BackendConfig, BackendFactory, Capabilities, ExecutionResult,
     HalError, HalResult, JobId, JobStatus, ValidationResult,
+    capability::{CompressorSpec, CompressorType, CoolingProfile},
 };
 use arvak_ir::{Circuit, instruction::InstructionKind};
 
-use crate::api::QuandelaClient;
-use crate::error::QuandelaResult;
+use crate::api::{MAX_CACHED_JOBS, call_bridge, find_bridge_script, find_python};
+use crate::error::{QuandelaError, QuandelaResult};
 
 // Re-export HAL cooling types used in ingest methods.
-use arvak_hal::capability::{
-    CompressorSpec, CompressorType, CoolingProfile, PufEnrollment, QuietWindow,
-    TransferFunctionSample,
-};
+use arvak_hal::capability::{PufEnrollment, QuietWindow, TransferFunctionSample};
+use arvak_ir::gate::GateKind;
 
 /// Alsvid enrollment record from the alsvid-lab `/signature` API.
 ///
 /// Deserialises the JSON output of `POST /signature` from alsvid-lab.
 /// Field names match the Python `AlsvidEnrollment` schema exactly —
-/// this is a contract test boundary (see `test_alsvid_enrollment_schema_matches_arvak_struct`).
+/// this is a contract test boundary.
 #[derive(Debug, serde::Deserialize)]
 pub struct AlsvidEnrollment {
     /// Installation-unique identifier.
     pub installation_id: String,
     /// Compressor type as classified by alsvid spectral analysis.
-    ///
-    /// Possible values: `"rotary_valve"`, `"bellows"`, `"multi_motor"`.
-    /// `"bellows"` corresponds to Stirling-cycle / PWS metal-bellows compressors.
-    /// Note: for Quandela Altair the 4K cold head is always `GiffordMcMahon`
-    /// regardless of this field — alsvid analyses the *compressor drive*, not
-    /// the cold head thermodynamic cycle.
     pub compressor_type: String,
     /// SHA-256 fingerprint hash (hex, 64 chars).
     pub fingerprint_hash: String,
@@ -49,61 +74,239 @@ pub struct AlsvidEnrollment {
     pub hom_visibility_by_phase: Vec<f64>,
 }
 
-/// Quandela Altair photonic QPU backend.
+// ---------------------------------------------------------------------------
+// Per-job metadata cached at submit() time.
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+struct CircuitMeta {
+    n_qubits: usize,
+    circuit_json: String,
+}
+
+// ---------------------------------------------------------------------------
+// Platform helper
+// ---------------------------------------------------------------------------
+
+fn platform_num_qubits(platform: &str) -> u32 {
+    match platform {
+        "sim:ascella" | "qpu:ascella" => 6,
+        "sim:belenos" | "qpu:belenos" => 12,
+        _ => 5, // legacy Altair / unknown
+    }
+}
+
+fn platform_is_simulator(platform: &str) -> bool {
+    platform.starts_with("sim:")
+}
+
+fn build_capabilities(platform: &str) -> Capabilities {
+    let n = platform_num_qubits(platform);
+    let is_sim = platform_is_simulator(platform);
+
+    // Altair is the only cryocooled variant.
+    let cooling = if platform == "quandela_altair" {
+        Some(CoolingProfile::new(CompressorSpec {
+            model: "Quandela Altair 4K cryocooler".into(),
+            cycle_frequency_hz: 1.0,
+            stage_temperatures_k: vec![4.0],
+            compressor_type: CompressorType::GiffordMcMahon,
+        }))
+    } else {
+        None
+    };
+
+    Capabilities {
+        name: platform.into(),
+        num_qubits: n,
+        gate_set: arvak_hal::GateSet::quandela(),
+        topology: arvak_hal::Topology::full(n),
+        max_shots: 100_000,
+        max_circuit_ops: None,
+        is_simulator: is_sim,
+        features: vec!["photonic".into()],
+        noise_profile: None,
+        cooling_profile: cooling,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Circuit → JSON serialisation
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Serialize)]
+struct CircuitJson<'a> {
+    n_qubits: usize,
+    gates: Vec<GateJson<'a>>,
+}
+
+#[derive(serde::Serialize)]
+struct GateJson<'a> {
+    name: &'a str,
+    qubits: Vec<usize>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    params: Vec<f64>,
+}
+
+fn circuit_to_json(circuit: &Circuit) -> QuandelaResult<String> {
+    let n_qubits = circuit.num_qubits();
+    let mut gates = Vec::new();
+
+    for (_, inst) in circuit.dag().topological_ops() {
+        match &inst.kind {
+            InstructionKind::Measure | InstructionKind::Reset | InstructionKind::Barrier => {
+                // Include measure so the bridge knows to skip it.
+                let qubits = inst.qubits.iter().map(|q| q.0 as usize).collect();
+                gates.push(GateJson {
+                    name: inst.name(),
+                    qubits,
+                    params: vec![],
+                });
+            }
+            InstructionKind::Gate(gate) => {
+                let name = gate.name();
+                let qubits = inst.qubits.iter().map(|q| q.0 as usize).collect();
+                // Extract numeric parameter values (resolved constants only).
+                let params: Vec<f64> = match &gate.kind {
+                    GateKind::Standard(sg) => sg
+                        .parameters()
+                        .into_iter()
+                        .filter_map(|p: &arvak_ir::parameter::ParameterExpression| p.as_f64())
+                        .collect(),
+                    GateKind::Custom(cg) => cg
+                        .params
+                        .iter()
+                        .filter_map(arvak_ir::ParameterExpression::as_f64)
+                        .collect(),
+                };
+                gates.push(GateJson {
+                    name,
+                    qubits,
+                    params,
+                });
+            }
+            _ => {}
+        }
+    }
+
+    serde_json::to_string(&CircuitJson { n_qubits, gates }).map_err(QuandelaError::from)
+}
+
+// ---------------------------------------------------------------------------
+// Cache helpers
+// ---------------------------------------------------------------------------
+
+async fn cache_insert(
+    cache: &Mutex<HashMap<String, CircuitMeta>>,
+    job_id: &str,
+    meta: CircuitMeta,
+) {
+    let mut lock = cache.lock().await;
+    if lock.len() >= MAX_CACHED_JOBS {
+        // Evict one entry (FIFO approximation — remove the first key found).
+        if let Some(oldest) = lock.keys().next().cloned() {
+            lock.remove(&oldest);
+        }
+    }
+    lock.insert(job_id.to_string(), meta);
+}
+
+async fn cache_get(
+    cache: &Mutex<HashMap<String, CircuitMeta>>,
+    job_id: &str,
+) -> Option<CircuitMeta> {
+    cache.lock().await.get(job_id).cloned()
+}
+
+// ---------------------------------------------------------------------------
+// QuandelaBackend
+// ---------------------------------------------------------------------------
+
+/// Quandela photonic QPU backend.
 ///
-/// # Status
-///
-/// Circuit submission (DEBT-Q4) is not yet implemented — the photonic dual-rail
-/// encoding pass is pending. `validate()` returns `RequiresTranspilation` for
-/// any valid circuit to signal this to orchestrators.
-///
-/// Alsvid integration is complete: use `ingest_alsvid_enrollment` to populate
-/// the PUF enrollment from alsvid-lab output, and `ingest_alsvid_schedule` to
-/// add quiet-window scheduling hints.
-///
-/// # Authentication
-///
-/// Set `QUANDELA_API_KEY` in the environment.
+/// Supports `sim:ascella`, `qpu:ascella`, `sim:belenos`, `qpu:belenos`, and
+/// the legacy `quandela_altair` (Altair 4K cryocooled, 5q).
 pub struct QuandelaBackend {
     config: BackendConfig,
     capabilities: Capabilities,
-    client: QuandelaClient,
+    /// Perceval Cloud platform identifier (e.g. `"sim:ascella"`).
+    platform: String,
+    /// Path to the Python interpreter.
+    python: String,
+    /// Path to `perceval_bridge.py`.
+    bridge: PathBuf,
+    /// Per-job circuit metadata (needed for result decoding).
+    job_cache: Arc<Mutex<HashMap<String, CircuitMeta>>>,
 }
 
 impl std::fmt::Debug for QuandelaBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QuandelaBackend")
-            .field("name", &self.config.name)
+            .field("platform", &self.platform)
             .finish()
     }
 }
 
 impl QuandelaBackend {
-    /// Create a backend using the `QUANDELA_API_KEY` environment variable.
+    /// Create a backend for `sim:ascella` using default Python / bridge path.
     pub fn new() -> QuandelaResult<Self> {
-        let api_key = std::env::var("QUANDELA_API_KEY").unwrap_or_default();
-        Self::with_key(api_key)
+        Self::for_platform("sim:ascella")
     }
 
-    /// Create a backend using an explicit API key (useful for testing).
-    pub fn with_key(api_key: impl Into<String>) -> QuandelaResult<Self> {
-        let api_key = api_key.into();
-        let client = QuandelaClient::new(api_key.clone())?;
-        let config = BackendConfig::new("quandela_altair");
-        let capabilities = Capabilities::quandela("quandela_altair");
+    /// Create a backend for an explicit Quandela Cloud platform.
+    ///
+    /// Supported: `sim:ascella`, `qpu:ascella`, `sim:belenos`, `qpu:belenos`,
+    /// `quandela_altair`.
+    pub fn for_platform(platform: impl Into<String>) -> QuandelaResult<Self> {
+        let platform = platform.into();
+        let config = BackendConfig::new(platform.clone());
+        let capabilities = build_capabilities(&platform);
 
         Ok(Self {
             config,
             capabilities,
-            client,
+            platform,
+            python: find_python(),
+            bridge: find_bridge_script(),
+            job_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
-    /// Bridge: ingest an alsvid-lab enrollment record into the `CoolingProfile`.
+    /// Create a backend using an explicit API key (kept for test compatibility).
+    ///
+    /// In the Perceval bridge architecture the token is read from the
+    /// `PCVL_CLOUD_TOKEN` env var (or the key file).  This constructor stores
+    /// the token in the backend and passes it to the bridge subprocess via the
+    /// environment when making calls.
+    pub fn with_key(api_key: impl Into<String>) -> QuandelaResult<Self> {
+        let key = api_key.into();
+        let mut backend = Self::for_platform("sim:ascella")?;
+        if !key.is_empty() {
+            backend.config.token = Some(key);
+        }
+        Ok(backend)
+    }
+
+    /// Override the Python interpreter path (mainly for testing).
+    #[must_use]
+    pub fn with_python(mut self, python: impl Into<String>) -> Self {
+        self.python = python.into();
+        self
+    }
+
+    /// Override the bridge script path (mainly for testing).
+    #[must_use]
+    pub fn with_bridge(mut self, bridge: impl Into<PathBuf>) -> Self {
+        self.bridge = bridge.into();
+        self
+    }
+
+    // ── Alsvid integration (Altair only) ────────────────────────────────────
+
+    /// Ingest an alsvid-lab enrollment record into the `CoolingProfile`.
     ///
     /// Populates `cooling_profile.puf_enrollment` and stores per-phase
-    /// `visibility_modulation` samples in the transfer function. Overwrites
-    /// any existing enrollment.
+    /// `visibility_modulation` samples in the transfer function.
     pub fn ingest_alsvid_enrollment(&mut self, e: AlsvidEnrollment) {
         let puf = PufEnrollment {
             installation_id: e.installation_id,
@@ -113,7 +316,6 @@ impl QuandelaBackend {
             intra_distance_threshold: e.intra_distance_threshold,
         };
 
-        // Build transfer function samples from per-phase HOM visibility.
         let fundamental_hz = e.fundamental_hz;
         let n = e.hom_visibility_by_phase.len();
         let transfer_function: Vec<TransferFunctionSample> = e
@@ -124,7 +326,7 @@ impl QuandelaBackend {
                 let phase_fraction = if n > 1 { i as f64 / n as f64 } else { 0.0 };
                 TransferFunctionSample {
                     freq_hz: fundamental_hz * (1.0 + phase_fraction),
-                    t1_modulation: 0.0, // not applicable to photonic
+                    t1_modulation: 0.0,
                     visibility_modulation: Some(vis),
                 }
             })
@@ -146,9 +348,7 @@ impl QuandelaBackend {
         }
     }
 
-    /// Bridge: ingest quiet windows from alsvid-lab scheduling output.
-    ///
-    /// Overwrites existing quiet windows in the cooling profile.
+    /// Ingest quiet windows from alsvid-lab scheduling output.
     pub fn ingest_alsvid_schedule(&mut self, windows: Vec<QuietWindow>) {
         if let Some(ref mut cp) = self.capabilities.cooling_profile {
             cp.quiet_windows = windows;
@@ -164,29 +364,35 @@ impl QuandelaBackend {
         }
     }
 
+    // ── Bridge helpers ───────────────────────────────────────────────────────
+
+    async fn bridge_call(&self, args: &[&str]) -> QuandelaResult<serde_json::Value> {
+        let token = self.config.token.as_deref();
+        call_bridge(&self.python, &self.bridge, args, token).await
+    }
+
     fn from_config_impl(config: BackendConfig) -> QuandelaResult<Self> {
-        let api_key = config
-            .token
-            .clone()
-            .or_else(|| std::env::var("QUANDELA_API_KEY").ok())
-            .unwrap_or_default();
+        let platform = if config.name.contains(':') {
+            config.name.clone()
+        } else {
+            "sim:ascella".to_string()
+        };
 
-        let client = QuandelaClient::new(api_key)?;
-        let capabilities = Capabilities::quandela(config.name.clone());
-
-        Ok(Self {
-            config,
-            capabilities,
-            client,
-        })
+        let mut backend = Self::for_platform(platform)?;
+        backend.config = config;
+        Ok(backend)
     }
 }
+
+// ---------------------------------------------------------------------------
+// HAL Backend trait
+// ---------------------------------------------------------------------------
 
 #[async_trait]
 impl Backend for QuandelaBackend {
     #[allow(clippy::unnecessary_literal_bound)]
     fn name(&self) -> &str {
-        "quandela_altair"
+        &self.platform
     }
 
     fn capabilities(&self) -> &Capabilities {
@@ -195,11 +401,23 @@ impl Backend for QuandelaBackend {
 
     #[instrument(skip(self))]
     async fn availability(&self) -> HalResult<BackendAvailability> {
-        self.client
-            .ping()
+        let resp = self
+            .bridge_call(&["ping", &self.platform])
             .await
-            .map(|()| BackendAvailability::always_available())
-            .map_err(HalError::from)
+            .map_err(HalError::from)?;
+
+        let status = resp
+            .get("status")
+            .and_then(|s| s.as_str())
+            .unwrap_or("unknown");
+
+        if status == "online" || status == "available" {
+            Ok(BackendAvailability::always_available())
+        } else {
+            Ok(BackendAvailability::unavailable(format!(
+                "platform status: {status}"
+            )))
+        }
     }
 
     #[instrument(skip(self, circuit))]
@@ -207,17 +425,17 @@ impl Backend for QuandelaBackend {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
-        // Check qubit count (Altair: 5 logical qubits in dual-rail encoding).
+        // Qubit count.
         if circuit.num_qubits() > caps.num_qubits as usize {
             reasons.push(format!(
-                "Circuit has {} qubits; Quandela Altair supports at most {} \
-                 logical qubits in dual-rail encoding",
+                "circuit has {} qubits; {} supports at most {}",
                 circuit.num_qubits(),
-                caps.num_qubits
+                self.platform,
+                caps.num_qubits,
             ));
         }
 
-        // Check gate set.
+        // Gate set.
         for (_, inst) in circuit.dag().topological_ops() {
             if let InstructionKind::Gate(gate) = &inst.kind {
                 let name = gate.name();
@@ -228,38 +446,122 @@ impl Backend for QuandelaBackend {
             }
         }
 
-        if !reasons.is_empty() {
-            return Ok(ValidationResult::Invalid { reasons });
+        if reasons.is_empty() {
+            Ok(ValidationResult::Valid)
+        } else {
+            Ok(ValidationResult::Invalid { reasons })
         }
+    }
 
-        // All checks passed, but submission still requires the photonic encoding pass.
-        Ok(ValidationResult::RequiresTranspilation {
-            details: "photonic dual-rail encoding required; DEBT-Q4".into(),
+    #[instrument(skip(self, circuit, parameters))]
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
+        let _ = parameters; // Quandela cloud doesn't support runtime parameter binding yet.
+        let circuit_json =
+            circuit_to_json(circuit).map_err(|e| HalError::Backend(e.to_string()))?;
+
+        let shots_str = shots.to_string();
+        let resp = self
+            .bridge_call(&["submit", &self.platform, &shots_str, &circuit_json])
+            .await
+            .map_err(HalError::from)?;
+
+        let job_id = resp
+            .get("job_id")
+            .and_then(|j| j.as_str())
+            .ok_or_else(|| HalError::Backend("bridge submit: missing job_id".into()))?
+            .to_string();
+
+        // Cache circuit metadata for result decoding.
+        cache_insert(
+            &self.job_cache,
+            &job_id,
+            CircuitMeta {
+                n_qubits: circuit.num_qubits(),
+                circuit_json,
+            },
+        )
+        .await;
+
+        Ok(JobId::new(job_id))
+    }
+
+    #[instrument(skip(self))]
+    async fn status(&self, job_id: &JobId) -> HalResult<JobStatus> {
+        let resp = self
+            .bridge_call(&["status", &self.platform, &job_id.0])
+            .await
+            .map_err(HalError::from)?;
+
+        let status = resp
+            .get("status")
+            .and_then(|s| s.as_str())
+            .unwrap_or("unknown");
+        let msg = resp
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        Ok(match status {
+            "queued" => JobStatus::Queued,
+            "running" => JobStatus::Running,
+            "done" => JobStatus::Completed,
+            "cancelled" => JobStatus::Cancelled,
+            "error" => JobStatus::Failed(msg),
+            other => JobStatus::Failed(format!("unknown status: {other}")),
         })
     }
 
-    async fn submit(
-        &self,
-        _circuit: &Circuit,
-        _shots: u32,
-        _parameters: Option<&std::collections::HashMap<String, f64>>,
-    ) -> HalResult<JobId> {
-        // DEBT-Q4: photonic dual-rail encoding pass not yet implemented.
-        Err(HalError::Backend(
-            "DEBT-Q4: photonic encoding pass not implemented".into(),
-        ))
-    }
-
-    async fn status(&self, job_id: &JobId) -> HalResult<JobStatus> {
-        Err(HalError::JobNotFound(job_id.0.clone()))
-    }
-
+    #[instrument(skip(self))]
     async fn result(&self, job_id: &JobId) -> HalResult<ExecutionResult> {
-        Err(HalError::JobNotFound(job_id.0.clone()))
+        let meta = cache_get(&self.job_cache, &job_id.0).await.ok_or_else(|| {
+            HalError::Backend(format!(
+                "no cached circuit metadata for job {}: \
+                 result() must be called from the same process that called submit()",
+                job_id.0
+            ))
+        })?;
+
+        let n_qubits_str = meta.n_qubits.to_string();
+        let resp = self
+            .bridge_call(&[
+                "result",
+                &self.platform,
+                &job_id.0,
+                &n_qubits_str,
+                &meta.circuit_json,
+            ])
+            .await
+            .map_err(HalError::from)?;
+
+        let counts_obj = resp
+            .get("counts")
+            .and_then(|c| c.as_object())
+            .ok_or_else(|| HalError::Backend("bridge result: missing counts object".into()))?;
+
+        let mut counts = arvak_hal::Counts::new();
+        let mut total: u64 = 0;
+        for (bitstring, count_val) in counts_obj {
+            let count = count_val.as_u64().unwrap_or(0);
+            counts.insert(bitstring.clone(), count);
+            total = total.saturating_add(count);
+        }
+
+        let shots = u32::try_from(total).unwrap_or(u32::MAX);
+        Ok(ExecutionResult::new(counts, shots))
     }
 
+    #[instrument(skip(self))]
     async fn cancel(&self, job_id: &JobId) -> HalResult<()> {
-        Err(HalError::JobNotFound(job_id.0.clone()))
+        self.bridge_call(&["cancel", &self.platform, &job_id.0])
+            .await
+            .map(|_| ())
+            .map_err(HalError::from)
     }
 }
 
@@ -268,6 +570,10 @@ impl BackendFactory for QuandelaBackend {
         Self::from_config_impl(config).map_err(HalError::from)
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -278,56 +584,80 @@ mod tests {
     }
 
     #[test]
-    fn test_quandela_name() {
-        let b = QuandelaBackend::with_key("k").unwrap();
-        assert_eq!(b.name(), "quandela_altair");
+    fn test_quandela_name_ascella() {
+        let b = QuandelaBackend::for_platform("sim:ascella").unwrap();
+        assert_eq!(b.name(), "sim:ascella");
     }
 
     #[test]
-    fn test_quandela_capabilities() {
-        let b = QuandelaBackend::with_key("k").unwrap();
+    fn test_quandela_name_belenos() {
+        let b = QuandelaBackend::for_platform("sim:belenos").unwrap();
+        assert_eq!(b.name(), "sim:belenos");
+    }
+
+    #[test]
+    fn test_capabilities_ascella() {
+        let b = QuandelaBackend::for_platform("sim:ascella").unwrap();
+        let caps = b.capabilities();
+        assert_eq!(caps.num_qubits, 6);
+        assert!(caps.is_simulator);
+        assert!(caps.features.contains(&"photonic".to_string()));
+        assert!(caps.cooling_profile.is_none());
+    }
+
+    #[test]
+    fn test_capabilities_belenos() {
+        let b = QuandelaBackend::for_platform("qpu:belenos").unwrap();
+        let caps = b.capabilities();
+        assert_eq!(caps.num_qubits, 12);
+        assert!(!caps.is_simulator);
+    }
+
+    #[test]
+    fn test_capabilities_altair_has_cooling_profile() {
+        let b = QuandelaBackend::for_platform("quandela_altair").unwrap();
         let caps = b.capabilities();
         assert_eq!(caps.num_qubits, 5);
-        assert!(!caps.is_simulator);
-        assert!(caps.features.contains(&"photonic".to_string()));
         assert!(caps.cooling_profile.is_some());
-        let cp = caps.cooling_profile.as_ref().unwrap();
-        assert!(!cp.compressor.is_rotary_valve());
     }
 
     #[tokio::test]
-    async fn test_validate_bell_requires_transpilation() {
-        let b = QuandelaBackend::with_key("k").unwrap();
+    async fn test_validate_bell_valid() {
+        let b = QuandelaBackend::for_platform("sim:ascella").unwrap();
         let circuit = bell_circuit();
         let result = b.validate(&circuit).await.unwrap();
         assert!(
-            matches!(result, ValidationResult::RequiresTranspilation { .. }),
-            "expected RequiresTranspilation, got {result:?}"
+            matches!(result, ValidationResult::Valid),
+            "expected Valid, got {result:?}"
         );
     }
 
     #[tokio::test]
     async fn test_validate_too_many_qubits() {
-        let b = QuandelaBackend::with_key("k").unwrap();
-        let circuit = Circuit::with_size("big", 6, 0);
+        let b = QuandelaBackend::for_platform("sim:ascella").unwrap();
+        let circuit = Circuit::with_size("big", 7, 0);
         let result = b.validate(&circuit).await.unwrap();
         assert!(
             matches!(result, ValidationResult::Invalid { .. }),
-            "expected Invalid for 6 qubits, got {result:?}"
+            "expected Invalid for 7 qubits, got {result:?}"
         );
     }
 
-    #[tokio::test]
-    async fn test_submit_returns_debt_q4_error() {
-        let b = QuandelaBackend::with_key("k").unwrap();
+    #[test]
+    fn test_circuit_to_json_bell() {
         let circuit = bell_circuit();
-        let err = b.submit(&circuit, 100).await.unwrap_err();
-        assert!(err.to_string().contains("DEBT-Q4"));
+        let json_str = circuit_to_json(&circuit).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(v["n_qubits"], 2);
+        let gates = v["gates"].as_array().unwrap();
+        // Should contain H and CX at minimum
+        assert!(gates.iter().any(|g| g["name"] == "h"));
+        assert!(gates.iter().any(|g| g["name"] == "cx"));
     }
 
     #[test]
     fn test_ingest_alsvid_enrollment_populates_cooling_profile() {
-        let mut b = QuandelaBackend::with_key("k").unwrap();
+        let mut b = QuandelaBackend::for_platform("quandela_altair").unwrap();
         let enrollment = AlsvidEnrollment {
             installation_id: "altair-sn001-paris".into(),
             compressor_type: "bellows".into(),
@@ -348,7 +678,7 @@ mod tests {
 
     #[test]
     fn test_ingest_alsvid_schedule_populates_quiet_windows() {
-        let mut b = QuandelaBackend::with_key("k").unwrap();
+        let mut b = QuandelaBackend::for_platform("quandela_altair").unwrap();
         let windows = vec![QuietWindow {
             cycle_offset: 0.1,
             cycle_fraction: 0.15,
@@ -358,5 +688,24 @@ mod tests {
 
         let cp = b.capabilities().cooling_profile.as_ref().unwrap();
         assert_eq!(cp.quiet_windows.len(), 1);
+    }
+
+    #[test]
+    fn test_alsvid_enrollment_schema_matches_arvak_struct() {
+        // Contract test: JSON produced by alsvid-lab /signature must deserialise
+        // into AlsvidEnrollment without errors.
+        let json = r#"{
+            "installation_id": "altair-sn001",
+            "compressor_type": "bellows",
+            "fingerprint_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "enrolled_at": 1740000000,
+            "enrollment_shots": 1000,
+            "intra_distance_threshold": 0.08,
+            "fundamental_hz": 1.2,
+            "hom_visibility_by_phase": [0.95, 0.92]
+        }"#;
+        let enrollment: AlsvidEnrollment = serde_json::from_str(json).unwrap();
+        assert_eq!(enrollment.installation_id, "altair-sn001");
+        assert_eq!(enrollment.hom_visibility_by_phase.len(), 2);
     }
 }
