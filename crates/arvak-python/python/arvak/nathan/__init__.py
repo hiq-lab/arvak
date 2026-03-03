@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 
 from .client import NathanClient
 from .report import AnalysisReport, ChatResponse, Paper, Suggestion
+from .clifford import analyze_clifford_content, generate_clifford_suggestions
 from .verify import VerificationResult, VerificationStatus, verify_equivalence
 
 if TYPE_CHECKING:
@@ -82,6 +83,7 @@ def analyze(
     language: str | None = None,
     anonymize: bool = True,
     verify: bool = True,
+    optimize_clifford: bool = True,
 ) -> AnalysisReport:
     """Analyze a quantum circuit and get optimization suggestions.
 
@@ -103,12 +105,18 @@ def analyze(
         verify: Verify QASM3 rewrites against the original circuit using
                 MQT QCEC (default: True).  Requires ``pip install mqt.qcec``.
                 If QCEC is not installed, suggestions are returned unverified.
+        optimize_clifford: Detect and optimize Clifford subcircuits using
+                MQT QMAP's SAT-based synthesis (default: True).  Requires
+                ``pip install mqt.qmap``.  Clifford suggestions are provably
+                optimal and marked with ``source="qmap_sat"``.
 
     Returns:
         AnalysisReport with summary, suggestions, papers, and circuit stats.
         Suggestions with QASM3 rewrites will have ``verified=True`` if
         proven equivalent, ``verified=False`` if proven non-equivalent,
         or ``verified=None`` if verification was skipped.
+        Clifford-optimal suggestions have ``source="qmap_sat"`` and
+        ``is_optimal == True``.
 
     Example:
         >>> report = arvak.nathan.analyze(circuit)
@@ -117,7 +125,7 @@ def analyze(
         >>> print(report.suitability)
         0.72
         >>> for s in report.suggestions:
-        ...     print(s.title, s.impact, s.verified)
+        ...     print(s.title, s.impact, s.verified, s.source)
     """
     qasm3_code, detected_lang = _to_qasm3(circuit, language)
     client = _get_client()
@@ -133,6 +141,15 @@ def analyze(
         from .verify import verify_suggestions
 
         verify_suggestions(qasm3_code, report.suggestions)
+
+    # Generate Clifford-optimal suggestions via MQT QMAP
+    if optimize_clifford:
+        from .clifford import generate_clifford_suggestions
+
+        clifford_suggestions = generate_clifford_suggestions(qasm3_code)
+        if clifford_suggestions:
+            # Prepend Clifford suggestions (higher priority than LLM suggestions)
+            report.suggestions = clifford_suggestions + report.suggestions
 
     return report
 
@@ -220,8 +237,10 @@ def _to_qasm3(circuit, language: str | None = None) -> tuple[str, str]:
 
 __all__ = [
     "analyze",
+    "analyze_clifford_content",
     "chat",
     "configure",
+    "generate_clifford_suggestions",
     "verify_equivalence",
     "AnalysisReport",
     "ChatResponse",

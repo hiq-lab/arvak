@@ -35,6 +35,7 @@ class Suggestion:
     verified: bool | None = None  # None = not checked, True/False = QCEC result
     verification_status: str = "not_checked"  # "verified", "not_equivalent", "timeout", "error", "not_checked"
     verification_message: str = ""
+    source: str = "nathan_llm"  # "nathan_llm", "qmap_sat", "qmap_heuristic"
 
     @property
     def circuit(self):
@@ -54,13 +55,21 @@ class Suggestion:
         except Exception:
             return None
 
+    @property
+    def is_optimal(self) -> bool:
+        """Whether this suggestion is provably optimal (SAT-based synthesis)."""
+        return self.source == "qmap_sat"
+
     def __repr__(self) -> str:
         verified_str = ""
         if self.verified is True:
             verified_str = ", verified=True"
         elif self.verified is False:
             verified_str = ", verified=False"
-        return f"Suggestion({self.title!r}, impact={self.impact!r}{verified_str})"
+        source_str = ""
+        if self.source != "nathan_llm":
+            source_str = f", source={self.source!r}"
+        return f"Suggestion({self.title!r}, impact={self.impact!r}{verified_str}{source_str})"
 
 
 @dataclass
