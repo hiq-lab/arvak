@@ -39,7 +39,7 @@ pub fn get_basis_gates(target: &str) -> Result<BasisGates> {
         "iqm" | "iqm5" | "iqm20" => Ok(BasisGates::iqm()),
         "ibm" | "ibm5" | "ibm27" => Ok(BasisGates::ibm()),
         "ibm_torino" | "ibm_fez" | "ibm_marrakesh" => Ok(BasisGates::heron()),
-        "simulator" | "sim" => Ok(BasisGates::universal()),
+        "simulator" | "sim" | "ddsim" | "mqt-ddsim" | "mqt_ddsim" => Ok(BasisGates::universal()),
         "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1" => {
             Ok(BasisGates::universal())
         }
@@ -75,6 +75,9 @@ pub fn get_target_properties(target: &str) -> Result<(CouplingMap, BasisGates)> 
             Ok((CouplingMap::linear(133), BasisGates::heron()))
         }
         "simulator" | "sim" => Ok((CouplingMap::full(20), BasisGates::universal())),
+        "ddsim" | "mqt-ddsim" | "mqt_ddsim" => {
+            Ok((CouplingMap::full(128), BasisGates::universal()))
+        }
         "braket" | "braket-sv1" | "sv1" | "braket-tn1" | "tn1" | "braket-dm1" | "dm1" => {
             Ok((CouplingMap::full(34), BasisGates::universal()))
         }
