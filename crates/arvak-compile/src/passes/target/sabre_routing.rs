@@ -144,9 +144,6 @@ fn sabre_pass(
     // Track which original ops have been emitted.
     let mut emitted_ops = vec![false; num_ops];
 
-    // Track how far we've scanned through ops for single-qubit gates.
-    let mut ops_cursor = 0;
-
     let is_gate_ready =
         |tq_idx: usize, qubit_gate_cursor: &FxHashMap<QubitId, usize>, resolved: &[bool]| -> bool {
             if resolved[tq_idx] {
@@ -171,23 +168,33 @@ fn sabre_pass(
         }
     }
 
-    // Helper: emit all single-qubit ops up to (but not including) the
-    // next unresolved two-qubit gate, plus any resolved two-qubit gate
-    // that is executable (adjacent in current layout).
-    let emit_pending_ops = |ops_cursor: &mut usize,
-                            emitted: &mut Vec<Instruction>,
-                            emitted_ops: &mut [bool],
-                            layout: &Layout|
+    // Helper: emit all single-qubit (and non-gate) ops that are "ready".
+    //
+    // A single-qubit op at position `i` is ready when no unresolved
+    // two-qubit gate on the same qubit appears earlier in the ops list.
+    // This avoids the cursor-based approach which can miss 1q gates that
+    // appear after a 2q gate on an *independent* qubit in topological order.
+    let emit_ready_1q_ops = |emitted: &mut Vec<Instruction>,
+                             emitted_ops: &mut [bool],
+                             layout: &Layout|
      -> CompileResult<()> {
-        while *ops_cursor < num_ops {
-            if emitted_ops[*ops_cursor] {
-                *ops_cursor += 1;
+        for i in 0..num_ops {
+            if emitted_ops[i] {
                 continue;
             }
-            let inst = &ops[*ops_cursor];
-            // Only emit single-qubit and non-gate ops here.
+            let inst = &ops[i];
             if inst.qubits.len() >= 2 {
-                break;
+                continue;
+            }
+            // Check: is there an unresolved 2q gate on the same qubit
+            // that appears before this op in the original ordering?
+            let blocked = inst.qubits.iter().any(|q| {
+                (0..i).any(|j| {
+                    !emitted_ops[j] && ops[j].qubits.len() >= 2 && ops[j].qubits.contains(q)
+                })
+            });
+            if blocked {
+                continue;
             }
             let mut remapped = inst.clone();
             remapped.qubits = remapped
@@ -199,16 +206,15 @@ fn sabre_pass(
                 })
                 .collect::<CompileResult<Vec<_>>>()?;
             emitted.push(remapped);
-            emitted_ops[*ops_cursor] = true;
-            *ops_cursor += 1;
+            emitted_ops[i] = true;
         }
         Ok(())
     };
 
     // Main loop.
     while !front_layer.is_empty() {
-        // Emit any pending single-qubit ops.
-        emit_pending_ops(&mut ops_cursor, &mut emitted, &mut emitted_ops, &layout)?;
+        // Emit any ready single-qubit ops.
+        emit_ready_1q_ops(&mut emitted, &mut emitted_ops, &layout)?;
 
         // Try to execute gates in the front layer that are already adjacent.
         let mut executed_any = true;
@@ -245,6 +251,15 @@ fn sabre_pass(
                 }
             }
             front_layer = remaining_front;
+
+            // After resolving some gates, emit any 1q ops that are now
+            // unblocked. This is critical: without this, 1q gates that
+            // become ready between successive 2q executions (e.g., H(q1)
+            // freed by CX(q0,q1)) would be deferred past the next 2q gate
+            // (e.g., CX(q1,q2)), violating the original dependency order.
+            if executed_any {
+                emit_ready_1q_ops(&mut emitted, &mut emitted_ops, &layout)?;
+            }
 
             // After resolving some gates, new gates may become ready.
             if executed_any {
@@ -372,22 +387,8 @@ fn sabre_pass(
         swap_count += 1;
     }
 
-    // Emit remaining single-qubit ops and any other ops not yet emitted.
-    for (i, inst) in ops.iter().enumerate() {
-        if emitted_ops[i] {
-            continue;
-        }
-        let mut remapped = inst.clone();
-        remapped.qubits = remapped
-            .qubits
-            .iter()
-            .map(|&q| {
-                let p = layout.get_physical(q).ok_or(CompileError::MissingLayout)?;
-                Ok(QubitId(p))
-            })
-            .collect::<CompileResult<Vec<_>>>()?;
-        emitted.push(remapped);
-    }
+    // Emit any remaining ops (1q gates after the last 2q gate on their qubit).
+    emit_ready_1q_ops(&mut emitted, &mut emitted_ops, &layout)?;
 
     Ok((emitted, layout, swap_count))
 }
@@ -413,41 +414,34 @@ impl Pass for SabreRouting {
             .as_ref()
             .ok_or(CompileError::MissingLayout)?;
 
+        // Clone the initial layout (L0) before borrowing expires.
+        // Needed for correct layout tracking when reverse direction wins.
+        let layout_l0 = layout.clone();
+
         // Collect all instructions in topological order.
         let ops: Vec<Instruction> = dag
             .topological_ops()
             .map(|(_, inst)| inst.clone())
             .collect();
 
-        // Forward pass.
-        let (fwd_ops, fwd_layout, fwd_swaps) = sabre_pass(
+        // Run the forward pass only.
+        //
+        // Note: the original SABRE paper describes a bidirectional approach
+        // (forward + reverse, pick best), but the reverse direction requires
+        // careful layout tracking (the reversed circuit's initial_layout and
+        // final layout are different from the forward pass). For correctness,
+        // we use only the forward pass. The forward heuristic with lookahead
+        // already produces good results.
+        let (chosen_ops, fwd_layout, _fwd_swaps) = sabre_pass(
             &ops,
-            layout,
+            &layout_l0,
             coupling_map,
             self.extended_set_weight,
             self.extended_set_size,
         )?;
 
-        // Reverse pass: reverse the instruction order, run SABRE again,
-        // then reverse the output.
-        let mut rev_input: Vec<Instruction> = ops;
-        rev_input.reverse();
-
-        let (mut rev_ops, rev_layout, rev_swaps) = sabre_pass(
-            &rev_input,
-            layout,
-            coupling_map,
-            self.extended_set_weight,
-            self.extended_set_size,
-        )?;
-        rev_ops.reverse();
-
-        // Pick the direction with fewer SWAPs.
-        let (chosen_ops, chosen_layout) = if fwd_swaps <= rev_swaps {
-            (fwd_ops, fwd_layout)
-        } else {
-            (rev_ops, rev_layout)
-        };
+        let new_initial = layout_l0.clone();
+        let new_final = fwd_layout;
 
         // Build the new DAG with physical qubit wires.
         let mut new_dag = CircuitDag::new();
@@ -461,7 +455,7 @@ impl Pass for SabreRouting {
             }
         }
         // Also ensure all initially-mapped qubits are present.
-        for (_, phys) in layout.iter() {
+        for (_, phys) in layout_l0.iter() {
             used_qubits.insert(phys);
         }
         for &p in &used_qubits {
@@ -479,8 +473,9 @@ impl Pass for SabreRouting {
         new_dag.set_level(dag.level());
         *dag = new_dag;
 
-        // Update layout.
-        properties.layout = Some(chosen_layout);
+        // Update layouts.
+        properties.initial_layout = Some(new_initial);
+        properties.layout = Some(new_final);
 
         Ok(())
     }
@@ -765,5 +760,87 @@ mod tests {
         assert!(count_swaps(&dag) > 0, "GHZ on star topology needs SWAPs");
         assert_eq!(count_gates(&dag, "cx"), 3, "all CX gates preserved");
         assert_all_adjacent(&dag, props.coupling_map.as_ref().unwrap());
+    }
+
+    // ====================================================================
+    // MQT-inspired: grid topology routing
+    // (MQT test_heuristic: tests on real IBM topologies with grid structure)
+    // ====================================================================
+
+    #[test]
+    fn test_sabre_grid_2x3() {
+        // 2×3 grid (6 qubits):
+        //  0 - 1 - 2
+        //  |   |   |
+        //  3 - 4 - 5
+        let grid = CouplingMap::from_edge_list(
+            6,
+            &[(0, 1), (1, 2), (3, 4), (4, 5), (0, 3), (1, 4), (2, 5)],
+        );
+
+        // CX(0,5): diagonal, distance 2 on grid.
+        let mut circuit = Circuit::with_size("test", 6, 0);
+        circuit.cx(QubitId(0), QubitId(5)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props = PropertySet::new().with_target(grid.clone(), BasisGates::ibm());
+        TrivialLayout.run(&mut dag, &mut props).unwrap();
+        SabreRouting::new().run(&mut dag, &mut props).unwrap();
+
+        assert!(
+            count_swaps(&dag) >= 1,
+            "Grid routing needs SWAPs for diagonal qubits"
+        );
+        assert_eq!(count_gates(&dag, "cx"), 1, "CX gate preserved");
+        assert_all_adjacent(&dag, &grid);
+    }
+
+    #[test]
+    fn test_sabre_grid_adjacent_no_swap() {
+        // Adjacent qubits on grid need no SWAPs.
+        let grid = CouplingMap::from_edge_list(
+            6,
+            &[(0, 1), (1, 2), (3, 4), (4, 5), (0, 3), (1, 4), (2, 5)],
+        );
+
+        // CX(0,3) and CX(1,4): both adjacent on grid, no SWAPs.
+        let mut circuit = Circuit::with_size("test", 6, 0);
+        circuit.cx(QubitId(0), QubitId(3)).unwrap();
+        circuit.cx(QubitId(1), QubitId(4)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let mut props = PropertySet::new().with_target(grid.clone(), BasisGates::ibm());
+        TrivialLayout.run(&mut dag, &mut props).unwrap();
+        SabreRouting::new().run(&mut dag, &mut props).unwrap();
+
+        assert_eq!(count_swaps(&dag), 0, "Adjacent grid qubits need no SWAPs");
+        assert_all_adjacent(&dag, &grid);
+    }
+
+    // ====================================================================
+    // MQT-inspired: all 2q gates adjacent after routing (architecture constraint)
+    // (MQT test_heuristic: layout validity verification)
+    // ====================================================================
+
+    #[test]
+    fn test_sabre_multi_cx_all_adjacent() {
+        // Complex circuit with many distant CX gates.
+        // After routing, every 2q gate must be on adjacent physical qubits.
+        let mut circuit = Circuit::with_size("test", 5, 0);
+        circuit.h(QubitId(0)).unwrap();
+        circuit.cx(QubitId(0), QubitId(4)).unwrap();
+        circuit.cx(QubitId(1), QubitId(3)).unwrap();
+        circuit.cx(QubitId(2), QubitId(4)).unwrap();
+        circuit.cx(QubitId(0), QubitId(3)).unwrap();
+        let mut dag = circuit.into_dag();
+
+        let coupling = CouplingMap::linear(5);
+        let mut props = PropertySet::new().with_target(coupling.clone(), BasisGates::ibm());
+        TrivialLayout.run(&mut dag, &mut props).unwrap();
+        SabreRouting::new().run(&mut dag, &mut props).unwrap();
+
+        // The core invariant: every 2q gate acts on adjacent physical qubits.
+        assert_all_adjacent(&dag, &coupling);
+        assert_eq!(count_gates(&dag, "cx"), 4, "all CX gates preserved");
     }
 }
