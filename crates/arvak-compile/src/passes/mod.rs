@@ -9,8 +9,8 @@ pub mod target;
 
 // Re-exports for backward compatibility
 pub use agnostic::{
-    CancelCX, CommutativeCancellation, MeasurementBarrierVerification, OneQubitBasis,
-    Optimize1qGates, VerificationResult, VerifyCompilation,
+    CancelCX, CommutativeCancellation, ConsolidateBlocks, MeasurementBarrierVerification,
+    OneQubitBasis, Optimize1qGates, VerificationResult, VerifyCompilation,
 };
 pub use target::{
     BasicRouting, BasisTranslation, DenseLayout, NeutralAtomRouting, SabreRouting, TrivialLayout,
