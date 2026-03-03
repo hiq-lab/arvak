@@ -559,8 +559,16 @@ impl BasisGates {
 pub struct PropertySet {
     /// Qubit layout mapping (logical → physical).
     ///
-    /// Set by layout passes, used by routing and translation passes.
+    /// Set by layout passes, updated by routing passes as SWAPs are inserted.
     pub layout: Option<Layout>,
+
+    /// Initial qubit layout as assigned by the layout pass.
+    ///
+    /// Unlike `layout`, this is never modified by routing passes. It records
+    /// the original logical-to-physical mapping before any SWAP insertion,
+    /// which is needed by verification passes to correctly compare circuits
+    /// before and after compilation.
+    pub initial_layout: Option<Layout>,
 
     /// Target coupling map defining allowed two-qubit interactions.
     ///
