@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 
 from .client import NathanClient
 from .report import AnalysisReport, ChatResponse, Paper, Suggestion
+from .verify import VerificationResult, VerificationStatus, verify_equivalence
 
 if TYPE_CHECKING:
     pass
@@ -80,6 +81,7 @@ def analyze(
     backend: str | None = None,
     language: str | None = None,
     anonymize: bool = True,
+    verify: bool = True,
 ) -> AnalysisReport:
     """Analyze a quantum circuit and get optimization suggestions.
 
@@ -98,9 +100,15 @@ def analyze(
         anonymize: Anonymize code before sending to API (default: True).
                    Strips comments, normalizes variable names, and removes
                    string literals to protect proprietary information.
+        verify: Verify QASM3 rewrites against the original circuit using
+                MQT QCEC (default: True).  Requires ``pip install mqt.qcec``.
+                If QCEC is not installed, suggestions are returned unverified.
 
     Returns:
         AnalysisReport with summary, suggestions, papers, and circuit stats.
+        Suggestions with QASM3 rewrites will have ``verified=True`` if
+        proven equivalent, ``verified=False`` if proven non-equivalent,
+        or ``verified=None`` if verification was skipped.
 
     Example:
         >>> report = arvak.nathan.analyze(circuit)
@@ -109,16 +117,24 @@ def analyze(
         >>> print(report.suitability)
         0.72
         >>> for s in report.suggestions:
-        ...     print(s.title, s.impact)
+        ...     print(s.title, s.impact, s.verified)
     """
     qasm3_code, detected_lang = _to_qasm3(circuit, language)
     client = _get_client()
-    return client.analyze(
+    report = client.analyze(
         code=qasm3_code,
         language=detected_lang,
         backend_id=backend,
         anonymize=anonymize,
     )
+
+    # Verify suggestions with QASM3 rewrites via MQT QCEC
+    if verify and report.suggestions:
+        from .verify import verify_suggestions
+
+        verify_suggestions(qasm3_code, report.suggestions)
+
+    return report
 
 
 def chat(message: str, context: str = "") -> ChatResponse:
@@ -206,8 +222,11 @@ __all__ = [
     "analyze",
     "chat",
     "configure",
+    "verify_equivalence",
     "AnalysisReport",
     "ChatResponse",
     "Paper",
     "Suggestion",
+    "VerificationResult",
+    "VerificationStatus",
 ]
