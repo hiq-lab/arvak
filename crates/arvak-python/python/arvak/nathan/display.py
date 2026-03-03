@@ -165,10 +165,129 @@ def report_to_html(report: AnalysisReport) -> str:
         </div>
 
         {papers_html}
+        {_reference_circuits_html(report)}
         {suggestions_html}
+        {_qec_recommendation_html(report)}
+        {_fidelity_html(report)}
         {_device_ranking_html(report)}
         {summary_html}
     </div>"""
+
+
+def _reference_circuits_html(report: AnalysisReport) -> str:
+    """Render MQT Bench reference circuit table if available."""
+    refs = getattr(report, "reference_circuits", [])
+    if not refs:
+        return ""
+
+    rows = ""
+    for r in refs:
+        rows += f"""
+            <tr>
+                <td style="padding:5px 8px;color:#f0f0f5;">{_esc(r.algorithm)}</td>
+                <td style="padding:5px 8px;color:#a0a0b0;text-align:center;">{r.num_qubits}</td>
+                <td style="padding:5px 8px;color:#a0a0b0;text-align:center;">{r.depth}</td>
+                <td style="padding:5px 8px;color:#a0a0b0;text-align:center;">{r.gate_count}</td>
+                <td style="padding:5px 8px;">
+                    <a href="{_esc(r.url)}" target="_blank" rel="noopener"
+                       style="color:#6366f1;text-decoration:none;font-size:11px;">
+                       View &#8599;</a>
+                </td>
+            </tr>"""
+
+    return f"""
+        <div style="margin-top:12px;">
+            <div style="font-size:12px;font-weight:600;color:#a0a0b0;text-transform:uppercase;
+                        letter-spacing:0.05em;margin-bottom:6px;">Reference Circuits (MQT Bench)</div>
+            <div style="background:#1a1a24;border:1px solid #2a2a35;border-radius:6px;overflow:hidden;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead>
+                        <tr style="background:#12121a;border-bottom:1px solid #2a2a35;">
+                            <th style="padding:5px 8px;text-align:left;color:#606070;
+                                       font-weight:500;text-transform:uppercase;font-size:10px;">Algorithm</th>
+                            <th style="padding:5px 8px;text-align:center;color:#606070;
+                                       font-weight:500;text-transform:uppercase;font-size:10px;">Qubits</th>
+                            <th style="padding:5px 8px;text-align:center;color:#606070;
+                                       font-weight:500;text-transform:uppercase;font-size:10px;">Depth</th>
+                            <th style="padding:5px 8px;text-align:center;color:#606070;
+                                       font-weight:500;text-transform:uppercase;font-size:10px;">Gates</th>
+                            <th style="padding:5px 8px;color:#606070;
+                                       font-weight:500;text-transform:uppercase;font-size:10px;">Link</th>
+                        </tr>
+                    </thead>
+                    <tbody>{rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>"""
+
+
+def _fidelity_html(report: AnalysisReport) -> str:
+    """Render simulated fidelity bar if available."""
+    fidelity = getattr(report, "simulated_fidelity", None)
+    fe = getattr(report, "fidelity_estimate", None)
+    if fidelity is None:
+        return ""
+
+    fid_pct = int(fidelity * 100)
+    fid_color = "#22c55e" if fid_pct >= 60 else "#eab308" if fid_pct >= 35 else "#ef4444"
+    noise_label = _esc(fe.noise_model) if fe else ""
+    method_label = _esc(fe.method) if fe else "heuristic"
+
+    return f"""
+        <div style="margin-top:12px;">
+            <div style="font-size:12px;font-weight:600;color:#a0a0b0;text-transform:uppercase;
+                        letter-spacing:0.05em;margin-bottom:6px;">Simulated Fidelity</div>
+            <div style="background:#1a1a24;border:1px solid #2a2a35;border-radius:6px;padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:16px;font-weight:600;color:{fid_color};">{fid_pct}%</span>
+                    <span style="font-size:10px;color:#606070;">{method_label}</span>
+                </div>
+                <div style="width:100%;height:4px;background:#0a0a0f;border-radius:2px;margin-bottom:4px;">
+                    <div style="width:{fid_pct}%;height:100%;background:{fid_color};border-radius:2px;"></div>
+                </div>
+                {f'<div style="font-size:11px;color:#606070;">{noise_label}</div>' if noise_label else ''}
+            </div>
+        </div>"""
+
+
+def _qec_recommendation_html(report: AnalysisReport) -> str:
+    """Render QEC recommendation card if available."""
+    qec = getattr(report, "qec_recommendation", None)
+    if qec is None:
+        return ""
+
+    code_display = qec.code.replace("_", " ").title()
+    threshold_pct = f"{qec.threshold * 100:.2f}%"
+
+    return f"""
+        <div style="margin-top:12px;">
+            <div style="font-size:12px;font-weight:600;color:#a0a0b0;text-transform:uppercase;
+                        letter-spacing:0.05em;margin-bottom:6px;">QEC Recommendation</div>
+            <div style="background:#1a1a14;border:1px solid #4a3a15;border-radius:6px;padding:12px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;
+                                 background:rgba(234,179,8,0.15);color:#eab308;
+                                 border:1px solid rgba(234,179,8,0.3);">&#9888; LOW SUITABILITY</span>
+                    <span style="font-size:13px;font-weight:600;color:#f0f0f5;">{_esc(code_display)}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:#606070;text-transform:uppercase;">Distance</div>
+                        <div style="font-size:18px;font-weight:600;color:#f0f0f5;">{qec.distance}</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:#606070;text-transform:uppercase;">Physical Qubits</div>
+                        <div style="font-size:18px;font-weight:600;color:#f0f0f5;">{qec.physical_qubits}</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:#606070;text-transform:uppercase;">Threshold</div>
+                        <div style="font-size:16px;font-weight:600;color:#f0f0f5;">{threshold_pct}</div>
+                    </div>
+                </div>
+                <div style="font-size:12px;color:#a0a0b0;line-height:1.5;">{_esc(qec.description)}</div>
+            </div>
+        </div>"""
 
 
 def _device_ranking_html(report: AnalysisReport) -> str:

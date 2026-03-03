@@ -36,12 +36,15 @@ class NathanClient:
         language: str = "qasm3",
         backend_id: str | None = None,
         anonymize: bool = True,
+        extra_context: str | None = None,
     ) -> AnalysisReport:
         """Call /analyze and return an AnalysisReport."""
         submitted_code = anonymize_code(code, language) if anonymize else code
         payload: dict = {"code": submitted_code, "language": language}
         if backend_id:
             payload["backend_id"] = backend_id
+        if extra_context:
+            payload["extra_context"] = extra_context
 
         try:
             resp = self._client.post(

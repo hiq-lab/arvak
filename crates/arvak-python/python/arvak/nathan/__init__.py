@@ -26,12 +26,17 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .client import NathanClient
 from .report import AnalysisReport, ChatResponse, Paper, Suggestion
 from .clifford import analyze_clifford_content, generate_clifford_suggestions
 from .verify import VerificationResult, VerificationStatus, verify_equivalence
+from .bench import BenchReference
+from .noise import FidelityEstimate
+from .qecc import QecRecommendation
+from .session import Session, SessionDiff, SessionEntry
 
 if TYPE_CHECKING:
     pass
@@ -42,6 +47,9 @@ logger = logging.getLogger(__name__)
 _client: NathanClient | None = None
 _api_key: str | None = None
 _api_url: str = "https://arvak.io/api/nathan"
+
+# P2 #8 — module-level knowledge sources
+_knowledge_sources: list = []
 
 
 def configure(
@@ -77,6 +85,46 @@ def _get_client() -> NathanClient:
     return _client
 
 
+def add_source(path_or_content: str | Path) -> None:
+    """Register a persistent knowledge source for all future analyze() calls.
+
+    Args:
+        path_or_content: A file path (string or Path) or raw QASM3/text content.
+            Paths are read at call time; raw strings are embedded as-is.
+
+    Example:
+        >>> arvak.nathan.add_source("/path/to/reference.qasm")
+        >>> arvak.nathan.add_source("OPENQASM 3.0; // custom knowledge")
+    """
+    _knowledge_sources.append(path_or_content)
+
+
+def clear_sources() -> None:
+    """Remove all registered knowledge sources."""
+    _knowledge_sources.clear()
+
+
+def _load_knowledge_sources(sources: list | None) -> str | None:
+    """Load and concatenate knowledge source content.
+
+    Args:
+        sources: List of file paths or raw strings.
+
+    Returns:
+        Concatenated string separated by ``---``, or None if empty.
+    """
+    if not sources:
+        return None
+    parts = []
+    for s in sources:
+        p = Path(s) if isinstance(s, (str, Path)) else None
+        if p is not None and p.exists():
+            parts.append(p.read_text(encoding="utf-8"))
+        else:
+            parts.append(str(s))
+    return "\n\n---\n\n".join(parts) if parts else None
+
+
 def analyze(
     circuit,
     backend: str | None = None,
@@ -85,6 +133,9 @@ def analyze(
     verify: bool = True,
     optimize_clifford: bool = True,
     predict_device: bool = False,
+    show_references: bool = True,
+    estimate_fidelity: bool = False,
+    knowledge_sources: list | None = None,
 ) -> AnalysisReport:
     """Analyze a quantum circuit and get optimization suggestions.
 
@@ -114,6 +165,15 @@ def analyze(
                 (default: False).  Requires ``pip install mqt.predictor``.
                 Falls back to heuristic ranking if not installed.  Populates
                 ``report.recommended_device`` and ``report.device_ranking``.
+        show_references: Cross-reference problem_type against MQT Bench and
+                populate ``report.reference_circuits`` (default: True).
+        estimate_fidelity: Run noise-aware fidelity simulation via DDSIM
+                (default: False — expensive).  Populates
+                ``report.simulated_fidelity`` and ``report.fidelity_estimate``.
+                Falls back to heuristic estimate when mqt.ddsim is not installed.
+        knowledge_sources: List of file paths or QASM3/text strings to embed
+                as additional context in the analyze request.  Combined with
+                any sources registered via ``add_source()``.
 
     Returns:
         AnalysisReport with summary, suggestions, papers, and circuit stats.
@@ -133,13 +193,24 @@ def analyze(
         ...     print(s.title, s.impact, s.verified, s.source)
     """
     qasm3_code, detected_lang = _to_qasm3(circuit, language)
+
+    # Combine per-call + module-level knowledge sources
+    all_sources: list = list(_knowledge_sources)
+    if knowledge_sources:
+        all_sources.extend(knowledge_sources)
+    extra_context = _load_knowledge_sources(all_sources) if all_sources else None
+
     client = _get_client()
     report = client.analyze(
         code=qasm3_code,
         language=detected_lang,
         backend_id=backend,
         anonymize=anonymize,
+        extra_context=extra_context,
     )
+
+    # Store original circuit reference on report (P2 #7)
+    report._original_circuit = circuit
 
     # Verify suggestions with QASM3 rewrites via MQT QCEC
     if verify and report.suggestions:
@@ -166,6 +237,56 @@ def analyze(
             report.device_ranking = prediction.ranking
         except Exception as e:
             logger.warning("Device prediction failed: %s", e)
+
+    # P1 #3 — MQT Bench reference circuits
+    if show_references:
+        from .bench import find_references
+
+        num_qubits = report.circuit.num_qubits if report.circuit else 0
+        report.reference_circuits = find_references(
+            report.problem_type, num_qubits
+        )
+
+    # P1 #4 — DDSIM noise-aware fidelity
+    if estimate_fidelity and backend:
+        from .noise import estimate_fidelity as _estimate_fidelity
+
+        try:
+            fe = _estimate_fidelity(qasm3_code, backend)
+            report.simulated_fidelity = fe.fidelity
+            report.fidelity_estimate = fe
+        except Exception as e:
+            logger.warning("Fidelity estimation failed: %s", e)
+
+    # P1 #5 — QEC suggestions when suitability < 0.4
+    if report.suitability < 0.4:
+        from .qecc import recommend_qec
+
+        num_logical = report.circuit.num_qubits if report.circuit else report.estimated_qubits
+        qec = recommend_qec(
+            num_logical_qubits=num_logical,
+            estimated_error_rate=report.estimated_error_rate,
+            suitability=report.suitability,
+        )
+        if qec is not None:
+            report.qec_recommendation = qec
+            # Add a Suggestion entry for QEC
+            report.suggestions.append(
+                Suggestion(
+                    title=f"Apply {qec.code.replace('_', ' ').title()}",
+                    description=(
+                        f"Circuit error rate is too high for direct execution "
+                        f"(suitability {report.suitability:.0%}). "
+                        f"Use {qec.code.replace('_', ' ')} at distance {qec.distance} "
+                        f"({qec.physical_qubits} physical qubits for {qec.logical_qubits} logical). "
+                        f"Threshold: {qec.threshold * 100:.2f}%."
+                    ),
+                    impact="high",
+                    verified=True,  # deterministic, not LLM
+                    verification_status="verified",
+                    source="qecc",
+                )
+            )
 
     return report
 
@@ -258,9 +379,17 @@ __all__ = [
     "configure",
     "generate_clifford_suggestions",
     "verify_equivalence",
+    "add_source",
+    "clear_sources",
     "AnalysisReport",
+    "BenchReference",
     "ChatResponse",
+    "FidelityEstimate",
     "Paper",
+    "QecRecommendation",
+    "Session",
+    "SessionDiff",
+    "SessionEntry",
     "Suggestion",
     "VerificationResult",
     "VerificationStatus",
