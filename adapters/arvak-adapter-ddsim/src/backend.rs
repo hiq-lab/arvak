@@ -236,7 +236,12 @@ impl Backend for DdsimBackend {
         shots: u32,
         parameters: Option<&std::collections::HashMap<String, f64>>,
     ) -> HalResult<JobId> {
-        let _ = parameters; // DDSIM does not support runtime parameter binding.
+        // DEBT-25: reject non-empty parameter bindings (not yet supported).
+        if parameters.is_some_and(|p| !p.is_empty()) {
+            return Err(HalError::Unsupported(
+                "DDSIM backend does not support runtime parameter binding".into(),
+            ));
+        }
 
         // Validate qubit count
         if circuit.num_qubits() > self.max_qubits as usize {
