@@ -84,6 +84,7 @@ def analyze(
     anonymize: bool = True,
     verify: bool = True,
     optimize_clifford: bool = True,
+    predict_device: bool = False,
 ) -> AnalysisReport:
     """Analyze a quantum circuit and get optimization suggestions.
 
@@ -109,6 +110,10 @@ def analyze(
                 MQT QMAP's SAT-based synthesis (default: True).  Requires
                 ``pip install mqt.qmap``.  Clifford suggestions are provably
                 optimal and marked with ``source="qmap_sat"``.
+        predict_device: Run ML-based device selection using MQT Predictor
+                (default: False).  Requires ``pip install mqt.predictor``.
+                Falls back to heuristic ranking if not installed.  Populates
+                ``report.recommended_device`` and ``report.device_ranking``.
 
     Returns:
         AnalysisReport with summary, suggestions, papers, and circuit stats.
@@ -150,6 +155,17 @@ def analyze(
         if clifford_suggestions:
             # Prepend Clifford suggestions (higher priority than LLM suggestions)
             report.suggestions = clifford_suggestions + report.suggestions
+
+    # ML-based device selection via MQT Predictor
+    if predict_device:
+        from arvak.predictor import predict_device as _predict_device
+
+        try:
+            prediction = _predict_device(qasm3_code)
+            report.recommended_device = prediction.device
+            report.device_ranking = prediction.ranking
+        except Exception as e:
+            logger.warning("Device prediction failed: %s", e)
 
     return report
 

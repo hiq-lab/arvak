@@ -166,8 +166,41 @@ def report_to_html(report: AnalysisReport) -> str:
 
         {papers_html}
         {suggestions_html}
+        {_device_ranking_html(report)}
         {summary_html}
     </div>"""
+
+
+def _device_ranking_html(report: AnalysisReport) -> str:
+    """Render device ranking section if available."""
+    if not report.recommended_device and not report.device_ranking:
+        return ""
+
+    ranking_items = ""
+    for i, ds in enumerate(report.device_ranking[:5]):
+        bar_width = int(ds.score * 100)
+        is_best = i == 0
+        color = "#818cf8" if is_best else "#606070"
+        label = f"<strong>{_esc(ds.device)}</strong>" if is_best else _esc(ds.device)
+        ranking_items += f"""
+            <div style="padding:4px 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <span style="font-size:12px;color:#f0f0f5;">{label}</span>
+                    <span style="font-size:11px;color:{color};">{ds.score:.0%}</span>
+                </div>
+                <div style="width:100%;height:3px;background:#0a0a0f;border-radius:2px;">
+                    <div style="width:{bar_width}%;height:100%;background:{color};border-radius:2px;"></div>
+                </div>
+            </div>"""
+
+    return f"""
+        <div style="margin-top:12px;">
+            <div style="font-size:12px;font-weight:600;color:#a0a0b0;text-transform:uppercase;
+                        letter-spacing:0.05em;margin-bottom:6px;">Device Ranking</div>
+            <div style="background:#1a1a24;border:1px solid #2a2a35;border-radius:6px;padding:10px;">
+                {ranking_items}
+            </div>
+        </div>"""
 
 
 def chat_to_html(response: ChatResponse) -> str:

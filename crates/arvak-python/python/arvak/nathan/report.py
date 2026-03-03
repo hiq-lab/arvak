@@ -119,6 +119,8 @@ class AnalysisReport:
     hardware_fit: str = ""
     estimated_error_rate: str = ""
     recommended_shots: int = 1024
+    recommended_device: str = ""
+    device_ranking: list = field(default_factory=list)  # list[DeviceScore]
 
     def _repr_html_(self) -> str:
         """Rich HTML rendering for Jupyter notebooks."""

@@ -46,6 +46,9 @@ from arvak.integrations import IntegrationRegistry
 # Nathan research optimizer (lazy import — only loaded when accessed)
 from arvak import nathan
 
+# ML-based device selection (lazy import)
+from arvak import predictor
+
 # Hamiltonian time-evolution synthesis (Trotter, QDrift)
 from arvak import sim
 
