@@ -508,8 +508,15 @@ impl Backend for IbmBackend {
         &self,
         circuit: &Circuit,
         shots: u32,
-        _parameters: Option<&std::collections::HashMap<String, f64>>,
+        parameters: Option<&std::collections::HashMap<String, f64>>,
     ) -> HalResult<JobId> {
+        // DEBT-25: reject non-empty parameter bindings (not yet supported).
+        if parameters.is_some_and(|p| !p.is_empty()) {
+            return Err(HalError::Unsupported(
+                "IBM backend does not support runtime parameter binding".into(),
+            ));
+        }
+
         // Pre-submission validation (DEBT-01): catch unsupported gates and
         // qubit-count violations before burning queue time or quantum credits.
         if let ValidationResult::Invalid { reasons } = self.validate(circuit).await? {

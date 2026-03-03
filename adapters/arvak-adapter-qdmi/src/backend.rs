@@ -917,8 +917,15 @@ impl Backend for QdmiBackend {
         &self,
         circuit: &Circuit,
         shots: u32,
-        _parameters: Option<&std::collections::HashMap<String, f64>>,
+        parameters: Option<&std::collections::HashMap<String, f64>>,
     ) -> HalResult<JobId> {
+        // DEBT-25: reject non-empty parameter bindings (not yet supported).
+        if parameters.is_some_and(|p| !p.is_empty()) {
+            return Err(HalError::Unsupported(
+                "QDMI backend does not support runtime parameter binding".into(),
+            ));
+        }
+
         debug!("Submitting circuit with {} shots via QDMI", shots);
 
         // Initialize if needed

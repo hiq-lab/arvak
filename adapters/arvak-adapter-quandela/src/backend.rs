@@ -460,7 +460,13 @@ impl Backend for QuandelaBackend {
         shots: u32,
         parameters: Option<&std::collections::HashMap<String, f64>>,
     ) -> HalResult<JobId> {
-        let _ = parameters; // Quandela cloud doesn't support runtime parameter binding yet.
+        // DEBT-25: reject non-empty parameter bindings (not yet supported).
+        if parameters.is_some_and(|p| !p.is_empty()) {
+            return Err(HalError::Unsupported(
+                "Quandela backend does not support runtime parameter binding".into(),
+            ));
+        }
+
         let circuit_json =
             circuit_to_json(circuit).map_err(|e| HalError::Backend(e.to_string()))?;
 
