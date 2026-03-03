@@ -44,6 +44,44 @@ pub async fn execute() -> Result<()> {
     );
     println!();
 
+    // DDSIM (MQT Decision Diagram Simulator)
+    #[cfg(feature = "ddsim")]
+    {
+        use arvak_adapter_ddsim::DdsimBackend;
+
+        let ddsim = DdsimBackend::new();
+        let caps = ddsim.capabilities();
+        let available = ddsim.availability().await.is_ok_and(|a| a.is_available);
+
+        println!(
+            "  {} {} {}",
+            if available {
+                style("●").green()
+            } else {
+                style("○").yellow()
+            },
+            style("ddsim").bold(),
+            "(MQT, local)"
+        );
+        println!("    Qubits: {}", caps.num_qubits);
+        println!("    Max shots: {}", caps.max_shots);
+        if !available {
+            println!("    Status: pip install mqt.ddsim");
+        }
+        println!();
+    }
+
+    #[cfg(not(feature = "ddsim"))]
+    {
+        println!(
+            "  {} {} (not compiled)",
+            style("○").dim(),
+            style("ddsim").dim()
+        );
+        println!("    Rebuild with --features ddsim to enable");
+        println!();
+    }
+
     // IQM backend
     #[cfg(feature = "iqm")]
     {

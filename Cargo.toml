@@ -32,6 +32,7 @@ arvak-sim = { path = "crates/arvak-sim" }
 
 # Adapter crates
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
+arvak-adapter-ddsim = { path = "adapters/arvak-adapter-ddsim" }
 arvak-adapter-braket = { path = "adapters/arvak-adapter-braket" }
 arvak-adapter-quandela = { path = "adapters/arvak-adapter-quandela" }
 
