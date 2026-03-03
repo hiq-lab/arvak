@@ -173,6 +173,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvak-adapter-ddsim"
+version = "1.9.0"
+dependencies = [
+ "arvak-hal",
+ "arvak-ir",
+ "arvak-qasm3",
+ "async-trait",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "arvak-adapter-ibm"
 version = "1.9.0"
 dependencies = [
@@ -336,6 +353,7 @@ dependencies = [
  "anyhow",
  "arvak-adapter-aqt",
  "arvak-adapter-braket",
+ "arvak-adapter-ddsim",
  "arvak-adapter-ibm",
  "arvak-adapter-iqm",
  "arvak-adapter-quantinuum",

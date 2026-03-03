@@ -24,6 +24,9 @@ use arvak_adapter_scaleway::ScalewayBackend;
 #[cfg(feature = "quantinuum")]
 use arvak_adapter_quantinuum::QuantinuumBackend;
 
+#[cfg(feature = "ddsim")]
+use arvak_adapter_ddsim::DdsimBackend;
+
 use super::common::{get_basis_gates, load_circuit, print_results};
 
 /// Execute the run command.
@@ -53,6 +56,15 @@ pub async fn execute(
     // Create backend FIRST so we can extract real topology for compilation
     let backend_impl: Box<dyn Backend> = match backend.to_lowercase().as_str() {
         "simulator" | "sim" => Box::new(SimulatorBackend::new()),
+        #[cfg(feature = "ddsim")]
+        "ddsim" | "mqt-ddsim" | "mqt_ddsim" => {
+            println!("  Checking MQT DDSIM availability...");
+            Box::new(DdsimBackend::new())
+        }
+        #[cfg(not(feature = "ddsim"))]
+        "ddsim" | "mqt-ddsim" | "mqt_ddsim" => {
+            anyhow::bail!("DDSIM backend not available. Rebuild with --features ddsim");
+        }
         #[cfg(feature = "iqm")]
         "iqm" | "garnet" => {
             println!("  Connecting to IQM Resonance...");
@@ -163,7 +175,7 @@ pub async fn execute(
         }
         other => {
             anyhow::bail!(
-                "Unknown backend: '{other}'. Available: simulator, iqm, ibm, braket, scaleway, quantinuum"
+                "Unknown backend: '{other}'. Available: simulator, ddsim, iqm, ibm, braket, scaleway, quantinuum"
             );
         }
     };
