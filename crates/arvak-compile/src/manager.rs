@@ -7,8 +7,8 @@ use arvak_ir::CircuitDag;
 use crate::error::CompileResult;
 use crate::pass::Pass;
 use crate::passes::{
-    BasicRouting, BasisTranslation, MeasurementBarrierVerification, OneQubitBasis, Optimize1qGates,
-    SabreRouting, TrivialLayout,
+    BasicRouting, BasisTranslation, ConsolidateBlocks, MeasurementBarrierVerification,
+    OneQubitBasis, Optimize1qGates, SabreRouting, TrivialLayout,
 };
 use crate::property::{BasisGates, CouplingMap, PropertySet};
 
@@ -144,6 +144,15 @@ impl PassManagerBuilder {
             } else {
                 pm.add_pass(BasicRouting);
             }
+        }
+
+        // Add two-qubit block consolidation at level 3.
+        // Runs after routing (so SWAPs are inserted) and before basis translation.
+        // Identifies maximal 2-qubit subcircuits, computes their unitary via KAK
+        // decomposition, and replaces blocks that use more entangling gates than
+        // the theoretical minimum.
+        if self.optimization_level >= 3 {
+            pm.add_pass(ConsolidateBlocks);
         }
 
         // Add basis translation if we have basis gates

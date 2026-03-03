@@ -10,6 +10,8 @@ pub mod verification;
 pub mod verify_compilation;
 
 pub use noise_injection::NoiseInjectionPass;
-pub use optimization::{CancelCX, CommutativeCancellation, OneQubitBasis, Optimize1qGates};
+pub use optimization::{
+    CancelCX, CommutativeCancellation, ConsolidateBlocks, OneQubitBasis, Optimize1qGates,
+};
 pub use verification::{MeasurementBarrierVerification, VerificationResult};
 pub use verify_compilation::VerifyCompilation;
