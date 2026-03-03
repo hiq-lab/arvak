@@ -66,9 +66,25 @@ def report_to_html(report: AnalysisReport) -> str:
             impact_color = {"high": "#22c55e", "medium": "#eab308", "low": "#a0a0b0"}.get(
                 s.impact, "#a0a0b0"
             )
-            # Verification badge
+            # Verification / optimality badges
             verified_badge = ""
-            if s.verified is True:
+            if getattr(s, "source", "nathan_llm") in ("qmap_sat", "qmap_heuristic"):
+                # QMAP-sourced suggestion — show optimal badge
+                opt_label = "OPTIMAL (SAT)" if s.source == "qmap_sat" else "OPTIMIZED"
+                verified_badge = (
+                    '<span style="font-size:10px;padding:2px 8px;border-radius:10px;'
+                    'background:rgba(99,102,241,0.15);color:#818cf8;margin-left:6px;'
+                    'border:1px solid rgba(99,102,241,0.3);">'
+                    f'&#9733; {opt_label}</span>'
+                )
+                if s.verified is True:
+                    verified_badge += (
+                        '<span style="font-size:10px;padding:2px 8px;border-radius:10px;'
+                        'background:rgba(34,197,94,0.15);color:#22c55e;margin-left:4px;'
+                        'border:1px solid rgba(34,197,94,0.3);">'
+                        '&#10003; VERIFIED</span>'
+                    )
+            elif s.verified is True:
                 verified_badge = (
                     '<span style="font-size:10px;padding:2px 8px;border-radius:10px;'
                     'background:rgba(34,197,94,0.15);color:#22c55e;margin-left:6px;'
