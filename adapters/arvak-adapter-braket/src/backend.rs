@@ -281,8 +281,15 @@ impl Backend for BraketBackend {
         &self,
         circuit: &Circuit,
         shots: u32,
-        _parameters: Option<&std::collections::HashMap<String, f64>>,
+        parameters: Option<&std::collections::HashMap<String, f64>>,
     ) -> HalResult<JobId> {
+        // DEBT-25: reject non-empty parameter bindings (not yet supported).
+        if parameters.is_some_and(|p| !p.is_empty()) {
+            return Err(HalError::Unsupported(
+                "Braket backend does not support runtime parameter binding".into(),
+            ));
+        }
+
         // Validate qubit count
         if circuit.num_qubits() > self.capabilities.num_qubits as usize {
             return Err(HalError::CircuitTooLarge(format!(

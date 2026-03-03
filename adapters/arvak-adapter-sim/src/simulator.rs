@@ -163,7 +163,13 @@ impl Backend for SimulatorBackend {
         shots: u32,
         parameters: Option<&std::collections::HashMap<String, f64>>,
     ) -> HalResult<JobId> {
-        let _ = parameters; // Simulator does not support runtime parameter binding yet.
+        // DEBT-25: reject non-empty parameter bindings (not yet supported).
+        if parameters.is_some_and(|p| !p.is_empty()) {
+            return Err(HalError::Unsupported(
+                "Simulator does not support runtime parameter binding".into(),
+            ));
+        }
+
         // Validate circuit size
         if circuit.num_qubits() > self.max_qubits as usize {
             return Err(HalError::CircuitTooLarge(format!(

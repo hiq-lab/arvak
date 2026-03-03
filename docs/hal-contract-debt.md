@@ -486,7 +486,7 @@ concern driven by the capabilities response.
 
 ### DEBT-25: No parameter binding in `submit()` for variational algorithms
 
-**Status: FIXED (2026-03-01) — `Backend::submit(parameters)` trait + all 9 adapters + REST gateway**
+**Status: FIXED (2026-03-01, compliance enforced 2026-03-03) — `Backend::submit(parameters)` trait + all 11 adapters + REST gateway**
 **Severity: High**
 **Identified by:** QUASI PR #364 (parametric Ehrenfest v0.2) / Afana compiler review (2026-03-01)
 **Component:** HAL Contract `Backend::submit()` trait method + `SubmitCircuitInput` HTTP type
@@ -547,6 +547,14 @@ the parameter map before dispatching to hardware — no Afana involvement requir
 `compile-parametric` reads `.cbor.hex` (not JSON), emits parametric QASM 3.0, and
 the quasi-board passes a parameter map at `POST /hal/jobs` time.
 
+**Compliance enforcement (2026-03-03):** All 11 adapters now return
+`HalError::Unsupported` when `parameters` is `Some` with a non-empty map, per the
+HAL Contract §3.2 requirement. Previously, all adapters silently dropped the
+parameter map (`let _ = parameters;` or `_parameters` prefix), which violated the
+contract and would produce incorrect results for parametric circuits without any
+diagnostic. Affected adapters: IBM, Scaleway, IQM, Quantinuum, AQT, Braket, QDMI,
+CUDA-Q, DDSIM, Quandela, Simulator.
+
 ---
 
 ### Summary — QUASI-OS integration items
@@ -554,7 +562,7 @@ the quasi-board passes a parameter map at `POST /hal/jobs` time.
 | ID | Severity | Component | Status |
 |----|----------|-----------|--------|
 | DEBT-24 | High | HAL HTTP REST surface — `GET /hal/backends/{name}` | **FIXED 2026-03-01** |
-| DEBT-25 | High | `Backend::submit()` + `SubmitCircuitInput` — parameter binding | **FIXED 2026-03-01** |
+| DEBT-25 | High | `Backend::submit()` + `SubmitCircuitInput` — parameter binding | **FIXED 2026-03-01, compliance enforced 2026-03-03** |
 
 **Open items: 2** (DEBT-Q4, DEBT-Q5). DEBT-24 and DEBT-25 resolved 2026-03-01.
 
