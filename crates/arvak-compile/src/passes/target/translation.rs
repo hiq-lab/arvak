@@ -6,9 +6,12 @@ use arvak_ir::{
     CircuitDag, Gate, GateKind, Instruction, InstructionKind, ParameterExpression, StandardGate,
 };
 
+use num_complex::Complex64;
+
 use crate::error::{CompileError, CompileResult};
 use crate::pass::{Pass, PassKind};
 use crate::property::PropertySet;
+use crate::unitary::{TwoQubitGateOp, Unitary4x4};
 
 /// Basis translation pass.
 ///
@@ -139,11 +142,61 @@ fn translate_gate(
                 )))
             }
         }
-        GateKind::Custom(_) => {
-            // Custom gates need to be decomposed first
+        GateKind::Custom(custom) => {
+            // Custom 2-qubit gates with a unitary matrix (e.g. from ConsolidateBlocks)
+            // are decomposed via KAK into CX + Rz/Ry, then translated to the target basis.
+            if let Some(ref matrix) = custom.matrix {
+                if matrix.len() == 16 && instruction.qubits.len() == 2 {
+                    return decompose_custom_2q(matrix, &instruction.qubits, basis);
+                }
+            }
             Err(CompileError::GateNotInBasis(gate.name().to_string()))
         }
     }
+}
+
+/// Decompose a custom 2-qubit gate (with a 4×4 unitary matrix) into standard
+/// gates via KAK decomposition, then translate each to the target basis.
+fn decompose_custom_2q(
+    matrix: &[Complex64],
+    qubits: &[arvak_ir::QubitId],
+    basis: &crate::property::BasisGates,
+) -> CompileResult<Vec<Instruction>> {
+    let q0 = qubits[0];
+    let q1 = qubits[1];
+
+    let mut data = [Complex64::new(0.0, 0.0); 16];
+    data.copy_from_slice(matrix);
+    let u4 = Unitary4x4 { data };
+    let kak = u4.kak_decompose();
+    let circuit_ops = kak.to_circuit();
+
+    // Convert TwoQubitGateOp sequence to Instructions, then translate each.
+    let mut result = Vec::new();
+    for op in circuit_ops {
+        let insts = match op {
+            TwoQubitGateOp::Rz(qubit, angle) => {
+                let q = if qubit == 0 { q0 } else { q1 };
+                let inst = Instruction::single_qubit_gate(StandardGate::Rz(angle.into()), q);
+                translate_gate(&inst, basis)?
+            }
+            TwoQubitGateOp::Ry(qubit, angle) => {
+                let q = if qubit == 0 { q0 } else { q1 };
+                let inst = Instruction::single_qubit_gate(StandardGate::Ry(angle.into()), q);
+                translate_gate(&inst, basis)?
+            }
+            TwoQubitGateOp::Cx => {
+                let inst = Instruction::two_qubit_gate(StandardGate::CX, q0, q1);
+                translate_gate(&inst, basis)?
+            }
+            TwoQubitGateOp::CxReverse => {
+                let inst = Instruction::two_qubit_gate(StandardGate::CX, q1, q0);
+                translate_gate(&inst, basis)?
+            }
+        };
+        result.extend(insts);
+    }
+    Ok(result)
 }
 
 /// Translate a standard gate to IQM basis (PRX + CZ).
@@ -247,21 +300,26 @@ fn translate_to_iqm(
             q0,
         )],
 
-        // SWAP = CZ · (H⊗H) · CZ · (H⊗H) · CZ
+        // SWAP = CX(a,b) · CX(b,a) · CX(a,b), each CX = H(target) · CZ · H(target)
         StandardGate::Swap => {
             let q1 = qubits[1];
             let h0 = translate_to_iqm(&StandardGate::H, &[q0])?;
             let h1 = translate_to_iqm(&StandardGate::H, &[q1])?;
             let cz = Instruction::two_qubit_gate(StandardGate::CZ, q0, q1);
 
-            let mut result = Vec::with_capacity(h0.len() * 2 + h1.len() * 2 + 3);
+            // CX(q0,q1) = H(q1) · CZ · H(q1)
+            // CX(q1,q0) = H(q0) · CZ · H(q0)
+            // CX(q0,q1) = H(q1) · CZ · H(q1)
+            let mut result = Vec::with_capacity(h0.len() * 2 + h1.len() * 4 + 3);
+            result.extend_from_slice(&h1);
+            result.push(cz.clone());
+            result.extend_from_slice(&h1);
+            result.extend_from_slice(&h0);
+            result.push(cz.clone());
+            result.extend_from_slice(&h0);
+            result.extend_from_slice(&h1);
             result.push(cz);
-            result.extend_from_slice(&h0);
             result.extend_from_slice(&h1);
-            result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
-            result.extend_from_slice(&h0);
-            result.extend_from_slice(&h1);
-            result.push(Instruction::two_qubit_gate(StandardGate::CZ, q0, q1));
             result
         }
 
@@ -352,6 +410,40 @@ fn translate_to_ibm(
             result
         }
 
+        // SWAP = CX(a,b) · CX(b,a) · CX(a,b)
+        StandardGate::Swap => {
+            let q1 = qubits[1];
+            vec![
+                Instruction::two_qubit_gate(StandardGate::CX, q0, q1),
+                Instruction::two_qubit_gate(StandardGate::CX, q1, q0),
+                Instruction::two_qubit_gate(StandardGate::CX, q0, q1),
+            ]
+        }
+
+        // S = Rz(π/2)
+        StandardGate::S => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 2.0).into()),
+            q0,
+        )],
+
+        // Sdg = Rz(-π/2)
+        StandardGate::Sdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 2.0).into()),
+            q0,
+        )],
+
+        // T = Rz(π/4)
+        StandardGate::T => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 4.0).into()),
+            q0,
+        )],
+
+        // Tdg = Rz(-π/4)
+        StandardGate::Tdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 4.0).into()),
+            q0,
+        )],
+
         // Other gates
         other => {
             return Err(CompileError::GateNotInBasis(format!("{other:?}")));
@@ -439,6 +531,39 @@ fn translate_to_eagle(
             result.extend(h_gates);
             result
         }
+
+        // SWAP = CX(a,b) · CX(b,a) · CX(a,b), each CX decomposed to ECR basis
+        StandardGate::Swap => {
+            let q1 = qubits[1];
+            let mut result = translate_to_eagle(&StandardGate::CX, &[q0, q1])?;
+            result.extend(translate_to_eagle(&StandardGate::CX, &[q1, q0])?);
+            result.extend(translate_to_eagle(&StandardGate::CX, &[q0, q1])?);
+            result
+        }
+
+        // S = Rz(π/2)
+        StandardGate::S => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 2.0).into()),
+            q0,
+        )],
+
+        // Sdg = Rz(-π/2)
+        StandardGate::Sdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 2.0).into()),
+            q0,
+        )],
+
+        // T = Rz(π/4)
+        StandardGate::T => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 4.0).into()),
+            q0,
+        )],
+
+        // Tdg = Rz(-π/4)
+        StandardGate::Tdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 4.0).into()),
+            q0,
+        )],
 
         other => {
             return Err(CompileError::GateNotInBasis(format!("{other:?}")));

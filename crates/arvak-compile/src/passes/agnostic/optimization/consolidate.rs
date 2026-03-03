@@ -240,6 +240,40 @@ fn grow_block(
         block_set.insert(idx);
     }
 
+    // Post-process: trim block so it never spans a non-gate operation
+    // (barrier, measurement, reset) on either qubit.  The per-qubit expansion
+    // above can miss a non-gate on the *other* qubit because it only walks
+    // that qubit's timeline.  Scan the full topo range of the block and
+    // truncate at the first boundary in each direction from the seed.
+    if block_set.len() > 1 {
+        let min_idx = block_set.iter().copied().min().unwrap_or(seed);
+        let max_idx = block_set.iter().copied().max().unwrap_or(seed);
+
+        // Forward boundary: first non-gate on either qubit after seed.
+        let mut fwd_boundary = max_idx + 1;
+        for (idx, (_, inst)) in topo_ops.iter().enumerate().take(max_idx + 1).skip(seed + 1) {
+            if !matches!(inst.kind, InstructionKind::Gate(_))
+                && inst.qubits.iter().any(|q| pair.contains(q))
+            {
+                fwd_boundary = idx;
+                break;
+            }
+        }
+
+        // Backward boundary: first non-gate on either qubit before seed.
+        let mut bwd_boundary = min_idx;
+        for (idx, (_, inst)) in topo_ops.iter().enumerate().take(seed).skip(min_idx).rev() {
+            if !matches!(inst.kind, InstructionKind::Gate(_))
+                && inst.qubits.iter().any(|q| pair.contains(q))
+            {
+                bwd_boundary = idx + 1;
+                break;
+            }
+        }
+
+        block_set.retain(|&idx| idx >= bwd_boundary && idx < fwd_boundary);
+    }
+
     // Return in topological order.
     let mut result: Vec<usize> = block_set.into_iter().collect();
     result.sort_unstable();
@@ -344,7 +378,7 @@ fn compute_block_unitary(
             }
         };
 
-        result = result.mul(&gate_u);
+        result = gate_u.mul(&result);
     }
 
     Some(result.data)
@@ -435,25 +469,52 @@ fn swap_4x4() -> Unitary4x4 {
 }
 
 /// Replace a block of gates with a single `CustomGate` carrying the unitary.
+///
+/// Rebuilds the entire DAG to guarantee correct gate ordering. The naive
+/// approach (remove + `dag.apply()`) fails because `apply` appends at wire
+/// ends, placing the consolidated gate AFTER all remaining gates instead of
+/// at the block's original position.
 fn replace_block(dag: &mut CircuitDag, block: &TwoQubitBlock) -> CompileResult<()> {
-    // Build the replacement CustomGate.
     let custom = CustomGate::new("consolidated_2q", 2).with_matrix(block.unitary.to_vec());
     let replacement = Instruction::gate(Gate::custom(custom), [block.q0, block.q1]);
 
-    // Remove nodes in reverse index order to handle petgraph's swap-remove.
-    let mut to_remove: Vec<NodeIndex> = block.nodes.clone();
-    to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+    let block_nodes: FxHashSet<NodeIndex> = block.nodes.iter().copied().collect();
 
-    for node_idx in to_remove {
-        // Check if the node is still valid (may have been invalidated by swap-remove).
-        if dag.get_instruction(node_idx).is_some() {
-            dag.remove_op(node_idx).map_err(CompileError::Ir)?;
+    // Find the first block node in topological order — the replacement goes here.
+    let first_block_node = block.nodes.iter().copied().min();
+
+    let mut new_dag = CircuitDag::new();
+    for qubit in dag.qubits().collect::<Vec<_>>() {
+        new_dag.add_qubit(qubit);
+    }
+    for clbit in dag.clbits().collect::<Vec<_>>() {
+        new_dag.add_clbit(clbit);
+    }
+    new_dag.set_global_phase(dag.global_phase());
+    new_dag.set_level(dag.level());
+
+    let mut replacement_emitted = false;
+    for (idx, inst) in dag.topological_ops() {
+        if block_nodes.contains(&idx) {
+            // Emit the replacement at the position of the first block node.
+            if !replacement_emitted && Some(idx) == first_block_node {
+                new_dag
+                    .apply(replacement.clone())
+                    .map_err(CompileError::Ir)?;
+                replacement_emitted = true;
+            }
+            // Skip all block nodes (they are replaced by the single custom gate).
+            continue;
         }
+        new_dag.apply(inst.clone()).map_err(CompileError::Ir)?;
     }
 
-    // Apply the replacement gate.
-    dag.apply(replacement).map_err(CompileError::Ir)?;
+    // Safety: if first_block_node was not encountered (shouldn't happen), emit at end.
+    if !replacement_emitted {
+        new_dag.apply(replacement).map_err(CompileError::Ir)?;
+    }
 
+    *dag = new_dag;
     Ok(())
 }
 
@@ -564,5 +625,147 @@ mod tests {
 
         let cz_u = gate_2q_to_unitary(&StandardGate::CZ).unwrap();
         assert!(cz_u.kak_decompose().num_cnots <= 1, "CZ: expected ≤1 CNOT");
+    }
+
+    // ========================================================================
+    // MQT-inspired tests: barrier/measurement break block collection
+    // (MQT test_collect_blocks.cpp: interruptBlock, unprocessableAtBegin)
+    // ========================================================================
+
+    #[test]
+    fn test_consolidate_barrier_breaks_block() {
+        // Barrier between CX gates prevents them from being in the same block.
+        // MQT pattern: non-unitary operations interrupt block growth.
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit.barrier([QubitId(0), QubitId(1)]).unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+        let mut props = PropertySet::new();
+
+        let before_ops = dag.num_ops();
+        ConsolidateBlocks.run(&mut dag, &mut props).unwrap();
+
+        // Barrier prevents block formation, so no consolidation should happen.
+        // Each CX on its own has 1 entangling gate (no savings).
+        assert_eq!(
+            dag.num_ops(),
+            before_ops,
+            "Barrier should prevent consolidation of CX gates across it"
+        );
+    }
+
+    #[test]
+    fn test_consolidate_measurement_breaks_block() {
+        // Measurement between CX gates prevents block growth.
+        // MQT pattern: non-unitary ops are hard block boundaries.
+        let mut circuit = Circuit::with_size("test", 2, 1);
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit.measure(QubitId(0), arvak_ir::ClbitId(0)).unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+        let mut props = PropertySet::new();
+
+        let before_ops = dag.num_ops();
+        ConsolidateBlocks.run(&mut dag, &mut props).unwrap();
+
+        // Measurement should prevent consolidation across it.
+        assert_eq!(
+            dag.num_ops(),
+            before_ops,
+            "Measurement should prevent consolidation of CX gates across it"
+        );
+    }
+
+    #[test]
+    fn test_consolidate_reset_breaks_block() {
+        // Reset between CX gates prevents block growth.
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit.reset(QubitId(0)).unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+        let mut props = PropertySet::new();
+
+        let before_ops = dag.num_ops();
+        ConsolidateBlocks.run(&mut dag, &mut props).unwrap();
+
+        assert_eq!(
+            dag.num_ops(),
+            before_ops,
+            "Reset should prevent consolidation of CX gates across it"
+        );
+    }
+
+    #[test]
+    fn test_consolidate_partial_barrier_on_one_qubit() {
+        // Barrier on only one qubit of the pair should still break the block,
+        // because the gate on that qubit can't be collected past it.
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit.barrier([QubitId(0)]).unwrap(); // only on q0
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+        let mut props = PropertySet::new();
+
+        let before_ops = dag.num_ops();
+        ConsolidateBlocks.run(&mut dag, &mut props).unwrap();
+
+        assert_eq!(
+            dag.num_ops(),
+            before_ops,
+            "Partial barrier on one qubit should still break block"
+        );
+    }
+
+    // ========================================================================
+    // MQT-inspired: block at circuit end (test_collect_blocks: endingBlocks)
+    // ========================================================================
+
+    #[test]
+    fn test_consolidate_block_at_circuit_end() {
+        // Block formation works correctly at the end of a circuit.
+        // Two CX gates at the end with no following gates.
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.h(QubitId(0)).unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        circuit.cx(QubitId(0), QubitId(1)).unwrap();
+        let mut dag = circuit.into_dag();
+        let mut props = PropertySet::new();
+
+        let before_ops = dag.num_ops();
+        ConsolidateBlocks.run(&mut dag, &mut props).unwrap();
+
+        // H + CX + CX → should consolidate (CX·CX = I, so just H⊗I).
+        assert!(
+            dag.num_ops() < before_ops,
+            "Block at circuit end should be consolidated, got {} (was {})",
+            dag.num_ops(),
+            before_ops
+        );
+    }
+
+    // ========================================================================
+    // MQT-inspired: KAK counts for more gate combinations
+    // (MQT test_dd_functionality.cpp: StandardOpBuildInverseBuild)
+    // ========================================================================
+
+    #[test]
+    fn test_kak_ecr_and_ch() {
+        // Verify KAK CNOT counts for ECR and CH gates.
+        let ecr_u = gate_2q_to_unitary(&StandardGate::ECR).unwrap();
+        let ecr_cnots = ecr_u.kak_decompose().num_cnots;
+        assert!(ecr_cnots <= 2, "ECR: expected ≤2 CNOTs, got {ecr_cnots}");
+
+        let ch_u = gate_2q_to_unitary(&StandardGate::CH).unwrap();
+        let ch_cnots = ch_u.kak_decompose().num_cnots;
+        assert!(ch_cnots <= 2, "CH: expected ≤2 CNOTs, got {ch_cnots}");
+    }
+
+    #[test]
+    fn test_kak_iswap() {
+        let iswap_u = gate_2q_to_unitary(&StandardGate::ISwap).unwrap();
+        let cnots = iswap_u.kak_decompose().num_cnots;
+        assert!(cnots <= 2, "iSWAP: expected ≤2 CNOTs, got {cnots}");
     }
 }
