@@ -87,7 +87,7 @@ pub async fn run_job_processor(state: Arc<AppState>) {
             };
 
             // Submit to backend
-            let quantum_job_id = match backend.submit(&circuit, job.shots).await {
+            let quantum_job_id = match backend.submit(&circuit, job.shots, None).await {
                 Ok(id) => id,
                 Err(e) => {
                     error!("Failed to submit job {} to backend: {}", job_id, e);

@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let circuit = Circuit::with_size("bell_state", 2, 0);
     let job_id = job_store
-        .create_job(circuit, "simulator".to_string(), 1000)
+        .create_job(circuit, "simulator".to_string(), 1000, None)
         .await?;
 
     println!("   Created job: {}", job_id.0);
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let circuit2 = Circuit::with_size("ghz_state", 3, 0);
     let job_id2 = custom_store
-        .create_job(circuit2, "simulator".to_string(), 2000)
+        .create_job(circuit2, "simulator".to_string(), 2000, None)
         .await?;
 
     println!("   Created job: {}", job_id2.0);

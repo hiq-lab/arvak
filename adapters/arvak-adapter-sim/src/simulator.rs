@@ -156,8 +156,14 @@ impl Backend for SimulatorBackend {
         Ok(ValidationResult::Valid)
     }
 
-    #[instrument(skip(self, circuit))]
-    async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+    #[instrument(skip(self, circuit, parameters))]
+    async fn submit(
+        &self,
+        circuit: &Circuit,
+        shots: u32,
+        parameters: Option<&std::collections::HashMap<String, f64>>,
+    ) -> HalResult<JobId> {
+        let _ = parameters; // Simulator does not support runtime parameter binding yet.
         // Validate circuit size
         if circuit.num_qubits() > self.max_qubits as usize {
             return Err(HalError::CircuitTooLarge(format!(
@@ -295,7 +301,7 @@ mod tests {
         let backend = SimulatorBackend::new();
 
         let circuit = Circuit::bell().unwrap();
-        let job_id = backend.submit(&circuit, 1000).await.unwrap();
+        let job_id = backend.submit(&circuit, 1000, None).await.unwrap();
 
         let status = backend.status(&job_id).await.unwrap();
         assert!(status.is_success());
@@ -314,7 +320,7 @@ mod tests {
         let backend = SimulatorBackend::new();
 
         let circuit = Circuit::ghz(3).unwrap();
-        let job_id = backend.submit(&circuit, 1000).await.unwrap();
+        let job_id = backend.submit(&circuit, 1000, None).await.unwrap();
 
         let result = backend.result(&job_id).await.unwrap();
 
@@ -328,7 +334,7 @@ mod tests {
         let backend = SimulatorBackend::with_max_qubits(5);
 
         let circuit = Circuit::with_size("test", 10, 0);
-        let result = backend.submit(&circuit, 100).await;
+        let result = backend.submit(&circuit, 100, None).await;
 
         assert!(matches!(result, Err(HalError::CircuitTooLarge(_))));
     }

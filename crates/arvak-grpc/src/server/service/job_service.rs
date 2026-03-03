@@ -67,7 +67,7 @@ impl ArvakServiceImpl {
         // job_submitted() so the resource slot is never reserved.
         let job_id = self
             .job_store
-            .create_job(circuit, req.backend_id.clone(), req.shots)
+            .create_job(circuit, req.backend_id.clone(), req.shots, None)
             .await
             .map_err(|e| {
                 // create_job failed — resource was checked but never incremented; nothing to roll back.
@@ -141,7 +141,7 @@ impl ArvakServiceImpl {
 
             let job_id = self
                 .job_store
-                .create_job(circuit, req.backend_id.clone(), batch_job.shots)
+                .create_job(circuit, req.backend_id.clone(), batch_job.shots, None)
                 .await
                 .map_err(Status::from)?;
 
@@ -444,7 +444,12 @@ impl ArvakServiceImpl {
 
                         // Create job
                         match job_store
-                            .create_job(circuit, submission.backend_id.clone(), submission.shots)
+                            .create_job(
+                                circuit,
+                                submission.backend_id.clone(),
+                                submission.shots,
+                                None,
+                            )
                             .await
                         {
                             Ok(job_id) => {

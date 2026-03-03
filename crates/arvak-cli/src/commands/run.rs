@@ -209,7 +209,7 @@ pub async fn execute(
     spinner.set_message("Submitting job...");
     spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
-    let job_id = backend_impl.submit(&circuit, shots).await?;
+    let job_id = backend_impl.submit(&circuit, shots, None).await?;
     spinner.set_message(format!("Running job {job_id}..."));
 
     // Wait for result
