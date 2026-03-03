@@ -8,7 +8,7 @@ use crate::error::CompileResult;
 use crate::pass::Pass;
 use crate::passes::{
     BasicRouting, BasisTranslation, MeasurementBarrierVerification, OneQubitBasis, Optimize1qGates,
-    TrivialLayout,
+    SabreRouting, TrivialLayout,
 };
 use crate::property::{BasisGates, CouplingMap, PropertySet};
 
@@ -124,14 +124,26 @@ impl PassManagerBuilder {
     pub fn build(self) -> (PassManager, PropertySet) {
         let mut pm = PassManager::new();
 
-        // Always add layout pass if we have a coupling map
+        // Add layout pass if we have a coupling map.
+        // Level >= 2 uses DenseLayout (topology-aware placement),
+        // otherwise TrivialLayout (identity mapping).
         if self.properties.coupling_map.is_some() {
-            pm.add_pass(TrivialLayout);
+            if self.optimization_level >= 2 {
+                pm.add_pass(crate::passes::DenseLayout);
+            } else {
+                pm.add_pass(TrivialLayout);
+            }
         }
 
-        // Add routing if we have a coupling map
+        // Add routing if we have a coupling map.
+        // Level >= 1 uses SABRE (bidirectional heuristic with lookahead),
+        // level 0 uses BasicRouting (greedy shortest-path).
         if self.properties.coupling_map.is_some() {
-            pm.add_pass(BasicRouting);
+            if self.optimization_level >= 1 {
+                pm.add_pass(SabreRouting::new());
+            } else {
+                pm.add_pass(BasicRouting);
+            }
         }
 
         // Add basis translation if we have basis gates

@@ -43,6 +43,7 @@ impl Pass for TrivialLayout {
 
         // Create trivial layout
         let layout = Layout::trivial(num_logical as u32);
+        properties.initial_layout = Some(layout.clone());
         properties.layout = Some(layout);
 
         // Mark the circuit as physical level
