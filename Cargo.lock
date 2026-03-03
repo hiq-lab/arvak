@@ -234,6 +234,7 @@ dependencies = [
  "arvak-hal",
  "arvak-ir",
  "async-trait",
+ "dirs",
  "reqwest",
  "serde",
  "serde_json",

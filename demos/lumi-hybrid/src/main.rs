@@ -340,7 +340,7 @@ async fn evaluate_with_backend<B: Backend>(
     // For simplicity in this demo, we compute expectation values
     // by measuring in computational basis and post-processing
 
-    let job_id = backend.submit(circuit, shots).await?;
+    let job_id = backend.submit(circuit, shots, None).await?;
     let result = backend.wait(&job_id).await?;
 
     // Compute energy from measurement results

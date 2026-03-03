@@ -164,9 +164,10 @@ async fn get_backend_handler(
     supported_gates.extend(caps.gate_set.two_qubit.clone());
     supported_gates.extend(caps.gate_set.three_qubit.iter().cloned());
 
-    let noise_profile_json = caps.noise_profile.as_ref().and_then(|np| {
-        serde_json::to_string(np).ok()
-    });
+    let noise_profile_json = caps
+        .noise_profile
+        .as_ref()
+        .and_then(|np| serde_json::to_string(np).ok());
 
     Ok(Json(BackendDetailResponse {
         backend_id: id,

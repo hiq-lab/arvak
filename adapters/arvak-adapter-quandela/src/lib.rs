@@ -1,32 +1,31 @@
-//! Arvak Adapter for Quandela Altair Photonic QPU
+//! Arvak Adapter for Quandela Photonic QPUs (Ascella, Belenos)
 //!
-//! This crate provides a backend implementation for the Quandela Altair
-//! photonic quantum processor. Quandela Altair uses dual-rail photonic
-//! encoding, operating 5 logical qubits in 10 photonic modes.
+//! Submits circuits to the Quandela Cloud via the Perceval Python bridge
+//! (`perceval_bridge.py`).  Supports dual-rail encoding for standard gate
+//! circuits and returns HAL-compliant measurement counts.
 //!
-//! # Architecture
+//! # Supported platforms
 //!
-//! - **Gate encoding**: Clifford+T subset via perceval-interop dual-rail
-//!   beamsplitter decomposition (DEBT-Q4: encoding pass pending)
-//! - **Cooling**: 4K Gifford-McMahon cryocooler — tracked via Alsvid for
-//!   HOM visibility PUF fingerprinting
-//! - **Submission**: REST API (DEBT-Q5: endpoint TBD)
-//!
-//! # Alsvid Integration
-//!
-//! Use `QuandelaBackend::ingest_alsvid_enrollment` to populate the
-//! `CoolingProfile` PUF enrollment from alsvid-lab output.
-//! Use `QuandelaBackend::ingest_alsvid_schedule` to add quiet-window hints.
+//! | Platform name   | Qubits | Description                         |
+//! |-----------------|--------|-------------------------------------|
+//! | `sim:ascella`   | 6      | Ascella photonic simulator (default)|
+//! | `qpu:ascella`   | 6      | Ascella physical QPU                |
+//! | `sim:belenos`   | 12     | Belenos simulator (launched 2025)   |
+//! | `qpu:belenos`   | 12     | Belenos physical QPU (12q)          |
+//! | `quandela_altair`| 5     | Legacy Altair 4K cryocooled (Alsvid)|
 //!
 //! # Authentication
 //!
-//! Set the `QUANDELA_API_KEY` environment variable.
+//! Set `PCVL_CLOUD_TOKEN` (or place the token in
+//! `~/.openclaw/credentials/quandela/cloud.key`).
 //!
-//! # Status
+//! # Alsvid integration
 //!
-//! Circuit submission (`submit()`) returns `DEBT-Q4` until the photonic
-//! dual-rail encoding pass is implemented. `validate()` returns
-//! `RequiresTranspilation` to signal this to orchestrators.
+//! The Altair platform includes a 4K Gifford-McMahon cryocooler tracked via
+//! Alsvid for HOM-visibility PUF fingerprinting.  Use
+//! [`QuandelaBackend::ingest_alsvid_enrollment`] and
+//! [`QuandelaBackend::ingest_alsvid_schedule`] to populate the
+//! `CoolingProfile`.
 //!
 //! # Example
 //!
@@ -34,9 +33,9 @@
 //! use arvak_adapter_quandela::QuandelaBackend;
 //! use arvak_hal::Backend;
 //!
-//! let backend = QuandelaBackend::new()?;
+//! let backend = QuandelaBackend::for_platform("sim:ascella")?;
 //! let caps = backend.capabilities();
-//! assert_eq!(caps.num_qubits, 5);
+//! assert_eq!(caps.num_qubits, 6);
 //! assert!(caps.features.contains(&"photonic".to_string()));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
