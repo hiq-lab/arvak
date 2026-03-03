@@ -24,10 +24,7 @@ fn token_available() -> bool {
     let keyfile = dirs::home_dir()
         .unwrap_or_default()
         .join(".openclaw/credentials/quandela/cloud.key");
-    keyfile.exists()
-        && std::fs::read_to_string(keyfile)
-            .map(|s| !s.trim().is_empty())
-            .unwrap_or(false)
+    keyfile.exists() && std::fs::read_to_string(keyfile).is_ok_and(|s| !s.trim().is_empty())
 }
 
 async fn poll_until_done(
