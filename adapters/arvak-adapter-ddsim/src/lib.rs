@@ -1,6 +1,6 @@
 //! Arvak backend adapter for MQT DDSIM (Decision Diagram Simulator).
 //!
-//! This crate provides a [`Backend`] implementation that runs quantum circuits
+//! This crate provides a [`arvak_hal::Backend`] implementation that runs quantum circuits
 //! through the [MQT DDSIM](https://github.com/cda-tum/mqt-ddsim) simulator via
 //! a Python subprocess.  Circuits are serialized to OpenQASM 2.0, simulated
 //! using the DD-based `CircuitSimulator`, and measurement counts are returned
