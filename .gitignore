@@ -15,6 +15,7 @@ CLAUDE.md
 # Python
 .venv/
 .venv-notebook-test/
+notebooks-report.txt
 __pycache__/
 *.pyc
 *.pyo
