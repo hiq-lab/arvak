@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **v1.9.0 Released!** `arvak.sim` PyO3 bindings for Hamiltonian time-evolution (Trotter/QDrift), VQE and QAOA solvers in `arvak.optimize`, `NoisyBackend` noise-threading, and security hardening (XSS fix, bounded caches, overflow guards). See [CHANGELOG.md](CHANGELOG.md).
+> **Latest (Mar 2026):** MQT integration — DDSIM backend adapter, QCEC-verified rewrites, QMAP Clifford synthesis, noise-aware fidelity scoring. New compiler passes: SABRE routing, DenseLayout, ConsolidateBlocks (KAK). ML-based device selection. Parameter binding across all 11 backends (DEBT-25). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 
@@ -35,7 +35,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 2. **Provides** Rust-native compilation for performance-critical HPC workflows
 3. **Prioritizes** European HPC quantum installations (LUMI, LRZ) as first-class citizens
 4. **Enables** seamless interoperability: use Qiskit/Cirq/Qrisp circuits with Arvak backends
-5. **Offers** unified access to IQM, IBM Quantum, Scaleway QaaS, AWS Braket, NVIDIA CUDA-Q, and any QDMI-compliant device
+5. **Offers** unified access to IQM, IBM Quantum, Quantinuum, AQT, Quandela, Scaleway QaaS, AWS Braket, MQT DDSIM, NVIDIA CUDA-Q, and any QDMI-compliant device
 6. **Supports** neutral-atom architectures with zone-aware routing and shuttling
 7. **Includes** Nathan, an AI research optimizer grounded in 7,900+ quantum computing papers and 680+ method mappings
 
@@ -78,7 +78,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
                               │
 ┌─────────────────────────────▼───────────────────────────────────────────────────┐
 │                         Backend Adapters + Plugin System                         │
-│  Simulator │ IQM │ IBM │ Scaleway │ Braket │ CUDA-Q │ QDMI │ Plugins            │
+│  Sim │ IQM │ IBM │ Quantinuum │ AQT │ Quandela │ DDSIM │ Braket │ CUDA-Q │ QDMI │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -117,9 +117,14 @@ print(response)
 **Features:**
 - **7,900+ papers**: Peer-reviewed quantum computing literature from arXiv, D-Wave, Qiskit, PennyLane, and Classiq
 - **680+ method mappings**: Algorithm–hardware pairings curated from vendor documentation and benchmarks
-- **Hardware-aware**: Recommendations tailored to target backend (IBM, IQM, etc.)
-- **Code anonymization**: Automatically strips PII before analysis
-- **Jupyter integration**: Works seamlessly in notebook workflows
+- **QCEC verification**: Verifies LLM-suggested rewrites preserve circuit semantics using MQT QCEC
+- **QMAP Clifford synthesis**: SAT-based provably optimal Clifford decompositions via MQT QMAP
+- **Noise-aware fidelity**: Estimates circuit fidelity via DDSIM simulation or heuristic fallback (15 backend profiles)
+- **QECC suggestions**: Auto-triggers error correction recommendations when suitability is low
+- **MQT Bench references**: ~200 benchmark circuits across 15 algorithms for comparison
+- **ML device selection**: Circuit feature extraction + heuristic/ML device ranking (`arvak.predictor`)
+- **Session workflow**: Multi-turn analysis with `session.analyze().apply(0).compare()`
+- **Hardware-aware**: Recommendations tailored to target backend (IBM, IQM, Quantinuum, AQT, etc.)
 - **Available at**: [arvak.io/nathan](https://arvak.io/nathan)
 
 ## gRPC Service API
@@ -564,13 +569,17 @@ arvak/
 │       ├── examples/               # 4 comprehensive examples
 │       └── tests/                  # 70 tests (56 passing)
 ├── adapters/
-│   ├── arvak-adapter-sim/      # Local statevector simulator
-│   ├── arvak-adapter-iqm/      # IQM Resonance API adapter
-│   ├── arvak-adapter-ibm/      # IBM Quantum API adapter
-│   ├── arvak-adapter-scaleway/ # Scaleway QaaS adapter (IQM Garnet, Emerald, Sirius)
-│   ├── arvak-adapter-braket/   # AWS Braket adapter
-│   ├── arvak-adapter-cudaq/    # NVIDIA CUDA-Q adapter (GPU-accelerated)
-│   └── arvak-adapter-qdmi/     # QDMI (Munich Quantum Software Stack) adapter
+│   ├── arvak-adapter-sim/        # Local statevector simulator
+│   ├── arvak-adapter-ddsim/      # MQT DDSIM decision-diagram simulator
+│   ├── arvak-adapter-iqm/        # IQM Resonance API adapter
+│   ├── arvak-adapter-ibm/        # IBM Quantum API adapter
+│   ├── arvak-adapter-quantinuum/ # Quantinuum H1/H2 trapped-ion adapter
+│   ├── arvak-adapter-aqt/        # AQT trapped-ion adapter
+│   ├── arvak-adapter-quandela/   # Quandela photonic adapter
+│   ├── arvak-adapter-scaleway/   # Scaleway QaaS adapter (IQM hardware)
+│   ├── arvak-adapter-braket/     # AWS Braket adapter
+│   ├── arvak-adapter-cudaq/      # NVIDIA CUDA-Q adapter (GPU-accelerated)
+│   └── arvak-adapter-qdmi/       # QDMI (Munich Quantum Software Stack) adapter
 ├── demos/               # Demo applications
 │   ├── bin/             # Grover, VQE, QAOA, QI-Nutshell, speed benchmarks
 │   ├── src/             # Shared circuits, problems, runners
@@ -783,15 +792,18 @@ cargo test
 | Backend | Status | Auth | Notes |
 |---------|--------|------|-------|
 | Simulator | ✅ | None | Local statevector, up to ~20 qubits |
-| IQM Resonance | ✅ | `IQM_TOKEN` | Cloud API |
-| IBM Quantum | ✅ | `IBM_QUANTUM_TOKEN` | Cloud API (Qiskit Runtime) |
+| MQT DDSIM | ✅ | None | Decision-diagram simulator via Python, up to 128 qubits |
+| IQM Resonance | ✅ | `IQM_TOKEN` | Cloud API (Sirius 16q, Garnet 20q, Emerald 54q) |
+| IBM Quantum | ✅ | `IBM_API_KEY` | Cloud API (Heron 156q, Eagle 127q) |
+| Quantinuum | ✅ | `QUANTINUUM_EMAIL` | H1/H2 trapped-ion (32q, all-to-all) |
+| AQT | ✅ | `AQT_TOKEN` | Trapped-ion (20q, all-to-all) |
+| Quandela | ✅ | `QUANDELA_TOKEN` | Photonic (Ascella 6q, Belenos 12q) |
 | Scaleway QaaS | ✅ | `SCALEWAY_SECRET_KEY` | IQM Garnet (20q), Emerald (54q), Sirius (16q) |
 | AWS Braket | ✅ | AWS credentials | IonQ, Rigetti, IQM, simulators |
 | NVIDIA CUDA-Q | ⚠️ Library-only | `CUDAQ_API_TOKEN` | GPU-accelerated simulation (mqpu, custatevec, tensornet) |
 | IQM LUMI | ✅ | OIDC | On-premise (CSC Finland) |
 | IQM LRZ | ✅ | OIDC | On-premise (Germany) |
 | QDMI (MQSS) | ⚠️ Library-only | Token/OIDC | Any QDMI-compliant device |
-| Dynamic Plugins | ⚠️ Library-only | Varies | Load custom backends via `$ARVAK_PLUGIN_DIR` |
 
 ## Compilation Targets
 
@@ -1019,11 +1031,15 @@ fn main() -> anyhow::Result<()> {
 | Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
 | Auto-Uncompute (`arvak-auto`) | ✅ Complete | Automatic ancilla uncomputation |
 | Simulator (`arvak-adapter-sim`) | ✅ Complete | Statevector simulation |
+| **DDSIM** (`arvak-adapter-ddsim`) | ✅ Complete | **MQT decision-diagram simulator, up to 128q** |
 | IQM Adapter (`arvak-adapter-iqm`) | ✅ Complete | Resonance API integration |
 | IBM Adapter (`arvak-adapter-ibm`) | ✅ Complete | Qiskit Runtime API + IBM Cloud |
-| **Scaleway Adapter** (`arvak-adapter-scaleway`) | ✅ Complete | **Scaleway QaaS: IQM Garnet, Emerald, Sirius** |
-| **Braket Adapter** (`arvak-adapter-braket`) | ✅ Complete | **AWS Braket: IonQ, Rigetti, IQM, simulators** |
-| **CUDA-Q Adapter** (`arvak-adapter-cudaq`) | ✅ Complete | **NVIDIA GPU-accelerated simulation** |
+| **Quantinuum** (`arvak-adapter-quantinuum`) | ✅ Complete | **H1/H2 trapped-ion (32q, all-to-all)** |
+| **AQT** (`arvak-adapter-aqt`) | ✅ Complete | **Trapped-ion (20q, all-to-all)** |
+| **Quandela** (`arvak-adapter-quandela`) | ✅ Complete | **Photonic (Ascella 6q, Belenos 12q)** |
+| Scaleway Adapter (`arvak-adapter-scaleway`) | ✅ Complete | Scaleway QaaS: IQM Garnet, Emerald, Sirius |
+| Braket Adapter (`arvak-adapter-braket`) | ✅ Complete | AWS Braket: IonQ, Rigetti, IQM, simulators |
+| CUDA-Q Adapter (`arvak-adapter-cudaq`) | ✅ Complete | NVIDIA GPU-accelerated simulation |
 | QDMI Adapter (`arvak-adapter-qdmi`) | ✅ Complete | QDMI v1.2.1 device interface, prefix-aware dlsym |
 | HPC Scheduler (`arvak-sched`) | ✅ Complete | SLURM & PBS, workflows, message broker, job routing |
 | Dashboard (`arvak-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
@@ -1134,14 +1150,27 @@ python tests/verify_integration_system.py
 - [x] Security hardening: XSS fix in dashboard, bounded caches, rate-counter overflow guards
 - [x] **v1.9.0 release**
 
-### Phase 11: Community & Ecosystem
+### Phase 11: MQT Integration & Advanced Compilation ✅ COMPLETE
+- [x] MQT DDSIM backend adapter (decision-diagram simulation, up to 128 qubits)
+- [x] SABRE routing (bidirectional heuristic SWAP insertion)
+- [x] DenseLayout (interaction-graph qubit placement)
+- [x] ConsolidateBlocks (KAK decomposition, Makhlin invariants)
+- [x] VerifyCompilation (sampling-based equivalence falsification)
+- [x] Circuit equivalence checking (QCEC-verified rewrites in Nathan)
+- [x] Clifford synthesis (QMAP SAT-based optimal decompositions in Nathan)
+- [x] Noise-aware fidelity scoring (DDSIM TVD + heuristic fallback)
+- [x] ML-based device selection (`arvak.predictor`, MQT Predictor compatible)
+- [x] MQT Bench reference circuits (~200 entries, 15 algorithms)
+- [x] QECC suggestions (surface/color/repetition code selection)
+- [x] Nathan Session class (multi-turn analysis workflow)
+- [x] Quantinuum, AQT, Quandela backend adapters
+- [x] Parameter binding across all 11 backends (HAL DEBT-25)
+
+### Phase 12: Community & Ecosystem
 - [ ] Error mitigation (ZNE, readout correction, Pauli twirling)
 - [ ] Pulse-level control for IQM/IBM
-- [ ] Advanced routing algorithms (SABRE improvements)
-- [ ] Circuit equivalence checking
 - [ ] Plugin marketplace for community integrations
 - [ ] Performance benchmarks vs Qiskit transpiler
-- [ ] Cloud deployment guides (AWS Braket, Azure Quantum)
 
 ## Evaluator (`arvak-eval`)
 
