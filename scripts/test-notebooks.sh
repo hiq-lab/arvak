@@ -32,10 +32,41 @@ echo ""
 
 # --- Schritt 1: Python-Umgebung ---
 echo "[1/4] Python-Umgebung wird eingerichtet..."
+
+# Prefer Python 3.12+ (system python3 on macOS is often 3.9 which is too old)
+PYTHON=""
+for candidate in python3.13 python3.12 python3.11 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        ver=$("$candidate" -c "import sys; print(sys.version_info[:2])" 2>/dev/null)
+        major=$("$candidate" -c "import sys; print(sys.version_info[0])" 2>/dev/null)
+        minor=$("$candidate" -c "import sys; print(sys.version_info[1])" 2>/dev/null)
+        if [ "$major" -ge 3 ] && [ "$minor" -ge 10 ]; then
+            PYTHON="$candidate"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    echo "FEHLER: Python >= 3.10 wird benoetigt."
+    echo "Auf dem Mac: brew install python@3.12"
+    exit 1
+fi
+
+echo "  Verwende: $($PYTHON --version 2>&1)"
+
 if [ -d "$VENV_DIR" ]; then
-    echo "  (Vorhandene Umgebung wird wiederverwendet)"
+    # Check that existing venv uses a good Python
+    VENV_VER=$("$VENV_DIR/bin/python" -c "import sys; print(sys.version_info[1])" 2>/dev/null || echo "0")
+    if [ "$VENV_VER" -lt 10 ]; then
+        echo "  (Alte Umgebung wird neu erstellt)"
+        rm -rf "$VENV_DIR"
+        "$PYTHON" -m venv "$VENV_DIR"
+    else
+        echo "  (Vorhandene Umgebung wird wiederverwendet)"
+    fi
 else
-    python3 -m venv "$VENV_DIR"
+    "$PYTHON" -m venv "$VENV_DIR"
 fi
 source "$VENV_DIR/bin/activate"
 
