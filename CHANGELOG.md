@@ -5,6 +5,44 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MQT DDSIM Backend** (`arvak-adapter-ddsim`): New backend adapter that runs circuits through the [MQT DDSIM](https://github.com/cda-tum/mqt-ddsim) decision-diagram simulator via Python subprocess. Serializes circuits to OpenQASM 2.0, supports up to 128 qubits for structured circuits. CLI: `arvak run --backend ddsim` (feature-gated). 7 unit + 3 integration tests.
+
+- **SABRE Routing** (`arvak-compile`): Bidirectional heuristic SWAP insertion with front-layer and extended-set lookahead. Produces fewer SWAPs than BasicRouting. Wired into `PassManagerBuilder` at optimization level >= 1.
+
+- **Dense Layout** (`arvak-compile`): Interaction-graph-based qubit placement scoring physical positions by connectivity. Wired in at optimization level >= 2.
+
+- **Verify Compilation** (`arvak-compile`): Sampling-based falsification pass comparing pre/post-compilation circuits on random inputs with global-phase tolerance. Handles layout permutations.
+
+- **ConsolidateBlocks** (`arvak-compile`): Two-qubit block consolidation via analytical KAK decomposition (Makhlin invariants for optimal CNOT count). Wired in at optimization level >= 3.
+
+- **ML-Based Device Selection** (`arvak.predictor`): Circuit feature extraction (depth, critical depth, entanglement ratio, parallelism, gate mix) and heuristic device ranking across 6 known devices. MQT Predictor wrapper with graceful fallback. Integrated into Nathan's `analyze(predict_device=True)`.
+
+- **Nathan QCEC Verification** (P0 #1): Verify that LLM-suggested circuit rewrites preserve semantics using MQT QCEC equivalence checking. `verify_equivalence()` + `verify_suggestions()` with graceful fallback.
+
+- **Nathan QMAP Clifford Synthesis** (P0 #2): Detect Clifford-heavy regions and optimize via MQT QMAP SAT-based synthesis for provably optimal decompositions. `Suggestion.source` field distinguishes `"nathan_llm"`, `"qmap_sat"`, `"qmap_heuristic"`.
+
+- **Nathan MQT Bench References** (P1 #3): Static table of ~200 benchmark circuits across 15 algorithms. `find_references(problem_type, num_qubits)` with alias resolution.
+
+- **Nathan DDSIM Noise-Aware Fidelity** (P1 #4): `estimate_fidelity()` via MQT DDSIM (TVD-based) with heuristic fallback. 15 backend noise profiles (IBM, IQM, Quantinuum, AQT, Quandela).
+
+- **Nathan QECC Suggestions** (P1 #5): Auto-triggered when suitability < 0.4. Surface/color/repetition code selection by error rate. Distance estimation via threshold formula. MQT QECC integration.
+
+- **Nathan Session Class** (P2 #6): Fluent multi-turn workflow: `session.apply(0).apply(1)`. History tracking, diffs, compare, reset.
+
+- **HAL Contract DEBT-24/DEBT-25**: `GET /hal/backends/{name}` detail endpoint with noise profiles (DEBT-24). Parameter binding in `Backend::submit()` across all 11 adapters (DEBT-25).
+
+- **Quandela DEBT-Q4/Q5**: Photonic dual-rail encoding pass and cloud submission via `perceval_bridge.py` subprocess.
+
+### Fixed
+
+- 6 bugs in SABRE routing, BasisTranslation, and ConsolidateBlocks passes.
+- Missing `parameters` field in SQLite `StoredJob` initializers (nightly CI fix).
+- Unresolved `[Backend]` rustdoc link in `arvak-adapter-ddsim`.
+
 ## [1.9.0] - 2026-02-27
 
 ### Added
