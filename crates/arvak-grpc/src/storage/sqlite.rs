@@ -218,6 +218,7 @@ impl JobStorage for SqliteStorage {
                             completed_at: completed_ts
                                 .and_then(|ts| DateTime::from_timestamp(ts, 0)),
                             result: None, // Results are stored separately
+                            parameters: None,
                         })
                     },
                 )
@@ -445,6 +446,7 @@ impl JobStorage for SqliteStorage {
                         started_at: started_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
                         completed_at: completed_ts.and_then(|ts| DateTime::from_timestamp(ts, 0)),
                         result: None,
+                        parameters: None,
                     })
                 })?
                 .collect::<std::result::Result<Vec<_>, _>>()?;
