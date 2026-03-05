@@ -172,7 +172,7 @@ client.close()
 - **Thread-safe**: Handles concurrent requests with `Arc<RwLock<>>`
 - **Feature-gated backends**: Enable specific backends via Cargo features
 
-**Python Client (v1.8.0):**
+**Python Client (`grpc-client/`):**
 - **Synchronous & Async APIs**: Full sync and async/await support
 - **Job Futures**: Promise-like interface with callbacks
 - **Retry & Resilience**: Exponential backoff, circuit breaker
@@ -374,20 +374,21 @@ print(f"Final entropy: {analysis.entropies[-1]:.4f}")
 ### Installation
 
 ```bash
-# Basic client
-pip install arvak-grpc
+# Install from source (not yet on PyPI)
+cd grpc-client
+pip install .
 
 # With export support (Arrow/Parquet)
-pip install arvak-grpc[export]
+pip install ".[export]"
 
 # With DataFrame support
-pip install arvak-grpc[polars]
+pip install ".[polars]"
 
 # With visualization
-pip install arvak-grpc[viz]
+pip install ".[viz]"
 
 # Everything
-pip install arvak-grpc[all]
+pip install ".[all]"
 ```
 
 ### Python API Summary
@@ -1027,7 +1028,7 @@ fn main() -> anyhow::Result<()> {
 | **Evaluator** (`arvak-eval`) | ✅ Complete | **QDMI contracts, emitter compliance, orchestration, benchmarks** |
 | **Benchmarks** (`arvak-bench`) | ✅ Complete | **Quantum Volume, CLOPS, Randomized Benchmarking** |
 | **gRPC Service** (`arvak-grpc`) | ✅ Complete | **10 RPCs, async execution, thread-safe** |
-| **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **v1.7.1: Async, futures, caching, analysis** |
+| **gRPC Python Client** (`arvak_grpc`) | ✅ Complete | **Async, futures, caching, analysis (install from `grpc-client/`)** |
 | Quantum Types (`arvak-types`) | ✅ Complete | QuantumInt, QuantumFloat, QuantumArray |
 | Auto-Uncompute (`arvak-auto`) | ✅ Complete | Automatic ancilla uncomputation |
 | Simulator (`arvak-adapter-sim`) | ✅ Complete | Statevector simulation |
