@@ -5,7 +5,7 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.1] - 2026-03-05
 
 ### Added
 
@@ -779,6 +779,11 @@ If upgrading from development versions:
 
 ---
 
+[1.9.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.9.1
+[1.9.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.9.0
+[1.8.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.8.1
+[1.6.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.6.0
+[1.5.2]: https://github.com/hiq-lab/arvak/releases/tag/v1.5.2
 [1.5.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.5.1
 [1.5.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.5.0
 [1.4.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.4.0
