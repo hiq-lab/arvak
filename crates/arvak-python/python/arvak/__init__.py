@@ -43,17 +43,32 @@ from arvak._native import (
 # Import integration registry
 from arvak.integrations import IntegrationRegistry
 
-# Nathan research optimizer (lazy import — only loaded when accessed)
-from arvak import nathan
+# Submodules with optional dependencies — truly lazy-loaded via __getattr__.
+# nathan requires httpx (pip install arvak[nathan])
+# optimize requires numpy + scipy (pip install arvak[optimize])
+# predictor and sim have no extra deps but follow the same pattern for consistency.
+import importlib as _importlib
 
-# ML-based device selection (lazy import)
-from arvak import predictor
+_LAZY_SUBMODULES = {"nathan", "predictor", "sim", "optimize"}
 
-# Hamiltonian time-evolution synthesis (Trotter, QDrift)
-from arvak import sim
 
-# Variational QUBO solvers and graph decomposition tools
-from arvak import optimize
+def __getattr__(name: str):
+    if name in _LAZY_SUBMODULES:
+        try:
+            mod = _importlib.import_module(f"arvak.{name}")
+        except ImportError as exc:
+            extras_hint = {
+                "nathan": "arvak[nathan]",
+                "optimize": "arvak[optimize]",
+            }
+            hint = extras_hint.get(name, name)
+            raise ImportError(
+                f"arvak.{name} requires additional dependencies. "
+                f"Install with: pip install {hint}"
+            ) from exc
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module 'arvak' has no attribute {name!r}")
 
 # Demo launcher
 from arvak.demo import launch as demo

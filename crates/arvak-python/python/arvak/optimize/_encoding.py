@@ -14,6 +14,7 @@ where mask_i is a k-bit integer stored in parity_masks[i].
 from __future__ import annotations
 
 import math
+from typing import Union
 
 import numpy as np
 
@@ -167,4 +168,4 @@ class PolyEncoding:
 # Type alias
 # ---------------------------------------------------------------------------
 
-Encoding = DenseEncoding | PolyEncoding
+Encoding = Union[DenseEncoding, PolyEncoding]
