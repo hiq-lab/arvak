@@ -34,6 +34,7 @@ arvak-sim = { path = "crates/arvak-sim" }
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
 arvak-adapter-ddsim = { path = "adapters/arvak-adapter-ddsim" }
 arvak-adapter-braket = { path = "adapters/arvak-adapter-braket" }
+arvak-adapter-ionq = { path = "adapters/arvak-adapter-ionq" }
 arvak-adapter-quandela = { path = "adapters/arvak-adapter-quandela" }
 
 # Async runtime — minimal workspace features; crates add extras as needed.

@@ -114,6 +114,9 @@ class HalAvailability:
 # AQT Arnica cloud API constants
 _AQT_API_BASE = "https://arnica.aqt.eu/api/v1"
 
+# IonQ API constants
+_IONQ_API_BASE = "https://api.ionq.co/v0.4"
+
 # Quantinuum API constants
 _QUANTINUUM_API_BASE = "https://qapi.quantinuum.com/v1"
 
@@ -236,6 +239,21 @@ class ArvakProvider:
         'aqt_cloud_sim':   ('aqt_simulators', 'simulator_noise'),
     }
 
+    # IonQ backend names (trapped-ion — simulator + QPU hardware)
+    _IONQ_BACKENDS = {
+        'ionq_simulator',   # cloud simulator (29q, free tier)
+        'ionq_aria_1',      # qpu.aria-1 (25q)
+        'ionq_aria_2',      # qpu.aria-2 (25q)
+        'ionq_forte_1',     # qpu.forte-1 (36q)
+    }
+
+    _IONQ_DEVICE_MAP = {
+        'ionq_simulator': 'simulator',
+        'ionq_aria_1':    'qpu.aria-1',
+        'ionq_aria_2':    'qpu.aria-2',
+        'ionq_forte_1':   'qpu.forte-1',
+    }
+
     def __init__(self):
         """Initialize the Arvak provider."""
         self._backends = {}
@@ -311,6 +329,19 @@ class ArvakProvider:
                 provider=self, workspace=workspace, resource=resource,
             )
 
+        # Lazily create IonQ backends on demand
+        if name and name in self._IONQ_BACKENDS and name not in self._backends:
+            try:
+                device = self._IONQ_DEVICE_MAP[name]
+                self._backends[name] = ArvakIonQBackend(
+                    provider=self, backend_name=device,
+                )
+            except (ValueError, ImportError) as e:
+                raise ValueError(
+                    f"Cannot connect to {name}: {e}. "
+                    f"Set IONQ_API_KEY environment variable."
+                ) from e
+
         if name:
             backend = self._backends.get(name)
             return [backend] if backend else []
@@ -341,6 +372,8 @@ class ArvakProvider:
                 b for b in self._QUANTINUUM_BACKENDS if b not in self._backends
             ] + [
                 b for b in self._AQT_BACKENDS if b not in self._backends
+            ] + [
+                b for b in self._IONQ_BACKENDS if b not in self._backends
             ]
             raise ValueError(
                 f"Unknown backend: {name}. "
@@ -2772,3 +2805,430 @@ class ArvakAQTResult:
 
     def __repr__(self) -> str:
         return f"<ArvakAQTResult(job_id='{self._job_id}', counts={self._counts})>"
+
+
+# ======================================================================
+# IonQ Backend (trapped-ion — cloud simulator + Aria/Forte QPU)
+# ======================================================================
+
+class ArvakIonQBackend:
+    """Arvak IonQ backend — submits directly to IonQ's REST API v0.4.
+
+    Uses the IonQ **QIS gateset** — Arvak compiles to standard gates
+    (h, cx, rx, ry, rz, etc.) and IonQ compiles to native gates server-side.
+    All IonQ devices have all-to-all qubit connectivity.
+
+    The free tier includes unlimited simulator access (up to 29 qubits).
+    Get an API key at https://cloud.ionq.com.
+
+    Args:
+        provider: Parent ArvakProvider instance.
+        backend_name: IonQ backend name (e.g., ``"simulator"``, ``"qpu.aria-1"``).
+    """
+
+    # IonQ backend specs
+    _BACKEND_QUBITS = {
+        'simulator': 29,
+        'qpu.aria-1': 25,
+        'qpu.aria-2': 25,
+        'qpu.forte-1': 36,
+        'qpu.forte-enterprise-1': 36,
+    }
+
+    def __init__(
+        self,
+        provider,
+        backend_name: str = 'simulator',
+    ):
+        import requests as _requests
+        self._requests = _requests
+
+        self._provider = provider
+        self._backend_name = backend_name
+
+        # Read API key from environment.
+        self._api_key = os.environ.get('IONQ_API_KEY', '')
+        if not self._api_key:
+            raise ValueError(
+                "IONQ_API_KEY environment variable is required. "
+                "Get a free API key at https://cloud.ionq.com"
+            )
+
+        base_url = os.environ.get('IONQ_API_URL', _IONQ_API_BASE)
+        self._base_url = base_url.rstrip('/')
+
+        self.name = f"ionq_{backend_name.replace('.', '_')}"
+        self.description = f"IonQ {backend_name} (via Arvak)"
+
+    # ------------------------------------------------------------------
+    # HAL-compliant interface
+    # ------------------------------------------------------------------
+
+    def contract_version(self) -> str:
+        """Return HAL contract version."""
+        return "2.0"
+
+    def availability(self) -> HalAvailability:
+        """Check backend availability via the IonQ API."""
+        try:
+            resp = self._requests.get(
+                f"{self._base_url}/backends/{self._backend_name}",
+                headers=self._auth_headers(),
+                timeout=10,
+            )
+            if resp.ok:
+                data = resp.json()
+                status = data.get('status', 'unknown')
+                online = status.lower() in ('available', 'degraded')
+                return HalAvailability(
+                    online=online,
+                    queue_depth=data.get('average_queue_time'),
+                    status_message=status,
+                )
+            return HalAvailability(
+                online=False,
+                queue_depth=None,
+                status_message=f"HTTP {resp.status_code}: {resp.text[:200]}",
+            )
+        except Exception as exc:
+            return HalAvailability(online=False, queue_depth=None, status_message=str(exc))
+
+    def validate(self, circuit, shots: int = 1024) -> HalValidationResult:
+        """Validate a Qiskit circuit against IonQ constraints."""
+        errors = []
+
+        max_qubits = self._BACKEND_QUBITS.get(self._backend_name, 29)
+        n_qubits = circuit.num_qubits
+        if n_qubits > max_qubits:
+            errors.append(
+                f"Circuit has {n_qubits} qubits; IonQ {self._backend_name} "
+                f"supports at most {max_qubits}"
+            )
+
+        if shots < 1:
+            errors.append("shots must be at least 1")
+
+        return HalValidationResult(valid=not errors, errors=errors)
+
+    def submit(self, circuit, shots: int = 1024) -> str:
+        """Transpile and submit a Qiskit circuit to IonQ; return job_id string.
+
+        Arvak compiles the circuit, then Qiskit transpiles to the IonQ QIS
+        gateset (h, cx, rx, ry, rz, etc.).  IonQ handles native gate
+        compilation server-side.
+        """
+        from qiskit import transpile
+
+        # Transpile to IonQ QIS basis (all-to-all connectivity).
+        transpiled = transpile(
+            circuit,
+            basis_gates=['h', 'cx', 'rx', 'ry', 'rz', 's', 't', 'sdg', 'tdg',
+                         'sx', 'x', 'y', 'z', 'swap', 'ccx'],
+            optimization_level=1,
+        )
+
+        gates = self._serialize_circuit(transpiled)
+        n_qubits = transpiled.num_qubits
+
+        payload = {
+            "type": "ionq.circuit.v1",
+            "backend": self._backend_name,
+            "shots": shots,
+            "name": f"arvak-{self._backend_name}",
+            "input": {
+                "gateset": "qis",
+                "qubits": n_qubits,
+                "circuit": gates,
+            },
+        }
+
+        resp = self._requests.post(
+            f"{self._base_url}/jobs",
+            headers=self._auth_headers(),
+            json=payload,
+            timeout=30,
+        )
+
+        if not resp.ok:
+            raise ArvakSubmissionError(
+                f"IonQ job submission failed ({resp.status_code}): {resp.text}"
+            )
+
+        data = resp.json()
+        return data['id']
+
+    def job_status(self, job_id: str) -> str:
+        """Return current job status string."""
+        resp = self._requests.get(
+            f"{self._base_url}/jobs/{job_id}",
+            headers=self._auth_headers(),
+            timeout=10,
+        )
+        if resp.status_code == 404:
+            raise ArvakJobError(f"IonQ job not found: {job_id}")
+        resp.raise_for_status()
+        return resp.json()['status']
+
+    def job_result(self, job_id: str) -> 'ArvakIonQResult':
+        """Fetch results for a completed job.
+
+        IonQ returns probability distributions keyed by decimal state index.
+        We convert these to bitstring counts scaled by the shot count.
+
+        Raises:
+            ArvakJobError: If the job is not found, has failed, or is not completed.
+        """
+        resp = self._requests.get(
+            f"{self._base_url}/jobs/{job_id}",
+            headers=self._auth_headers(),
+            timeout=10,
+        )
+        if resp.status_code == 404:
+            raise ArvakJobError(f"IonQ job not found: {job_id}")
+        resp.raise_for_status()
+
+        data = resp.json()
+        if data['status'] == 'failed':
+            error_msg = data.get('error', {}).get('message', 'unknown error')
+            raise ArvakJobError(f"IonQ job failed: {error_msg}")
+        if data['status'] != 'completed':
+            raise ArvakJobError(
+                f"IonQ job {job_id} not completed (status: {data['status']})"
+            )
+
+        results = data.get('results', {})
+        n_qubits = data.get('qubits', 1)
+        shots = data.get('shots', 100)
+
+        # IonQ returns either histogram (sampled) or probabilities.
+        histogram = results.get('histogram')
+        probabilities = results.get('probabilities')
+
+        if histogram:
+            counts = self._distribution_to_counts(histogram, n_qubits, shots)
+        elif probabilities:
+            counts = self._distribution_to_counts(probabilities, n_qubits, shots)
+        else:
+            raise ArvakJobError("Completed IonQ job has no results")
+
+        return ArvakIonQResult(counts=counts, shots=shots, job_id=job_id)
+
+    def job_cancel(self, job_id: str) -> None:
+        """Cancel a queued or running job."""
+        resp = self._requests.put(
+            f"{self._base_url}/jobs/{job_id}/status/cancel",
+            headers=self._auth_headers(),
+            timeout=10,
+        )
+        if not resp.ok:
+            raise ArvakJobError(
+                f"IonQ job cancel failed ({resp.status_code}): {resp.text}"
+            )
+
+    def run(self, circuit, shots: int = 1024, **_options) -> 'ArvakIonQJob':
+        """Submit a circuit and return an ArvakIonQJob for polling results."""
+        self.availability().raise_if_unavailable()
+        self.validate(circuit, shots=shots).raise_if_invalid()
+        job_id = self.submit(circuit, shots=shots)
+        return ArvakIonQJob(backend=self, job_id=job_id, shots=shots)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _auth_headers(self) -> dict:
+        """Build Authorization header (IonQ uses apiKey, not Bearer)."""
+        return {
+            "Authorization": f"apiKey {self._api_key}",
+            "Content-Type": "application/json",
+        }
+
+    def _serialize_circuit(self, transpiled_circuit) -> list:
+        """Serialize a transpiled Qiskit circuit to IonQ QIS JSON gate format.
+
+        IonQ QIS gate format uses:
+          - Single-qubit: ``{gate, target, rotation?}``
+          - Controlled: ``{gate, control, target, rotation?}``
+          - Multi-target: ``{gate, targets, rotation?}``
+          - Multi-control: ``{gate, controls, targets}``
+        All rotation angles are in radians.
+        """
+        # IonQ QIS gate name aliases
+        _ALIASES = {
+            'sdg': 'si', 'tdg': 'ti', 'sx': 'v',
+        }
+
+        gates = []
+        for instr in transpiled_circuit.data:
+            gate_name = instr.operation.name
+            qargs = [transpiled_circuit.find_bit(q).index for q in instr.qubits]
+            params = instr.operation.params
+
+            if gate_name == 'measure':
+                continue  # IonQ measures all qubits automatically
+
+            if gate_name == 'barrier':
+                continue
+
+            # Apply aliases
+            api_name = _ALIASES.get(gate_name, gate_name)
+
+            if gate_name in ('h', 'x', 'y', 'z', 's', 'sdg', 't', 'tdg', 'sx'):
+                gates.append({"gate": api_name, "target": qargs[0]})
+
+            elif gate_name in ('rx', 'ry', 'rz'):
+                gates.append({
+                    "gate": api_name,
+                    "target": qargs[0],
+                    "rotation": float(params[0]),
+                })
+
+            elif gate_name == 'cx':
+                gates.append({
+                    "gate": "cx",
+                    "control": qargs[0],
+                    "target": qargs[1],
+                })
+
+            elif gate_name == 'cz':
+                gates.append({
+                    "gate": "cz",
+                    "control": qargs[0],
+                    "target": qargs[1],
+                })
+
+            elif gate_name == 'swap':
+                gates.append({
+                    "gate": "swap",
+                    "targets": [qargs[0], qargs[1]],
+                })
+
+            elif gate_name == 'ccx':
+                gates.append({
+                    "gate": "cx",
+                    "controls": [qargs[0], qargs[1]],
+                    "targets": [qargs[2]],
+                })
+
+            elif gate_name in ('rxx', 'ryy', 'rzz'):
+                # IonQ uses xx, yy, zz (without the r prefix)
+                ionq_name = gate_name[1:]  # rxx -> xx, ryy -> yy, rzz -> zz
+                gates.append({
+                    "gate": ionq_name,
+                    "targets": [qargs[0], qargs[1]],
+                    "rotation": float(params[0]),
+                })
+
+            else:
+                raise ArvakValidationError(
+                    f"Unexpected gate after transpilation: {gate_name}. "
+                    f"Cannot map to IonQ QIS gateset."
+                )
+
+        return gates
+
+    @staticmethod
+    def _distribution_to_counts(distribution: dict, n_qubits: int, shots: int) -> dict:
+        """Convert IonQ probability/histogram distribution to bitstring counts.
+
+        IonQ returns state indices as decimal strings (e.g., "0", "3") with
+        probability or fractional count values.  We convert to padded binary
+        bitstrings and scale by shot count.
+        """
+        counts = {}
+        for state_str, prob in distribution.items():
+            state_idx = int(state_str)
+            bitstring = format(state_idx, f'0{n_qubits}b')
+            count = round(prob * shots)
+            if count > 0:
+                counts[bitstring] = count
+        return counts
+
+    def __repr__(self) -> str:
+        return f"<ArvakIonQBackend('{self._backend_name}')>"
+
+
+class ArvakIonQJob:
+    """Job submitted to an IonQ backend.
+
+    Polls the IonQ API for status and results.
+
+    Args:
+        backend: Parent ArvakIonQBackend instance.
+        job_id: IonQ job UUID string.
+        shots: Number of shots requested.
+    """
+
+    def __init__(self, backend: ArvakIonQBackend, job_id: str, shots: int):
+        self._backend = backend
+        self._job_id = job_id
+        self._shots = shots
+        self._counts: Optional[dict] = None
+
+    def job_id(self) -> str:
+        """Return the IonQ job UUID."""
+        return self._job_id
+
+    def status(self) -> str:
+        """Poll and return the current job status."""
+        return self._backend.job_status(self._job_id)
+
+    def cancel(self) -> None:
+        """Cancel the job."""
+        self._backend.job_cancel(self._job_id)
+
+    def result(self, timeout: int = 300, poll_interval: int = 3) -> 'ArvakIonQResult':
+        """Wait for job completion and return an ArvakIonQResult.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 300).
+            poll_interval: Seconds between status polls (default: 3).
+
+        Raises:
+            ArvakTimeoutError: If the job does not complete within ``timeout``.
+            ArvakJobError: If the job fails or is cancelled.
+        """
+        import time
+
+        elapsed = 0
+        while elapsed < timeout:
+            status = self.status()
+            if status == 'completed':
+                result = self._backend.job_result(self._job_id)
+                self._counts = result.get_counts()
+                return result
+            if status == 'failed':
+                raise ArvakJobError(f"IonQ job {self._job_id} failed")
+            if status == 'canceled':
+                raise ArvakJobCancelledError(f"IonQ job {self._job_id} was cancelled")
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+
+        raise ArvakTimeoutError(
+            f"IonQ job {self._job_id} did not complete within {timeout}s"
+        )
+
+    def __repr__(self) -> str:
+        return f"<ArvakIonQJob(id='{self._job_id}', shots={self._shots})>"
+
+
+class ArvakIonQResult:
+    """Result from an IonQ job.
+
+    Args:
+        counts: Bitstring to count dictionary.
+        shots: Total number of shots.
+        job_id: IonQ job UUID.
+    """
+
+    def __init__(self, counts: dict, shots: int, job_id: str):
+        self._counts = counts
+        self._shots = shots
+        self._job_id = job_id
+
+    def get_counts(self, circuit=None) -> dict:
+        """Return the bitstring counts dictionary."""
+        return dict(self._counts)
+
+    def __repr__(self) -> str:
+        return f"<ArvakIonQResult(job_id='{self._job_id}', counts={self._counts})>"

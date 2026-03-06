@@ -167,6 +167,26 @@ impl Capabilities {
         }
     }
 
+    /// Create capabilities for IonQ trapped-ion devices (Aria, Forte).
+    ///
+    /// IonQ hardware has all-to-all qubit connectivity.
+    /// The QIS gateset supports standard gates (h, cx, rx, ry, rz, etc.)
+    /// which IonQ compiles to native gates (gpi, gpi2, ms) server-side.
+    pub fn ionq(name: impl Into<String>, num_qubits: u32) -> Self {
+        Self {
+            name: name.into(),
+            num_qubits,
+            gate_set: GateSet::ionq(),
+            topology: Topology::full(num_qubits),
+            max_shots: 1_000_000,
+            max_circuit_ops: None,
+            is_simulator: false,
+            features: vec!["ion_trap".into()],
+            noise_profile: None,
+            cooling_profile: None,
+        }
+    }
+
     /// Create capabilities for Quantinuum H1/H2 ion-trap devices.
     ///
     /// All Quantinuum hardware has all-to-all qubit connectivity.
@@ -467,13 +487,34 @@ impl GateSet {
 
     /// Create IonQ gate set (trapped-ion).
     ///
-    /// Native gates: RX, RY, RZ (single-qubit), XX (two-qubit).
+    /// Uses the QIS gateset: standard gates that IonQ compiles to native
+    /// gates (gpi, gpi2, ms) server-side. This avoids requiring Arvak to
+    /// compile to IonQ native gates.
     pub fn ionq() -> Self {
         Self {
-            single_qubit: vec!["rx".into(), "ry".into(), "rz".into()],
-            two_qubit: vec!["xx".into()],
-            three_qubit: vec![],
-            native: vec!["rx".into(), "ry".into(), "rz".into(), "xx".into()],
+            single_qubit: vec![
+                "h".into(),
+                "x".into(),
+                "y".into(),
+                "z".into(),
+                "rx".into(),
+                "ry".into(),
+                "rz".into(),
+                "s".into(),
+                "sdg".into(),
+                "t".into(),
+                "tdg".into(),
+                "sx".into(),
+            ],
+            two_qubit: vec![
+                "cx".into(),
+                "swap".into(),
+                "xx".into(),
+                "yy".into(),
+                "zz".into(),
+            ],
+            three_qubit: vec!["ccx".into()],
+            native: vec!["gpi".into(), "gpi2".into(), "ms".into(), "zz".into()],
         }
     }
 

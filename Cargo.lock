@@ -208,6 +208,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvak-adapter-ionq"
+version = "1.9.2"
+dependencies = [
+ "arvak-hal",
+ "arvak-ir",
+ "async-trait",
+ "reqwest",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "arvak-adapter-iqm"
 version = "1.9.2"
 dependencies = [
