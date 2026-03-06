@@ -325,41 +325,55 @@ impl IonQBackend {
         }
     }
 
-    /// Convert IonQ probability distribution to `Counts`.
+    /// Resolve a result distribution from the IonQ response.
     ///
-    /// IonQ returns probabilities keyed by decimal state index (e.g., "0", "3").
-    /// We convert each key to a binary bitstring and scale by shot count.
-    fn probabilities_to_counts(
-        probabilities: &std::collections::HashMap<String, f64>,
+    /// IonQ v0.4 returns result URLs (e.g., `{"url": "/v0.4/jobs/.../results/probabilities"}`)
+    /// instead of inline data.  This method detects URLs and fetches the actual data.
+    async fn resolve_distribution(
+        &self,
+        results: &crate::api::JobResults,
+    ) -> IonQResult<std::collections::HashMap<String, f64>> {
+        // Try histogram first, then probabilities.
+        for value in [&results.histogram, &results.probabilities]
+            .into_iter()
+            .flatten()
+        {
+            // Check if it's a URL reference: {"url": "/v0.4/..."}
+            if let Some(url) = value
+                .as_object()
+                .and_then(|o| o.get("url"))
+                .and_then(|v| v.as_str())
+            {
+                return self.client.fetch_results(url).await;
+            }
+            // Otherwise try to parse as inline distribution.
+            if let Ok(dist) =
+                serde_json::from_value::<std::collections::HashMap<String, f64>>(value.clone())
+            {
+                return Ok(dist);
+            }
+        }
+        Err(IonQError::JobFailed(
+            "No resolvable distribution in results".into(),
+        ))
+    }
+
+    /// Convert IonQ probability/histogram distribution to `Counts`.
+    ///
+    /// IonQ returns values keyed by decimal state index (e.g., "0", "3")
+    /// with probability or fractional count values.  We convert each key to
+    /// a binary bitstring and scale by shot count.
+    fn distribution_to_counts(
+        distribution: &std::collections::HashMap<String, f64>,
         n_qubits: u32,
         shots: u32,
     ) -> Counts {
         let mut counts = Counts::new();
 
-        for (state_str, &prob) in probabilities {
+        for (state_str, &prob) in distribution {
             let state_idx: u64 = state_str.parse().unwrap_or(0);
             let bitstring = format!("{:0>width$b}", state_idx, width = n_qubits as usize);
             let count = (prob * f64::from(shots)).round() as u64;
-            if count > 0 {
-                counts.insert(bitstring, count);
-            }
-        }
-
-        counts
-    }
-
-    /// Convert IonQ histogram (sampled counts as fractions) to `Counts`.
-    fn histogram_to_counts(
-        histogram: &std::collections::HashMap<String, f64>,
-        n_qubits: u32,
-        shots: u32,
-    ) -> Counts {
-        let mut counts = Counts::new();
-
-        for (state_str, &frac) in histogram {
-            let state_idx: u64 = state_str.parse().unwrap_or(0);
-            let bitstring = format!("{:0>width$b}", state_idx, width = n_qubits as usize);
-            let count = (frac * f64::from(shots)).round() as u64;
             if count > 0 {
                 counts.insert(bitstring, count);
             }
@@ -660,19 +674,29 @@ impl Backend for IonQBackend {
             .results
             .ok_or_else(|| HalError::JobFailed("Completed job returned no results".into()))?;
 
-        let n_qubits = response.qubits.unwrap_or(1);
-        let shots = response.shots.unwrap_or(100);
+        // qubits may be in stats.qubits (v0.4) or response.qubits (older).
+        let n_qubits = response
+            .stats
+            .as_ref()
+            .and_then(|s| s.qubits)
+            .or(response.qubits)
+            .unwrap_or(1);
 
-        // IonQ returns either probabilities or histogram depending on backend.
-        let counts = if let Some(ref histogram) = results.histogram {
-            Self::histogram_to_counts(histogram, n_qubits, shots)
-        } else if let Some(ref probabilities) = results.probabilities {
-            Self::probabilities_to_counts(probabilities, n_qubits, shots)
-        } else {
-            return Err(HalError::JobFailed(
-                "Completed job has no probabilities or histogram".into(),
-            ));
-        };
+        // Shots are cached from submit; response may not include them.
+        let shots = response.shots.unwrap_or_else(|| {
+            let jobs = self.jobs.try_lock();
+            jobs.ok()
+                .and_then(|j| j.get(&job_id.0).map(|c| c.job.shots))
+                .unwrap_or(100)
+        });
+
+        // IonQ v0.4: results may contain URLs to fetch, or inline data.
+        let distribution = self
+            .resolve_distribution(&results)
+            .await
+            .map_err(|e| HalError::Backend(e.to_string()))?;
+
+        let counts = Self::distribution_to_counts(&distribution, n_qubits, shots);
 
         let actual_shots = u32::try_from(counts.total_shots()).unwrap_or(shots);
         let result = ExecutionResult::new(counts, actual_shots);
@@ -734,7 +758,7 @@ mod tests {
         probs.insert("0".to_string(), 0.5);
         probs.insert("3".to_string(), 0.5);
 
-        let counts = IonQBackend::probabilities_to_counts(&probs, 2, 1000);
+        let counts = IonQBackend::distribution_to_counts(&probs, 2, 1000);
         let sorted = counts.sorted();
         let map: HashMap<String, u64> = sorted.into_iter().map(|(k, v)| (k.clone(), *v)).collect();
         assert_eq!(map["00"], 500);
@@ -746,7 +770,7 @@ mod tests {
         let mut probs = HashMap::new();
         probs.insert("1".to_string(), 1.0);
 
-        let counts = IonQBackend::probabilities_to_counts(&probs, 1, 100);
+        let counts = IonQBackend::distribution_to_counts(&probs, 1, 100);
         let sorted = counts.sorted();
         let map: HashMap<String, u64> = sorted.into_iter().map(|(k, v)| (k.clone(), *v)).collect();
         assert_eq!(map["1"], 100);
@@ -755,7 +779,7 @@ mod tests {
     #[test]
     fn test_probabilities_to_counts_empty() {
         let probs = HashMap::new();
-        let counts = IonQBackend::probabilities_to_counts(&probs, 2, 100);
+        let counts = IonQBackend::distribution_to_counts(&probs, 2, 100);
         assert_eq!(counts.total_shots(), 0);
     }
 
@@ -765,7 +789,7 @@ mod tests {
         hist.insert("0".to_string(), 0.48);
         hist.insert("3".to_string(), 0.52);
 
-        let counts = IonQBackend::histogram_to_counts(&hist, 2, 100);
+        let counts = IonQBackend::distribution_to_counts(&hist, 2, 100);
         let sorted = counts.sorted();
         let map: HashMap<String, u64> = sorted.into_iter().map(|(k, v)| (k.clone(), *v)).collect();
         assert_eq!(map["00"], 48);

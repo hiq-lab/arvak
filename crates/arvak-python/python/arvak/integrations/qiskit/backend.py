@@ -2859,6 +2859,7 @@ class ArvakIonQBackend:
 
         self.name = f"ionq_{backend_name.replace('.', '_')}"
         self.description = f"IonQ {backend_name} (via Arvak)"
+        self._last_shots: dict = {}  # job_id -> shots cache
 
     # ------------------------------------------------------------------
     # HAL-compliant interface
@@ -2955,7 +2956,9 @@ class ArvakIonQBackend:
             )
 
         data = resp.json()
-        return data['id']
+        job_id = data['id']
+        self._last_shots[job_id] = shots
+        return job_id
 
     def job_status(self, job_id: str) -> str:
         """Return current job status string."""
@@ -2997,20 +3000,46 @@ class ArvakIonQBackend:
             )
 
         results = data.get('results', {})
-        n_qubits = data.get('qubits', 1)
-        shots = data.get('shots', 100)
+        stats = data.get('stats', {})
+        n_qubits = stats.get('qubits') or data.get('qubits') or 1
+        shots = data.get('shots') or self._last_shots.get(job_id, 1024)
 
-        # IonQ returns either histogram (sampled) or probabilities.
-        histogram = results.get('histogram')
-        probabilities = results.get('probabilities')
+        # IonQ v0.4 returns a URL to fetch results, not inline data.
+        # The results block contains e.g. {"probabilities": {"url": "/v0.4/..."}}
+        distribution = None
 
-        if histogram:
-            counts = self._distribution_to_counts(histogram, n_qubits, shots)
-        elif probabilities:
-            counts = self._distribution_to_counts(probabilities, n_qubits, shots)
-        else:
+        for key in ('histogram', 'probabilities'):
+            block = results.get(key)
+            if not block:
+                continue
+            if isinstance(block, dict) and 'url' in block:
+                # Follow the URL to fetch actual data.
+                # The URL is like "/v0.4/jobs/{id}/results/probabilities"
+                # and self._base_url is "https://api.ionq.co/v0.4" — strip
+                # the /v0.4 prefix from the path to avoid doubling.
+                results_url = block['url']
+                if results_url.startswith('/'):
+                    # Extract domain without version path
+                    base_domain = self._base_url
+                    idx = base_domain.find('/v0')
+                    if idx > 0:
+                        base_domain = base_domain[:idx]
+                    results_url = f"{base_domain}{results_url}"
+                fetch_resp = self._requests.get(
+                    results_url,
+                    headers=self._auth_headers(),
+                    timeout=30,
+                )
+                fetch_resp.raise_for_status()
+                distribution = fetch_resp.json()
+            else:
+                distribution = block
+            break
+
+        if not distribution:
             raise ArvakJobError("Completed IonQ job has no results")
 
+        counts = self._distribution_to_counts(distribution, n_qubits, shots)
         return ArvakIonQResult(counts=counts, shots=shots, job_id=job_id)
 
     def job_cancel(self, job_id: str) -> None:

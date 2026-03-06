@@ -202,6 +202,35 @@ impl IonQClient {
         self.delete(&format!("jobs/{job_id}")).await
     }
 
+    /// Fetch result distribution from a results URL.
+    ///
+    /// IonQ v0.4 returns result references like `{"url": "/v0.4/jobs/{id}/results/probabilities"}`.
+    /// This method fetches the actual distribution data.
+    #[instrument(skip(self))]
+    pub async fn fetch_results(&self, results_path: &str) -> IonQResult<HashMap<String, f64>> {
+        // The path may be relative (e.g., "/v0.4/...") — prepend base domain.
+        let url = if results_path.starts_with('/') {
+            // Extract the domain from self.base_url (e.g., "https://api.ionq.co")
+            let base_domain = self
+                .base_url
+                .find("/v0")
+                .map_or(self.base_url.as_str(), |idx| &self.base_url[..idx]);
+            format!("{base_domain}{results_path}")
+        } else {
+            results_path.to_string()
+        };
+        debug!("Fetching IonQ results from {}", url);
+
+        let resp = self
+            .client
+            .get(&url)
+            .header("Authorization", self.auth_header())
+            .send()
+            .await?;
+
+        self.handle_response(resp).await
+    }
+
     /// List available backends.
     #[instrument(skip(self))]
     pub async fn list_backends(&self) -> IonQResult<Vec<BackendInfo>> {
@@ -303,16 +332,15 @@ pub struct JobResponse {
     #[serde(default)]
     pub backend: Option<String>,
 
-    /// Number of qubits.
+    /// Number of qubits (not always present — check `stats.qubits` too).
     #[serde(default)]
     pub qubits: Option<u32>,
 
-    /// Number of shots.
+    /// Number of shots (not always present in response).
     #[serde(default)]
     pub shots: Option<u32>,
 
-    /// Probability distribution results (when status is "completed").
-    /// Keys are integer state indices as strings, values are probabilities.
+    /// Results block — may contain inline data or URLs to fetch data.
     #[serde(default)]
     pub results: Option<JobResults>,
 
@@ -323,18 +351,37 @@ pub struct JobResponse {
     /// Job name.
     #[serde(default)]
     pub name: Option<String>,
+
+    /// Job statistics (qubits, gate counts, etc.).
+    #[serde(default)]
+    pub stats: Option<JobStats>,
 }
 
-/// Job results — probability distribution.
+/// Job statistics from the IonQ API.
+#[derive(Debug, Deserialize)]
+pub struct JobStats {
+    /// Number of qubits used.
+    #[serde(default)]
+    pub qubits: Option<u32>,
+
+    /// Number of circuits.
+    #[serde(default)]
+    pub circuits: Option<u32>,
+}
+
+/// Job results — may contain inline distributions or URLs to fetch them.
+///
+/// IonQ v0.4 returns result URLs (e.g., `{"probabilities": {"url": "/v0.4/..."}}`)
+/// rather than inline data.  Use [`IonQClient::fetch_results`] to resolve URLs.
 #[derive(Debug, Deserialize)]
 pub struct JobResults {
-    /// Probability distribution: keys are state indices (decimal), values are probabilities.
+    /// Probability distribution — either inline data or a `{"url": "..."}` reference.
     #[serde(default)]
-    pub probabilities: Option<HashMap<String, f64>>,
+    pub probabilities: Option<serde_json::Value>,
 
-    /// Histogram (sampled counts): keys are state indices, values are counts.
+    /// Histogram — either inline data or a `{"url": "..."}` reference.
     #[serde(default)]
-    pub histogram: Option<HashMap<String, f64>>,
+    pub histogram: Option<serde_json::Value>,
 }
 
 /// Error information for a failed job.
