@@ -270,7 +270,7 @@ impl Capabilities {
         Self {
             name: name.into(),
             num_qubits,
-            gate_set: GateSet::ionq(),
+            gate_set: GateSet::braket_ionq(),
             topology: Topology::full(num_qubits),
             max_shots: 100_000,
             max_circuit_ops: None,
@@ -515,6 +515,19 @@ impl GateSet {
             ],
             three_qubit: vec!["ccx".into()],
             native: vec!["gpi".into(), "gpi2".into(), "ms".into(), "zz".into()],
+        }
+    }
+
+    /// Create IonQ gate set for AWS Braket (restricted to Braket's translation layer).
+    ///
+    /// Braket compiles to IonQ native gates (gpi, gpi2, ms) server-side,
+    /// but only exposes rx, ry, rz, xx as the input gate set.
+    pub fn braket_ionq() -> Self {
+        Self {
+            single_qubit: vec!["rx".into(), "ry".into(), "rz".into()],
+            two_qubit: vec!["xx".into()],
+            three_qubit: vec![],
+            native: vec!["gpi".into(), "gpi2".into(), "ms".into()],
         }
     }
 
