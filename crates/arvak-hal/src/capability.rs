@@ -507,7 +507,6 @@ impl GateSet {
                 "sx".into(),
             ],
             two_qubit: vec![
-                "cx".into(),
                 "swap".into(),
                 "xx".into(),
                 "yy".into(),
