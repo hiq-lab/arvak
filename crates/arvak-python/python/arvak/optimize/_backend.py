@@ -136,8 +136,9 @@ class HalBackend:
             backend_name: IBM backend name, e.g. "ibm_torino", "ibm_strasbourg".
             **kwargs:     Passed to ArvakIBMBackend (e.g. service_crn, region).
         """
-        from arvak.integrations.qiskit.backend import ArvakIBMBackend
-        return cls(ArvakIBMBackend(backend_name=backend_name, **kwargs))
+        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakIBMBackend
+        provider = ArvakProvider()
+        return cls(ArvakIBMBackend(provider, target=backend_name, **kwargs))
 
     @classmethod
     def iqm(cls, computer: str = "Garnet", **kwargs) -> "HalBackend":
@@ -147,8 +148,9 @@ class HalBackend:
             computer: IQM quantum computer name, e.g. "Garnet", "Sirius", "Emerald".
             **kwargs: Passed to ArvakIQMResonanceBackend.
         """
-        from arvak.integrations.qiskit.backend import ArvakIQMResonanceBackend
-        return cls(ArvakIQMResonanceBackend(computer=computer, **kwargs))
+        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakIQMResonanceBackend
+        provider = ArvakProvider()
+        return cls(ArvakIQMResonanceBackend(provider, computer=computer, **kwargs))
 
     @classmethod
     def aqt(cls, resource: str = "offline_simulator_no_noise", **kwargs) -> "HalBackend":
@@ -158,8 +160,9 @@ class HalBackend:
             resource: AQT resource ID. Default is the free offline simulator.
             **kwargs: Passed to ArvakAQTBackend.
         """
-        from arvak.integrations.qiskit.backend import ArvakAQTBackend
-        return cls(ArvakAQTBackend(resource=resource, **kwargs))
+        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakAQTBackend
+        provider = ArvakProvider()
+        return cls(ArvakAQTBackend(provider, resource=resource, **kwargs))
 
     @classmethod
     def quantinuum(cls, device: str = "H2-1LE", **kwargs) -> "HalBackend":
@@ -170,8 +173,9 @@ class HalBackend:
                     free, 32 qubits, all-to-all).
             **kwargs: Passed to ArvakQuantinuumBackend.
         """
-        from arvak.integrations.qiskit.backend import ArvakQuantinuumBackend
-        return cls(ArvakQuantinuumBackend(device=device, **kwargs))
+        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakQuantinuumBackend
+        provider = ArvakProvider()
+        return cls(ArvakQuantinuumBackend(provider, device_name=device, **kwargs))
 
     # ------------------------------------------------------------------
     # Internals
