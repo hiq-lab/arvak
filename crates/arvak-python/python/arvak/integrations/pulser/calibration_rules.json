@@ -1,0 +1,53 @@
+{
+  "single_qubit": {
+    "h": {
+      "area": 1.5707963267948966,
+      "phase": 1.5707963267948966,
+      "post_phase_shift": 3.141592653589793,
+      "detuning": 0.0,
+      "note": "Ry(pi/2) + Rz(pi) decomposition"
+    },
+    "x": {
+      "area": 3.141592653589793,
+      "phase": 0.0,
+      "post_phase_shift": 0.0,
+      "detuning": 0.0
+    },
+    "y": {
+      "area": 3.141592653589793,
+      "phase": 1.5707963267948966,
+      "post_phase_shift": 0.0,
+      "detuning": 0.0
+    },
+    "z": {
+      "area": 0.0,
+      "phase": 0.0,
+      "post_phase_shift": 3.141592653589793,
+      "detuning": 0.0,
+      "note": "Pure virtual Z rotation (no physical pulse)"
+    }
+  },
+  "entangling": {
+    "cz": {
+      "protocol": "pi-2pi-pi",
+      "channel": "rydberg_local",
+      "control_pi_area": 3.141592653589793,
+      "target_2pi_area": 6.283185307179586,
+      "phase": 0.0,
+      "detuning": 0.0,
+      "optimal_spacing_um": 4.0,
+      "fidelity_at_4um": 0.9996,
+      "fidelity_at_5um": 0.9948,
+      "note": "Jaksch/Lukin blockade CZ. 2pi gives -1 geometric phase (SU(2)). CNOT = H_target CZ H_target."
+    }
+  },
+  "metadata": {
+    "device": "DigitalAnalogDevice",
+    "verified_with": "QutipEmulator",
+    "single_qubit_channel": "raman_local",
+    "entangling_channel": "rydberg_local",
+    "digital_basis": "|0>=|g>, |1>=|h>",
+    "rydberg_basis": "|0>=|g>, |1>=|r>",
+    "important_note": "Pulser get_final_state() defaults to ignore_global_phase=True, hiding the -1 phase from 2pi rotations. Use ignore_global_phase=False to see actual CZ phases."
+  }
+}
