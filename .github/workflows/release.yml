@@ -143,13 +143,62 @@ jobs:
           name: wheels-sdist
           path: crates/arvak-python/dist
 
+  qdmi-linux:
+    name: QDMI Device Library (Linux x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Build QDMI device library
+        run: cargo build -p arvak-qdmi-device --release
+
+      - name: Rename artifact
+        run: cp target/release/libarvak_qdmi_device.so libqdmi_arvak.so
+
+      - name: Upload QDMI library
+        uses: actions/upload-artifact@v4
+        with:
+          name: qdmi-linux-x86_64
+          path: libqdmi_arvak.so
+
+  qdmi-macos:
+    name: QDMI Device Library (macOS ARM)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        run: brew install protobuf
+
+      - name: Build QDMI device library
+        run: cargo build -p arvak-qdmi-device --release
+
+      - name: Rename artifact
+        run: cp target/release/libarvak_qdmi_device.dylib libqdmi_arvak.dylib
+
+      - name: Upload QDMI library
+        uses: actions/upload-artifact@v4
+        with:
+          name: qdmi-macos-aarch64
+          path: libqdmi_arvak.dylib
+
   release:
     name: Release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [linux, windows, macos, sdist]
+    needs: [linux, windows, macos, sdist, qdmi-linux, qdmi-macos]
     permissions:
       id-token: write
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
 
@@ -160,3 +209,11 @@ jobs:
           args: --non-interactive --skip-existing wheels-*/*
         env:
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Create GitHub Release with QDMI libraries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            qdmi-linux-x86_64/libqdmi_arvak.so
+            qdmi-macos-aarch64/libqdmi_arvak.dylib
+          generate_release_notes: true
