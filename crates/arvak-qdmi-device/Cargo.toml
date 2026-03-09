@@ -8,7 +8,7 @@ repository.workspace = true
 description = "QDMI device library exposing Arvak as a composite quantum device"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
 arvak-qdmi = { path = "../arvak-qdmi" }
