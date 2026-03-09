@@ -51,6 +51,7 @@ impl Default for BackendRegistry {
 
 /// Create the default backend registry with feature-gated backends.
 pub fn create_default_registry() -> BackendRegistry {
+    #[allow(unused_mut)]
     let mut registry = BackendRegistry::new();
 
     #[cfg(feature = "simulator")]
