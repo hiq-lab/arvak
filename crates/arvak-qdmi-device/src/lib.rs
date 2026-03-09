@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-#![allow(unsafe_op_in_unsafe_fn)]
+#![allow(unsafe_op_in_unsafe_fn, clippy::missing_safety_doc)]
 //! QDMI device library exposing Arvak as a composite quantum device.
 //!
 //! This crate produces `libqdmi_arvak.so` (or `.dylib` on macOS). When loaded
@@ -529,9 +529,10 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_job_set_parameter(
                         return ffi::QDMI_ERROR_INVALIDARGUMENT;
                     }
                     let bytes = slice::from_raw_parts(value.cast::<u8>(), size);
-                    let program = CStr::from_bytes_until_nul(bytes)
-                        .map(|c| c.to_string_lossy().into_owned())
-                        .unwrap_or_else(|_| String::from_utf8_lossy(bytes).into_owned());
+                    let program = CStr::from_bytes_until_nul(bytes).map_or_else(
+                        |_| String::from_utf8_lossy(bytes).into_owned(),
+                        |c| c.to_string_lossy().into_owned(),
+                    );
                     job.program = Some(program);
                     ffi::QDMI_SUCCESS
                 }
@@ -658,7 +659,7 @@ async unsafe fn check_job_status_async(
                 JobState::Completed => ffi::QDMI_JOB_STATUS_DONE,
                 JobState::Failed => ffi::QDMI_JOB_STATUS_FAILED,
                 JobState::Canceled => ffi::QDMI_JOB_STATUS_CANCELED,
-                _ => ffi::QDMI_JOB_STATUS_SUBMITTED,
+                JobState::Unspecified => ffi::QDMI_JOB_STATUS_SUBMITTED,
             };
             ffi::QDMI_SUCCESS
         }

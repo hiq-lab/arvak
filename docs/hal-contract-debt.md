@@ -7,7 +7,8 @@ Audited: 2026-02-18 (updated with Scaleway/IQM findings)
 Updated: 2026-02-19 — ALL 12 items resolved. Full clearance commit includes DEBT-01 through DEBT-18.
 Updated: 2026-02-21 — 5 new items (DEBT-19–DEBT-23) from Quantinuum + AQT adapter audit.
 Updated: 2026-02-21 — **DEBT-19/21/22 fixed (VQ-046); DEBT-20/23 addressed in spec (VQ-047, HAL v2.1). All 23 items resolved.**
-Updated: 2026-02-26 — DEBT-Q1–Q3 fixed (HAL Contract v2.3 photonic extension, VQ-048). DEBT-Q4/Q5 remain Open. Quandela adapter added (VQ-047).
+Updated: 2026-02-26 — DEBT-Q1–Q3 fixed (HAL Contract v2.3 photonic extension, VQ-048). Quandela adapter added (VQ-047).
+Updated: 2026-02-28 — DEBT-Q4/Q5 fixed via `perceval_bridge.py` subprocess bridge (VQ-089). **All 28 items resolved.**
 
 ---
 
@@ -365,21 +366,28 @@ All existing `TransferFunctionSample` construction sites updated with `visibilit
 
 ### DEBT-Q4: Photonic dual-rail encoding pass not implemented
 
-**Status: Open**
-**Component:** `adapters/arvak-adapter-quandela/src/backend.rs`
+**Status: FIXED (2026-02-28) — VQ-089**
+**Component:** `adapters/arvak-adapter-quandela/` — `perceval_bridge.py`
 
-`QuandelaBackend::submit()` returns `HalError::Backend("DEBT-Q4: photonic encoding pass not implemented")`.
-`validate()` returns `RequiresTranspilation` to signal this to orchestrators.
-Blocked on: Rust Perceval client or QASM3 → perceval-interop transpiler.
+Implemented dual-rail encoding in `perceval_bridge.py` subprocess bridge:
+- Qubit q → modes (2q, 2q+1); CNOT inserts 2 ancilla after data qubit, shifts subsequent qubits
+- Circuit-first approach: `pcvl.Circuit.add(offset, component)` uses absolute mode offsets
+- `RemoteProcessor(name=platform, m=n_total)` then `rp.add(0, combined_circuit)`
+- 24 unit tests passing.
 
 ---
 
 ### DEBT-Q5: Quandela REST API submission endpoint not documented
 
-**Status: Open**
-**Component:** `adapters/arvak-adapter-quandela/src/api.rs`
+**Status: FIXED (2026-02-28) — VQ-089**
+**Component:** `adapters/arvak-adapter-quandela/` — `perceval_bridge.py`
 
-`QuandelaClient::ping()` is a stub that checks for non-empty key only. Real availability check and circuit submission require the Quandela cloud API endpoint, which is not yet publicly documented. `availability()` returns `always_available()` when key is non-empty (optimistic stub).
+Cloud submission implemented via `perceval_bridge.py` subprocess bridge:
+- Commands: `ping/submit/status/result/cancel`
+- `Sampler(rp, max_shots_per_call=shots)` required for `RemoteProcessor`
+- `rp.min_detected_photons_filter(n_qubits)` required for cloud submission
+- Explorer Offer limit: 1 job in queue at a time
+- Integration test validated against Quandela cloud (blocked only by queue availability).
 
 ---
 
@@ -390,12 +398,12 @@ Blocked on: Rust Perceval client or QASM3 → perceval-interop transpiler.
 | DEBT-Q1 | Medium | `DecoherenceMonitor` trait | **FIXED 2026-02-26** (VQ-048) |
 | DEBT-Q2 | High | `CompressorSpec::rotary_valve` | **FIXED 2026-02-26** (VQ-048) |
 | DEBT-Q3 | Medium | `TransferFunctionSample` | **FIXED 2026-02-26** (VQ-048) |
-| DEBT-Q4 | High | Quandela encoding pass | **Open** — photonic encoding blocked on Perceval client |
-| DEBT-Q5 | Medium | Quandela REST API | **Open** — endpoint TBD |
+| DEBT-Q4 | High | Quandela encoding pass | **FIXED 2026-02-28** (VQ-089) — perceval_bridge.py |
+| DEBT-Q5 | Medium | Quandela REST API | **FIXED 2026-02-28** (VQ-089) — perceval_bridge.py |
 
 ---
 
-**Open items: 2** (DEBT-Q4, DEBT-Q5). All other 26 items resolved.
+**All 28 items resolved.** DEBT-Q4/Q5 closed 2026-02-28 via VQ-089.
 
 **Open items (prior):** All 23 DEBT items resolved as of 2026-02-21. Spec gaps (VQ-047) addressed in HAL Contract v2.1.
 
@@ -564,5 +572,116 @@ CUDA-Q, DDSIM, Quandela, Simulator.
 | DEBT-24 | High | HAL HTTP REST surface — `GET /hal/backends/{name}` | **FIXED 2026-03-01** |
 | DEBT-25 | High | `Backend::submit()` + `SubmitCircuitInput` — parameter binding | **FIXED 2026-03-01, compliance enforced 2026-03-03** |
 
-**Open items: 2** (DEBT-Q4, DEBT-Q5). DEBT-24 and DEBT-25 resolved 2026-03-01.
+**All items resolved.** DEBT-24/25 resolved 2026-03-01, DEBT-Q4/Q5 resolved 2026-02-28.
+
+---
+
+---
+
+## Spec-Level Gaps — Photonic & Pulse-Level Backends (2026-03-09)
+
+These are gaps in the HAL Contract *specification* exposed by the Quandela and Pasqal/Pulser
+integrations. Currently mitigated by Arvak's internal bridge architecture (QASM3 in,
+Perceval/Pulser conversion hidden inside the adapter). They become blocking if external
+consumers need to submit photonic or pulse-level programs directly through the HAL API.
+
+---
+
+### GAP-PH1: Spec does not account for mode expansion in photonic backends
+
+**Status: Open (mitigated internally)**
+**Severity: Medium**
+**Component:** HAL Contract §3.2 `validate()`, §4.1 `Capabilities`
+
+Photonic backends use dual-rail encoding: logical qubit q maps to optical modes (2q, 2q+1),
+and multi-qubit gates (e.g. CNOT) insert ancilla modes. A 3-qubit circuit may require 8+
+modes internally. The spec assumes the circuit's qubit count is what the backend executes —
+`validate()` checks `circuit.num_qubits <= capabilities.num_qubits`, but for photonic
+backends `num_qubits` refers to logical qubits while the hardware constraint is on modes.
+
+Currently mitigated: `perceval_bridge.py` handles mode expansion transparently. The Rust
+adapter's `validate()` checks logical qubit count against platform limits (6 for sim:ascella,
+12 for sim:belenos), which implicitly accounts for mode overhead since those limits were
+chosen with dual-rail in mind.
+
+**Spec change needed:** `Capabilities` should distinguish `num_logical_qubits` from
+`num_physical_resources` (modes for photonics, physical qubits for superconducting), or
+document that `num_qubits` is the logical limit inclusive of encoding overhead.
+
+---
+
+### GAP-PH2: No `ProgramFormat` for non-QASM backends (Perceval, Pulser)
+
+**Status: Open (mitigated internally)**
+**Severity: Low**
+**Component:** HAL Contract §3.2 `submit()`, §7 Program Formats
+
+The spec defines QASM3 as the circuit interchange format. Photonic backends need Perceval
+circuit JSON; neutral-atom backends need Pulser Sequences (pulse schedules, not gate circuits).
+Currently both adapters accept QASM3 and convert internally, but this prevents a compiler from
+emitting target-native programs that skip the conversion step.
+
+Currently mitigated: Arvak's compilation pipeline emits QASM3; the adapter bridges handle
+conversion. No external consumer needs to submit Perceval/Pulser programs today.
+
+**Spec change needed (when required):** Add `ProgramFormat::Perceval` and
+`ProgramFormat::PulserSequence` to §7, with serialization conventions. Backends advertise
+supported formats via `Capabilities::supported_program_formats`. Low priority — only needed
+if a photonic-native compiler wants to bypass QASM3.
+
+---
+
+### GAP-PH3: `Capabilities` lacks photonic/optical hardware constraints
+
+**Status: Open (mitigated internally)**
+**Severity: Low**
+**Component:** HAL Contract §4.1 `Capabilities`
+
+Photonic backends have hardware constraints with no spec representation: maximum mode count,
+photon-loss rate, detector efficiency, Hong-Ou-Mandel visibility threshold. These are
+currently either implicit in platform-specific limits or stuffed into `features: Vec<String>`
+and `noise_profile` ad-hoc.
+
+Currently mitigated: The Quandela adapter hardcodes platform-specific limits. Alsvid
+ingestion populates `DecoherenceMonitor` fields (DEBT-Q1) for HOM visibility.
+
+**Spec change needed (when required):** Either extend `Capabilities` with an optional
+`PhotonicProfile` struct (mode count, loss rate, detector efficiency), or document that
+`noise_profile` is the catch-all for technology-specific metrics. Low priority — only
+relevant when multiple photonic backends need comparable capability reporting.
+
+---
+
+### GAP-PH4: No submission path for pulse-level programs (Pasqal/Pulser)
+
+**Status: Open (not mitigated — Pasqal has no HAL adapter)**
+**Severity: Medium**
+**Component:** HAL Contract §3.2 `submit()`, QDMI #171–#177
+
+Pulser Sequences are pulse schedules, not gate circuits. The HAL `submit(circuit, shots)`
+signature assumes a gate-level circuit. Pasqal/Pulser integration is currently a converter
+only (`PulserIntegration.to_arvak()` / `from_arvak()`), not a HAL-compliant backend.
+Submitting a pulse-level program through the HAL API is not possible.
+
+This parallels the QDMI pulse-level discussion (#171–#177) — both QDMI and the HAL Contract
+need a story for pulse submission. The QDMI approach (channel-level pulse representation +
+pulse submission interface) could inform the HAL Contract design.
+
+**Spec change needed (when required):** Define a `submit_pulse()` method or extend `submit()`
+to accept pulse-level programs alongside gate circuits. Alternatively, define that pulse-level
+submission is out-of-scope for the HAL Contract and belongs to the device driver layer.
+
+---
+
+### Summary — Photonic spec gaps
+
+| ID | Severity | Gap | Blocking? |
+|----|----------|-----|-----------|
+| GAP-PH1 | Medium | Mode expansion not modeled in `validate()`/`Capabilities` | No — mitigated by adapter |
+| GAP-PH2 | Low | No `ProgramFormat` for Perceval/Pulser | No — QASM3 bridge works |
+| GAP-PH3 | Low | No photonic hardware constraints in `Capabilities` | No — hardcoded in adapter |
+| GAP-PH4 | Medium | No pulse-level submission path | Partially — Pasqal has no HAL adapter |
+
+**None are blocking today.** All become relevant when external consumers or additional photonic
+backends need direct HAL API access without Arvak's internal bridge layer.
 
