@@ -14,7 +14,7 @@
 //! The server URL is determined in order of precedence:
 //! 1. `session_set_parameter(BASEURL, "https://...")` (per-session)
 //! 2. `ARVAK_QDMI_URL` environment variable
-//! 3. Default: `https://qdmi.arvak.io`
+//! 3. Default: `https://arvak.io/qdmi`
 
 mod job;
 mod session;
