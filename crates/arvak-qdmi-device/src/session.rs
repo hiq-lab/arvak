@@ -40,7 +40,7 @@ impl ArvakSession {
             .server_url
             .clone()
             .or_else(|| std::env::var("ARVAK_QDMI_URL").ok())
-            .unwrap_or_else(|| "https://qdmi.arvak.io".into());
+            .unwrap_or_else(|| "https://arvak.io/qdmi".into());
 
         let mut client = ArvakServiceClient::connect(url.clone())
             .await
