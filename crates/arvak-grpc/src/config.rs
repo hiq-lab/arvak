@@ -208,6 +208,18 @@ pub struct ResourceLimits {
     /// Rate limit: requests per second per client
     #[serde(default = "default_rate_limit")]
     pub rate_limit_rps: u32,
+
+    /// Maximum number of qubits per submitted circuit (default: 200)
+    #[serde(default = "default_max_circuit_qubits")]
+    pub max_circuit_qubits: usize,
+
+    /// Maximum number of gates per submitted circuit (default: 50_000)
+    #[serde(default = "default_max_circuit_gates")]
+    pub max_circuit_gates: usize,
+
+    /// Maximum compilation time in seconds (default: 30)
+    #[serde(default = "default_compilation_timeout")]
+    pub compilation_timeout_seconds: u64,
 }
 
 // Default value functions
@@ -283,6 +295,18 @@ fn default_max_message_size() -> usize {
     16 * 1024 * 1024 // 16 MB
 }
 
+fn default_max_circuit_qubits() -> usize {
+    200
+}
+
+fn default_max_circuit_gates() -> usize {
+    50_000
+}
+
+fn default_compilation_timeout() -> u64 {
+    30
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -330,6 +354,9 @@ impl Default for ResourceLimits {
             job_timeout_seconds: default_job_timeout(),
             max_result_size_bytes: default_max_result_size(),
             rate_limit_rps: default_rate_limit(),
+            max_circuit_qubits: default_max_circuit_qubits(),
+            max_circuit_gates: default_max_circuit_gates(),
+            compilation_timeout_seconds: default_compilation_timeout(),
         }
     }
 }
@@ -421,6 +448,21 @@ impl Config {
         if let Ok(timeout) = std::env::var("ARVAK_JOB_TIMEOUT") {
             if let Ok(val) = timeout.parse() {
                 config.limits.job_timeout_seconds = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_MAX_CIRCUIT_QUBITS") {
+            if let Ok(val) = v.parse() {
+                config.limits.max_circuit_qubits = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_MAX_CIRCUIT_GATES") {
+            if let Ok(val) = v.parse() {
+                config.limits.max_circuit_gates = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_COMPILATION_TIMEOUT") {
+            if let Ok(val) = v.parse() {
+                config.limits.compilation_timeout_seconds = val;
             }
         }
 
@@ -519,6 +561,21 @@ impl Config {
         if let Ok(v) = std::env::var("ARVAK_JOB_TIMEOUT") {
             if let Ok(val) = v.parse() {
                 self.limits.job_timeout_seconds = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_MAX_CIRCUIT_QUBITS") {
+            if let Ok(val) = v.parse() {
+                self.limits.max_circuit_qubits = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_MAX_CIRCUIT_GATES") {
+            if let Ok(val) = v.parse() {
+                self.limits.max_circuit_gates = val;
+            }
+        }
+        if let Ok(v) = std::env::var("ARVAK_COMPILATION_TIMEOUT") {
+            if let Ok(val) = v.parse() {
+                self.limits.compilation_timeout_seconds = val;
             }
         }
 

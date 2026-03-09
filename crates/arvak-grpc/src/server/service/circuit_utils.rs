@@ -1,8 +1,11 @@
 //! Circuit parsing and compilation utilities shared across gRPC service modules.
 
+use std::time::Duration;
+
 use crate::error::Error;
 use crate::error::Result;
 use crate::proto::{CircuitPayload, circuit_payload};
+use crate::resource_manager::ResourceManager;
 use arvak_compile::{BasisGates, CouplingMap, PassManagerBuilder};
 use arvak_hal::backend::Backend;
 use arvak_hal::capability::{Capabilities, TopologyKind};
@@ -27,14 +30,33 @@ pub(crate) fn parse_circuit_static(payload: Option<CircuitPayload>) -> Result<Ci
     }
 }
 
+/// Validate circuit complexity against resource limits.
+///
+/// Must be called before compilation to reject oversized circuits early.
+#[allow(clippy::result_large_err)]
+pub(crate) fn validate_circuit_complexity(
+    circuit: &Circuit,
+    resources: Option<&ResourceManager>,
+) -> std::result::Result<(), tonic::Status> {
+    if let Some(rm) = resources {
+        rm.check_circuit_complexity(circuit.num_qubits(), circuit.dag().num_ops())
+            .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
+    }
+    Ok(())
+}
+
 /// Compile a circuit for a specific backend's capabilities.
 ///
 /// If `optimization_level` is 0, returns the circuit unchanged (backwards compatible).
 /// Levels 1-3 enable compilation with the corresponding optimization level.
+///
+/// Compilation runs on a blocking thread with a configurable timeout to prevent
+/// DoS via excessively complex circuits.
 pub(crate) async fn compile_for_backend(
     circuit: Circuit,
     backend: &dyn Backend,
     optimization_level: u32,
+    compilation_timeout: Option<Duration>,
 ) -> std::result::Result<Circuit, tonic::Status> {
     if optimization_level == 0 {
         return Ok(circuit);
@@ -54,12 +76,22 @@ pub(crate) async fn compile_for_backend(
     let mut dag = circuit.into_dag();
 
     // Run compilation on blocking thread (CPU-bound work per CLAUDE.md rules)
-    let (dag_result, _props) = tokio::task::spawn_blocking(move || {
+    let compile_fut = tokio::task::spawn_blocking(move || {
         let result = pm.run(&mut dag, &mut props);
         (result.map(|()| dag), props)
-    })
-    .await
-    .map_err(|e| tonic::Status::internal(format!("Compilation task failed: {e}")))?;
+    });
+
+    // Apply compilation timeout (default: 30s) to prevent DoS via complex circuits
+    let timeout = compilation_timeout.unwrap_or(Duration::from_secs(30));
+    let (dag_result, _props) = tokio::time::timeout(timeout, compile_fut)
+        .await
+        .map_err(|_| {
+            tonic::Status::deadline_exceeded(format!(
+                "Circuit compilation timed out after {}s",
+                timeout.as_secs()
+            ))
+        })?
+        .map_err(|e| tonic::Status::internal(format!("Compilation task failed: {e}")))?;
 
     let dag = dag_result
         .map_err(|e| tonic::Status::internal(format!("Circuit compilation failed: {e}")))?;
