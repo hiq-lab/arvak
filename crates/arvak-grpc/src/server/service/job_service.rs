@@ -11,8 +11,12 @@ use crate::proto::{
     SubmitJobRequest, SubmitJobResponse, WatchJobRequest, batch_job_result,
 };
 
+use crate::resource_manager::ResourceManager;
+
 use super::super::ArvakServiceImpl;
-use super::circuit_utils::{compile_for_backend, parse_circuit_static};
+use super::circuit_utils::{
+    compile_for_backend, parse_circuit_static, validate_circuit_complexity,
+};
 use super::job_execution::{execute_job_sync, spawn_job_execution, to_proto_state};
 
 // Type aliases for streaming types
@@ -54,12 +58,24 @@ impl ArvakServiceImpl {
         // Parse circuit
         let circuit = self.parse_circuit(req.circuit).map_err(Status::from)?;
 
+        // Pre-flight: reject circuits that exceed complexity limits
+        validate_circuit_complexity(&circuit, self.resources.as_ref())?;
+
         // Validate backend exists
         let backend = self.backends.get(&req.backend_id).map_err(Status::from)?;
 
         // Compile circuit for target backend (no-op when optimization_level == 0)
-        let circuit =
-            compile_for_backend(circuit, backend.as_ref(), req.optimization_level).await?;
+        let compilation_timeout = self
+            .resources
+            .as_ref()
+            .map(ResourceManager::compilation_timeout);
+        let circuit = compile_for_backend(
+            circuit,
+            backend.as_ref(),
+            req.optimization_level,
+            compilation_timeout,
+        )
+        .await?;
 
         // Create job in store (status = QUEUED).
         // Note: resource counter is incremented AFTER successful creation to avoid
@@ -134,10 +150,21 @@ impl ArvakServiceImpl {
                 .parse_circuit(batch_job.circuit)
                 .map_err(Status::from)?;
 
+            // Pre-flight: reject circuits that exceed complexity limits
+            validate_circuit_complexity(&circuit, self.resources.as_ref())?;
+
             // Compile circuit for target backend (no-op when optimization_level == 0)
-            let circuit =
-                compile_for_backend(circuit, backend.as_ref(), batch_job.optimization_level)
-                    .await?;
+            let compilation_timeout = self
+                .resources
+                .as_ref()
+                .map(ResourceManager::compilation_timeout);
+            let circuit = compile_for_backend(
+                circuit,
+                backend.as_ref(),
+                batch_job.optimization_level,
+                compilation_timeout,
+            )
+            .await?;
 
             let job_id = self
                 .job_store
@@ -402,6 +429,20 @@ impl ArvakServiceImpl {
                             }
                         };
 
+                        // Pre-flight: reject circuits that exceed complexity limits
+                        if let Err(e) = validate_circuit_complexity(&circuit, resources.as_ref()) {
+                            let _ = tx
+                                .send(Ok(BatchJobResult {
+                                    job_id: String::new(),
+                                    client_request_id,
+                                    result: Some(batch_job_result::Result::Error(format!(
+                                        "Circuit rejected: {e}"
+                                    ))),
+                                }))
+                                .await;
+                            continue;
+                        }
+
                         // Get backend
                         let backend = match backends.get(&submission.backend_id) {
                             Ok(b) => b,
@@ -420,10 +461,13 @@ impl ArvakServiceImpl {
                         };
 
                         // Compile circuit for target backend
+                        let compilation_timeout =
+                            resources.as_ref().map(ResourceManager::compilation_timeout);
                         let circuit = match compile_for_backend(
                             circuit,
                             backend.as_ref(),
                             submission.optimization_level,
+                            compilation_timeout,
                         )
                         .await
                         {

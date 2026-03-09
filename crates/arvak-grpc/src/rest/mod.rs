@@ -19,6 +19,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tracing::info;
 
+use crate::resource_manager::ResourceManager;
 use crate::server::service::circuit_utils;
 use crate::server::{BackendRegistry, JobStore};
 
@@ -200,16 +201,30 @@ async fn compile_handler(
         )
     })?;
 
+    // Pre-flight: reject circuits that exceed complexity limits
+    if let Some(ref resources) = state.resources {
+        circuit_utils::validate_circuit_complexity(&circuit, Some(resources))
+            .map_err(|e| error_response(StatusCode::BAD_REQUEST, e.message().to_string()))?;
+    }
+
     // Compile (CPU-bound work on spawn_blocking via circuit_utils)
-    let compiled =
-        circuit_utils::compile_for_backend(circuit, backend.as_ref(), req.optimization_level)
-            .await
-            .map_err(|e| {
-                error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Compilation failed: {e}"),
-                )
-            })?;
+    let compilation_timeout = state
+        .resources
+        .as_ref()
+        .map(ResourceManager::compilation_timeout);
+    let compiled = circuit_utils::compile_for_backend(
+        circuit,
+        backend.as_ref(),
+        req.optimization_level,
+        compilation_timeout,
+    )
+    .await
+    .map_err(|e| {
+        error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Compilation failed: {e}"),
+        )
+    })?;
 
     let stats = CompileStats {
         num_qubits: u32::try_from(compiled.num_qubits()).unwrap_or(u32::MAX),
@@ -254,16 +269,30 @@ async fn submit_job_handler(
         )
     })?;
 
+    // Pre-flight: reject circuits that exceed complexity limits
+    if let Some(ref resources) = state.resources {
+        circuit_utils::validate_circuit_complexity(&circuit, Some(resources))
+            .map_err(|e| error_response(StatusCode::BAD_REQUEST, e.message().to_string()))?;
+    }
+
     // Compile
-    let circuit =
-        circuit_utils::compile_for_backend(circuit, backend.as_ref(), req.optimization_level)
-            .await
-            .map_err(|e| {
-                error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Compilation failed: {e}"),
-                )
-            })?;
+    let compilation_timeout = state
+        .resources
+        .as_ref()
+        .map(ResourceManager::compilation_timeout);
+    let circuit = circuit_utils::compile_for_backend(
+        circuit,
+        backend.as_ref(),
+        req.optimization_level,
+        compilation_timeout,
+    )
+    .await
+    .map_err(|e| {
+        error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Compilation failed: {e}"),
+        )
+    })?;
 
     // Create job
     let job_id = state

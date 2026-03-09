@@ -169,6 +169,36 @@ impl ResourceManager {
         }
     }
 
+    /// Check if a circuit is within complexity limits.
+    pub fn check_circuit_complexity(
+        &self,
+        num_qubits: usize,
+        num_gates: usize,
+    ) -> Result<(), ResourceError> {
+        if num_qubits > self.limits.max_circuit_qubits {
+            return Err(ResourceError::CircuitTooLarge {
+                reason: format!(
+                    "{num_qubits} qubits exceeds limit of {}",
+                    self.limits.max_circuit_qubits
+                ),
+            });
+        }
+        if num_gates > self.limits.max_circuit_gates {
+            return Err(ResourceError::CircuitTooLarge {
+                reason: format!(
+                    "{num_gates} gates exceeds limit of {}",
+                    self.limits.max_circuit_gates
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    /// Get the compilation timeout duration.
+    pub fn compilation_timeout(&self) -> Duration {
+        Duration::from_secs(self.limits.compilation_timeout_seconds)
+    }
+
     /// Check if the result size is within limits.
     pub fn check_result_size(&self, size_bytes: usize) -> Result<(), ResourceError> {
         if size_bytes > self.limits.max_result_size_bytes {
@@ -237,6 +267,12 @@ pub enum ResourceError {
         limit_bytes: usize,
     },
 
+    #[error("Circuit exceeds complexity limits: {reason}")]
+    CircuitTooLarge { reason: String },
+
+    #[error("Compilation timed out")]
+    CompilationTimeout,
+
     #[error("Job timeout exceeded")]
     Timeout,
 }
@@ -252,6 +288,9 @@ mod tests {
             job_timeout_seconds: 60,
             max_result_size_bytes: 1024,
             rate_limit_rps: 10,
+            max_circuit_qubits: 200,
+            max_circuit_gates: 50_000,
+            compilation_timeout_seconds: 30,
         }
     }
 
