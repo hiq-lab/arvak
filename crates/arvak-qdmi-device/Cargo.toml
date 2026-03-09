@@ -1,0 +1,21 @@
+[package]
+name = "arvak-qdmi-device"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "QDMI device library exposing Arvak as a composite quantum device"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+arvak-qdmi = { path = "../arvak-qdmi" }
+arvak-grpc = { path = "../arvak-grpc", default-features = false }
+tonic = "0.12"
+prost = "0.13"
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde_json = { workspace = true }
