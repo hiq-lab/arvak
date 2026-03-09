@@ -152,6 +152,9 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_session_set_parameter(
             return ffi::QDMI_ERROR_INVALIDARGUMENT;
         };
 
+        if value.is_null() || size == 0 {
+            return ffi::QDMI_ERROR_INVALIDARGUMENT;
+        }
         let bytes = slice::from_raw_parts(value.cast::<u8>(), size);
         let Ok(s) = CStr::from_bytes_until_nul(bytes).map(|c| c.to_string_lossy().into_owned())
         else {
@@ -328,9 +331,17 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_session_query_device_property(
                         .active_backend
                         .as_ref()
                         .map_or("", |b| &b.topology_json);
-                    // Parse JSON edge list [[0,1],[1,2],...] into flat site-handle pairs
+                    // Parse topology JSON: {"kind":"...", "edges":[[0,1],[1,2],...]}
+                    // or bare edge list [[0,1],[1,2],...]
                     let edges: Vec<Vec<usize>> =
-                        serde_json::from_str(topo_json).unwrap_or_default();
+                        serde_json::from_str::<serde_json::Value>(topo_json)
+                            .ok()
+                            .and_then(|v| {
+                                // Try object with "edges" field first, then bare array
+                                let arr = v.get("edges").unwrap_or(&v);
+                                serde_json::from_value(arr.clone()).ok()
+                            })
+                            .unwrap_or_default();
                     let mut handles: Vec<*mut c_void> = Vec::new();
                     for edge in &edges {
                         if edge.len() == 2 {
@@ -514,6 +525,9 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_job_set_parameter(
                     ffi::QDMI_SUCCESS
                 }
                 ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM => {
+                    if value.is_null() || size == 0 {
+                        return ffi::QDMI_ERROR_INVALIDARGUMENT;
+                    }
                     let bytes = slice::from_raw_parts(value.cast::<u8>(), size);
                     let program = CStr::from_bytes_until_nul(bytes)
                         .map(|c| c.to_string_lossy().into_owned())
@@ -522,7 +536,7 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_job_set_parameter(
                     ffi::QDMI_SUCCESS
                 }
                 ffi::QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM => {
-                    if size >= std::mem::size_of::<c_int>() {
+                    if !value.is_null() && size >= std::mem::size_of::<c_int>() {
                         let shots = *(value.cast::<c_int>());
                         if shots > 0 {
                             job.shots = u32::try_from(shots).unwrap_or(u32::MAX);
@@ -599,6 +613,62 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_job_submit(job_handle: *mut c_void) -
     })
 }
 
+/// Async helper: check job status via gRPC without calling `block_on`.
+/// Used by both `job_check` and `job_wait` to avoid nested runtime panics.
+async unsafe fn check_job_status_async(
+    gs: &state::GlobalState,
+    job_handle: *mut c_void,
+    status_out: *mut c_int,
+) -> c_int {
+    let Some(jid) = state::handle_to_id(job_handle) else {
+        return ffi::QDMI_ERROR_INVALIDARGUMENT;
+    };
+
+    let (sess_id, grpc_id) = {
+        let jobs = gs.jobs.read().await;
+        let Some(job) = jobs.get(&jid) else {
+            return ffi::QDMI_ERROR_INVALIDARGUMENT;
+        };
+        let Some(grpc_id) = job.grpc_job_id.clone() else {
+            *status_out = ffi::QDMI_JOB_STATUS_CREATED;
+            return ffi::QDMI_SUCCESS;
+        };
+        (job.session_id, grpc_id)
+    };
+
+    let mut sessions = gs.sessions.write().await;
+    let Some(sess) = sessions.get_mut(&sess_id) else {
+        return ffi::QDMI_ERROR_INVALIDARGUMENT;
+    };
+    let Ok(client) = sess.client_mut() else {
+        return ffi::QDMI_ERROR_BADSTATE;
+    };
+
+    match client
+        .get_job_status(Request::new(GetJobStatusRequest { job_id: grpc_id }))
+        .await
+    {
+        Ok(resp) => {
+            let job_state = resp.into_inner().job.map_or(JobState::Unspecified, |j| {
+                JobState::try_from(j.state).unwrap_or(JobState::Unspecified)
+            });
+            *status_out = match job_state {
+                JobState::Queued => ffi::QDMI_JOB_STATUS_QUEUED,
+                JobState::Running => ffi::QDMI_JOB_STATUS_RUNNING,
+                JobState::Completed => ffi::QDMI_JOB_STATUS_DONE,
+                JobState::Failed => ffi::QDMI_JOB_STATUS_FAILED,
+                JobState::Canceled => ffi::QDMI_JOB_STATUS_CANCELED,
+                _ => ffi::QDMI_JOB_STATUS_SUBMITTED,
+            };
+            ffi::QDMI_SUCCESS
+        }
+        Err(e) => {
+            tracing::error!("job_check gRPC error: {e}");
+            ffi::QDMI_ERROR_FATAL
+        }
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn ARVAK_QDMI_device_job_check(
     job_handle: *mut c_void,
@@ -608,55 +678,8 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_job_check(
         let Some(gs) = state::get() else {
             return ffi::QDMI_ERROR_BADSTATE;
         };
-        let Some(jid) = state::handle_to_id(job_handle) else {
-            return ffi::QDMI_ERROR_INVALIDARGUMENT;
-        };
-
-        gs.runtime.block_on(async {
-            let (sess_id, grpc_id) = {
-                let jobs = gs.jobs.read().await;
-                let Some(job) = jobs.get(&jid) else {
-                    return ffi::QDMI_ERROR_INVALIDARGUMENT;
-                };
-                let Some(grpc_id) = job.grpc_job_id.clone() else {
-                    *status_out = ffi::QDMI_JOB_STATUS_CREATED;
-                    return ffi::QDMI_SUCCESS;
-                };
-                (job.session_id, grpc_id)
-            };
-
-            let mut sessions = gs.sessions.write().await;
-            let Some(sess) = sessions.get_mut(&sess_id) else {
-                return ffi::QDMI_ERROR_INVALIDARGUMENT;
-            };
-            let Ok(client) = sess.client_mut() else {
-                return ffi::QDMI_ERROR_BADSTATE;
-            };
-
-            match client
-                .get_job_status(Request::new(GetJobStatusRequest { job_id: grpc_id }))
-                .await
-            {
-                Ok(resp) => {
-                    let job_state = resp.into_inner().job.map_or(JobState::Unspecified, |j| {
-                        JobState::try_from(j.state).unwrap_or(JobState::Unspecified)
-                    });
-                    *status_out = match job_state {
-                        JobState::Queued => ffi::QDMI_JOB_STATUS_QUEUED,
-                        JobState::Running => ffi::QDMI_JOB_STATUS_RUNNING,
-                        JobState::Completed => ffi::QDMI_JOB_STATUS_DONE,
-                        JobState::Failed => ffi::QDMI_JOB_STATUS_FAILED,
-                        JobState::Canceled => ffi::QDMI_JOB_STATUS_CANCELED,
-                        _ => ffi::QDMI_JOB_STATUS_SUBMITTED,
-                    };
-                    ffi::QDMI_SUCCESS
-                }
-                Err(e) => {
-                    tracing::error!("job_check gRPC error: {e}");
-                    ffi::QDMI_ERROR_FATAL
-                }
-            }
-        })
+        gs.runtime
+            .block_on(check_job_status_async(gs, job_handle, status_out))
     })
 }
 
@@ -676,13 +699,15 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_job_wait(
             } else {
                 Some(
                     tokio::time::Instant::now()
-                        + std::time::Duration::from_millis(timeout_ms as u64),
+                        + std::time::Duration::from_millis(
+                            u64::try_from(timeout_ms).unwrap_or(u64::MAX),
+                        ),
                 )
             };
 
             loop {
                 let mut status: c_int = 0;
-                let ret = ARVAK_QDMI_device_job_check(job_handle, &raw mut status);
+                let ret = check_job_status_async(gs, job_handle, &raw mut status).await;
                 if ret != ffi::QDMI_SUCCESS {
                     return ret;
                 }
