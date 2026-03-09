@@ -7,7 +7,12 @@
 //! Requires: `ARVAK_QDMI_TEST_URL` env var (e.g. `http://87.106.219.154:50051`).
 //! Skip with: `cargo test -p arvak-qdmi-device` (no env var → test skipped).
 
-#![allow(unsafe_code)]
+#![allow(
+    unsafe_code,
+    unsafe_op_in_unsafe_fn,
+    clippy::let_and_return,
+    clippy::manual_range_contains
+)]
 
 use std::ffi::{c_int, c_void};
 
