@@ -1918,13 +1918,33 @@ function renderNathanResults(data) {
 
     // Classification
     const suitPct = Math.round((data.suitability || 0) * 100);
-    const suitColor = suitPct >= 60 ? 'var(--accent)' : suitPct >= 35 ? '#eab308' : '#ef4444';
+    const suitClass = suitPct >= 60 ? 'high' : suitPct >= 35 ? 'medium' : 'low';
     html += `<div class="nathan-classification">
         <div><strong>Problem:</strong> ${escapeHtml(data.problem_type || 'unknown')}</div>
         <div><strong>Algorithm:</strong> ${escapeHtml(data.recommended_algorithm || 'N/A')}</div>
-        <div><strong>Suitability:</strong> <span style="color:${suitColor};font-weight:600;">${suitPct}%</span></div>
+        <div><strong>Suitability:</strong> ${suitPct}%
+            <div class="nathan-suitability-bar"><div class="nathan-suitability-fill nathan-suitability-${suitClass}" style="width:${suitPct}%"></div></div>
+        </div>
         <div><strong>Est. Qubits:</strong> ${escapeHtml(data.estimated_qubits || 'N/A')}</div>
     </div>`;
+
+    // Hardness (pair-counting, Hinderink 2026)
+    if (data.pair_count != null || data.hardness_score != null) {
+        const hardPct = Math.round((data.hardness_score || 0) * 100);
+        const hardClass = hardPct >= 80 ? 'high' : hardPct >= 40 ? 'medium' : 'low';
+        html += `<div class="nathan-hardness">
+            <h3>Circuit Hardness</h3>
+            <div class="nathan-stats-grid">
+                <div class="nathan-stat"><span class="nathan-stat-label">Entangling Pairs</span><span class="nathan-stat-value">${data.pair_count != null ? data.pair_count.toLocaleString() : 'N/A'}</span></div>
+                <div class="nathan-stat"><span class="nathan-stat-label">Entangling Gates</span><span class="nathan-stat-value">${data.entangling_gates != null ? data.entangling_gates.toLocaleString() : 'N/A'}</span></div>
+                <div class="nathan-stat"><span class="nathan-stat-label">Hardness</span><span class="nathan-stat-value">${hardPct}%</span>
+                    <div class="nathan-suitability-bar"><div class="nathan-suitability-fill nathan-suitability-${hardClass}" style="width:${hardPct}%"></div></div>
+                </div>
+                <div class="nathan-stat"><span class="nathan-stat-label">Best Backend</span><span class="nathan-stat-value">${escapeHtml(data.recommended_backend || 'simulator')}</span></div>
+            </div>
+            <div class="nathan-hardness-citation">N(N\u22121)/2 gate-count bound \u2014 <a href="https://doi.org/10.5281/zenodo.19185407" target="_blank" rel="noopener">Hinderink 2026</a></div>
+        </div>`;
+    }
 
     // Papers
     if (data.papers && data.papers.length > 0) {
@@ -1948,17 +1968,45 @@ function renderNathanResults(data) {
                     ${s.impact ? `<span class="nathan-impact nathan-impact-${escapeHtml(s.impact)}">${escapeHtml(s.impact)}</span>` : ''}
                 </div>
                 <p>${escapeHtml(s.description)}</p>
-                ${s.qasm3 ? `<pre class="nathan-code">${escapeHtml(s.qasm3)}</pre>` : ''}
+                ${s.qasm3 ? `<div class="nathan-code-wrap"><button class="nathan-copy-btn" onclick="nathanCopyCode(this)">Copy</button><pre class="nathan-code">${escapeHtml(s.qasm3)}</pre></div>` : ''}
             </div>`;
         }
     }
 
     // LLM response
     if (data.raw_llm_response || data.summary) {
-        html += `<h3>Analysis</h3><div class="nathan-llm-response">${escapeHtml(data.raw_llm_response || data.summary)}</div>`;
+        html += `<h3>Analysis</h3><div class="nathan-llm-response">${nathanRenderMarkdown(data.raw_llm_response || data.summary)}</div>`;
     }
 
     results.innerHTML = html;
+}
+
+function nathanRenderMarkdown(text) {
+    if (!text) return '';
+    let html = escapeHtml(text);
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(
+        /\[([^\]]+)\]\(([^)]+)\)/g,
+        (_, label, url) => /^https?:\/\//i.test(url) ? `<a href="${url}" target="_blank" rel="noopener">${label}</a>` : label
+    );
+    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = html.replace(/\n/g, '<br>');
+    return `<p>${html}</p>`;
+}
+
+function nathanCopyCode(btn) {
+    const code = btn.parentElement.querySelector('.nathan-code').textContent.trim();
+    navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
 }
 
 
