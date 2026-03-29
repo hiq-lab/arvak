@@ -42,3 +42,6 @@ arvak-edge/
 # QOBLIB benchmark data (downloaded .qs files, results)
 demos/data/qoblib/
 demos/data/qoblib_*.json
+# Experiment data (generated, regenerate with Python scripts)
+experiments/*.npy
+experiments/*_results.json
