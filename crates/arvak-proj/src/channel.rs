@@ -93,7 +93,8 @@ pub struct ChannelMap {
     n_qubits: usize,
     /// Per-bond weight (length n_qubits - 1).
     bond_weights: Vec<f64>,
-    /// Per-bond K_eff (length n_qubits - 1).
+    /// Per-bond K_eff (length n_qubits - 1). Reserved for XGBoost features.
+    #[allow(dead_code)]
     bond_k_eff: Vec<f64>,
 }
 
@@ -116,12 +117,20 @@ impl ChannelMap {
                     weight_sum += w;
                 }
             }
-            let bw = if weight_sum > 1e-15 { total / weight_sum } else { 0.0 };
+            let bw = if weight_sum > 1e-15 {
+                total / weight_sum
+            } else {
+                0.0
+            };
             bond_weights.push(bw);
             bond_k_eff.push(k_base * bw);
         }
 
-        Self { n_qubits: n, bond_weights, bond_k_eff }
+        Self {
+            n_qubits: n,
+            bond_weights,
+            bond_k_eff,
+        }
     }
 
     /// Build sparse channel map from frequencies. O(N × radius²) memory and time.
@@ -149,12 +158,20 @@ impl ChannelMap {
                     weight_sum += w;
                 }
             }
-            let bw = if weight_sum > 1e-15 { total / weight_sum } else { 0.0 };
+            let bw = if weight_sum > 1e-15 {
+                total / weight_sum
+            } else {
+                0.0
+            };
             bond_weights.push(bw);
             bond_k_eff.push(k_base * bw);
         }
 
-        Self { n_qubits: n, bond_weights, bond_k_eff }
+        Self {
+            n_qubits: n,
+            bond_weights,
+            bond_k_eff,
+        }
     }
 
     /// Per-MPS-bond weight (pre-computed).
@@ -215,7 +232,10 @@ mod tests {
     fn irrational_pair() {
         // √2 : √7 → no low-order rational nearby
         let sc = sin_c_half(2.0_f64.sqrt(), 7.0_f64.sqrt());
-        assert!(sc > 0.001, "sqrt(2):sqrt(7) should have nonzero sin(C/2), got {sc}");
+        assert!(
+            sc > 0.001,
+            "sqrt(2):sqrt(7) should have nonzero sin(C/2), got {sc}"
+        );
     }
 
     #[test]
@@ -232,10 +252,8 @@ mod tests {
         let w_comm = cm_comm.bond_weight(1);
 
         // Mixed: some bonds should be heavier
-        let cm_mixed = ChannelMap::from_frequencies(
-            &[1.0, 2.0, 7.0_f64.sqrt(), 11.0_f64.sqrt()],
-            1.0,
-        );
+        let cm_mixed =
+            ChannelMap::from_frequencies(&[1.0, 2.0, 7.0_f64.sqrt(), 11.0_f64.sqrt()], 1.0);
         let w_mixed = cm_mixed.bond_weight(1);
 
         assert!(
@@ -252,10 +270,7 @@ mod tests {
         assert_eq!(dims.len(), 3);
         // Bond 1 (between commensurate and irrational) should get more
         // than bond 0 (between two commensurate qubits)
-        assert!(
-            dims[1] >= dims[0],
-            "bond 1 should get >= bond 0: {dims:?}"
-        );
+        assert!(dims[1] >= dims[0], "bond 1 should get >= bond 0: {dims:?}");
     }
 
     #[test]

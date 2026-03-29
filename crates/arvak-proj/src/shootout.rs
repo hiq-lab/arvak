@@ -2,6 +2,7 @@
 //! Outputs timing data that Python compares against Aer/DDSIM.
 
 #[cfg(test)]
+#[allow(clippy::all)]
 mod tests {
     use std::time::Instant;
 

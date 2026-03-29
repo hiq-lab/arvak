@@ -30,7 +30,11 @@ pub struct Partition {
 /// Default `stable_chi_cutoff`: bonds that need ≤ 25% of chi_max
 /// are considered stable.
 #[must_use]
-pub fn partition_adaptive(channels: &ChannelMap, chi_max: usize, stable_fraction: f64) -> Partition {
+pub fn partition_adaptive(
+    channels: &ChannelMap,
+    chi_max: usize,
+    stable_fraction: f64,
+) -> Partition {
     let n = channels.n_qubits();
     if n < 2 {
         return Partition {
@@ -47,17 +51,20 @@ pub fn partition_adaptive(channels: &ChannelMap, chi_max: usize, stable_fraction
     let mut classes = Vec::with_capacity(n - 1);
     let mut rec_chi = Vec::with_capacity(n - 1);
 
-    for bond in 0..n - 1 {
-        if adaptive[bond] <= stable_chi_cutoff {
+    for &chi in &adaptive {
+        if chi <= stable_chi_cutoff {
             classes.push(BondClass::Stable);
             rec_chi.push(2);
         } else {
             classes.push(BondClass::Volatile);
-            rec_chi.push(adaptive[bond]);
+            rec_chi.push(chi);
         }
     }
 
-    let n_volatile_bonds = classes.iter().filter(|&&c| c == BondClass::Volatile).count();
+    let n_volatile_bonds = classes
+        .iter()
+        .filter(|&&c| c == BondClass::Volatile)
+        .count();
 
     let mut volatile_qubit = vec![false; n];
     for (bond, &class) in classes.iter().enumerate() {
@@ -93,18 +100,21 @@ pub fn partition_by_threshold(channels: &ChannelMap, chi_max: usize, threshold: 
     let mut classes = Vec::with_capacity(n - 1);
     let mut rec_chi = Vec::with_capacity(n - 1);
 
-    for bond in 0..n - 1 {
+    for (bond, &chi) in adaptive.iter().enumerate() {
         let w = channels.bond_weight(bond);
         if w < threshold {
             classes.push(BondClass::Stable);
             rec_chi.push(2);
         } else {
             classes.push(BondClass::Volatile);
-            rec_chi.push(adaptive[bond]);
+            rec_chi.push(chi);
         }
     }
 
-    let n_volatile_bonds = classes.iter().filter(|&&c| c == BondClass::Volatile).count();
+    let n_volatile_bonds = classes
+        .iter()
+        .filter(|&&c| c == BondClass::Volatile)
+        .count();
 
     let mut volatile_qubit = vec![false; n];
     for (bond, &class) in classes.iter().enumerate() {
@@ -143,8 +153,12 @@ mod tests {
     #[test]
     fn mixed_system_has_volatile_region() {
         let freqs: Vec<f64> = vec![
-            1.0, 2.0, 3.0,                              // commensurate
-            7.0_f64.sqrt(), 11.0_f64.sqrt(), 13.0_f64.sqrt(), // irrational
+            1.0,
+            2.0,
+            3.0, // commensurate
+            7.0_f64.sqrt(),
+            11.0_f64.sqrt(),
+            13.0_f64.sqrt(), // irrational
         ];
         let cm = ChannelMap::from_frequencies(&freqs, 1.0);
         let part = partition_by_threshold(&cm, 32, 0.001);
@@ -152,9 +166,6 @@ mod tests {
             part.n_volatile_bonds > 0,
             "mixed system should have volatile bonds"
         );
-        assert!(
-            part.n_volatile_qubits >= 2,
-            "should have volatile qubits"
-        );
+        assert!(part.n_volatile_qubits >= 2, "should have volatile qubits");
     }
 }

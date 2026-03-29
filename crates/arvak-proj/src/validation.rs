@@ -2,6 +2,7 @@
 //! and sparse radius convergence analysis.
 
 #[cfg(test)]
+#[allow(clippy::all)]
 mod tests {
     use std::time::Instant;
 
@@ -70,7 +71,9 @@ mod tests {
             state.apply_single_layer(rz_layer);
             for i in 0..n - 1 {
                 let chi = chi_per_bond[i];
-                state.apply_two_qubit(i, mps::zz(zz_angles[i]), chi).unwrap();
+                state
+                    .apply_two_qubit(i, mps::zz(zz_angles[i]), chi)
+                    .unwrap();
             }
             state.apply_single_layer(rx_layer);
         }
@@ -187,7 +190,14 @@ mod tests {
             // Dense (r=∞) channel map as reference
             let channels_dense = ChannelMap::from_frequencies(&freqs, 1.0);
             let adaptive_dense = channels_dense.adaptive_bond_dims(32);
-            let mps_dense = run_mps(n, n_steps, &adaptive_dense, &rz_layer, &rx_layer, &zz_angles);
+            let mps_dense = run_mps(
+                n,
+                n_steps,
+                &adaptive_dense,
+                &rz_layer,
+                &rx_layer,
+                &zz_angles,
+            );
             let psi_dense = mps_dense.to_statevector();
             let f_dense = fidelity(&psi_exact, &psi_dense);
 
@@ -202,8 +212,14 @@ mod tests {
                 let t0 = Instant::now();
                 let channels_sparse = ChannelMap::from_frequencies_sparse(&freqs, 1.0, r);
                 let adaptive_sparse = channels_sparse.adaptive_bond_dims(32);
-                let mps_s =
-                    run_mps(n, n_steps, &adaptive_sparse, &rz_layer, &rx_layer, &zz_angles);
+                let mps_s = run_mps(
+                    n,
+                    n_steps,
+                    &adaptive_sparse,
+                    &rz_layer,
+                    &rx_layer,
+                    &zz_angles,
+                );
                 let psi_s = mps_s.to_statevector();
                 let f_s = fidelity(&psi_exact, &psi_s);
                 let dt = t0.elapsed();
@@ -216,7 +232,11 @@ mod tests {
                     .max()
                     .unwrap_or(0);
 
-                let converged = if (f_s - f_dense).abs() < 1e-6 { " ✓" } else { "" };
+                let converged = if (f_s - f_dense).abs() < 1e-6 {
+                    " ✓"
+                } else {
+                    ""
+                };
 
                 println!(
                     "  {:>6} | {:>10.8} | {:>+12.2e} | {:>12} | {:>9.1}ms{}",

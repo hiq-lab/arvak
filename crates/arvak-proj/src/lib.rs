@@ -25,10 +25,10 @@ pub mod partition;
 pub mod reassembly;
 
 #[cfg(test)]
-mod bench;
+mod accuracy;
 #[cfg(test)]
-mod validation;
+mod bench;
 #[cfg(test)]
 mod shootout;
 #[cfg(test)]
-mod accuracy;
+mod validation;

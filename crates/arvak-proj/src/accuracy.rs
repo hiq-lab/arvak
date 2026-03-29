@@ -1,6 +1,7 @@
 //! Accuracy test: export arvak-proj statevectors for comparison with Aer.
 
 #[cfg(test)]
+#[allow(clippy::all)]
 mod tests {
     use std::time::Instant;
 
@@ -10,7 +11,9 @@ mod tests {
         state: u64,
     }
     impl LCG {
-        fn new(seed: u64) -> Self { Self { state: seed } }
+        fn new(seed: u64) -> Self {
+            Self { state: seed }
+        }
         fn next(&mut self) -> f64 {
             self.state = self.state.wrapping_mul(6364136223846793005).wrapping_add(1);
             (self.state >> 33) as f64 / (1u64 << 31) as f64 * 2.0 - 1.0
@@ -29,19 +32,22 @@ mod tests {
 
         for _layer in 0..3 {
             for i in (0..n - 1).step_by(2) {
-                let theta = angles[idx]; idx += 1;
+                let theta = angles[idx];
+                idx += 1;
                 state.apply_two_qubit(i, mps::cx(), max_bond).unwrap();
                 state.apply_single(i + 1, mps::ry(theta));
                 state.apply_two_qubit(i, mps::cx(), max_bond).unwrap();
             }
             for i in (1..n - 1).step_by(2) {
-                let theta = angles[idx]; idx += 1;
+                let theta = angles[idx];
+                idx += 1;
                 state.apply_two_qubit(i, mps::cx(), max_bond).unwrap();
                 state.apply_single(i + 1, mps::ry(theta));
                 state.apply_two_qubit(i, mps::cx(), max_bond).unwrap();
             }
             for i in 0..n {
-                let phi = angles[idx]; idx += 1;
+                let phi = angles[idx];
+                idx += 1;
                 state.apply_single(i, mps::rz(phi));
             }
         }
@@ -135,7 +141,13 @@ mod tests {
 
                 let total_ms = (sim_time + contract_time).as_secs_f64() * 1000.0;
 
-                let marker = if fidelity > 0.999 { " ✓" } else if fidelity > 0.99 { " ~" } else { "" };
+                let marker = if fidelity > 0.999 {
+                    " ✓"
+                } else if fidelity > 0.99 {
+                    " ~"
+                } else {
+                    ""
+                };
 
                 println!(
                     "  {:>4} | {:>6} | {:>10.6} | {:>10.6} | {:>10.4e} | {:>10.4e} | {:>6.1}ms{}",
@@ -144,11 +156,13 @@ mod tests {
 
                 // Debug: dump top MPS probabilities for chi=128
                 if chi == 128 {
-                    let mut indexed: Vec<(usize, f64)> = probs_normed.iter().copied().enumerate().collect();
+                    let mut indexed: Vec<(usize, f64)> =
+                        probs_normed.iter().copied().enumerate().collect();
                     indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
                     println!("    MPS top 5: {:?}", &indexed[..5]);
                     // Also top Aer
-                    let mut aer_idx: Vec<(usize, f64)> = aer_probs.iter().copied().enumerate().collect();
+                    let mut aer_idx: Vec<(usize, f64)> =
+                        aer_probs.iter().copied().enumerate().collect();
                     aer_idx.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
                     println!("    Aer top 5: {:?}", &aer_idx[..5]);
                 }

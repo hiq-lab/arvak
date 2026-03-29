@@ -47,7 +47,11 @@ impl SiteTensor {
 
     /// Mutable access.
     pub fn get_mut(&mut self, alpha: usize, sigma: usize, beta: usize) -> &mut C {
-        let mat = if sigma == 0 { &mut self.m0 } else { &mut self.m1 };
+        let mat = if sigma == 0 {
+            &mut self.m0
+        } else {
+            &mut self.m1
+        };
         &mut mat[alpha * self.right_dim + beta]
     }
 }
@@ -76,9 +80,7 @@ impl Mps {
     /// All bond dimensions.
     #[must_use]
     pub fn bond_dims(&self) -> Vec<usize> {
-        (0..self.n_qubits - 1)
-            .map(|b| self.bond_dim(b))
-            .collect()
+        (0..self.n_qubits - 1).map(|b| self.bond_dim(b)).collect()
     }
 
     /// Total memory (sum of χ² across bonds, rough measure).
@@ -175,8 +177,8 @@ impl Mps {
         let site_r = &mut right[0];
 
         // ZZ eigenvalues: |00⟩→e^{-iθ}, |01⟩→e^{+iθ}, |10⟩→e^{+iθ}, |11⟩→e^{-iθ}
-        let phase_same = C::from_polar(1.0, -theta);   // |00⟩, |11⟩
-        let phase_diff = C::from_polar(1.0, theta);    // |01⟩, |10⟩
+        let phase_same = C::from_polar(1.0, -theta); // |00⟩, |11⟩
+        let phase_diff = C::from_polar(1.0, theta); // |01⟩, |10⟩
 
         // For small bond dims, directly compute the effect.
         // The ZZ phase on |σ_q σ_{q+1}⟩ depends on σ_q ⊕ σ_{q+1}:
@@ -211,23 +213,16 @@ impl Mps {
                     site_r.m1[g * rd + b] *= C::new(1.0, 0.0);
                 }
             }
-            return;
         }
 
-        // Fall back to full SVD path
-        // (call apply_two_qubit via the caller)
+        // Fall back to full SVD path (caller handles this)
     }
 
     /// Apply a two-qubit gate U (4×4 matrix) to adjacent qubits (q, q+1).
     /// Then SVD-truncate the bond to `max_bond`.
     ///
     /// The gate U acts on basis |σ_q σ_{q+1}⟩ ordered as |00⟩, |01⟩, |10⟩, |11⟩.
-    pub fn apply_two_qubit(
-        &mut self,
-        q: usize,
-        u: [[C; 4]; 4],
-        max_bond: usize,
-    ) -> Result<()> {
+    pub fn apply_two_qubit(&mut self, q: usize, u: [[C; 4]; 4], max_bond: usize) -> Result<()> {
         let ld = self.sites[q].left_dim;
         let rd = self.sites[q + 1].right_dim;
         let chi_l = self.sites[q].right_dim; // = sites[q+1].left_dim
@@ -310,9 +305,8 @@ impl Mps {
         let dim = 1 << self.n_qubits;
         let mut psi = vec![C::new(0.0, 0.0); dim];
 
-        for idx in 0..dim {
-            // For each computational basis state |idx⟩, contract MPS
-            let mut vec = vec![C::new(1.0, 0.0)]; // start with scalar 1
+        for (idx, amplitude) in psi.iter_mut().enumerate() {
+            let mut vec = vec![C::new(1.0, 0.0)];
             let mut current_dim = 1;
 
             for q in 0..self.n_qubits {
@@ -331,7 +325,7 @@ impl Mps {
                 current_dim = rd;
             }
 
-            psi[idx] = vec[0];
+            *amplitude = vec[0];
         }
 
         psi
@@ -341,6 +335,7 @@ impl Mps {
 /// SVD truncation of the merged tensor.
 /// Input: flat matrix `theta` of shape [rows × cols] where rows = ld*2, cols = 2*rd.
 /// Returns: (m0_left, m1_left, m0_right, m1_right, actual_chi).
+#[allow(clippy::type_complexity)]
 fn svd_truncate(
     theta: &[C],
     rows: usize,
@@ -355,7 +350,9 @@ fn svd_truncate(
         faer::c64::new(c.re, c.im)
     });
 
-    let svd = mat.thin_svd().map_err(|_| crate::error::ProjError::SvdFailed(0))?;
+    let svd = mat
+        .thin_svd()
+        .map_err(|_| crate::error::ProjError::SvdFailed(0))?;
     let u = svd.U();
     let s = svd.S();
     let v = svd.V();
@@ -478,8 +475,8 @@ pub fn h() -> [[C; 2]; 2] {
 pub fn zz(theta: f64) -> [[C; 4]; 4] {
     let mut u = [[C::new(0.0, 0.0); 4]; 4];
     u[0][0] = C::from_polar(1.0, -theta); // |00⟩: eigenvalue +1
-    u[1][1] = C::from_polar(1.0, theta);  // |01⟩: eigenvalue -1
-    u[2][2] = C::from_polar(1.0, theta);  // |10⟩: eigenvalue -1
+    u[1][1] = C::from_polar(1.0, theta); // |01⟩: eigenvalue -1
+    u[2][2] = C::from_polar(1.0, theta); // |10⟩: eigenvalue -1
     u[3][3] = C::from_polar(1.0, -theta); // |11⟩: eigenvalue +1
     u
 }
@@ -489,12 +486,7 @@ pub fn zz(theta: f64) -> [[C; 4]; 4] {
 pub fn cx() -> [[C; 4]; 4] {
     let o = C::new(0.0, 0.0);
     let i = C::new(1.0, 0.0);
-    [
-        [i, o, o, o],
-        [o, i, o, o],
-        [o, o, o, i],
-        [o, o, i, o],
-    ]
+    [[i, o, o, o], [o, i, o, o], [o, o, o, i], [o, o, i, o]]
 }
 
 #[cfg(test)]

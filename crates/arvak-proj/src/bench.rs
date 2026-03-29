@@ -1,6 +1,7 @@
 //! End-to-end benchmark: 50-qubit projector pipeline.
 
 #[cfg(test)]
+#[allow(clippy::needless_return, clippy::type_complexity, clippy::manual_clamp)]
 mod tests {
     use std::time::Instant;
 
@@ -16,8 +17,10 @@ mod tests {
         println!("\n  ══════════════════════════════════════════════");
         println!("  SCALING TEST: arvak-proj MPS projector");
         println!("  ══════════════════════════════════════════════\n");
-        println!("  {:>8} | {:>8} | {:>5} | {:>5} | {:>8} | {:>10} | {:>10}",
-            "qubits", "gates", "stable", "volat", "max_chi", "time", "gates/s");
+        println!(
+            "  {:>8} | {:>8} | {:>5} | {:>5} | {:>8} | {:>10} | {:>10}",
+            "qubits", "gates", "stable", "volat", "max_chi", "time", "gates/s"
+        );
         println!("  {}", "-".repeat(78));
 
         for &n in &[50, 100, 500, 1_000, 5_000, 10_000, 50_000, 100_000] {
@@ -29,8 +32,13 @@ mod tests {
             };
             println!(
                 "  {:>8} | {:>8} | {:>5} | {:>5} | {:>8} | {:>10} | {:>10.0}",
-                n, result.gates, result.n_stable, result.n_volatile,
-                result.max_bond, time_str, result.gates_per_sec,
+                n,
+                result.gates,
+                result.n_stable,
+                result.n_volatile,
+                result.max_bond,
+                time_str,
+                result.gates_per_sec,
             );
 
             if result.time_ms > 600_000.0 {
@@ -73,27 +81,37 @@ mod tests {
         };
         let part = partition::partition_adaptive(&channels, 64, 0.60);
 
-        let n_stable = part.bond_classes.iter()
-            .filter(|&&c| c == partition::BondClass::Stable).count();
-        let n_volatile = part.bond_classes.iter()
-            .filter(|&&c| c == partition::BondClass::Volatile).count();
+        let n_stable = part
+            .bond_classes
+            .iter()
+            .filter(|&&c| c == partition::BondClass::Stable)
+            .count();
+        let n_volatile = part
+            .bond_classes
+            .iter()
+            .filter(|&&c| c == partition::BondClass::Volatile)
+            .count();
 
         let mut mps_state = Mps::new(n);
         let mut gates_applied = 0_u64;
 
         // Pre-compute gate layers for parallel application
-        let rz_layer: Vec<_> = (0..n).map(|i| {
-            let phi = (1.0_f64 * (4.0_f64).powi(i.min(30) as i32) / 2.0)
-                .rem_euclid(2.0 * std::f64::consts::PI);
-            mps::rz(phi)
-        }).collect();
+        let rz_layer: Vec<_> = (0..n)
+            .map(|i| {
+                let phi = (1.0_f64 * (4.0_f64).powi(i.min(30) as i32) / 2.0)
+                    .rem_euclid(2.0 * std::f64::consts::PI);
+                mps::rz(phi)
+            })
+            .collect();
         let rx_layer: Vec<_> = (0..n).map(|i| mps::rx(k_kick * freqs[i])).collect();
 
         // Pre-compute ZZ angles
-        let zz_angles: Vec<f64> = (0..n - 1).map(|i| {
-            (1.0_f64 * (2.0_f64).powi(((2 + i).min(30)) as i32) / 2.0)
-                .rem_euclid(2.0 * std::f64::consts::PI)
-        }).collect();
+        let zz_angles: Vec<f64> = (0..n - 1)
+            .map(|i| {
+                (1.0_f64 * (2.0_f64).powi(((2 + i).min(30)) as i32) / 2.0)
+                    .rem_euclid(2.0 * std::f64::consts::PI)
+            })
+            .collect();
 
         for _step in 0..n_steps {
             // T: all Rz in parallel
@@ -101,11 +119,13 @@ mod tests {
             gates_applied += n as u64;
 
             // T: ZZ layer — even/odd sweep
-            mps_state.apply_two_qubit_layer_parallel(
-                mps::zz(0.0), // template (overridden per-bond)
-                &part.recommended_chi,
-                &zz_angles,
-            ).unwrap();
+            mps_state
+                .apply_two_qubit_layer_parallel(
+                    mps::zz(0.0), // template (overridden per-bond)
+                    &part.recommended_chi,
+                    &zz_angles,
+                )
+                .unwrap();
             gates_applied += (n - 1) as u64;
 
             // V: all Rx kicks in parallel
@@ -146,7 +166,10 @@ mod tests {
 
         let freq_time = t0.elapsed();
         println!("\n  [1] Frequency extraction: {:?}", freq_time);
-        println!("      {} qubits, {} commensurate + {} irrational", n, 25, 25);
+        println!(
+            "      {} qubits, {} commensurate + {} irrational",
+            n, 25, 25
+        );
 
         // ── 2. Channel assessment ───────────────────────────────
         let t0 = Instant::now();
@@ -167,7 +190,11 @@ mod tests {
         let part = partition::partition_adaptive(&channels, chi_max, stable_fraction);
 
         let partition_time = t0.elapsed();
-        println!("  [3] Partitioning:         {:?}  (stable_fraction={:.0}%)", partition_time, stable_fraction * 100.0);
+        println!(
+            "  [3] Partitioning:         {:?}  (stable_fraction={:.0}%)",
+            partition_time,
+            stable_fraction * 100.0
+        );
         println!(
             "      {} volatile bonds, {} volatile qubits (of {})",
             part.n_volatile_bonds, part.n_volatile_qubits, n
@@ -178,16 +205,36 @@ mod tests {
         );
 
         // Show bond classification
-        let n_stable = part.bond_classes.iter().filter(|&&c| c == BondClass::Stable).count();
-        let n_volatile = part.bond_classes.iter().filter(|&&c| c == BondClass::Volatile).count();
-        println!("      Classification: {} stable / {} volatile", n_stable, n_volatile);
+        let n_stable = part
+            .bond_classes
+            .iter()
+            .filter(|&&c| c == BondClass::Stable)
+            .count();
+        let n_volatile = part
+            .bond_classes
+            .iter()
+            .filter(|&&c| c == BondClass::Volatile)
+            .count();
+        println!(
+            "      Classification: {} stable / {} volatile",
+            n_stable, n_volatile
+        );
 
         // ── 4. Adaptive bond dimensions ─────────────────────────
         let t0 = Instant::now();
 
         let adaptive_chi = channels.adaptive_bond_dims(chi_max);
-        let mem_uniform: usize = (0..n - 1).map(|_| chi_max * chi_max).collect::<Vec<_>>().iter().sum();
-        let mem_adaptive: usize = adaptive_chi.iter().map(|&c| c * c).collect::<Vec<_>>().iter().sum();
+        let mem_uniform: usize = (0..n - 1)
+            .map(|_| chi_max * chi_max)
+            .collect::<Vec<_>>()
+            .iter()
+            .sum();
+        let mem_adaptive: usize = adaptive_chi
+            .iter()
+            .map(|&c| c * c)
+            .collect::<Vec<_>>()
+            .iter()
+            .sum();
 
         let adapt_time = t0.elapsed();
         println!("  [4] Adaptive bond dims:   {:?}", adapt_time);
@@ -228,7 +275,8 @@ mod tests {
                 let theta_ij = hbar * (2.0_f64).powi(((2 + i).min(30)) as i32) / 2.0;
                 let theta_clamped = theta_ij.rem_euclid(2.0 * std::f64::consts::PI);
                 let chi_bond = part.recommended_chi[i];
-                mps.apply_two_qubit(i, mps::zz(theta_clamped), chi_bond).unwrap();
+                mps.apply_two_qubit(i, mps::zz(theta_clamped), chi_bond)
+                    .unwrap();
                 gates_applied += 1;
             }
 
@@ -263,8 +311,16 @@ mod tests {
         for pct in [20, 30, 40, 50, 60, 70, 80] {
             let frac = pct as f64 / 100.0;
             let p = partition::partition_adaptive(&channels, chi_max, frac);
-            let n_s = p.bond_classes.iter().filter(|&&c| c == BondClass::Stable).count();
-            let n_v = p.bond_classes.iter().filter(|&&c| c == BondClass::Volatile).count();
+            let n_s = p
+                .bond_classes
+                .iter()
+                .filter(|&&c| c == BondClass::Stable)
+                .count();
+            let n_v = p
+                .bond_classes
+                .iter()
+                .filter(|&&c| c == BondClass::Volatile)
+                .count();
 
             let t0b = Instant::now();
             let mut mps_b = Mps::new(n);
@@ -277,7 +333,9 @@ mod tests {
                 for i in 0..n - 1 {
                     let theta = (1.0_f64 * (2.0_f64).powi(((2 + i).min(30)) as i32) / 2.0)
                         .rem_euclid(2.0 * std::f64::consts::PI);
-                    mps_b.apply_two_qubit(i, mps::zz(theta), p.recommended_chi[i]).unwrap();
+                    mps_b
+                        .apply_two_qubit(i, mps::zz(theta), p.recommended_chi[i])
+                        .unwrap();
                 }
                 for i in 0..n {
                     mps_b.apply_single(i, mps::rx(k_kick * freqs[i]));
@@ -286,7 +344,10 @@ mod tests {
             let dt = t0b.elapsed();
             println!(
                 "      {:3}%  |   {:2}   |    {:2}    |     {:2}     | {:.1}ms",
-                pct, n_s, n_v, p.n_volatile_qubits,
+                pct,
+                n_s,
+                n_v,
+                p.n_volatile_qubits,
                 dt.as_secs_f64() * 1000.0
             );
         }

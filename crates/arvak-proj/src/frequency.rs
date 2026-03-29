@@ -34,7 +34,8 @@ pub fn from_graph_laplacian(n_qubits: usize, edges: &[(usize, usize, f64)]) -> V
 
     // Eigendecomposition via faer
     let mat = faer::Mat::from_fn(n_qubits, n_qubits, |i, j| laplacian[i * n_qubits + j]);
-    let eigen = mat.self_adjoint_eigen(faer::Side::Lower)
+    let eigen = mat
+        .self_adjoint_eigen(faer::Side::Lower)
         .expect("eigendecomposition of graph Laplacian failed");
     let eigs = eigen.S();
 

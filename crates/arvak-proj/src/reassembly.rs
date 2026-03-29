@@ -70,7 +70,7 @@ pub fn scale_projection(base: &ProjectedResult, target_qubits: usize) -> Project
     ProjectedResult {
         n_qubits: target_qubits,
         n_volatile: base.n_volatile, // conservative: same volatile count
-        estimated_fidelity: extrapolated_fidelity.max(0.0).min(1.0),
+        estimated_fidelity: extrapolated_fidelity.clamp(0.0, 1.0),
         truncation_residual: base.truncation_residual / scaling_factor,
         ln_gamma_c,
     }
