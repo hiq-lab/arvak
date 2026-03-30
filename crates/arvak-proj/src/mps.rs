@@ -499,8 +499,8 @@ mod tests {
         let psi = mps.to_statevector();
         assert_eq!(psi.len(), 16);
         assert!((psi[0].norm() - 1.0).abs() < 1e-12);
-        for i in 1..16 {
-            assert!(psi[i].norm() < 1e-12);
+        for amp in psi.iter().take(16).skip(1) {
+            assert!(amp.norm() < 1e-12);
         }
     }
 
@@ -544,8 +544,8 @@ mod tests {
         assert!((psi[0].norm() - expected).abs() < 1e-10);
         assert!((psi[(1 << n) - 1].norm() - expected).abs() < 1e-10);
         // All other amplitudes should be zero
-        for i in 1..(1 << n) - 1 {
-            assert!(psi[i].norm() < 1e-10, "psi[{i}] = {}", psi[i].norm());
+        for (i, amp) in psi.iter().enumerate().take((1 << n) - 1).skip(1) {
+            assert!(amp.norm() < 1e-10, "psi[{i}] = {}", amp.norm());
         }
     }
 

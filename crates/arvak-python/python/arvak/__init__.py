@@ -36,6 +36,8 @@ from arvak._native import (
     to_qasm,
     # Simulation
     run_sim,
+    # Projection simulator
+    run_projection,
     # Compilation
     compile,
 )
@@ -173,6 +175,7 @@ __all__ = [
     "to_qasm",
     # Simulation
     "run_sim",
+    "run_projection",
     # Compilation
     "compile",
     # Integration API

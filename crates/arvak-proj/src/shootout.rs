@@ -77,7 +77,7 @@ mod tests {
             let max_b32 = bonds32.iter().max().copied().unwrap_or(0);
 
             let (dt64, bonds64) = run_vqe_circuit(n, 64);
-            let max_b64 = bonds64.iter().max().copied().unwrap_or(0);
+            let _max_b64 = bonds64.iter().max().copied().unwrap_or(0);
 
             let fmt_t = |t: f64| -> String {
                 if t < 0.001 {

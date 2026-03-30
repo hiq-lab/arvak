@@ -6,7 +6,6 @@ mod tests {
     use std::time::Instant;
 
     use crate::channel::ChannelMap;
-    use crate::frequency;
     use crate::mps::{self, Mps};
     use crate::partition::{self, BondClass};
     use crate::reassembly;
@@ -70,7 +69,7 @@ mod tests {
         let half = n / 2;
         let ps = small_primes(n - half);
         let mut freqs: Vec<f64> = (1..=half).map(|i| i as f64).collect();
-        freqs.extend(ps.iter().map(|&p| (p as f64).sqrt()));
+        freqs.extend(ps.iter().map(|&p| f64::from(p).sqrt()));
 
         let t_total = Instant::now();
 
@@ -161,8 +160,8 @@ mod tests {
 
         // Mixed frequencies: 25 commensurate (integers) + 25 sqrt-primes
         let ps = small_primes(25);
-        let mut freqs: Vec<f64> = (1..=25).map(|i| i as f64).collect();
-        freqs.extend(ps.iter().map(|&p| (p as f64).sqrt()));
+        let mut freqs: Vec<f64> = (1..=25).map(f64::from).collect();
+        freqs.extend(ps.iter().map(|&p| f64::from(p).sqrt()));
 
         let freq_time = t0.elapsed();
         println!("\n  [1] Frequency extraction: {:?}", freq_time);
@@ -281,8 +280,8 @@ mod tests {
             }
 
             // V: kick
-            for i in 0..n {
-                mps.apply_single(i, mps::rx(k_kick * freqs[i]));
+            for (i, &freq) in freqs.iter().enumerate().take(n) {
+                mps.apply_single(i, mps::rx(k_kick * freq));
                 gates_applied += 1;
             }
         }
@@ -309,7 +308,7 @@ mod tests {
         println!("\n  [5b] Stable fraction sweep:");
         println!("      frac  | stable | volatile | volatile_q | time");
         for pct in [20, 30, 40, 50, 60, 70, 80] {
-            let frac = pct as f64 / 100.0;
+            let frac = f64::from(pct) / 100.0;
             let p = partition::partition_adaptive(&channels, chi_max, frac);
             let n_s = p
                 .bond_classes
@@ -337,8 +336,8 @@ mod tests {
                         .apply_two_qubit(i, mps::zz(theta), p.recommended_chi[i])
                         .unwrap();
                 }
-                for i in 0..n {
-                    mps_b.apply_single(i, mps::rx(k_kick * freqs[i]));
+                for (i, &freq) in freqs.iter().enumerate().take(n) {
+                    mps_b.apply_single(i, mps::rx(k_kick * freq));
                 }
             }
             let dt = t0b.elapsed();

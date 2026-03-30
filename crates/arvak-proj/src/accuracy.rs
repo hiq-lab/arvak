@@ -7,19 +7,6 @@ mod tests {
 
     use crate::mps::{self, Mps};
 
-    struct LCG {
-        state: u64,
-    }
-    impl LCG {
-        fn new(seed: u64) -> Self {
-            Self { state: seed }
-        }
-        fn next(&mut self) -> f64 {
-            self.state = self.state.wrapping_mul(6364136223846793005).wrapping_add(1);
-            (self.state >> 33) as f64 / (1u64 << 31) as f64 * 2.0 - 1.0
-        }
-    }
-
     fn run_circuit(n: usize, max_bond: usize, angles: &[f64]) -> Mps {
         let mut state = Mps::new(n);
         let mut idx = 0;
@@ -95,7 +82,8 @@ mod tests {
                 let contract_time = t0.elapsed();
 
                 // Probability distribution (bit-reversed to match Aer convention)
-                let probs_raw: Vec<f64> = psi.iter().map(|c| c.norm_sqr()).collect();
+                let probs_raw: Vec<f64> =
+                    psi.iter().map(num_complex::Complex64::norm_sqr).collect();
                 let norm: f64 = probs_raw.iter().sum();
                 let mut probs_normed = vec![0.0; probs_raw.len()];
                 for (i, &p) in probs_raw.iter().enumerate() {

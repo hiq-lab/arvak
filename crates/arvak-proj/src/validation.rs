@@ -8,7 +8,6 @@ mod tests {
 
     use crate::channel::ChannelMap;
     use crate::mps::{self, Mps};
-    use crate::partition;
 
     /// Fidelity of MPS state against exact statevector.
     fn fidelity(psi_exact: &[num_complex::Complex64], psi_mps: &[num_complex::Complex64]) -> f64 {
@@ -17,8 +16,16 @@ mod tests {
             .zip(psi_mps.iter())
             .map(|(a, b)| a.conj() * b)
             .sum();
-        let norm_e: f64 = psi_exact.iter().map(|a| a.norm_sqr()).sum::<f64>().sqrt();
-        let norm_m: f64 = psi_mps.iter().map(|a| a.norm_sqr()).sum::<f64>().sqrt();
+        let norm_e: f64 = psi_exact
+            .iter()
+            .map(num_complex::Complex64::norm_sqr)
+            .sum::<f64>()
+            .sqrt();
+        let norm_m: f64 = psi_mps
+            .iter()
+            .map(num_complex::Complex64::norm_sqr)
+            .sum::<f64>()
+            .sqrt();
         let f = dot.norm() / (norm_e * norm_m);
         f * f
     }
@@ -37,7 +44,7 @@ mod tests {
         let half = n / 2;
         let ps = small_primes(n - half);
         let mut freqs: Vec<f64> = (1..=half).map(|i| i as f64).collect();
-        freqs.extend(ps.iter().map(|&p| (p as f64).sqrt()));
+        freqs.extend(ps.iter().map(|&p| f64::from(p).sqrt()));
 
         let rz_layer: Vec<_> = (0..n)
             .map(|i| {
