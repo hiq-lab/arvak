@@ -1,6 +1,6 @@
 # Arvak: Rust-Native Quantum Compilation Stack
 
-[![Version](https://img.shields.io/badge/version-1.9.2-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.9.2)
+[![Version](https://img.shields.io/badge/version-1.9.5-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.9.5)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
 
-> **Latest (Mar 2026):** MQT integration — DDSIM backend adapter, QCEC-verified rewrites, QMAP Clifford synthesis, noise-aware fidelity scoring. New compiler passes: SABRE routing, DenseLayout, ConsolidateBlocks (KAK). ML-based device selection. Parameter binding across all 11 backends (DEBT-25). See [CHANGELOG.md](CHANGELOG.md).
+> **Latest (Mar 2026):** `arvak-proj` — MPS-based tensor network circuit projection for large-qubit simulation. Mixed-frequency quantum kicked rotor benchmarks, adaptive bond partitioning, and Laplace-spectrum accuracy validation. Also: MQT integration, SABRE routing, ConsolidateBlocks (KAK), ML-based device selection. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Install
 
@@ -553,6 +553,7 @@ arvak/
 │   ├── arvak-eval/        # Evaluator: compilation observability, QDMI contracts, emitter compliance
 │   ├── arvak-sched/       # HPC job scheduler (SLURM, PBS, workflows, routing)
 │   ├── arvak-dashboard/   # Web dashboard for visualization & monitoring
+│   ├── arvak-proj/        # MPS tensor-network circuit projection (large-qubit simulation)
 │   ├── arvak-bench/       # Benchmark suite (QV, CLOPS, Randomized Benchmarking)
 │   ├── arvak-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── arvak-auto/        # Automatic uncomputation

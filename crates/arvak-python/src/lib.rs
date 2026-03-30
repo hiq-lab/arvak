@@ -23,6 +23,7 @@
 mod circuit;
 mod compile;
 mod error;
+mod projection;
 mod qasm;
 mod qubits;
 mod sim;
@@ -62,6 +63,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Sim submodule
     sim::register(m)?;
+
+    // Projection simulator
+    projection::register(m)?;
 
     Ok(())
 }
