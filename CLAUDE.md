@@ -116,7 +116,7 @@ fn name(&self) -> &str {
 
 ### Dependencies
 - **Use workspace dependencies consistently.** Never use direct `path = "..."` when a `[workspace.dependencies]` entry exists.
-- **Use `serde_yml`**, not `serde_yaml` (deprecated, RUSTSEC-2024-0320).
+- **Use `serde_yaml_ng`**, not `serde_yaml` (deprecated, RUSTSEC-2024-0320) or `serde_yml` (unsound, RUSTSEC-2025-0068).
 - **Use `tracing`**, not `log`. All crates use `tracing` — the `log` crate's macros won't appear in tracing subscriber output.
 
 ### DAG Operations
