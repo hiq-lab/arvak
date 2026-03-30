@@ -367,8 +367,8 @@ impl Config {
         let contents = std::fs::read_to_string(path.as_ref())
             .map_err(|e| ConfigError::IoError(e.to_string()))?;
 
-        let config: Config =
-            serde_yml::from_str(&contents).map_err(|e| ConfigError::ParseError(e.to_string()))?;
+        let config: Config = serde_yaml_ng::from_str(&contents)
+            .map_err(|e| ConfigError::ParseError(e.to_string()))?;
 
         config.validate()?;
         Ok(config)
