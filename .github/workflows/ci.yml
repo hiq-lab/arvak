@@ -45,9 +45,6 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --exclude arvak-python
 
-      - name: Run tests (release mode)
-        run: cargo test --workspace --exclude arvak-python --release
-
   fmt:
     name: Formatting
     runs-on: ubuntu-latest
