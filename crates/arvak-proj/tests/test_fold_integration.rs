@@ -13,23 +13,39 @@ const PDB_DIR: &str = "/Users/danielhinderink/Projects/Garm-Platform/demos/PDB-D
 #[test]
 fn pdb_parse_1fme_bba() {
     let chain = pdb::ProteinChain::from_pdb(&format!("{PDB_DIR}/1FME.pdb"), None).unwrap();
-    assert!(chain.len() >= 20, "BBA should have ~28 residues, got {}", chain.len());
-    assert!(chain.len() <= 40, "BBA should have ~28 residues, got {}", chain.len());
+    assert!(
+        chain.len() >= 20,
+        "BBA should have ~28 residues, got {}",
+        chain.len()
+    );
+    assert!(
+        chain.len() <= 40,
+        "BBA should have ~28 residues, got {}",
+        chain.len()
+    );
 
     // First residue should have valid coordinates (not all zeros)
     let r0 = &chain.residues[0];
     let norm = r0.coords.iter().map(|x| x * x).sum::<f64>().sqrt();
-    assert!(norm > 1.0, "first Cα should have non-zero coords, got norm={norm}");
+    assert!(
+        norm > 1.0,
+        "first Cα should have non-zero coords, got norm={norm}"
+    );
 
     // Distances should be physically reasonable
     // Cα-Cα distance between sequential residues: ~3.8 Å
     let d01 = chain.distance(0, 1);
-    assert!(d01 > 3.0 && d01 < 4.5, "sequential Cα distance should be ~3.8Å, got {d01}");
+    assert!(
+        d01 > 3.0 && d01 < 4.5,
+        "sequential Cα distance should be ~3.8Å, got {d01}"
+    );
 }
 
 #[test]
 fn pdb_parse_all_files() {
-    let files = ["1FME.pdb", "1LMB.pdb", "1MI0.pdb", "2A3D.pdb", "2F21.pdb", "2HBA.pdb", "2WXC.pdb"];
+    let files = [
+        "1FME.pdb", "1LMB.pdb", "1MI0.pdb", "2A3D.pdb", "2F21.pdb", "2HBA.pdb", "2WXC.pdb",
+    ];
     for fname in &files {
         let path = format!("{PDB_DIR}/{fname}");
         let chain = pdb::ProteinChain::from_pdb(&path, None)
@@ -66,7 +82,10 @@ fn contact_map_1fme() {
     let chain = pdb::ProteinChain::from_pdb(&format!("{PDB_DIR}/1FME.pdb"), None).unwrap();
     let contacts = contact::ContactMap::from_chain(&chain, 8.0, 3);
 
-    assert!(!contacts.contacts.is_empty(), "BBA should have native contacts");
+    assert!(
+        !contacts.contacts.is_empty(),
+        "BBA should have native contacts"
+    );
     println!(
         "1FME: {} contacts, RCO={:.3}",
         contacts.contacts.len(),
@@ -82,7 +101,10 @@ fn contact_map_1fme() {
 
     // RCO for BBA should be reasonable (small fast-folding protein)
     let rco = contacts.relative_contact_order();
-    assert!(rco > 0.05 && rco < 0.5, "RCO should be reasonable, got {rco}");
+    assert!(
+        rco > 0.05 && rco < 0.5,
+        "RCO should be reasonable, got {rco}"
+    );
 }
 
 #[test]
@@ -91,11 +113,18 @@ fn crossing_profile_shape() {
     let contacts = contact::ContactMap::from_chain(&chain, 8.0, 3);
     let profile = contacts.crossing_profile();
 
-    assert_eq!(profile.len(), chain.len() - 1, "crossing profile should have N-1 entries");
+    assert_eq!(
+        profile.len(),
+        chain.len() - 1,
+        "crossing profile should have N-1 entries"
+    );
 
     // Profile should be non-negative
     for (k, &count) in profile.iter().enumerate() {
-        assert!(count <= contacts.contacts.len(), "crossing count at bond {k} should be <= total contacts");
+        assert!(
+            count <= contacts.contacts.len(),
+            "crossing count at bond {k} should be <= total contacts"
+        );
     }
 }
 
@@ -124,12 +153,18 @@ fn anm_1fme_eigenvalues() {
 
     // Eigenvalues should be sorted ascending
     for w in result.eigenvalues.windows(2) {
-        assert!(w[1] >= w[0] - 1e-10, "eigenvalues should be sorted ascending");
+        assert!(
+            w[1] >= w[0] - 1e-10,
+            "eigenvalues should be sorted ascending"
+        );
     }
 
     // Frequencies should be sqrt of eigenvalues
     for (ev, freq) in result.eigenvalues.iter().zip(&result.frequencies) {
-        assert!((freq - ev.sqrt()).abs() < 1e-10, "frequency should be sqrt(eigenvalue)");
+        assert!(
+            (freq - ev.sqrt()).abs() < 1e-10,
+            "frequency should be sqrt(eigenvalue)"
+        );
     }
 }
 
@@ -164,7 +199,10 @@ fn anm_residue_participation() {
 
     // Should be sorted by participation (descending)
     for w in parts.windows(2) {
-        assert!(w[0].1 >= w[1].1 - 1e-10, "should be sorted by participation descending");
+        assert!(
+            w[0].1 >= w[1].1 - 1e-10,
+            "should be sorted by participation descending"
+        );
     }
 }
 
@@ -204,8 +242,14 @@ fn commensurability_scores_valid() {
         "1FME commensurability: {} contacts scored, mean={:.3}, budget range=[{:.2}, {:.2}]",
         comm.contact_scores.len(),
         comm.contact_scores.iter().sum::<f64>() / comm.contact_scores.len() as f64,
-        comm.bond_budget.iter().cloned().fold(f64::INFINITY, f64::min),
-        comm.bond_budget.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+        comm.bond_budget
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, f64::min),
+        comm.bond_budget
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max),
     );
 }
 
@@ -226,7 +270,11 @@ fn adaptive_chi_allocation() {
 
     // There should be variation (not all the same)
     let unique: std::collections::HashSet<usize> = chi.iter().copied().collect();
-    println!("1FME adaptive chi: {} unique values out of {} bonds", unique.len(), chi.len());
+    println!(
+        "1FME adaptive chi: {} unique values out of {} bonds",
+        unique.len(),
+        chi.len()
+    );
     // Small protein might have limited variation, but should have at least 2 distinct values
 }
 
@@ -252,7 +300,10 @@ fn hamiltonian_from_1fme() {
 
     println!(
         "1FME Hamiltonian: {} sites, d={}, {} NN terms, {} LR terms",
-        ham.n_sites, ham.d, ham.nn_terms.len(), ham.long_range_terms.len()
+        ham.n_sites,
+        ham.d,
+        ham.nn_terms.len(),
+        ham.long_range_terms.len()
     );
 
     // Local terms should be d×d
@@ -338,7 +389,11 @@ fn dmrg_1fme_d3_small_chi() {
 
     // Energy should be finite and negative (bound state)
     assert!(result.energy.is_finite(), "energy should be finite");
-    assert!(result.energy < 0.0, "ground state energy should be negative, got {}", result.energy);
+    assert!(
+        result.energy < 0.0,
+        "ground state energy should be negative, got {}",
+        result.energy
+    );
 
     // Energy should decrease across sweeps
     for w in result.energies_per_sweep.windows(2) {
@@ -346,7 +401,8 @@ fn dmrg_1fme_d3_small_chi() {
         assert!(
             w[1] <= w[0] + 1e-6,
             "energy should not increase: {} → {}",
-            w[0], w[1]
+            w[0],
+            w[1]
         );
     }
 }
@@ -404,16 +460,14 @@ fn dmrg_adaptive_vs_uniform() {
         "Adaptive χ∈[4,16]: E={:.6}, Σχ={}, {:.2}s",
         result_a.energy, chi_sum_adaptive, result_a.wall_time_seconds
     );
-    println!(
-        "Adaptive χ profile: {:?}",
-        &result_a.mps_bond_dims
-    );
+    println!("Adaptive χ profile: {:?}", &result_a.mps_bond_dims);
 
     // Adaptive should use fewer total bond dimensions
     assert!(
         chi_sum_adaptive <= chi_sum_uniform,
         "adaptive should use ≤ total chi: {} vs {}",
-        chi_sum_adaptive, chi_sum_uniform
+        chi_sum_adaptive,
+        chi_sum_uniform
     );
 
     // Both energies should be finite and negative
@@ -467,7 +521,10 @@ fn full_pipeline_all_pdbs() {
             result.wall_time_seconds,
         );
 
-        assert!(result.energy.is_finite(), "{fname}: energy should be finite");
+        assert!(
+            result.energy.is_finite(),
+            "{fname}: energy should be finite"
+        );
         assert!(result.energy < 0.0, "{fname}: energy should be negative");
     }
 }
@@ -505,7 +562,11 @@ fn tebd_1fme_d3() {
     assert!(result.energy.is_finite(), "energy should be finite");
     // Debug mode is ~20-50× slower; don't assert wall time in debug
     #[cfg(not(debug_assertions))]
-    assert!(result.wall_time_seconds < 60.0, "TEBD should be fast (< 60s), took {:.1}s", result.wall_time_seconds);
+    assert!(
+        result.wall_time_seconds < 60.0,
+        "TEBD should be fast (< 60s), took {:.1}s",
+        result.wall_time_seconds
+    );
 }
 
 #[test]
@@ -535,4 +596,56 @@ fn tebd_vs_dmrg_energy() {
 
     assert!(tebd_result.energy.is_finite());
     println!("  TEBD bond dims: {:?}", tebd_result.mps.bond_dims());
+}
+
+#[test]
+fn tebd_mpo_vs_swap() {
+    let chain = pdb::ProteinChain::from_pdb(&format!("{PDB_DIR}/1FME.pdb"), None).unwrap();
+    let contacts = contact::ContactMap::from_chain(&chain, 8.0, 3);
+    let anm_result = anm::ANMResult::compute(&chain, 15.0, 1.0, None);
+    let mut comm = commensurability::CommensurabilityResult::compute(&anm_result, &contacts, 8);
+    let adaptive_chi = comm.to_adaptive_chi(4, 16);
+
+    let params = hamiltonian::GoModelParams {
+        d: 3,
+        ..hamiltonian::GoModelParams::default()
+    };
+    let ham = hamiltonian::ProteinHamiltonian::from_protein(&chain, &contacts, &comm, &params);
+
+    let dt = 0.05;
+    let n_steps = 200;
+
+    // --- SWAP mode ---
+    let gates_swap = tebd::FoldingGates::from_hamiltonian(&ham, dt);
+    let mut solver_swap = tebd::FoldingTEBD::new(chain.len(), 3, gates_swap, adaptive_chi.clone());
+    let result_swap = solver_swap.evolve(n_steps, 1e-6);
+
+    // --- MPO mode ---
+    let gates_mpo = tebd::FoldingGates::from_hamiltonian(&ham, dt);
+    let contact_exp_mpo = tebd::FoldingTEBD::build_contact_exp_mpo(&ham, dt, Some(0.02));
+    let mut solver_mpo = tebd::FoldingTEBD::with_mpo(
+        chain.len(),
+        3,
+        gates_mpo,
+        adaptive_chi.clone(),
+        contact_exp_mpo,
+    );
+    let result_mpo = solver_mpo.evolve(n_steps, 1e-6);
+
+    println!(
+        "SWAP mode: E={:.4}, {:.2}s",
+        result_swap.energy, result_swap.wall_time_seconds
+    );
+    println!(
+        "MPO  mode: E={:.4}, {:.2}s",
+        result_mpo.energy, result_mpo.wall_time_seconds
+    );
+    println!(
+        "Speedup: {:.1}×",
+        result_swap.wall_time_seconds / result_mpo.wall_time_seconds
+    );
+
+    // Both should produce finite energies
+    assert!(result_swap.energy.is_finite());
+    assert!(result_mpo.energy.is_finite());
 }

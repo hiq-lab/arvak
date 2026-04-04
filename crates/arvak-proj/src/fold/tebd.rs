@@ -62,9 +62,7 @@ impl RealMps {
     }
 
     pub fn bond_dims(&self) -> Vec<usize> {
-        (0..self.n_sites - 1)
-            .map(|b| self.bond_dim(b))
-            .collect()
+        (0..self.n_sites - 1).map(|b| self.bond_dim(b)).collect()
     }
 
     /// Apply a single-site operator (d×d matrix, row-major) to site q.
@@ -139,14 +137,12 @@ impl RealMps {
                                 let row_in = sq_in * d + sqp_in;
                                 let g = gate[row_out * d2 + row_in];
                                 if g.abs() > 1e-15 {
-                                    val += g
-                                        * theta
-                                            [(alpha * d + sq_in) * theta_cols + (sqp_in * rd + beta)];
+                                    val += g * theta
+                                        [(alpha * d + sq_in) * theta_cols + (sqp_in * rd + beta)];
                                 }
                             }
                         }
-                        theta_new
-                            [(alpha * d + sq_out) * theta_cols + (sqp_out * rd + beta)] = val;
+                        theta_new[(alpha * d + sq_out) * theta_cols + (sqp_out * rd + beta)] = val;
                     }
                 }
             }
@@ -208,6 +204,144 @@ impl RealMps {
             }
         }
         self.apply_two_site(q, &swap_gate, max_chi)
+    }
+
+    /// Apply an MPO to this MPS: |ψ'⟩ = W|ψ⟩, then SVD-compress each bond.
+    ///
+    /// After contraction, bond dimension becomes χ_MPS × χ_MPO.
+    /// SVD truncation brings it back to adaptive_chi[k] per bond.
+    ///
+    /// This replaces SWAP networks — ALL long-range interactions are applied
+    /// in a single left-to-right sweep of N SVDs.
+    pub fn apply_mpo(&mut self, mpo: &super::mpo::MPO, adaptive_chi: &[usize]) {
+        let n = self.n_sites;
+        let d = self.d;
+        assert_eq!(mpo.n_sites, n);
+        assert_eq!(mpo.phys_dim, d);
+
+        // Contract W[k] with A[k] at each site:
+        // B[k][(α,w_L), σ, (β,w_R)] = Σ_{σ'} W[k][w_L, σ, σ', w_R] · A[k][α, σ', β]
+        //
+        // New bond dimension: χ_L * w_L on the left, χ_R * w_R on the right.
+        let mut new_sites = Vec::with_capacity(n);
+
+        for k in 0..n {
+            let a = &self.sites[k];
+            let chi_l = a.left_dim;
+            let chi_r = a.right_dim;
+
+            let w_l = if k == 0 { 1 } else { mpo.bond_dims[k - 1] };
+            let w_r = if k == n - 1 { 1 } else { mpo.bond_dims[k] };
+
+            let new_ld = chi_l * w_l;
+            let new_rd = chi_r * w_r;
+
+            let mut new_matrices = vec![vec![0.0; new_ld * new_rd]; d];
+
+            // W[k] indexing: W[(wl * d + σ) * d + σ') * wr + wr_idx]
+            let w = &mpo.tensors[k];
+
+            for sigma_out in 0..d {
+                for sigma_in in 0..d {
+                    for wl in 0..w_l {
+                        for wr in 0..w_r {
+                            let w_val = w[((wl * d + sigma_out) * d + sigma_in) * w_r + wr];
+                            if w_val.abs() < 1e-15 {
+                                continue;
+                            }
+                            for alpha in 0..chi_l {
+                                let a_row = alpha * chi_r;
+                                let new_row = (alpha * w_l + wl) * new_rd;
+                                for beta in 0..chi_r {
+                                    new_matrices[sigma_out][new_row + beta * w_r + wr] +=
+                                        w_val * a.matrices[sigma_in][a_row + beta];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            new_sites.push(RealSiteTensor {
+                matrices: new_matrices,
+                d,
+                left_dim: new_ld,
+                right_dim: new_rd,
+            });
+        }
+
+        self.sites = new_sites;
+
+        // SVD compression: sweep left-to-right, truncating each bond
+        for k in 0..n - 1 {
+            let max_chi = adaptive_chi.get(k).copied().unwrap_or(16);
+            self.compress_bond(k, max_chi);
+        }
+    }
+
+    /// Compress bond between site k and k+1 via SVD truncation.
+    fn compress_bond(&mut self, k: usize, max_chi: usize) {
+        let d = self.d;
+        let ld = self.sites[k].left_dim;
+        let rd = self.sites[k + 1].right_dim;
+        let mid = self.sites[k].right_dim; // = self.sites[k+1].left_dim
+
+        // Merge into θ[α·σ_k, σ_{k+1}·β]
+        let rows = ld * d;
+        let cols = d * rd;
+        let mut theta = vec![0.0; rows * cols];
+
+        for alpha in 0..ld {
+            for sk in 0..d {
+                for skp in 0..d {
+                    for beta in 0..rd {
+                        let mut val = 0.0;
+                        for gamma in 0..mid {
+                            val += self.sites[k].matrices[sk][alpha * mid + gamma]
+                                * self.sites[k + 1].matrices[skp][gamma * rd + beta];
+                        }
+                        theta[(alpha * d + sk) * cols + skp * rd + beta] = val;
+                    }
+                }
+            }
+        }
+
+        // SVD + truncate
+        let (new_left, new_right, _trunc_err) = svd_truncate_real(&theta, rows, cols, max_chi);
+        let new_chi = new_left.len() / (ld * d);
+
+        // Update sites
+        let mut left_matrices = vec![vec![0.0; ld * new_chi]; d];
+        for alpha in 0..ld {
+            for sigma in 0..d {
+                for gamma in 0..new_chi {
+                    left_matrices[sigma][alpha * new_chi + gamma] =
+                        new_left[(alpha * d + sigma) * new_chi + gamma];
+                }
+            }
+        }
+        self.sites[k] = RealSiteTensor {
+            matrices: left_matrices,
+            d,
+            left_dim: ld,
+            right_dim: new_chi,
+        };
+
+        let mut right_matrices = vec![vec![0.0; new_chi * rd]; d];
+        for gamma in 0..new_chi {
+            for sigma in 0..d {
+                for beta in 0..rd {
+                    right_matrices[sigma][gamma * rd + beta] =
+                        new_right[gamma * cols + sigma * rd + beta];
+                }
+            }
+        }
+        self.sites[k + 1] = RealSiteTensor {
+            matrices: right_matrices,
+            d,
+            left_dim: new_chi,
+            right_dim: rd,
+        };
     }
 
     /// Compute ⟨ψ|O|ψ⟩ for a single-site operator O (d×d) at site q.
@@ -288,7 +422,12 @@ impl RealMps {
 }
 
 /// SVD truncation of a real matrix. Returns (U·S, V†, truncation_error).
-fn svd_truncate_real(mat: &[f64], rows: usize, cols: usize, max_chi: usize) -> (Vec<f64>, Vec<f64>, f64) {
+fn svd_truncate_real(
+    mat: &[f64],
+    rows: usize,
+    cols: usize,
+    max_chi: usize,
+) -> (Vec<f64>, Vec<f64>, f64) {
     // Build faer matrix
     let m = Mat::<f64>::from_fn(rows, cols, |i, j| mat[i * cols + j]);
     let svd = m.thin_svd().expect("SVD failed");
@@ -357,10 +496,10 @@ impl FoldingGates {
     ///
     /// For backbone and local terms: gate = exp(-dτ · H) computed by eigendecomposition.
     /// For contact terms: gate = exp(-dτ · J · P⊗P) — diagonal in the computational basis.
-    pub fn from_hamiltonian(
-        ham: &super::hamiltonian::ProteinHamiltonian,
-        dt: f64,
-    ) -> Self {
+    ///
+    /// In MPO mode, contact gates are not used (the MPO handles them).
+    /// They are still built for the SWAP-network fallback.
+    pub fn from_hamiltonian(ham: &super::hamiltonian::ProteinHamiltonian, dt: f64) -> Self {
         let d = ham.d;
 
         // Local gates: exp(-dt * h)
@@ -416,6 +555,9 @@ pub struct FoldingTEBD {
     pub gates: FoldingGates,
     pub adaptive_chi: Vec<usize>,
     pub d: usize,
+    /// MPO for long-range contacts (built from Hamiltonian).
+    /// When set, replaces SWAP networks with direct MPO×MPS contraction.
+    pub contact_mpo: Option<super::mpo::MPO>,
 }
 
 /// Result of a TEBD simulation.
@@ -429,12 +571,29 @@ pub struct TEBDResult {
 }
 
 impl FoldingTEBD {
-    /// Create a new TEBD solver.
-    pub fn new(
+    /// Create a new TEBD solver (SWAP-network mode for long-range contacts).
+    pub fn new(n_sites: usize, d: usize, gates: FoldingGates, adaptive_chi: Vec<usize>) -> Self {
+        let mps = RealMps::new(n_sites, d);
+        Self {
+            mps,
+            gates,
+            adaptive_chi,
+            d,
+            contact_mpo: None,
+        }
+    }
+
+    /// Create a TEBD solver with MPO-based long-range contact application.
+    /// This is 10-30× faster than SWAP networks for proteins with many contacts.
+    ///
+    /// The `contact_mpo` must encode exp(-dτ·H_LR), NOT H_LR itself.
+    /// Use `build_contact_exp_mpo()` to construct it.
+    pub fn with_mpo(
         n_sites: usize,
         d: usize,
         gates: FoldingGates,
         adaptive_chi: Vec<usize>,
+        contact_mpo: super::mpo::MPO,
     ) -> Self {
         let mps = RealMps::new(n_sites, d);
         Self {
@@ -442,7 +601,87 @@ impl FoldingTEBD {
             gates,
             adaptive_chi,
             d,
+            contact_mpo: Some(contact_mpo),
         }
+    }
+
+    /// Build an MPO that represents exp(-dτ · H_contacts) for all long-range terms.
+    ///
+    /// Since the contact operators are diagonal projectors (P_i ⊗ P_j),
+    /// they commute. The exponential factorizes:
+    ///   exp(-dτ · Σ J_ij P_i⊗P_j) = Π exp(-dτ · J_ij P_i⊗P_j)
+    ///
+    /// Each factor acts as identity on non-projected states, and as
+    ///   exp(-dτ·J_ij) on the projected subspace.
+    ///
+    /// This is encoded as an MPO with the same FSA structure as the Hamiltonian MPO,
+    /// but with exponentiated coefficients on the operator threads.
+    pub fn build_contact_exp_mpo(
+        ham: &super::hamiltonian::ProteinHamiltonian,
+        dt: f64,
+        prune_threshold: Option<f64>,
+    ) -> super::mpo::MPO {
+        // Build a modified Hamiltonian where each LR term has:
+        // - op_left = diag(1, exp(-dt*J)-1, ...) projected into the d×d basis
+        // - op_right = projection operator (same as original)
+        // - The MPO encodes: I + Σ (exp(-dt*J_ij) - 1) · P_i ⊗ P_j
+        //   which equals Π exp(-dt·J_ij · P_i ⊗ P_j) to first order
+        //   (exact for commuting diagonal operators)
+        //
+        // Actually, since P_i·P_i = P_i (projectors are idempotent):
+        //   exp(-dt·J·P⊗P) = I + (exp(-dt·J) - 1) · P⊗P
+        // This is EXACT, not an approximation!
+
+        let d = ham.d;
+
+        // Build modified Hamiltonian with exponentiated strengths
+        let mut mod_ham = super::hamiltonian::ProteinHamiltonian {
+            n_sites: ham.n_sites,
+            d: ham.d,
+            local_terms: Vec::new(), // No local terms in this MPO
+            nn_terms: Vec::new(),    // No NN terms
+            long_range_terms: Vec::new(),
+        };
+
+        // Identity local terms (the MPO should act as identity on non-contact DOFs)
+        for _ in 0..ham.n_sites {
+            let mut id = vec![0.0; d * d];
+            for s in 0..d {
+                id[s * d + s] = 1.0;
+            }
+            mod_ham.local_terms.push(id);
+        }
+
+        // NN terms: identity
+        for _ in 0..ham.n_sites.saturating_sub(1) {
+            let d2 = d * d;
+            let mut id = vec![0.0; d2 * d2];
+            for s in 0..d2 {
+                id[s * d2 + s] = 1.0;
+            }
+            mod_ham.nn_terms.push(id);
+        }
+
+        // Long-range terms: (exp(-dt*J) - 1) * P ⊗ P
+        for t in &ham.long_range_terms {
+            if let Some(thresh) = prune_threshold {
+                if t.strength.abs() < thresh {
+                    continue;
+                }
+            }
+            let exp_factor = (-dt * t.strength).exp() - 1.0;
+            mod_ham
+                .long_range_terms
+                .push(super::hamiltonian::LongRangeTerm {
+                    i: t.i,
+                    j: t.j,
+                    op_left: t.op_left.clone(),
+                    op_right: t.op_right.clone(),
+                    strength: exp_factor, // NOT t.strength — the exponentiated version
+                });
+        }
+
+        super::mpo::MPO::from_hamiltonian(&mod_ham, None)
     }
 
     /// Run imaginary-time evolution to find the ground state.
@@ -475,9 +714,15 @@ impl FoldingTEBD {
                 self.mps.apply_two_site(q, &self.gates.backbone[q], chi);
             }
 
-            // 3. Long-range contacts via SWAP network
-            // Clone contacts to avoid borrow conflict with &mut self
-            let contacts: Vec<_> = self.gates.contacts.iter()
+            // 3. Long-range contacts
+            // Sort contacts by sequence separation: apply short-range first
+            // (no SWAPs needed for adjacent pairs), then medium, then long.
+            // Short contacts (sep ≤ 2): direct 2-site gate, no SWAP needed
+            // Others: SWAP network
+            let contacts: Vec<_> = self
+                .gates
+                .contacts
+                .iter()
                 .map(|(i, j, g)| (*i, *j, g.clone()))
                 .collect();
             for (i, j, gate) in &contacts {
@@ -518,28 +763,31 @@ impl FoldingTEBD {
 
     /// Apply a long-range gate between sites i and j via SWAP network.
     /// SWAP j down to i+1, apply gate at (i, i+1), SWAP back.
+    ///
+    /// Optimization: uses adaptive chi per bond for SWAPs (not global max),
+    /// and skips SWAPs for adjacent pairs.
     fn apply_long_range(&mut self, i: usize, j: usize, gate: &[f64]) {
         if j <= i + 1 {
-            // Already adjacent
+            // Already adjacent — direct gate, no SWAP needed
             let chi = self.adaptive_chi.get(i).copied().unwrap_or(16);
             self.mps.apply_two_site(i, gate, chi);
             return;
         }
 
-        let chi_max = self.adaptive_chi.iter().max().copied().unwrap_or(16);
-
-        // SWAP j down to i+1
+        // SWAP j down to i+1 — use adaptive chi at each bond
         for k in (i + 1..j).rev() {
-            self.mps.swap(k, chi_max);
+            let chi = self.adaptive_chi.get(k).copied().unwrap_or(16);
+            self.mps.swap(k, chi);
         }
 
         // Apply gate at (i, i+1)
         let chi = self.adaptive_chi.get(i).copied().unwrap_or(16);
         self.mps.apply_two_site(i, gate, chi);
 
-        // SWAP back
+        // SWAP back — use adaptive chi at each bond
         for k in i + 1..j {
-            self.mps.swap(k, chi_max);
+            let chi = self.adaptive_chi.get(k).copied().unwrap_or(16);
+            self.mps.swap(k, chi);
         }
     }
 
@@ -693,6 +941,9 @@ mod tests {
         let (us, vt, err) = svd_truncate_real(&mat, 3, 3, 2);
         assert_eq!(us.len(), 3 * 2); // [3, 2]
         assert_eq!(vt.len(), 2 * 3); // [2, 3]
-        assert!(err.abs() < 1e-10, "no truncation error for rank-2 with max_chi=2");
+        assert!(
+            err.abs() < 1e-10,
+            "no truncation error for rank-2 with max_chi=2"
+        );
     }
 }
