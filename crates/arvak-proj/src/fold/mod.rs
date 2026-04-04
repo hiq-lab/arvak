@@ -1,3 +1,4 @@
+pub mod alphafold;
 pub mod anm;
 pub mod commensurability;
 pub mod contact;

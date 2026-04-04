@@ -2,7 +2,9 @@
 //!
 //! PDB files sourced from /Users/danielhinderink/Projects/Garm-Platform/demos/PDB-Data/
 
-use arvak_proj::fold::{anm, commensurability, contact, dmrg, hamiltonian, mpo, pdb, tdvp, tebd};
+use arvak_proj::fold::{
+    alphafold, anm, commensurability, contact, dmrg, hamiltonian, mpo, pdb, tdvp, tebd,
+};
 
 const PDB_DIR: &str = "/Users/danielhinderink/Projects/Garm-Platform/demos/PDB-Data";
 
@@ -690,4 +692,71 @@ fn tdvp_1fme_d3() {
     // The key test: TDVP should be MUCH faster than TEBD because no SWAPs
     // TEBD takes ~7s in release; TDVP should be < 2s
     println!("  (TEBD baseline: ~7.2s)");
+}
+
+// ─────────────────────────────────────────────────────────────
+// AlphaFold → TDVP end-to-end (requires network)
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn alphafold_to_tdvp_insulin() {
+    // Insulin (P01308) — small, well-folded, fast test
+    let entry = match alphafold::AlphaFoldEntry::fetch("P01308") {
+        Ok(e) => e,
+        Err(e) => {
+            println!("Skipping AlphaFold test (network?): {e}");
+            return;
+        }
+    };
+
+    println!(
+        "AlphaFold {}: {} residues, mean pLDDT={:.1}, max_PAE={:.1}",
+        entry.uniprot_id,
+        entry.n_residues,
+        entry.plddt.iter().sum::<f64>() / entry.n_residues as f64,
+        entry.max_pae,
+    );
+
+    // Build pipeline: AlphaFold → Hamiltonian → MPO → TDVP
+    let params = hamiltonian::GoModelParams {
+        d: 3,
+        ..hamiltonian::GoModelParams::default()
+    };
+    let ham = entry.build_hamiltonian(&params, 5.0);
+    let chi_profile = entry.adaptive_chi(4, 16);
+
+    println!(
+        "  Hamiltonian: {} sites, {} LR terms",
+        ham.n_sites,
+        ham.long_range_terms.len()
+    );
+    println!(
+        "  χ profile: {:?}",
+        &chi_profile[..chi_profile.len().min(10)]
+    );
+
+    let h_mpo = mpo::MPO::from_hamiltonian(&ham, None);
+    println!("  MPO max bond dim: {}", h_mpo.max_bond_dim());
+
+    let config = tdvp::TDVPConfig {
+        dt: 0.1,
+        n_steps: 100,
+        energy_tol: 1e-6,
+        chi_profile,
+        krylov_dim: 12,
+    };
+
+    let mut solver = tdvp::TDVP::new(h_mpo, config);
+    let result = solver.solve();
+
+    println!(
+        "  TDVP: E={:.4}, {} steps, {:.3}s, converged={}",
+        result.energy, result.n_steps, result.wall_time_seconds, result.converged
+    );
+
+    assert!(result.energy.is_finite());
+    println!(
+        "\n  UniProt ID → TDVP ground state in {:.1}s total",
+        result.wall_time_seconds
+    );
 }
