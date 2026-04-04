@@ -17,3 +17,4 @@ tracing = { workspace = true }
 serde = { workspace = true }
 rayon = "1.10"
 faer = "0.24"
+nalgebra = "0.33"

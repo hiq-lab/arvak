@@ -19,6 +19,7 @@
 
 pub mod channel;
 pub mod error;
+pub mod fold;
 pub mod frequency;
 pub mod mps;
 pub mod partition;
