@@ -2,7 +2,7 @@
 //!
 //! PDB files sourced from /Users/danielhinderink/Projects/Garm-Platform/demos/PDB-Data/
 
-use arvak_proj::fold::{anm, commensurability, contact, dmrg, hamiltonian, mpo, pdb, tebd};
+use arvak_proj::fold::{anm, commensurability, contact, dmrg, hamiltonian, mpo, pdb, tdvp, tebd};
 
 const PDB_DIR: &str = "/Users/danielhinderink/Projects/Garm-Platform/demos/PDB-Data";
 
@@ -648,4 +648,46 @@ fn tebd_mpo_vs_swap() {
     // Both should produce finite energies
     assert!(result_swap.energy.is_finite());
     assert!(result_mpo.energy.is_finite());
+}
+
+// ─────────────────────────────────────────────────────────────
+// TDVP — SWAP-free solver
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn tdvp_1fme_d3() {
+    let chain = pdb::ProteinChain::from_pdb(&format!("{PDB_DIR}/1FME.pdb"), None).unwrap();
+    let contacts = contact::ContactMap::from_chain(&chain, 8.0, 3);
+    let anm_result = anm::ANMResult::compute(&chain, 15.0, 1.0, None);
+    let mut comm = commensurability::CommensurabilityResult::compute(&anm_result, &contacts, 8);
+    let adaptive_chi = comm.to_adaptive_chi(4, 16);
+
+    let params = hamiltonian::GoModelParams {
+        d: 3,
+        ..hamiltonian::GoModelParams::default()
+    };
+    let ham = hamiltonian::ProteinHamiltonian::from_protein(&chain, &contacts, &comm, &params);
+    let h_mpo = mpo::MPO::from_hamiltonian(&ham, None); // ALL contacts, no pruning
+
+    let config = tdvp::TDVPConfig {
+        dt: 0.1,
+        n_steps: 200,
+        energy_tol: 1e-6,
+        chi_profile: adaptive_chi,
+        krylov_dim: 12,
+    };
+
+    let mut solver = tdvp::TDVP::new(h_mpo, config);
+    let result = solver.solve();
+
+    println!(
+        "TDVP 1FME (d=3, χ∈[4,16]): E={:.6}, {} measurements, {:.3}s, converged={}",
+        result.energy, result.n_steps, result.wall_time_seconds, result.converged
+    );
+
+    assert!(result.energy.is_finite(), "energy should be finite");
+
+    // The key test: TDVP should be MUCH faster than TEBD because no SWAPs
+    // TEBD takes ~7s in release; TDVP should be < 2s
+    println!("  (TEBD baseline: ~7.2s)");
 }

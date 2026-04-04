@@ -5,5 +5,6 @@ pub mod dmrg;
 pub mod hamiltonian;
 pub mod mpo;
 pub mod pdb;
+pub mod tdvp;
 pub mod tebd;
 pub mod trajectory;
