@@ -17,6 +17,7 @@
 //! - Hinderink (2026), "Pair-Counting Scaling of the Quantum Chaos Threshold"
 //! - Hinderink (2026), "The Tilde Pattern: Commensurability as Low-Pass Filter"
 
+pub mod bianchi;
 pub mod channel;
 pub mod error;
 pub mod frequency;

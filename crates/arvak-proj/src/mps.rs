@@ -12,6 +12,30 @@ use crate::error::Result;
 
 type C = Complex64;
 
+/// SVD truncation mode.
+///
+/// `Absolute` is the original behaviour: keep up to `max_chi` singular values,
+/// drop those below `s_max * 1e-14`. The error is unbounded — it depends on the
+/// SV distribution.
+///
+/// `DiscardedWeight` keeps singular values until the cumulative discarded weight
+/// `Σ σ²` (over the discarded SVs) reaches a fraction `eps` of the total weight.
+/// The truncation error is then **exactly** `√(discarded_weight)` in 2-norm,
+/// which composes cleanly with the Bianchi projection (Frobenius norm).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TruncationMode {
+    /// Drop SVs below `s_max * 1e-14`. Default for backward compatibility.
+    Absolute,
+    /// Drop SVs until cumulative `Σ σ² / total ≥ 1 - eps`.
+    DiscardedWeight { eps: f64 },
+}
+
+impl Default for TruncationMode {
+    fn default() -> Self {
+        Self::Absolute
+    }
+}
+
 /// A single MPS site tensor: shape [left_dim, 2, right_dim].
 /// Stored as two matrices (one per physical index σ=0, σ=1),
 /// each of shape [left_dim × right_dim].
@@ -23,6 +47,11 @@ pub struct SiteTensor {
     pub m1: Vec<C>,
     pub left_dim: usize,
     pub right_dim: usize,
+    /// Singular values on the right bond (length = right_dim).
+    /// `None` for product states or before any SVD has happened on this bond.
+    /// Populated by `apply_two_qubit` after SVD truncation.
+    /// Used by the Bianchi diagnostic and projection (see `bianchi.rs`).
+    pub lambda: Option<Vec<f64>>,
 }
 
 impl SiteTensor {
@@ -35,6 +64,7 @@ impl SiteTensor {
             m1: vec![C::new(0.0, 0.0)],
             left_dim: 1,
             right_dim: 1,
+            lambda: None,
         }
     }
 
@@ -61,6 +91,13 @@ impl SiteTensor {
 pub struct Mps {
     pub sites: Vec<SiteTensor>,
     pub n_qubits: usize,
+    /// SVD truncation mode used by `apply_two_qubit`. Default: `Absolute`.
+    pub truncation_mode: TruncationMode,
+    /// Per-bond sin(C/2) values from the channel-map analysis. When `Some`
+    /// AND the `bianchi` feature is enabled, `apply_two_qubit` runs a
+    /// Bianchi projection step after SVD truncation, with adaptive
+    /// step size η_i = η₀ · sin²(C_i/2).
+    pub sin_c_half_per_bond: Option<Vec<f64>>,
 }
 
 impl Mps {
@@ -68,7 +105,36 @@ impl Mps {
     #[must_use]
     pub fn new(n_qubits: usize) -> Self {
         let sites = (0..n_qubits).map(|_| SiteTensor::product_zero()).collect();
-        Self { sites, n_qubits }
+        Self {
+            sites,
+            n_qubits,
+            truncation_mode: TruncationMode::default(),
+            sin_c_half_per_bond: None,
+        }
+    }
+
+    /// Set the SVD truncation mode for subsequent two-qubit gate applications.
+    pub fn set_truncation_mode(&mut self, mode: TruncationMode) {
+        self.truncation_mode = mode;
+    }
+
+    /// Set the per-bond sin(C/2) values used by the Bianchi projection.
+    /// `weights` should have length `n_qubits - 1`.
+    pub fn set_sin_c_half(&mut self, weights: Vec<f64>) {
+        self.sin_c_half_per_bond = Some(weights);
+    }
+
+    /// Sum of cube of bond dimensions — proxy for compute footprint of one
+    /// MPS pass. Useful for comparing adaptive-χ profiles.
+    #[must_use]
+    pub fn get_cost(&self) -> u64 {
+        self.sites
+            .iter()
+            .map(|s| {
+                let chi = s.right_dim as u64;
+                chi.saturating_mul(chi).saturating_mul(chi)
+            })
+            .sum()
     }
 
     /// Bond dimension between site i and site i+1.
@@ -278,22 +344,38 @@ impl Mps {
 
         // Step 2: SVD of theta matrix [rows × cols]
         let new_chi = max_bond.min(rows).min(cols);
-        let (new_m0_q, new_m1_q, new_m0_r, new_m1_r, actual_chi) =
-            svd_truncate(&theta, rows, cols, ld, rd, new_chi)?;
+        let (new_m0_q, new_m1_q, new_m0_r, new_m1_r, actual_chi, singular_values) =
+            svd_truncate(&theta, rows, cols, ld, rd, new_chi, self.truncation_mode)?;
 
-        // Step 3: Update site tensors
+        // Step 3: Update site tensors. Store the singular values on the LEFT
+        // tensor's right bond (the bond between q and q+1) for Bianchi diagnostic.
+        let prev_lambda_right = self.sites[q + 1].lambda.take();
         self.sites[q] = SiteTensor {
             m0: new_m0_q,
             m1: new_m1_q,
             left_dim: ld,
             right_dim: actual_chi,
+            lambda: Some(singular_values),
         };
         self.sites[q + 1] = SiteTensor {
             m0: new_m0_r,
             m1: new_m1_r,
             left_dim: actual_chi,
             right_dim: rd,
+            lambda: prev_lambda_right,
         };
+
+        // Step 4 (optional): Bianchi projection. Only when the `bianchi`
+        // feature is enabled AND sin(C/2) data is available. Zero overhead
+        // when disabled.
+        #[cfg(feature = "bianchi")]
+        {
+            if let Some(weights) = self.sin_c_half_per_bond.as_ref() {
+                let sin_c = weights.get(q).copied().unwrap_or(0.0);
+                let cfg = crate::bianchi::BianchiConfig::default();
+                let _ = crate::bianchi::project_bond(self, q, sin_c, &cfg);
+            }
+        }
 
         Ok(())
     }
@@ -334,7 +416,8 @@ impl Mps {
 
 /// SVD truncation of the merged tensor.
 /// Input: flat matrix `theta` of shape [rows × cols] where rows = ld*2, cols = 2*rd.
-/// Returns: (m0_left, m1_left, m0_right, m1_right, actual_chi).
+/// Returns: (m0_left, m1_left, m0_right, m1_right, actual_chi, singular_values).
+/// `singular_values` has length `actual_chi`.
 #[allow(clippy::type_complexity)]
 fn svd_truncate(
     theta: &[C],
@@ -343,7 +426,8 @@ fn svd_truncate(
     ld: usize,
     rd: usize,
     max_chi: usize,
-) -> Result<(Vec<C>, Vec<C>, Vec<C>, Vec<C>, usize)> {
+    mode: TruncationMode,
+) -> Result<(Vec<C>, Vec<C>, Vec<C>, Vec<C>, usize, Vec<f64>)> {
     // Build faer matrix
     let mat = Mat::from_fn(rows, cols, |i, j| {
         let c = theta[i * cols + j];
@@ -357,20 +441,48 @@ fn svd_truncate(
     let s = svd.S();
     let v = svd.V();
 
-    // Determine actual chi: keep singular values above threshold
+    // Determine actual chi based on truncation mode.
     let n_singular = s.column_vector().nrows().min(max_chi);
     let mut actual_chi = n_singular;
 
-    // Drop negligible singular values
-    if n_singular > 1 {
-        let s_max = s.column_vector()[0].re;
-        if s_max > 1e-15 {
-            for i in (1..n_singular).rev() {
-                if s.column_vector()[i].re / s_max < 1e-14 {
-                    actual_chi = i;
-                } else {
-                    break;
+    match mode {
+        TruncationMode::Absolute => {
+            // Drop negligible singular values: σ_i / σ_max < 1e-14
+            if n_singular > 1 {
+                let s_max = s.column_vector()[0].re;
+                if s_max > 1e-15 {
+                    for i in (1..n_singular).rev() {
+                        if s.column_vector()[i].re / s_max < 1e-14 {
+                            actual_chi = i;
+                        } else {
+                            break;
+                        }
+                    }
                 }
+            }
+        }
+        TruncationMode::DiscardedWeight { eps } => {
+            // Keep SVs until cumulative kept-weight ≥ (1 - eps) of total.
+            // This bounds the truncation error to √eps in 2-norm.
+            let total: f64 = (0..s.column_vector().nrows())
+                .map(|i| {
+                    let v = s.column_vector()[i].re;
+                    v * v
+                })
+                .sum();
+            if total > 1e-30 {
+                let target = (1.0 - eps) * total;
+                let mut cumulative = 0.0_f64;
+                let mut keep = 0_usize;
+                for i in 0..n_singular {
+                    let v = s.column_vector()[i].re;
+                    cumulative += v * v;
+                    keep = i + 1;
+                    if cumulative >= target {
+                        break;
+                    }
+                }
+                actual_chi = keep;
             }
         }
     }
@@ -383,8 +495,13 @@ fn svd_truncate(
     let mut m0_r = vec![C::new(0.0, 0.0); actual_chi * rd];
     let mut m1_r = vec![C::new(0.0, 0.0); actual_chi * rd];
 
+    // Singular values for the truncated bond (kept for Bianchi diagnostic).
+    let mut singular_values = Vec::with_capacity(actual_chi);
+
     for g in 0..actual_chi {
-        let sqrt_s = s.column_vector()[g].re.sqrt();
+        let s_g = s.column_vector()[g].re;
+        singular_values.push(s_g);
+        let sqrt_s = s_g.sqrt();
 
         // Left: U[a*2 + sigma, g] * sqrt(s)
         for a in 0..ld {
@@ -403,7 +520,7 @@ fn svd_truncate(
         }
     }
 
-    Ok((m0_q, m1_q, m0_r, m1_r, actual_chi))
+    Ok((m0_q, m1_q, m0_r, m1_r, actual_chi, singular_values))
 }
 
 /// Apply a single-qubit gate to a site tensor (free function for parallel use).
@@ -479,6 +596,30 @@ pub fn zz(theta: f64) -> [[C; 4]; 4] {
     u[2][2] = C::from_polar(1.0, theta); // |10⟩: eigenvalue -1
     u[3][3] = C::from_polar(1.0, -theta); // |11⟩: eigenvalue +1
     u
+}
+
+/// ITE-ZZ: exp(-τJ Z⊗Z) — imaginary time evolution gate (non-unitary).
+///
+/// Diagonal real gate for ground-state finding via ITE-TEBD.
+#[must_use]
+pub fn ite_zz(tau_j: f64) -> [[C; 4]; 4] {
+    let mut u = [[C::new(0.0, 0.0); 4]; 4];
+    u[0][0] = C::new((-tau_j).exp(), 0.0); // |00⟩: e^{-τJ}
+    u[1][1] = C::new(tau_j.exp(), 0.0);    // |01⟩: e^{+τJ}
+    u[2][2] = C::new(tau_j.exp(), 0.0);    // |10⟩: e^{+τJ}
+    u[3][3] = C::new((-tau_j).exp(), 0.0); // |11⟩: e^{-τJ}
+    u
+}
+
+/// ITE-X: exp(-τh X) — imaginary time evolution of transverse field (non-unitary).
+#[must_use]
+pub fn ite_x(tau_h: f64) -> [[C; 2]; 2] {
+    let c = tau_h.cosh();
+    let s = tau_h.sinh();
+    [
+        [C::new(c, 0.0), C::new(s, 0.0)],
+        [C::new(s, 0.0), C::new(c, 0.0)],
+    ]
 }
 
 /// CNOT gate.
