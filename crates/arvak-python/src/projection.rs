@@ -175,6 +175,24 @@ pub fn run_projection(
     dict.set_item("ln_gamma_c", result.ln_gamma_c)?;
     dict.set_item("n_qubits", n_qubits)?;
 
+    // Per-bond data for adiabatic scout / entanglement analysis
+    let bond_classes: Vec<&str> = part
+        .bond_classes
+        .iter()
+        .map(|c| match c {
+            partition::BondClass::Stable => "stable",
+            partition::BondClass::Volatile => "volatile",
+        })
+        .collect();
+    dict.set_item("bond_classes", bond_classes)?;
+    dict.set_item("recommended_chi", &part.recommended_chi)?;
+
+    // Per-bond sin(C/2) weights from channel map
+    let bond_weights: Vec<f64> = (0..n_qubits.saturating_sub(1))
+        .map(|b| channels.bond_weight(b))
+        .collect();
+    dict.set_item("bond_weights", bond_weights)?;
+
     Ok(dict.into())
 }
 
@@ -270,8 +288,129 @@ fn sample_from_mps(state: &Mps, shots: u32) -> HashMap<String, u32> {
     counts
 }
 
+/// Run ITE-TEBD: find ground state of H(s) at each schedule point.
+///
+/// For each s in [0,1], computes the ground state of
+///   H(s) = (1-s)·Σ X_i + s·Σ J_ij Z_i Z_j
+/// via imaginary time evolution: e^{-βH}|+⟩ → |GS⟩.
+///
+/// Returns per-schedule-point bond structure — the entanglement map
+/// that tells a quantum annealer where the hard bonds are.
+#[pyfunction]
+#[pyo3(signature = (
+    n_qubits,
+    zz_couplings,
+    n_ite_steps = 30,
+    n_schedule_points = 11,
+    chi_max = 16,
+    dtau = 0.1,
+))]
+pub fn run_tebd(
+    n_qubits: usize,
+    zz_couplings: Vec<(usize, usize, f64)>,
+    n_ite_steps: usize,
+    n_schedule_points: usize,
+    chi_max: usize,
+    dtau: f64,
+    py: Python<'_>,
+) -> PyResult<Py<pyo3::types::PyList>> {
+    use pyo3::types::PyList;
+
+    if n_qubits == 0 || n_qubits > 2_000_000 {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "n_qubits must be 1..2_000_000",
+        ));
+    }
+
+    // Filter to NN couplings only (MPS constraint)
+    let nn_couplings: Vec<(usize, usize, f64)> = zz_couplings
+        .iter()
+        .filter(|&&(i, j, _)| i.abs_diff(j) == 1)
+        .copied()
+        .collect();
+
+    let t0 = Instant::now();
+    let results = PyList::empty(py);
+
+    for sp in 0..n_schedule_points {
+        let s = if n_schedule_points > 1 {
+            sp as f64 / (n_schedule_points - 1) as f64
+        } else {
+            1.0
+        };
+
+        // Fresh MPS in |+⟩^N for each schedule point (ITE finds GS independently)
+        let mut state = Mps::new(n_qubits);
+        for q in 0..n_qubits {
+            state.apply_single(q, mps::h());
+        }
+
+        // ITE: apply e^{-dτ H(s)} repeatedly
+        for _ in 0..n_ite_steps {
+            // Even bonds: ITE-ZZ with τ·s·J_ij
+            for &(i, j, j_ij) in &nn_couplings {
+                let bond = i.min(j);
+                if bond % 2 == 0 {
+                    let tau_j = dtau * s * j_ij;
+                    if tau_j.abs() > 1e-14 {
+                        let _ = state.apply_two_qubit(bond, mps::ite_zz(tau_j), chi_max);
+                    }
+                }
+            }
+
+            // Single-qubit: ITE-X with τ·(1-s)·h (h=1)
+            if s < 1.0 - 1e-10 {
+                let tau_h = dtau * (1.0 - s);
+                let gate = mps::ite_x(tau_h);
+                for q in 0..n_qubits {
+                    state.apply_single(q, gate);
+                }
+            }
+
+            // Odd bonds: ITE-ZZ
+            for &(i, j, j_ij) in &nn_couplings {
+                let bond = i.min(j);
+                if bond % 2 == 1 {
+                    let tau_j = dtau * s * j_ij;
+                    if tau_j.abs() > 1e-14 {
+                        let _ = state.apply_two_qubit(bond, mps::ite_zz(tau_j), chi_max);
+                    }
+                }
+            }
+        }
+
+        // Record ground-state bond structure at this s
+        let bond_dims: Vec<usize> = state.bond_dims();
+        let total_bd: usize = bond_dims.iter().sum();
+        let max_bd = bond_dims.iter().copied().max().unwrap_or(1);
+
+        let entanglement: Vec<f64> = bond_dims
+            .iter()
+            .map(|&d| if d > 1 { (d as f64).ln() } else { 0.0 })
+            .collect();
+        let total_entanglement: f64 = entanglement.iter().sum();
+
+        let n_saturated = bond_dims.iter().filter(|&&d| d >= chi_max).count();
+
+        let step_dict = PyDict::new(py);
+        step_dict.set_item("s", s)?;
+        step_dict.set_item("bond_dims", &bond_dims)?;
+        step_dict.set_item("total_bond_dim", total_bd)?;
+        step_dict.set_item("max_bond_dim", max_bd)?;
+        step_dict.set_item("entanglement", &entanglement)?;
+        step_dict.set_item("total_entanglement", total_entanglement)?;
+        step_dict.set_item("n_saturated_bonds", n_saturated)?;
+        step_dict.set_item("elapsed_ms", t0.elapsed().as_millis() as u64)?;
+
+        results.append(step_dict)?;
+    }
+
+    Ok(results.into())
+}
+
 /// Register the projection submodule.
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_projection, m)?)?;
+    m.add_function(wrap_pyfunction!(run_tebd, m)?)?;
     Ok(())
 }
