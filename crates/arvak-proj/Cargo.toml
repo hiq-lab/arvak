@@ -9,13 +9,6 @@ description = "Projector simulator: commensurability-guided MPS with adaptive bo
 keywords = ["quantum", "tensor-network", "mps", "simulation", "projector"]
 categories = ["science", "simulation"]
 
-[features]
-default = []
-# Apply Bianchi-projection truncation correction after each SVD.
-# Enables the projection step in `Mps::apply_two_qubit` when sin(C/2) data
-# is set on the MPS. Disabled = zero overhead.
-bianchi = []
-
 [dependencies]
 arvak-ir = { workspace = true }
 num-complex = { workspace = true }

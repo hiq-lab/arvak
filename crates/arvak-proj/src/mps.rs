@@ -93,11 +93,11 @@ pub struct Mps {
     pub n_qubits: usize,
     /// SVD truncation mode used by `apply_two_qubit`. Default: `Absolute`.
     pub truncation_mode: TruncationMode,
-    /// Per-bond sin(C/2) values from the channel-map analysis. When `Some`
-    /// AND the `bianchi` feature is enabled, `apply_two_qubit` runs a
-    /// Bianchi projection step after SVD truncation, with adaptive
-    /// step size η_i = η₀ · sin²(C_i/2).
-    pub sin_c_half_per_bond: Option<Vec<f64>>,
+    /// Cumulative discarded spectral weight per bond, length = n_qubits - 1.
+    /// Each entry is `Σ σᵢ²` over all SVs that have been discarded by SVD
+    /// truncation at this bond throughout the lifetime of the MPS.
+    /// This is the **true** 2-norm truncation error accumulator.
+    pub discarded_weight_per_bond: Vec<f64>,
 }
 
 impl Mps {
@@ -109,19 +109,36 @@ impl Mps {
             sites,
             n_qubits,
             truncation_mode: TruncationMode::default(),
-            sin_c_half_per_bond: None,
+            discarded_weight_per_bond: vec![0.0; n_qubits.saturating_sub(1)],
         }
+    }
+
+    /// Reset the cumulative discarded weight tracker.
+    pub fn reset_discarded_weight(&mut self) {
+        self.discarded_weight_per_bond
+            .iter_mut()
+            .for_each(|w| *w = 0.0);
+    }
+
+    /// Cumulative discarded weight at bond `k`.
+    #[must_use]
+    pub fn discarded_weight(&self, bond: usize) -> f64 {
+        self.discarded_weight_per_bond
+            .get(bond)
+            .copied()
+            .unwrap_or(0.0)
+    }
+
+    /// Total cumulative discarded weight summed over all bonds.
+    /// This is the **true** total truncation error in 2-norm² incurred so far.
+    #[must_use]
+    pub fn total_discarded_weight(&self) -> f64 {
+        self.discarded_weight_per_bond.iter().sum()
     }
 
     /// Set the SVD truncation mode for subsequent two-qubit gate applications.
     pub fn set_truncation_mode(&mut self, mode: TruncationMode) {
         self.truncation_mode = mode;
-    }
-
-    /// Set the per-bond sin(C/2) values used by the Bianchi projection.
-    /// `weights` should have length `n_qubits - 1`.
-    pub fn set_sin_c_half(&mut self, weights: Vec<f64>) {
-        self.sin_c_half_per_bond = Some(weights);
     }
 
     /// Sum of cube of bond dimensions — proxy for compute footprint of one
@@ -223,65 +240,15 @@ impl Mps {
             let theta = angles.get(bond).copied().unwrap_or(0.0);
             let max_chi = chi_per_bond.get(bond).copied().unwrap_or(8);
 
-            // Fast path for stable bonds (low chi, diagonal gate)
-            if max_chi <= 2 && self.bond_dim(bond) <= 2 {
-                self.apply_zz_fast(bond, theta);
-            } else {
-                let gate = zz(theta);
-                self.apply_two_qubit(bond, gate, max_chi)?;
-            }
+            // Always go through the SVD path. The earlier `apply_zz_fast`
+            // shortcut absorbed the diagonal phase into the left site only,
+            // which is silently wrong for ZZ as soon as both bond dimensions
+            // exceed 1 (it conflates `σ_q=0,σ_{q+1}=1` with `σ_q=0,σ_{q+1}=0`).
+            // The correct full SVD path is the only safe option.
+            let gate = zz(theta);
+            self.apply_two_qubit(bond, gate, max_chi)?;
         }
         Ok(())
-    }
-
-    /// Fast path for diagonal two-qubit gates (ZZ) on low-bond bonds.
-    /// When both sites have small bond dimensions, skip SVD entirely —
-    /// just apply the phase directly.
-    pub fn apply_zz_fast(&mut self, q: usize, theta: f64) {
-        let (left, right) = self.sites.split_at_mut(q + 1);
-        let site_l = &mut left[q];
-        let site_r = &mut right[0];
-
-        // ZZ eigenvalues: |00⟩→e^{-iθ}, |01⟩→e^{+iθ}, |10⟩→e^{+iθ}, |11⟩→e^{-iθ}
-        let phase_same = C::from_polar(1.0, -theta); // |00⟩, |11⟩
-        let phase_diff = C::from_polar(1.0, theta); // |01⟩, |10⟩
-
-        // For small bond dims, directly compute the effect.
-        // The ZZ phase on |σ_q σ_{q+1}⟩ depends on σ_q ⊕ σ_{q+1}:
-        // same parity → phase_same, different → phase_diff.
-        //
-        // On MPS: we absorb the phase into the left site.
-        // A_q[α, σ=0, γ] gets multiplied by a mix depending on site_r.
-        //
-        // Simplification: for a diagonal gate, if the current bond dim
-        // is ≤ 2, we can apply it without growing the bond.
-
-        let ld = site_l.left_dim;
-        let chi = site_l.right_dim;
-        let rd = site_r.right_dim;
-
-        if chi <= 2 && rd <= 2 {
-            // Fast path: apply phases directly to the merged representation
-            // without SVD. This works because ZZ is diagonal and doesn't
-            // increase entanglement rank.
-            for a in 0..ld {
-                for g in 0..chi {
-                    // Phase depends on correlation between left σ and right σ
-                    // We apply a symmetric phase: left gets sqrt of the phase
-                    site_l.m0[a * chi + g] *= phase_same;
-                    site_l.m1[a * chi + g] *= phase_diff;
-                }
-            }
-            // Right site gets the conjugate part
-            for g in 0..chi {
-                for b in 0..rd {
-                    site_r.m0[g * rd + b] *= C::new(1.0, 0.0); // |0⟩ left already absorbed
-                    site_r.m1[g * rd + b] *= C::new(1.0, 0.0);
-                }
-            }
-        }
-
-        // Fall back to full SVD path (caller handles this)
     }
 
     /// Apply a two-qubit gate U (4×4 matrix) to adjacent qubits (q, q+1).
@@ -344,8 +311,16 @@ impl Mps {
 
         // Step 2: SVD of theta matrix [rows × cols]
         let new_chi = max_bond.min(rows).min(cols);
-        let (new_m0_q, new_m1_q, new_m0_r, new_m1_r, actual_chi, singular_values) =
+        let (new_m0_q, new_m1_q, new_m0_r, new_m1_r, actual_chi, singular_values, discarded_weight) =
             svd_truncate(&theta, rows, cols, ld, rd, new_chi, self.truncation_mode)?;
+
+        // Accumulate the per-bond discarded-weight tracker. This is the
+        // honest 2-norm² truncation error contributed by THIS gate at THIS
+        // bond. Summed over time, it gives the total information loss at
+        // each bond — the basis for data-driven χ allocation.
+        if let Some(slot) = self.discarded_weight_per_bond.get_mut(q) {
+            *slot += discarded_weight;
+        }
 
         // Step 3: Update site tensors. Store the singular values on the LEFT
         // tensor's right bond (the bond between q and q+1) for Bianchi diagnostic.
@@ -365,19 +340,118 @@ impl Mps {
             lambda: prev_lambda_right,
         };
 
-        // Step 4 (optional): Bianchi projection. Only when the `bianchi`
-        // feature is enabled AND sin(C/2) data is available. Zero overhead
-        // when disabled.
-        #[cfg(feature = "bianchi")]
-        {
-            if let Some(weights) = self.sin_c_half_per_bond.as_ref() {
-                let sin_c = weights.get(q).copied().unwrap_or(0.0);
-                let cfg = crate::bianchi::BianchiConfig::default();
-                let _ = crate::bianchi::project_bond(self, q, sin_c, &cfg);
+        Ok(())
+    }
+
+    /// Compute `<ψ|ψ>` for the current MPS by sweeping the left-environment
+    /// transfer matrix from left to right. Cost O(N · d · χ³).
+    ///
+    /// Used internally to normalise expectation values when the MPS is not
+    /// guaranteed to satisfy `<ψ|ψ> = 1` (which is the case after SVD
+    /// truncation in balanced canonical form).
+    #[must_use]
+    pub fn norm_squared(&self) -> f64 {
+        // Left environment: 1×1 = (1)
+        let mut env: Vec<C> = vec![C::new(1.0, 0.0)];
+        let mut env_ld = 1_usize;
+
+        for site in &self.sites {
+            let ld = site.left_dim;
+            let rd = site.right_dim;
+            debug_assert_eq!(env_ld, ld, "environment dim mismatch in norm_squared");
+
+            // env'[β',β] = Σ_{α',α,σ} env[α',α] · m_σ[α',β']^* · m_σ[α,β]
+            let mut new_env = vec![C::new(0.0, 0.0); rd * rd];
+            for ap in 0..ld {
+                for a in 0..ld {
+                    let e = env[ap * ld + a];
+                    if e.re == 0.0 && e.im == 0.0 {
+                        continue;
+                    }
+                    for bp in 0..rd {
+                        let m0_apbp = site.m0[ap * rd + bp].conj();
+                        let m1_apbp = site.m1[ap * rd + bp].conj();
+                        for b in 0..rd {
+                            let m0_ab = site.m0[a * rd + b];
+                            let m1_ab = site.m1[a * rd + b];
+                            new_env[bp * rd + b] += e * (m0_apbp * m0_ab + m1_apbp * m1_ab);
+                        }
+                    }
+                }
             }
+            env = new_env;
+            env_ld = rd;
         }
 
-        Ok(())
+        debug_assert_eq!(env.len(), 1, "norm_squared environment did not collapse to 1×1");
+        env[0].re
+    }
+
+    /// Compute `<ψ|Z_q|ψ> / <ψ|ψ>` for the Pauli-Z operator on qubit `target`.
+    ///
+    /// Sweeps the left environment from site 0 to site N-1, inserting the
+    /// Z eigenvalue (`+1` for |0⟩, `-1` for |1⟩) at the target site. Cost
+    /// O(N · d · χ³). Works for any MPS regardless of canonical form, because
+    /// it computes both `<ψ|Z|ψ>` and `<ψ|ψ>` in a single sweep and divides.
+    #[must_use]
+    pub fn expectation_z(&self, target: usize) -> f64 {
+        assert!(target < self.n_qubits, "target qubit out of range");
+
+        // Two parallel left environments: one for the numerator (with Z
+        // inserted at `target`) and one for the denominator (identity).
+        let mut env_z: Vec<C> = vec![C::new(1.0, 0.0)];
+        let mut env_n: Vec<C> = vec![C::new(1.0, 0.0)];
+        let mut env_ld = 1_usize;
+
+        for (site_idx, site) in self.sites.iter().enumerate() {
+            let ld = site.left_dim;
+            let rd = site.right_dim;
+            debug_assert_eq!(env_ld, ld, "environment dim mismatch in expectation_z");
+
+            // Z eigenvalue at this site: +1 on σ=0, -1 on σ=1.
+            // For non-target sites, both spins contribute with sign +1 (identity).
+            let z_sign_1: f64 = if site_idx == target { -1.0 } else { 1.0 };
+
+            let mut new_env_z = vec![C::new(0.0, 0.0); rd * rd];
+            let mut new_env_n = vec![C::new(0.0, 0.0); rd * rd];
+
+            for ap in 0..ld {
+                for a in 0..ld {
+                    let ez = env_z[ap * ld + a];
+                    let en = env_n[ap * ld + a];
+                    if (ez.re == 0.0 && ez.im == 0.0) && (en.re == 0.0 && en.im == 0.0) {
+                        continue;
+                    }
+                    for bp in 0..rd {
+                        let m0_apbp = site.m0[ap * rd + bp].conj();
+                        let m1_apbp = site.m1[ap * rd + bp].conj();
+                        for b in 0..rd {
+                            let m0_ab = site.m0[a * rd + b];
+                            let m1_ab = site.m1[a * rd + b];
+
+                            let term0 = m0_apbp * m0_ab;
+                            let term1 = m1_apbp * m1_ab;
+
+                            // Numerator: +1·term0 + z_sign_1·term1
+                            new_env_z[bp * rd + b] += ez * (term0 + term1 * z_sign_1);
+                            // Denominator: identity (both spins +1)
+                            new_env_n[bp * rd + b] += en * (term0 + term1);
+                        }
+                    }
+                }
+            }
+            env_z = new_env_z;
+            env_n = new_env_n;
+            env_ld = rd;
+        }
+
+        debug_assert_eq!(env_z.len(), 1);
+        debug_assert_eq!(env_n.len(), 1);
+        let denom = env_n[0].re;
+        if denom.abs() < 1e-30 {
+            return 0.0;
+        }
+        env_z[0].re / denom
     }
 
     /// Contract the full MPS into a dense state vector (for validation).
@@ -416,8 +490,10 @@ impl Mps {
 
 /// SVD truncation of the merged tensor.
 /// Input: flat matrix `theta` of shape [rows × cols] where rows = ld*2, cols = 2*rd.
-/// Returns: (m0_left, m1_left, m0_right, m1_right, actual_chi, singular_values).
+/// Returns: (m0_left, m1_left, m0_right, m1_right, actual_chi, singular_values, discarded_weight).
 /// `singular_values` has length `actual_chi`.
+/// `discarded_weight` is `Σ σᵢ²` over all SVs that were dropped (for the
+/// cumulative discarded-weight accumulator on the MPS bond).
 #[allow(clippy::type_complexity)]
 fn svd_truncate(
     theta: &[C],
@@ -427,7 +503,7 @@ fn svd_truncate(
     rd: usize,
     max_chi: usize,
     mode: TruncationMode,
-) -> Result<(Vec<C>, Vec<C>, Vec<C>, Vec<C>, usize, Vec<f64>)> {
+) -> Result<(Vec<C>, Vec<C>, Vec<C>, Vec<C>, usize, Vec<f64>, f64)> {
     // Build faer matrix
     let mat = Mat::from_fn(rows, cols, |i, j| {
         let c = theta[i * cols + j];
@@ -488,6 +564,13 @@ fn svd_truncate(
     }
     actual_chi = actual_chi.max(1);
 
+    // Compute discarded weight: Σ σᵢ² for i ≥ actual_chi
+    let mut discarded_weight = 0.0_f64;
+    for i in actual_chi..s.column_vector().nrows() {
+        let v = s.column_vector()[i].re;
+        discarded_weight += v * v;
+    }
+
     // Build left site tensors: A_q[α, σ, γ] = U[α*2+σ, γ] * sqrt(S[γ])
     // Build right site tensors: A_{q+1}[γ, σ, β] = sqrt(S[γ]) * V†[γ, σ*rd+β]
     let mut m0_q = vec![C::new(0.0, 0.0); ld * actual_chi];
@@ -520,7 +603,15 @@ fn svd_truncate(
         }
     }
 
-    Ok((m0_q, m1_q, m0_r, m1_r, actual_chi, singular_values))
+    Ok((
+        m0_q,
+        m1_q,
+        m0_r,
+        m1_r,
+        actual_chi,
+        singular_values,
+        discarded_weight,
+    ))
 }
 
 /// Apply a single-qubit gate to a site tensor (free function for parallel use).
@@ -605,8 +696,8 @@ pub fn zz(theta: f64) -> [[C; 4]; 4] {
 pub fn ite_zz(tau_j: f64) -> [[C; 4]; 4] {
     let mut u = [[C::new(0.0, 0.0); 4]; 4];
     u[0][0] = C::new((-tau_j).exp(), 0.0); // |00⟩: e^{-τJ}
-    u[1][1] = C::new(tau_j.exp(), 0.0);    // |01⟩: e^{+τJ}
-    u[2][2] = C::new(tau_j.exp(), 0.0);    // |10⟩: e^{+τJ}
+    u[1][1] = C::new(tau_j.exp(), 0.0); // |01⟩: e^{+τJ}
+    u[2][2] = C::new(tau_j.exp(), 0.0); // |10⟩: e^{+τJ}
     u[3][3] = C::new((-tau_j).exp(), 0.0); // |11⟩: e^{-τJ}
     u
 }

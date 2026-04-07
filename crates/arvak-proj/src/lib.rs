@@ -20,7 +20,9 @@
 pub mod bianchi;
 pub mod channel;
 pub mod error;
+pub mod finite_difference_jacobian;
 pub mod frequency;
+pub mod kicked_ising;
 pub mod mps;
 pub mod partition;
 pub mod reassembly;

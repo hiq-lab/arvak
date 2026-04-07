@@ -124,19 +124,18 @@ pub fn run_projection(
         let dist = i.abs_diff(j);
 
         if dist == 1 {
-            // Adjacent: apply ZZ directly
+            // Adjacent: apply ZZ via the SVD path. The earlier `apply_zz_fast`
+            // shortcut absorbed the diagonal phase into a single site, which
+            // is silently wrong for ZZ as soon as both adjacent bond
+            // dimensions exceed 1.
             let max_chi = part.recommended_chi.get(bond).copied().unwrap_or(chi_max);
-            if max_chi <= 2 && state.bond_dim(bond) <= 2 {
-                state.apply_zz_fast(bond, theta);
-            } else {
-                state
-                    .apply_two_qubit(bond, mps::zz(theta), max_chi)
-                    .map_err(|e| {
-                        pyo3::exceptions::PyRuntimeError::new_err(format!(
-                            "MPS gate failed at bond {bond}: {e}"
-                        ))
-                    })?;
-            }
+            state
+                .apply_two_qubit(bond, mps::zz(theta), max_chi)
+                .map_err(|e| {
+                    pyo3::exceptions::PyRuntimeError::new_err(format!(
+                        "MPS gate failed at bond {bond}: {e}"
+                    ))
+                })?;
         }
         // Non-adjacent gates: skip for now (conservative — underestimates entanglement)
         // TODO: SWAP network decomposition for long-range gates
