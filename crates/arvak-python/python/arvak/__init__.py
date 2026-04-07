@@ -38,6 +38,8 @@ from arvak._native import (
     run_sim,
     # Projection simulator
     run_projection,
+    # TEBD adiabatic evolution
+    run_tebd,
     # Compilation
     compile,
 )
@@ -176,6 +178,7 @@ __all__ = [
     # Simulation
     "run_sim",
     "run_projection",
+    "run_tebd",
     # Compilation
     "compile",
     # Integration API
