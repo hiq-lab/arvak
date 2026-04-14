@@ -100,3 +100,29 @@ impl HalError {
 
 /// Result type for HAL operations.
 pub type HalResult<T> = Result<T, HalError>;
+
+/// Convert a spec-only `HalError` into the Arvak superset.
+///
+/// This allows code that only uses the 13 spec variants to interoperate
+/// with Arvak extensions seamlessly.
+impl From<hal_contract::HalError> for HalError {
+    fn from(e: hal_contract::HalError) -> Self {
+        match e {
+            hal_contract::HalError::BackendUnavailable(s) => Self::BackendUnavailable(s),
+            hal_contract::HalError::Timeout(s) => Self::Timeout(s),
+            hal_contract::HalError::InvalidCircuit(s) => Self::InvalidCircuit(s),
+            hal_contract::HalError::CircuitTooLarge(s) => Self::CircuitTooLarge(s),
+            hal_contract::HalError::InvalidShots(s) => Self::InvalidShots(s),
+            hal_contract::HalError::Unsupported(s) => Self::Unsupported(s),
+            hal_contract::HalError::SubmissionFailed(s) => Self::SubmissionFailed(s),
+            hal_contract::HalError::JobFailed(s) => Self::JobFailed(s),
+            hal_contract::HalError::JobCancelled => Self::JobCancelled,
+            hal_contract::HalError::JobNotFound(s) => Self::JobNotFound(s),
+            hal_contract::HalError::AuthenticationFailed(s) => Self::AuthenticationFailed(s),
+            hal_contract::HalError::Configuration(s) => Self::Configuration(s),
+            hal_contract::HalError::Backend(s) => Self::Backend(s),
+            // hal_contract::HalError is #[non_exhaustive], so we catch future variants:
+            other => Self::Backend(other.to_string()),
+        }
+    }
+}
