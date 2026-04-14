@@ -17,8 +17,10 @@ keywords = ["quantum", "hpc", "compiler", "qasm", "orchestration"]
 categories = ["science", "compilers", "simulation"]
 
 [workspace.dependencies]
-# HAL Contract spec crate (canonical type source — do NOT modify)
-hal-contract = { path = "../hal-contract/rust" }
+# HAL Contract spec crate (canonical type source — do NOT modify).
+# CI checks out hiq-lab/hal-contract into .hal-contract/ via actions/checkout.
+# Locally, create a symlink:  ln -s ../hal-contract .hal-contract
+hal-contract = { path = ".hal-contract/rust" }
 
 # Internal crates
 arvak-ir = { path = "crates/arvak-ir" }

@@ -488,7 +488,7 @@ mod tests {
                 j += 1;
             }
             // Average rank for ties (1-based)
-            let avg = ((i + 1) as f64 + j as f64) / 2.0;
+            let avg = f64::midpoint((i + 1) as f64, j as f64);
             for k in i..j {
                 ranks[indexed[k].0] = avg;
             }
@@ -578,10 +578,9 @@ mod tests {
         assert_eq!(j.matrix[0].len(), n);
 
         let j_ref = reference_jacobian_discarded(n, chi_max, n_steps, delta);
-        for k in 0..n - 1 {
-            for i in 0..n {
+        for (k, j_ref_row) in j_ref.iter().enumerate().take(n - 1) {
+            for (i, &ref_val) in j_ref_row.iter().enumerate().take(n) {
                 let api_val = j.matrix[k][i];
-                let ref_val = j_ref[k][i];
                 if api_val.is_finite() && ref_val.is_finite() {
                     let diff = (api_val - ref_val).abs();
                     let scale = api_val.abs().max(ref_val.abs()).max(1e-9);
@@ -619,8 +618,8 @@ mod tests {
             "  Jacobian module API works: J shape [{} × {}], PR ∈ [{:.2}, {:.2}], χ ∈ [{}, {}]",
             j.n_outputs,
             j.n_inputs,
-            pr.iter().cloned().fold(f64::INFINITY, f64::min),
-            pr.iter().cloned().fold(0.0_f64, f64::max),
+            pr.iter().copied().fold(f64::INFINITY, f64::min),
+            pr.iter().copied().fold(0.0_f64, f64::max),
             chi.iter().min().unwrap(),
             chi.iter().max().unwrap()
         );

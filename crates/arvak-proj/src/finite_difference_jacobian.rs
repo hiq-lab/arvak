@@ -137,10 +137,10 @@ impl InputJacobian {
             perturbed[i] = saved;
 
             // Central difference: J[k][i] = (obs_plus[k] - obs_minus[k]) / (2δ)
-            for k in 0..n_outputs {
+            for (k, row) in matrix.iter_mut().enumerate().take(n_outputs) {
                 let plus = obs_plus.get(k).copied().unwrap_or(0.0);
                 let minus = obs_minus.get(k).copied().unwrap_or(0.0);
-                matrix[k][i] = (plus - minus) * inv_two_delta;
+                row[i] = (plus - minus) * inv_two_delta;
             }
         }
 
@@ -156,7 +156,7 @@ impl InputJacobian {
     /// Number of evaluated input columns (n_inputs / stride, rounded up).
     #[must_use]
     pub fn n_evaluated_columns(&self) -> usize {
-        (self.n_inputs + self.stride - 1) / self.stride
+        self.n_inputs.div_ceil(self.stride)
     }
 }
 
@@ -241,7 +241,7 @@ pub fn chi_allocation_from_jacobian(
         return Vec::new();
     }
 
-    let max_score = scores.iter().cloned().fold(0.0_f64, f64::max);
+    let max_score = scores.iter().copied().fold(0.0_f64, f64::max);
     if max_score < 1e-30 {
         return vec![chi_min; scores.len()];
     }
@@ -293,9 +293,9 @@ mod tests {
         let observe = |s: &Vec<f64>| s.clone();
         let j = InputJacobian::compute(&inputs, factory, observe, &JacobianConfig::default());
 
-        for k in 0..3 {
+        for (k, &input_k) in inputs.iter().enumerate().take(3) {
             for i in 0..3 {
-                let expected = if k == i { 2.0 * inputs[k] } else { 0.0 };
+                let expected = if k == i { 2.0 * input_k } else { 0.0 };
                 assert!(
                     (j.matrix[k][i] - expected).abs() < 1e-3,
                     "J[{k}][{i}] = {} != {expected}",

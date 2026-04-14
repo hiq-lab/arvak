@@ -22,18 +22,13 @@ type C = Complex64;
 /// `Σ σ²` (over the discarded SVs) reaches a fraction `eps` of the total weight.
 /// The truncation error is then **exactly** `√(discarded_weight)` in 2-norm,
 /// which composes cleanly with the Bianchi projection (Frobenius norm).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum TruncationMode {
     /// Drop SVs below `s_max * 1e-14`. Default for backward compatibility.
+    #[default]
     Absolute,
     /// Drop SVs until cumulative `Σ σ² / total ≥ 1 - eps`.
     DiscardedWeight { eps: f64 },
-}
-
-impl Default for TruncationMode {
-    fn default() -> Self {
-        Self::Absolute
-    }
 }
 
 /// A single MPS site tensor: shape [left_dim, 2, right_dim].
@@ -383,7 +378,11 @@ impl Mps {
             env_ld = rd;
         }
 
-        debug_assert_eq!(env.len(), 1, "norm_squared environment did not collapse to 1×1");
+        debug_assert_eq!(
+            env.len(),
+            1,
+            "norm_squared environment did not collapse to 1×1"
+        );
         env[0].re
     }
 
