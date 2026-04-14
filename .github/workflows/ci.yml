@@ -22,6 +22,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: hiq-lab/hal-contract
+          path: ../hal-contract
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -53,6 +59,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: hiq-lab/hal-contract
+          path: ../hal-contract
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -69,6 +81,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: hiq-lab/hal-contract
+          path: ../hal-contract
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -156,6 +174,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: hiq-lab/hal-contract
+          path: ../hal-contract
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -194,6 +218,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: hiq-lab/hal-contract
+          path: ../hal-contract
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -212,6 +242,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: hiq-lab/hal-contract
+          path: ../hal-contract
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -240,6 +276,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: hiq-lab/hal-contract
+          path: ../hal-contract
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
