@@ -49,3 +49,4 @@ experiments/*_results.json
 # Fold module (separate private repo)
 crates/arvak-proj/src/fold/
 crates/arvak-proj/FOLD.md
+.hal-contract
