@@ -6,22 +6,22 @@
 //!
 //! Stages:
 //! - **A** N=12, χ_max = 64 (provably exact). Cross-check arvak-proj against
-//!         the inline dense reference simulator. Expect agreement to ~1e-10.
+//!   the inline dense reference simulator. Expect agreement to ~1e-10.
 //! - **B** N=12, χ_max sweep at 4..32 (uniform). Print fidelity/error vs χ.
 //! - **C** N=12, Jacobian-allocated χ. Demonstrate that the adaptive profile
-//!         meets target accuracy at smaller total bond budget than uniform.
+//!   meets target accuracy at smaller total bond budget than uniform.
 //! - **D** N=24, exact statevector reference (16M-dim) vs arvak-proj at large χ.
-//!         Confirms the validation also holds at the largest tractable
-//!         statevector size.
+//!   Confirms the validation also holds at the largest tractable
+//!   statevector size.
 //! - **E** N=50, 100, 200 — no exact reference. Compare uniform-χ vs
-//!         Jacobian-χ for total discarded weight and observable stability.
+//!   Jacobian-χ for total discarded weight and observable stability.
 
 use arvak_proj::finite_difference_jacobian::{
-    chi_allocation_from_jacobian, InputJacobian, JacobianAllocation, JacobianConfig,
+    InputJacobian, JacobianAllocation, JacobianConfig, chi_allocation_from_jacobian,
 };
 use arvak_proj::kicked_ising::{
-    apply_kim_step, apply_kim_step_disordered, reference_kim_run,
-    reference_kim_run_disordered, KimParams,
+    KimParams, apply_kim_step, apply_kim_step_disordered, reference_kim_run,
+    reference_kim_run_disordered,
 };
 use arvak_proj::mps::Mps;
 use std::time::Instant;
@@ -102,7 +102,9 @@ fn det_random_hx(n: usize, seed: u64, base: f64, amplitude: f64) -> Vec<f64> {
     let mut state = seed.wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(1);
     let mut out = Vec::with_capacity(n);
     for _ in 0..n {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let r = ((state >> 11) as f64) / ((1_u64 << 53) as f64); // [0, 1)
         out.push(base + amplitude * (2.0 * r - 1.0));
     }
@@ -213,7 +215,12 @@ fn stage_b_n12_chi_sweep_uniform() {
 // discarded-weight observable.
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn build_kim_jacobian(n: usize, params: KimParams, pilot_chi: usize, pilot_steps: usize) -> InputJacobian {
+fn build_kim_jacobian(
+    n: usize,
+    params: KimParams,
+    pilot_chi: usize,
+    pilot_steps: usize,
+) -> InputJacobian {
     let base_hx: Vec<f64> = vec![params.h_x; n];
 
     let factory = move |hx_per_site: &[f64]| -> Mps {
@@ -344,7 +351,10 @@ fn stage_d_n24_full_chi_matches_reference() {
     let max_bond = mps.bond_dims().iter().max().copied().unwrap_or(0);
     let total_disc = mps.total_discarded_weight();
 
-    println!("  reference statevector ({} amps): {ref_ms:.2} ms", 1_usize << n);
+    println!(
+        "  reference statevector ({} amps): {ref_ms:.2} ms",
+        1_usize << n
+    );
     println!("  arvak-proj MPS (χ_max={chi_max}):  {mps_ms:.2} ms");
     println!("  actual max bond used:            {max_bond}");
     println!("  total discarded weight:          {total_disc:.3e}");
@@ -385,7 +395,8 @@ fn stage_e_homogeneous_negative_control() {
     let chi_min_jac = 2_usize;
     let chi_ref = 64_usize;
 
-    for &n in &[50_usize] {
+    {
+        let n = 50_usize;
         // ── Reference: high-χ MPS run ───────────────────────────────────
         let chi_ref_per_bond = vec![chi_ref; n - 1];
         let t = Instant::now();
@@ -514,8 +525,7 @@ fn stage_f_disordered_jacobian_wins() {
 
         let pilot_chi = 4;
         let t_jac = Instant::now();
-        let jacobian =
-            build_disordered_kim_jacobian(n, params, &h_x_per_site, pilot_chi, n_steps);
+        let jacobian = build_disordered_kim_jacobian(n, params, &h_x_per_site, pilot_chi, n_steps);
         let jac_build_ms = t_jac.elapsed().as_secs_f64() * 1000.0;
         let chi_jacobian = chi_allocation_from_jacobian(
             &jacobian,
@@ -591,8 +601,7 @@ fn stage_f_disordered_jacobian_wins() {
 
         let pilot_chi = 4;
         let t_jac = Instant::now();
-        let jacobian =
-            build_disordered_kim_jacobian(n, params, &h_x_per_site, pilot_chi, n_steps);
+        let jacobian = build_disordered_kim_jacobian(n, params, &h_x_per_site, pilot_chi, n_steps);
         let jac_build_ms = t_jac.elapsed().as_secs_f64() * 1000.0;
         let chi_jacobian = chi_allocation_from_jacobian(
             &jacobian,

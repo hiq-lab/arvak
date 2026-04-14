@@ -130,11 +130,10 @@ pub fn bianchi_violation(site: &SiteTensor, lambda_left: &[f64], lambda_right: &
 
     let mut violation_sq = 0.0_f64;
 
-    for a in 0..ld {
+    for (a, &ll_a) in lambda_left.iter().enumerate().take(ld) {
         for ap in 0..ld {
             let mut acc = C::new(0.0, 0.0);
-            for b in 0..rd {
-                let lr = lambda_right[b]; // single power
+            for (b, &lr) in lambda_right.iter().enumerate().take(rd) {
                 let m0a = site.m0[a * rd + b];
                 let m0ap = site.m0[ap * rd + b];
                 acc += m0a.conj() * m0ap * lr;
@@ -144,7 +143,7 @@ pub fn bianchi_violation(site: &SiteTensor, lambda_left: &[f64], lambda_right: &
                 acc += m1a.conj() * m1ap * lr;
             }
 
-            let target = if a == ap { lambda_left[a] } else { 0.0 };
+            let target = if a == ap { ll_a } else { 0.0 };
 
             let dr = acc.re - target;
             let di = acc.im;

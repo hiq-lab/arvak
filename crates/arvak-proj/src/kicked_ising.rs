@@ -253,8 +253,8 @@ pub fn reference_kim_run_disordered(
                 apply_single_dense(&mut psi, n, q, &rz_gate);
             }
         }
-        for q in 0..n {
-            apply_single_dense(&mut psi, n, q, &rx_gates[q]);
+        for (q, rx_gate) in rx_gates.iter().enumerate().take(n) {
+            apply_single_dense(&mut psi, n, q, rx_gate);
         }
         history.push(measure_all_z(&psi, n));
     }
@@ -267,7 +267,7 @@ pub fn reference_kim_run_disordered(
 fn measure_all_z(psi: &[C], n: usize) -> Vec<f64> {
     let dim = 1_usize << n;
     let mut z = vec![0.0_f64; n];
-    for q in 0..n {
+    for (q, z_q) in z.iter_mut().enumerate().take(n) {
         let bit = n - 1 - q;
         let mut acc = 0.0_f64;
         for (idx, amp) in psi.iter().enumerate().take(dim) {
@@ -278,7 +278,7 @@ fn measure_all_z(psi: &[C], n: usize) -> Vec<f64> {
                 acc -= p;
             }
         }
-        z[q] = acc;
+        *z_q = acc;
     }
     z
 }
@@ -296,10 +296,7 @@ fn single_qubit_rz(theta: f64) -> [[C; 2]; 2] {
     let half = theta / 2.0;
     let phase_neg = C::new(half.cos(), -half.sin());
     let phase_pos = C::new(half.cos(), half.sin());
-    [
-        [phase_neg, C::new(0.0, 0.0)],
-        [C::new(0.0, 0.0), phase_pos],
-    ]
+    [[phase_neg, C::new(0.0, 0.0)], [C::new(0.0, 0.0), phase_pos]]
 }
 
 #[cfg(test)]
@@ -377,11 +374,10 @@ mod tests {
         let chi_per_bond = vec![chi_max; n - 1];
 
         let mut mps = Mps::new(n);
-        for step in 1..=n_steps {
+        for (step, ref_step) in ref_history.iter().enumerate().take(n_steps + 1).skip(1) {
             apply_kim_step(&mut mps, params, &chi_per_bond).unwrap();
-            for q in 0..n {
+            for (q, &ref_z) in ref_step.iter().enumerate().take(n) {
                 let mps_z = mps.expectation_z(q);
-                let ref_z = ref_history[step][q];
                 let diff = (mps_z - ref_z).abs();
                 assert!(
                     diff < 1e-10,
