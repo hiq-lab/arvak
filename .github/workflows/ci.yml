@@ -25,7 +25,7 @@ jobs:
       - name: Checkout hal-contract (workspace path dependency)
         uses: actions/checkout@v4
         with:
-          repository: hiq-lab/hal-contract
+          repository: hiq-lab/hal-contract-spec
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -62,7 +62,7 @@ jobs:
       - name: Checkout hal-contract (workspace path dependency)
         uses: actions/checkout@v4
         with:
-          repository: hiq-lab/hal-contract
+          repository: hiq-lab/hal-contract-spec
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -85,7 +85,7 @@ jobs:
       - name: Checkout hal-contract (workspace path dependency)
         uses: actions/checkout@v4
         with:
-          repository: hiq-lab/hal-contract
+          repository: hiq-lab/hal-contract-spec
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -177,7 +177,7 @@ jobs:
       - name: Checkout hal-contract (workspace path dependency)
         uses: actions/checkout@v4
         with:
-          repository: hiq-lab/hal-contract
+          repository: hiq-lab/hal-contract-spec
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -221,7 +221,7 @@ jobs:
       - name: Checkout hal-contract (workspace path dependency)
         uses: actions/checkout@v4
         with:
-          repository: hiq-lab/hal-contract
+          repository: hiq-lab/hal-contract-spec
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -246,7 +246,7 @@ jobs:
       - name: Checkout hal-contract (workspace path dependency)
         uses: actions/checkout@v4
         with:
-          repository: hiq-lab/hal-contract
+          repository: hiq-lab/hal-contract-spec
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -280,7 +280,7 @@ jobs:
       - name: Checkout hal-contract (workspace path dependency)
         uses: actions/checkout@v4
         with:
-          repository: hiq-lab/hal-contract
+          repository: hiq-lab/hal-contract-spec
           path: .hal-contract
 
       - name: Install Rust toolchain
