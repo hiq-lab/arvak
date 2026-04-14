@@ -397,4 +397,232 @@ mod tests {
         }
         out
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // QKR helper used by the Jacobian validation test below
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// Apply a QKR layer sequence to the given MPS using the supplied
+    /// per-bond χ profile and per-site frequencies.
+    fn run_qkr(
+        mps: &mut Mps,
+        n: usize,
+        n_steps: usize,
+        chi_per_bond: &[usize],
+        freqs: &[f64],
+    ) -> std::time::Duration {
+        let k_kick = 1.5_f64;
+        let two_pi = 2.0 * std::f64::consts::PI;
+
+        let rz_layer: Vec<_> = (0..n)
+            .map(|i| {
+                let phi = (4.0_f64).powi(i.min(30) as i32) / 2.0;
+                mps::rz(phi.rem_euclid(two_pi))
+            })
+            .collect();
+        let rx_layer: Vec<_> = (0..n).map(|i| mps::rx(k_kick * freqs[i])).collect();
+        let zz_angles: Vec<f64> = (0..n - 1)
+            .map(|i| {
+                let theta = (2.0_f64).powi(((2 + i).min(30)) as i32) / 2.0;
+                theta.rem_euclid(two_pi)
+            })
+            .collect();
+
+        let t0 = Instant::now();
+        for _step in 0..n_steps {
+            mps.apply_single_layer(&rz_layer);
+            mps.apply_two_qubit_layer_parallel(mps::zz(0.0), chi_per_bond, &zz_angles)
+                .unwrap();
+            mps.apply_single_layer(&rx_layer);
+        }
+        t0.elapsed()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Statistics helpers
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// Pearson correlation coefficient between two equal-length vectors.
+    /// Returns NaN if either vector is constant.
+    fn pearson(x: &[f64], y: &[f64]) -> f64 {
+        let n = x.len().min(y.len()) as f64;
+        if n < 2.0 {
+            return f64::NAN;
+        }
+        let mx = x.iter().take(x.len().min(y.len())).sum::<f64>() / n;
+        let my = y.iter().take(x.len().min(y.len())).sum::<f64>() / n;
+        let mut cov = 0.0_f64;
+        let mut vx = 0.0_f64;
+        let mut vy = 0.0_f64;
+        for (xi, yi) in x.iter().zip(y.iter()) {
+            let dx = xi - mx;
+            let dy = yi - my;
+            cov += dx * dy;
+            vx += dx * dx;
+            vy += dy * dy;
+        }
+        if vx < 1e-30 || vy < 1e-30 {
+            return f64::NAN;
+        }
+        cov / (vx.sqrt() * vy.sqrt())
+    }
+
+    /// Spearman rank correlation between two equal-length vectors.
+    #[allow(dead_code)]
+    fn spearman(x: &[f64], y: &[f64]) -> f64 {
+        let rx = rank(x);
+        let ry = rank(y);
+        pearson(&rx, &ry)
+    }
+
+    /// Convert values to fractional ranks (average rank for ties).
+    fn rank(v: &[f64]) -> Vec<f64> {
+        let n = v.len();
+        let mut indexed: Vec<(usize, f64)> = v.iter().enumerate().map(|(i, &x)| (i, x)).collect();
+        indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        let mut ranks = vec![0.0_f64; n];
+        let mut i = 0;
+        while i < n {
+            let mut j = i + 1;
+            while j < n && indexed[j].1 == indexed[i].1 {
+                j += 1;
+            }
+            // Average rank for ties (1-based)
+            let avg = ((i + 1) as f64 + j as f64) / 2.0;
+            for k in i..j {
+                ranks[indexed[k].0] = avg;
+            }
+            i = j;
+        }
+        ranks
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Phase 5i: validate the public finite-difference Jacobian API
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// Inline reference implementation of the central-difference Jacobian
+    /// of the per-bond cumulative discarded weight w.r.t. the per-site
+    /// frequencies. Used to cross-check `InputJacobian::compute`.
+    fn reference_jacobian_discarded(
+        n: usize,
+        chi_max: usize,
+        n_steps: usize,
+        delta: f64,
+    ) -> Vec<Vec<f64>> {
+        let half = n / 2;
+        let ps = small_primes(n - half);
+        let mut base_freqs: Vec<f64> = (1..=half).map(|i| i as f64).collect();
+        base_freqs.extend(ps.iter().map(|&p| f64::from(p).sqrt()));
+
+        let mut j = vec![vec![0.0_f64; n]; n.saturating_sub(1)];
+
+        for i in 0..n {
+            let mut freqs_plus = base_freqs.clone();
+            freqs_plus[i] += delta;
+            let mut mps_plus = Mps::new(n);
+            let chi_uniform = vec![chi_max; n.saturating_sub(1)];
+            let _ = run_qkr(&mut mps_plus, n, n_steps, &chi_uniform, &freqs_plus);
+            let d_plus = mps_plus.discarded_weight_per_bond.clone();
+
+            let mut freqs_minus = base_freqs.clone();
+            freqs_minus[i] -= delta;
+            let mut mps_minus = Mps::new(n);
+            let _ = run_qkr(&mut mps_minus, n, n_steps, &chi_uniform, &freqs_minus);
+            let d_minus = mps_minus.discarded_weight_per_bond.clone();
+
+            for k in 0..n.saturating_sub(1) {
+                j[k][i] = (d_plus[k] - d_minus[k]) / (2.0 * delta);
+            }
+        }
+
+        j
+    }
+
+    /// The public Jacobian API must agree with the inline reference
+    /// implementation, and the participation-ratio profile derived from it
+    /// must produce a non-trivial adaptive χ allocation.
+    #[test]
+    fn validate_jacobian_module() {
+        use crate::finite_difference_jacobian::{
+            InputJacobian, JacobianAllocation, JacobianConfig, chi_allocation_from_jacobian,
+            participation_ratio_profile,
+        };
+
+        let n = 50;
+        let chi_max = 8;
+        let n_steps = 8;
+        let delta = 0.01_f64;
+
+        let half = n / 2;
+        let ps = small_primes(n - half);
+        let mut base_freqs: Vec<f64> = (1..=half).map(|i| i as f64).collect();
+        base_freqs.extend(ps.iter().map(|&p| f64::from(p).sqrt()));
+
+        let factory = |freqs: &[f64]| -> Mps {
+            let mut mps = Mps::new(n);
+            let chi_uniform = vec![chi_max; n.saturating_sub(1)];
+            let _ = run_qkr(&mut mps, n, n_steps, &chi_uniform, freqs);
+            mps
+        };
+
+        let observe = |mps: &Mps| -> Vec<f64> { mps.discarded_weight_per_bond.clone() };
+
+        let cfg = JacobianConfig { delta, stride: 1 };
+
+        let j = InputJacobian::compute(&base_freqs, factory, observe, &cfg);
+
+        assert_eq!(j.n_inputs, n);
+        assert_eq!(j.n_outputs, n - 1);
+        assert_eq!(j.matrix.len(), n - 1);
+        assert_eq!(j.matrix[0].len(), n);
+
+        let j_ref = reference_jacobian_discarded(n, chi_max, n_steps, delta);
+        for k in 0..n - 1 {
+            for i in 0..n {
+                let api_val = j.matrix[k][i];
+                let ref_val = j_ref[k][i];
+                if api_val.is_finite() && ref_val.is_finite() {
+                    let diff = (api_val - ref_val).abs();
+                    let scale = api_val.abs().max(ref_val.abs()).max(1e-9);
+                    assert!(
+                        diff / scale < 1e-6,
+                        "k={k} i={i}: api={api_val} ref={ref_val} (rel diff {})",
+                        diff / scale
+                    );
+                }
+            }
+        }
+
+        // Sanity: pearson/rank helpers still callable
+        let ones = vec![1.0_f64; n - 1];
+        let twos = vec![2.0_f64; n - 1];
+        let _ = pearson(&ones, &twos);
+        let _ = rank(&ones);
+
+        let pr = participation_ratio_profile(&j);
+        assert_eq!(pr.len(), n - 1);
+        for &p in &pr {
+            assert!(p >= 0.0 && p.is_finite());
+            assert!(p <= n as f64 + 1.0);
+        }
+
+        let chi = chi_allocation_from_jacobian(&j, 4, 32, JacobianAllocation::ParticipationRatio);
+        assert_eq!(chi.len(), n - 1);
+        let unique: std::collections::HashSet<usize> = chi.iter().copied().collect();
+        assert!(
+            unique.len() >= 2,
+            "chi allocation should produce at least 2 distinct values, got {chi:?}"
+        );
+
+        println!(
+            "  Jacobian module API works: J shape [{} × {}], PR ∈ [{:.2}, {:.2}], χ ∈ [{}, {}]",
+            j.n_outputs,
+            j.n_inputs,
+            pr.iter().cloned().fold(f64::INFINITY, f64::min),
+            pr.iter().cloned().fold(0.0_f64, f64::max),
+            chi.iter().min().unwrap(),
+            chi.iter().max().unwrap()
+        );
+    }
 }

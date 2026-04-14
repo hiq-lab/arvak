@@ -250,33 +250,8 @@ impl BackendAvailability {
 
 /// Result of circuit validation against backend constraints.
 ///
-/// The three-state return is deliberate:
-/// - `Valid` — the circuit can be submitted as-is.
-/// - `Invalid` — the circuit cannot run on this backend.
-/// - `RequiresTranspilation` — the circuit needs compilation but
-///   could run after transpilation.
-#[derive(Debug, Clone)]
-pub enum ValidationResult {
-    /// Circuit is valid and can be submitted directly.
-    Valid,
-    /// Circuit is invalid for this backend.
-    Invalid {
-        /// Reasons the circuit is invalid.
-        reasons: Vec<String>,
-    },
-    /// Circuit could run after transpilation.
-    RequiresTranspilation {
-        /// What transpilation is needed.
-        details: String,
-    },
-}
-
-impl ValidationResult {
-    /// Check if the circuit is valid (can be submitted as-is).
-    pub fn is_valid(&self) -> bool {
-        matches!(self, ValidationResult::Valid)
-    }
-}
+// ValidationResult is re-exported from HAL Contract spec.
+pub use hal_contract::backend::ValidationResult;
 
 /// Arvak extension — not part of HAL Contract v2 spec.
 /// Trait for creating backends from configuration.
