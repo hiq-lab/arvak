@@ -537,6 +537,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "dirs",
+ "hal-contract",
  "libloading",
  "reqwest",
  "rustc-hash",
@@ -2710,6 +2711,19 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "hal-contract"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
