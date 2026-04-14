@@ -13,6 +13,7 @@ categories = ["science", "hardware-support"]
 dynamic-backends = ["dep:libloading"]
 
 [dependencies]
+hal-contract = { workspace = true }
 arvak-ir = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

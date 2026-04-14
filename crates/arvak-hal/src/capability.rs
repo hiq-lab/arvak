@@ -38,6 +38,9 @@
 
 use serde::{Deserialize, Serialize};
 
+// ── Re-exported from HAL Contract spec ──────────────────────────────────────
+pub use hal_contract::capability::{NoiseProfile, Topology, TopologyKind};
+
 /// Hardware capabilities of a quantum backend.
 ///
 /// Describes what a backend can do: qubit count, supported gates,
@@ -612,177 +615,14 @@ impl GateSet {
     }
 }
 
-/// Qubit connectivity topology.
-///
-/// All edges are bidirectional: if `(a, b)` is listed, both `a → b`
-/// and `b → a` are valid two-qubit interactions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Topology {
-    /// Kind of topology.
-    pub kind: TopologyKind,
-    /// Coupling edges (pairs of connected qubits). Bidirectional.
-    pub edges: Vec<(u32, u32)>,
-}
+// Topology, TopologyKind, and NoiseProfile are re-exported from
+// hal_contract::capability at the top of this file. The implementations
+// (factory methods, is_connected(), etc.) live in the hal-contract crate.
+// Arvak-hal uses them directly without extending.
 
-impl Topology {
-    /// Create a linear topology.
-    pub fn linear(n: u32) -> Self {
-        let edges: Vec<_> = (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect();
-        Self {
-            kind: TopologyKind::Linear,
-            edges,
-        }
-    }
+// (Topology impl + TopologyKind enum now in hal_contract::capability)
 
-    /// Create a star topology.
-    pub fn star(n: u32) -> Self {
-        let edges: Vec<_> = (1..n).map(|i| (0, i)).collect();
-        Self {
-            kind: TopologyKind::Star,
-            edges,
-        }
-    }
-
-    /// Create a fully connected topology.
-    pub fn full(n: u32) -> Self {
-        let mut edges = vec![];
-        for i in 0..n {
-            for j in (i + 1)..n {
-                edges.push((i, j));
-            }
-        }
-        Self {
-            kind: TopologyKind::FullyConnected,
-            edges,
-        }
-    }
-
-    /// Create a grid topology.
-    pub fn grid(rows: u32, cols: u32) -> Self {
-        let mut edges = vec![];
-        for r in 0..rows {
-            for c in 0..cols {
-                let idx = r * cols + c;
-                // Horizontal edge
-                if c + 1 < cols {
-                    edges.push((idx, idx + 1));
-                }
-                // Vertical edge
-                if r + 1 < rows {
-                    edges.push((idx, idx + cols));
-                }
-            }
-        }
-        Self {
-            kind: TopologyKind::Grid { rows, cols },
-            edges,
-        }
-    }
-
-    /// Create a custom topology from edges.
-    pub fn custom(edges: Vec<(u32, u32)>) -> Self {
-        Self {
-            kind: TopologyKind::Custom,
-            edges,
-        }
-    }
-
-    /// Create a neutral-atom topology with zones.
-    ///
-    /// Qubits within a zone are fully connected (Rydberg interaction radius).
-    /// Qubits across zones require shuttling.
-    pub fn neutral_atom(num_qubits: u32, zones: u32) -> Self {
-        let qubits_per_zone = num_qubits / zones.max(1);
-        let mut edges = vec![];
-
-        // Full connectivity within each zone
-        for z in 0..zones {
-            let start = z * qubits_per_zone;
-            let end = if z == zones - 1 {
-                num_qubits
-            } else {
-                start + qubits_per_zone
-            };
-            for i in start..end {
-                for j in (i + 1)..end {
-                    edges.push((i, j));
-                }
-            }
-        }
-
-        Self {
-            kind: TopologyKind::NeutralAtom { zones },
-            edges,
-        }
-    }
-
-    /// Check if two qubits are connected.
-    pub fn is_connected(&self, q1: u32, q2: u32) -> bool {
-        self.edges
-            .iter()
-            .any(|&(a, b)| (a == q1 && b == q2) || (a == q2 && b == q1))
-    }
-}
-
-/// Kind of qubit topology.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum TopologyKind {
-    /// Fully connected (all-to-all).
-    FullyConnected,
-    /// Linear chain.
-    Linear,
-    /// Star topology (center connected to all).
-    Star,
-    /// 2D grid.
-    Grid { rows: u32, cols: u32 },
-    /// Heavy-hex lattice (IBM Heron/Eagle processors).
-    HeavyHex,
-    /// Custom topology.
-    Custom,
-    /// Neutral-atom topology with reconfigurable zones.
-    NeutralAtom {
-        /// Number of interaction zones.
-        zones: u32,
-    },
-}
-
-/// Device-wide noise averages reported by a backend (gate layer, QEC-visible).
-///
-/// These are aggregate characterization numbers — suitable for routing
-/// and coarse-grained compilation decisions. Per-qubit / per-gate detail
-/// lives in the IR-level noise profile (`arvak_ir::noise::NoiseProfile`),
-/// which the compiler consumes directly.
-///
-/// All fidelity values are in `[0.0, 1.0]` where `1.0` means perfect.
-/// Time values (T1, T2, gate_time) are in **microseconds**.
-///
-/// # Note
-///
-/// This profile captures noise at the gate layer (L2+), which is visible
-/// to Quantum Error Correction. For physical-layer noise originating in
-/// the cryogenic cooling infrastructure (QEC-invisible), see [`CoolingProfile`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NoiseProfile {
-    /// T1 relaxation time (device average, microseconds).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub t1: Option<f64>,
-    /// T2 dephasing time (device average, microseconds).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub t2: Option<f64>,
-    /// Average single-qubit gate fidelity.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub single_qubit_fidelity: Option<f64>,
-    /// Average two-qubit gate fidelity.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub two_qubit_fidelity: Option<f64>,
-    /// Average readout fidelity.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub readout_fidelity: Option<f64>,
-    /// Average gate execution time (microseconds).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub gate_time: Option<f64>,
-}
+// (NoiseProfile struct now in hal_contract::capability)
 
 // ─── HAL Contract v2.2 / v2.3 — Alsvid Physical Layer Extension ─────────────
 
