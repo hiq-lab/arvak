@@ -29,6 +29,9 @@ WORKDIR /build
 # ----------------------------------------------------------
 COPY Cargo.toml Cargo.lock ./
 
+# Copy HAL contract spec (external dependency)
+COPY .hal-contract/ .hal-contract/
+
 COPY crates/arvak-ir/Cargo.toml crates/arvak-ir/Cargo.toml
 COPY crates/arvak-qasm3/Cargo.toml crates/arvak-qasm3/Cargo.toml
 COPY crates/arvak-compile/Cargo.toml crates/arvak-compile/Cargo.toml
