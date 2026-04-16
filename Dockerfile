@@ -29,6 +29,11 @@ WORKDIR /build
 # ----------------------------------------------------------
 COPY Cargo.toml Cargo.lock ./
 
+# HAL Contract spec crate — workspace path dependency.
+# In CI, .hal-contract/ is checked out from hiq-lab/hal-contract-spec.
+# In local Docker builds: ln -s ../hal-contract .hal-contract
+COPY .hal-contract/rust/Cargo.toml .hal-contract/rust/Cargo.toml
+
 COPY crates/arvak-ir/Cargo.toml crates/arvak-ir/Cargo.toml
 COPY crates/arvak-qasm3/Cargo.toml crates/arvak-qasm3/Cargo.toml
 COPY crates/arvak-compile/Cargo.toml crates/arvak-compile/Cargo.toml
@@ -51,7 +56,8 @@ COPY demos/Cargo.toml demos/Cargo.toml
 COPY demos/lumi-hybrid/Cargo.toml demos/lumi-hybrid/Cargo.toml
 
 # Create stub source files matching each crate's expected targets
-RUN mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
+RUN mkdir -p .hal-contract/rust/src && echo "" > .hal-contract/rust/src/lib.rs \
+    && mkdir -p crates/arvak-ir/src && echo "" > crates/arvak-ir/src/lib.rs \
     && mkdir -p crates/arvak-qasm3/src && echo "" > crates/arvak-qasm3/src/lib.rs \
     && mkdir -p crates/arvak-compile/src && echo "" > crates/arvak-compile/src/lib.rs \
     && mkdir -p crates/arvak-hal/src && echo "" > crates/arvak-hal/src/lib.rs \
@@ -107,6 +113,7 @@ RUN cargo build --release --workspace --exclude arvak-python 2>/dev/null || true
 # ----------------------------------------------------------
 RUN rm -rf crates/ adapters/ demos/ examples/
 
+COPY .hal-contract/ .hal-contract/
 COPY crates/ crates/
 COPY adapters/ adapters/
 COPY demos/ demos/
