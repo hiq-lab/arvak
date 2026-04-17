@@ -28,6 +28,7 @@ WORKDIR /build
 # This layer is only invalidated when Cargo.toml/lock changes.
 # ----------------------------------------------------------
 COPY Cargo.toml Cargo.lock ./
+COPY .hal-contract/ .hal-contract/
 
 COPY crates/arvak-ir/Cargo.toml crates/arvak-ir/Cargo.toml
 COPY crates/arvak-qasm3/Cargo.toml crates/arvak-qasm3/Cargo.toml
