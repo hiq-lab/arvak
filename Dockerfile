@@ -32,7 +32,8 @@ COPY Cargo.toml Cargo.lock ./
 # HAL Contract spec crate — workspace path dependency.
 # In CI, .hal-contract/ is checked out from hiq-lab/hal-contract-spec.
 # In local Docker builds: ln -s ../hal-contract .hal-contract
-COPY .hal-contract/rust/Cargo.toml .hal-contract/rust/Cargo.toml
+# Copy hal-contract directory if it exists in build context (may be missing)
+COPY .hal-contract/ .hal-contract/
 
 COPY crates/arvak-ir/Cargo.toml crates/arvak-ir/Cargo.toml
 COPY crates/arvak-qasm3/Cargo.toml crates/arvak-qasm3/Cargo.toml
@@ -54,6 +55,11 @@ COPY crates/arvak-eval/Cargo.toml crates/arvak-eval/Cargo.toml
 COPY crates/arvak-bench/Cargo.toml crates/arvak-bench/Cargo.toml
 COPY demos/Cargo.toml demos/Cargo.toml
 COPY demos/lumi-hybrid/Cargo.toml demos/lumi-hybrid/Cargo.toml
+
+# Ensure hal-contract/rust/Cargo.toml exists (in case COPY didn't include it)
+RUN if [ ! -f .hal-contract/rust/Cargo.toml ]; then \
+      echo '[package]\nname = "hal-contract"\nversion = "0.1.0"\nedition = "2021"' > .hal-contract/rust/Cargo.toml; \
+    fi
 
 # Create stub source files matching each crate's expected targets
 RUN mkdir -p .hal-contract/rust/src && echo "" > .hal-contract/rust/src/lib.rs \
