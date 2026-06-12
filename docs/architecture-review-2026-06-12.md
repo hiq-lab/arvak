@@ -15,8 +15,19 @@
 > implements all StandardGates and errors instead of skipping),
 > **M1** (parser recursion limit), **M3** (acos clamp),
 > **M4** (IQM S/Sdg/T/Tdg/SX/SXdg; Heron S/Sdg/T/Tdg), and the silent
-> gate-truncation branch in Optimize1qGates. Remaining open: H1 (bitstring
-> convention), M2, M5–M7, D1–D5.
+> gate-truncation branch in Optimize1qGates.
+>
+> **H1 is also FIXED**: the HAL Contract already specified qubit 0 =
+> rightmost character (OpenQASM 3 / Qiskit convention) in
+> `arvak-hal/src/result.rs` — the adapters were violating it. Normalized:
+> sim (removed reversal), AQT/IQM (per-shot arrays reversed), IonQ (keys are
+> big-endian with q0 = MSB per IonQ docs — binary expansion reversed),
+> Braket (q0-leftmost keys/arrays reversed in all three result paths).
+> Scaleway/DDSIM pass through Qiskit-ordered keys unchanged (documented);
+> Quantinuum/CUDA-Q/Quandela carry TODO(bit-order) markers pending
+> verification against live vendor results. Each normalized adapter has an
+> asymmetric-state conformance test (q0=1, q1=0 ⇒ key `"01"`).
+> Remaining open: M2, M5–M7, D1–D5.
 
 **Date:** 2026-06-12
 **Scope:** Full workspace (74k LOC Rust): deep review of `arvak-ir`, `arvak-compile`,

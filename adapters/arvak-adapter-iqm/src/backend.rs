@@ -162,15 +162,20 @@ impl IqmBackend {
     }
 
     /// Convert IQM measurement results to Counts.
-    fn measurements_to_counts(&self, measurements: &[crate::api::MeasurementResult]) -> Counts {
+    ///
+    /// IQM returns per-shot bit arrays with array index i = measured qubit i
+    /// (the order qubits appear in the measurement instruction). The HAL
+    /// Contract bit order puts qubit 0 in the RIGHTMOST character
+    /// (OpenQASM 3 / Qiskit convention), so each shot array is reversed.
+    fn measurements_to_counts(measurements: &[crate::api::MeasurementResult]) -> Counts {
         let mut counts = Counts::new();
 
         // Find the classical register (usually "c" or "meas")
         if let Some(result) = measurements.first() {
             for shot in &result.values {
-                // Convert bit array to bitstring (MSB first)
                 let bitstring: String = shot
                     .iter()
+                    .rev()
                     .map(|&b| if b != 0 { '1' } else { '0' })
                     .collect();
                 // Counts::insert accumulates: repeated bitstrings correctly increment the count.
@@ -182,10 +187,16 @@ impl IqmBackend {
     }
 
     /// Convert pre-aggregated counts from API response.
-    fn api_counts_to_counts(&self, api_counts: &std::collections::HashMap<String, u64>) -> Counts {
+    ///
+    /// Key characters use the same bit order as the per-shot value arrays
+    /// (index i = measured qubit i), so they are reversed to the HAL
+    /// Contract order (qubit 0 rightmost) for consistency with
+    /// `measurements_to_counts`.
+    fn api_counts_to_counts(api_counts: &std::collections::HashMap<String, u64>) -> Counts {
         let mut counts = Counts::new();
         for (bitstring, count) in api_counts {
-            counts.insert(bitstring.clone(), *count);
+            let normalized: String = bitstring.chars().rev().collect();
+            counts.insert(normalized, *count);
         }
         counts
     }
@@ -403,9 +414,9 @@ impl Backend for IqmBackend {
 
         // Convert results
         let counts = if let Some(ref api_counts) = response.counts {
-            self.api_counts_to_counts(api_counts)
+            Self::api_counts_to_counts(api_counts)
         } else if let Some(ref measurements) = response.measurements {
-            self.measurements_to_counts(measurements)
+            Self::measurements_to_counts(measurements)
         } else {
             return Err(HalError::JobFailed("No measurement results".into()));
         };
@@ -490,9 +501,26 @@ mod tests {
     }
 
     #[test]
-    fn test_measurements_to_counts() {
-        // TODO: Implement with mock IqmBackend
-        // This would require IqmBackend instance, so we'll skip for now
-        // Real tests would mock the API client
+    fn test_measurements_to_counts_bit_order() {
+        // HAL Contract conformance: qubit 0 is the RIGHTMOST character.
+        // One shot with q0=1, q1=0 (array index i = qubit i) must yield "01".
+        let measurements = vec![crate::api::MeasurementResult {
+            register: "c".into(),
+            values: vec![vec![1, 0], vec![0, 0]],
+        }];
+        let counts = IqmBackend::measurements_to_counts(&measurements);
+        assert_eq!(counts.get("01"), 1, "q0=1 must be the rightmost bit");
+        assert_eq!(counts.get("00"), 1);
+        assert_eq!(counts.get("10"), 0);
+    }
+
+    #[test]
+    fn test_api_counts_bit_order() {
+        // Pre-aggregated API keys use array order (q0 first) and must be
+        // reversed to the HAL Contract order (q0 rightmost).
+        let mut api_counts = std::collections::HashMap::new();
+        api_counts.insert("10".to_string(), 7u64); // q0=1, q1=0
+        let counts = IqmBackend::api_counts_to_counts(&api_counts);
+        assert_eq!(counts.get("01"), 7);
     }
 }

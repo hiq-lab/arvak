@@ -237,6 +237,10 @@ impl ScalewayBackend {
     }
 
     /// Parse result_distribution JSON into Counts.
+    ///
+    /// Scaleway QaaS runs Qiskit/Aer-based emulators, so the bitstring keys
+    /// already follow the HAL Contract bit order (qubit 0 rightmost,
+    /// OpenQASM 3 / Qiskit convention) and pass through unchanged.
     fn parse_result_distribution(&self, value: &serde_json::Value) -> Counts {
         let mut counts = Counts::new();
 

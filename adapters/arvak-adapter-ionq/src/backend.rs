@@ -361,8 +361,11 @@ impl IonQBackend {
     /// Convert IonQ probability/histogram distribution to `Counts`.
     ///
     /// IonQ returns values keyed by decimal state index (e.g., "0", "3")
-    /// with probability or fractional count values.  We convert each key to
-    /// a binary bitstring and scale by shot count.
+    /// with probability or fractional count values. Per the IonQ API docs the
+    /// integer is BIG-endian with qubit 0 as the most significant bit, while
+    /// the HAL Contract bit order puts qubit 0 in the RIGHTMOST character
+    /// (OpenQASM 3 / Qiskit convention) — so the binary expansion is
+    /// reversed.
     fn distribution_to_counts(
         distribution: &std::collections::HashMap<String, f64>,
         n_qubits: u32,
@@ -372,7 +375,10 @@ impl IonQBackend {
 
         for (state_str, &prob) in distribution {
             let state_idx: u64 = state_str.parse().unwrap_or(0);
-            let bitstring = format!("{:0>width$b}", state_idx, width = n_qubits as usize);
+            let bitstring: String = format!("{:0>width$b}", state_idx, width = n_qubits as usize)
+                .chars()
+                .rev()
+                .collect();
             let count = (prob * f64::from(shots)).round() as u64;
             if count > 0 {
                 counts.insert(bitstring, count);
@@ -781,6 +787,18 @@ mod tests {
         let probs = HashMap::new();
         let counts = IonQBackend::distribution_to_counts(&probs, 2, 100);
         assert_eq!(counts.total_shots(), 0);
+    }
+
+    #[test]
+    fn test_distribution_bit_order() {
+        // HAL Contract conformance: qubit 0 is the RIGHTMOST character.
+        // IonQ state index "2" on 2 qubits is big-endian "10" with q0 = MSB,
+        // i.e. q0=1, q1=0 — which must become the key "01".
+        let mut probs = HashMap::new();
+        probs.insert("2".to_string(), 1.0);
+        let counts = IonQBackend::distribution_to_counts(&probs, 2, 100);
+        assert_eq!(counts.get("01"), 100, "q0=1 must be the rightmost bit");
+        assert_eq!(counts.get("10"), 0);
     }
 
     #[test]
