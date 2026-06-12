@@ -1,5 +1,23 @@
 # Architecture Review — Stability, Mathematical Accuracy, Efficiency, Dead Code
 
+> **Status update (same branch):** the following findings are FIXED in the
+> commits that follow this review, each guarded by the new
+> `crates/arvak-compile/tests/unitary_equivalence.rs` suite and unit tests:
+> **C1** (Optimize1qGates order + convergence, incl. the ZSX identity),
+> **C2/C3** (Rx/Ry translations for IBM/Eagle/Heron),
+> **C4** (IQM Rz order), **C5** (CX→ECR decomposition; DEBT-03 resolved —
+> the gate.rs ECR matrix is Qiskit's ECR correctly converted to big-endian,
+> there was no convention clash),
+> **C6** (BasisTranslation now errors on entangling custom gates;
+> ConsolidateBlocks removed from the default O3 pipeline until KAK local
+> extraction lands), **C7** (projective reset), **H2** (simulate-once +
+> cumulative sampling, optional seed), **H3** (verification simulator now
+> implements all StandardGates and errors instead of skipping),
+> **M1** (parser recursion limit), **M3** (acos clamp),
+> **M4** (IQM S/Sdg/T/Tdg/SX/SXdg; Heron S/Sdg/T/Tdg), and the silent
+> gate-truncation branch in Optimize1qGates. Remaining open: H1 (bitstring
+> convention), M2, M5–M7, D1–D5.
+
 **Date:** 2026-06-12
 **Scope:** Full workspace (74k LOC Rust): deep review of `arvak-ir`, `arvak-compile`,
 `arvak-adapter-sim`, `arvak-qasm3` (parser entry points); targeted review of

@@ -22,6 +22,10 @@ pub enum ParseError {
     #[error("Unexpected end of input: {0}")]
     UnexpectedEof(String),
 
+    /// Expression nesting exceeds the parser's recursion limit.
+    #[error("Expression nesting too deep (max {0} levels)")]
+    ExpressionTooDeep(usize),
+
     /// Invalid version.
     #[error("Invalid OPENQASM version: {0}")]
     InvalidVersion(String),

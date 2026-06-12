@@ -256,8 +256,10 @@ impl Unitary2x2 {
         // For SU(2): U = [[cos(b/2)*e^(-i(a+g)/2), -sin(b/2)*e^(-i(a-g)/2)],
         //                 [sin(b/2)*e^(i(a-g)/2),   cos(b/2)*e^(i(a+g)/2)]]
 
-        // beta is determined by the magnitude of diagonal/off-diagonal
-        let beta = 2.0 * a.norm().acos().clamp(0.0, PI);
+        // beta is determined by the magnitude of diagonal/off-diagonal.
+        // Clamp the acos *argument*: rounding can push |a| slightly above 1,
+        // and acos(1 + ε) is NaN (which would silently propagate).
+        let beta = 2.0 * a.norm().clamp(0.0, 1.0).acos();
 
         // Handle special cases
         if beta.abs() < EPSILON {
