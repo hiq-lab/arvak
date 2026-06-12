@@ -7,8 +7,8 @@ use arvak_ir::CircuitDag;
 use crate::error::CompileResult;
 use crate::pass::Pass;
 use crate::passes::{
-    BasicRouting, BasisTranslation, ConsolidateBlocks, MeasurementBarrierVerification,
-    OneQubitBasis, Optimize1qGates, SabreRouting, TrivialLayout,
+    BasicRouting, BasisTranslation, MeasurementBarrierVerification, OneQubitBasis, Optimize1qGates,
+    SabreRouting, TrivialLayout,
 };
 use crate::property::{BasisGates, CouplingMap, PropertySet};
 
@@ -146,14 +146,13 @@ impl PassManagerBuilder {
             }
         }
 
-        // Add two-qubit block consolidation at level 3.
-        // Runs after routing (so SWAPs are inserted) and before basis translation.
-        // Identifies maximal 2-qubit subcircuits, computes their unitary via KAK
-        // decomposition, and replaces blocks that use more entangling gates than
-        // the theoretical minimum.
-        if self.optimization_level >= 3 {
-            pm.add_pass(ConsolidateBlocks);
-        }
+        // NOTE: ConsolidateBlocks is currently NOT part of the default
+        // level-3 pipeline. It replaces 2-qubit blocks with CustomGate
+        // matrices, but KAK local-factor extraction (needed to re-synthesize
+        // entangling matrices into basis gates) is not implemented yet —
+        // BasisTranslation rejects such gates rather than emitting a wrong
+        // circuit. Re-enable here once `Unitary4x4::kak_decompose` extracts
+        // the local factors (see WeylDecomposition::to_circuit).
 
         // Add basis translation if we have basis gates
         if self.properties.basis_gates.is_some() {

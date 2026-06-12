@@ -169,10 +169,11 @@ impl Optimize1qGates {
     /// Convert ZYZ angles to RZ-SX decomposition.
     #[allow(clippy::unused_self)]
     fn zyz_to_zsx(&self, alpha: f64, beta: f64, gamma: f64) -> Vec<StandardGate> {
-        // RY(β) = RZ(π/2) · SX · RZ(β) · SX · RZ(-π/2)
+        // RY(β) = RZ(π) · SX · RZ(β + π) · SX   (up to global phase)
         // So: RZ(α) · RY(β) · RZ(γ)
-        //   = RZ(α) · RZ(π/2) · SX · RZ(β) · SX · RZ(-π/2) · RZ(γ)
-        //   = RZ(α + π/2) · SX · RZ(β) · SX · RZ(γ - π/2)
+        //   = RZ(α + π) · SX · RZ(β + π) · SX · RZ(γ)
+        // (Verified numerically; the previous identity
+        //  RZ(π/2)·SX·RZ(β)·SX·RZ(-π/2) is NOT equal to RY(β).)
 
         let mut gates = Vec::new();
 
@@ -184,9 +185,9 @@ impl Optimize1qGates {
             }
         } else {
             // Full decomposition
-            let z1 = gamma - PI / 2.0;
-            let z2 = beta;
-            let z3 = alpha + PI / 2.0;
+            let z1 = gamma;
+            let z2 = Unitary2x2::normalize_angle(beta + PI);
+            let z3 = Unitary2x2::normalize_angle(alpha + PI);
 
             if z1.abs() > EPSILON {
                 gates.push(StandardGate::Rz(ParameterExpression::constant(z1)));
@@ -307,88 +308,90 @@ impl Pass for Optimize1qGates {
     fn run(&self, dag: &mut CircuitDag, _properties: &mut PropertySet) -> CompileResult<()> {
         // Process one run at a time, re-discovering runs after each modification.
         // petgraph's remove_node uses swap-remove, which invalidates the last
-        // node's NodeIndex. Re-discovering after each run ensures all indices
-        // are fresh. Bounded to prevent pathological cases.
-        const MAX_ITERATIONS: usize = 200;
-        let mut converged = false;
-        for _ in 0..MAX_ITERATIONS {
+        // node's NodeIndex. Re-discovering after each modification ensures all
+        // indices are fresh.
+        //
+        // Only strictly-improving replacements (fewer gates than the run) are
+        // applied. Each application removes at least one op, so the loop
+        // terminates after at most `num_ops` iterations — no iteration cap
+        // that could leave the circuit in a half-optimized state.
+        let max_iterations = dag.num_ops().max(1);
+        for _ in 0..max_iterations {
             let runs = self.find_1q_runs(dag);
 
-            // Find the first actionable run (len >= 2)
-            let run = runs.into_iter().find(|(_, nodes)| nodes.len() >= 2);
-            let Some((qubit, nodes)) = run else {
-                converged = true;
-                break;
-            };
+            let mut applied = false;
+            for (qubit, nodes) in runs {
+                if nodes.len() < 2 {
+                    continue;
+                }
 
-            // Compute combined unitary
-            let mut combined = Unitary2x2::identity();
-
-            for &node_idx in &nodes {
-                if let Some(inst) = dag.get_instruction(node_idx) {
-                    if let InstructionKind::Gate(gate) = &inst.kind {
-                        if let GateKind::Standard(std_gate) = &gate.kind {
-                            if let Some(u) = Self::gate_to_unitary(std_gate) {
-                                combined = combined * u;
+                // Compute the combined unitary. Gates are applied in
+                // topological order, so with column-vector convention the
+                // total unitary is U_last · … · U_first: multiply each new
+                // gate on the LEFT of the accumulator.
+                let mut combined = Unitary2x2::identity();
+                for &node_idx in &nodes {
+                    if let Some(inst) = dag.get_instruction(node_idx) {
+                        if let InstructionKind::Gate(gate) = &inst.kind {
+                            if let GateKind::Standard(std_gate) = &gate.kind {
+                                if let Some(u) = Self::gate_to_unitary(std_gate) {
+                                    combined = u * combined;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Decompose to minimal gate sequence
-            let new_gates = self.decompose_unitary(&combined);
+                // Decompose to a minimal gate sequence.
+                let new_gates = self.decompose_unitary(&combined);
+                let num_new = new_gates.len();
 
-            // Strategy: Keep the first N nodes we need, remove the rest
-            // Then update the kept nodes with new gates
-
-            let num_new = new_gates.len();
-
-            if num_new == 0 {
-                // All gates cancel - remove all nodes in this run.
-                // Sort by descending index so swap-remove never invalidates
-                // a remaining node (the last node IS the one being removed).
-                let mut to_remove = nodes;
-                to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
-                for node_idx in to_remove {
-                    dag.remove_op(node_idx).map_err(CompileError::Ir)?;
+                // Only replace when strictly shorter. Replacing with the same
+                // length re-creates an actionable run and would loop forever;
+                // replacing with a longer sequence (possible: a 2-gate run can
+                // need 3 ZYZ gates) must keep the original — truncating it
+                // would silently change circuit semantics.
+                if num_new >= nodes.len() {
+                    continue;
                 }
-            } else if num_new <= nodes.len() {
-                // We can replace in-place: update first N nodes, remove the rest
-                let (keep, remove) = nodes.split_at(num_new);
 
-                // Update kept nodes (no removal, so indices remain valid)
-                for (&node_idx, gate) in keep.iter().zip(new_gates) {
-                    if let Some(inst) = dag.get_instruction_mut(node_idx) {
-                        *inst = Instruction::single_qubit_gate(gate, qubit);
+                if num_new == 0 {
+                    // All gates cancel - remove all nodes in this run.
+                    // Sort by descending index so swap-remove never invalidates
+                    // a remaining node (the last node IS the one being removed).
+                    let mut to_remove = nodes;
+                    to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+                    for node_idx in to_remove {
+                        dag.remove_op(node_idx).map_err(CompileError::Ir)?;
+                    }
+                } else {
+                    // Replace in-place: update first N nodes, remove the rest.
+                    let (keep, remove) = nodes.split_at(num_new);
+
+                    // Update kept nodes (no removal, so indices remain valid)
+                    for (&node_idx, gate) in keep.iter().zip(new_gates) {
+                        if let Some(inst) = dag.get_instruction_mut(node_idx) {
+                            *inst = Instruction::single_qubit_gate(gate, qubit);
+                        }
+                    }
+
+                    // Remove extra nodes in descending index order to avoid
+                    // swap-remove invalidation.
+                    let mut to_remove: Vec<NodeIndex> = remove.to_vec();
+                    to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+                    for node_idx in to_remove {
+                        dag.remove_op(node_idx).map_err(CompileError::Ir)?;
                     }
                 }
 
-                // Remove extra nodes in descending index order to avoid
-                // swap-remove invalidation.
-                let mut to_remove: Vec<NodeIndex> = remove.to_vec();
-                to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
-                for node_idx in to_remove {
-                    dag.remove_op(node_idx).map_err(CompileError::Ir)?;
-                }
-            } else {
-                // Need more nodes than we have - just update what we can
-                // This shouldn't happen with ZYZ decomposition (max 3 gates)
-                for (&node_idx, gate) in nodes.iter().zip(new_gates) {
-                    if let Some(inst) = dag.get_instruction_mut(node_idx) {
-                        *inst = Instruction::single_qubit_gate(gate, qubit);
-                    }
-                }
+                // Node indices are stale after removals — re-discover runs.
+                applied = true;
+                break;
             }
-        }
 
-        if !converged {
-            tracing::warn!(
-                max_iterations = MAX_ITERATIONS,
-                "Optimize1qGates: reached iteration limit; \
-                 circuit may not be fully optimized. \
-                 Consider increasing MAX_ITERATIONS for deeply nested single-qubit runs."
-            );
+            if !applied {
+                break; // Fixed point reached.
+            }
         }
 
         Ok(())
