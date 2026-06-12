@@ -347,6 +347,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_bitstring_convention_q0_rightmost() {
+        // HAL Contract conformance: qubit 0 is the RIGHTMOST character
+        // (OpenQASM 3 / Qiskit convention). X on q0 of a 2-qubit register
+        // must yield "01", never "10".
+        let backend = SimulatorBackend::new();
+
+        let mut circuit = Circuit::with_size("conformance", 2, 2);
+        circuit.x(arvak_ir::QubitId(0)).unwrap();
+        circuit.measure_all().unwrap();
+
+        let job_id = backend.submit(&circuit, 100, None).await.unwrap();
+        let result = backend.result(&job_id).await.unwrap();
+        assert_eq!(
+            result.counts.get("01"),
+            100,
+            "X(q0) must produce \"01\" — q0 is the rightmost bit"
+        );
+        assert_eq!(result.counts.get("10"), 0);
+    }
+
+    #[tokio::test]
+    async fn test_seeded_simulation_reproducible() {
+        let backend = SimulatorBackend::new().with_seed(42);
+        let circuit = Circuit::bell().unwrap();
+
+        let job_a = backend.submit(&circuit, 500, None).await.unwrap();
+        let counts_a = backend.result(&job_a).await.unwrap().counts;
+        let job_b = backend.submit(&circuit, 500, None).await.unwrap();
+        let counts_b = backend.result(&job_b).await.unwrap().counts;
+        assert_eq!(counts_a.get("00"), counts_b.get("00"));
+        assert_eq!(counts_a.get("11"), counts_b.get("11"));
+    }
+
+    #[tokio::test]
     async fn test_simulator_bell_state() {
         let backend = SimulatorBackend::new();
 

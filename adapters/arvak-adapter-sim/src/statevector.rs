@@ -544,11 +544,13 @@ impl Statevector {
     }
 
     /// Convert measurement outcome to bitstring.
+    ///
+    /// HAL Contract bit order: the rightmost character is qubit 0 (OpenQASM 3
+    /// / Qiskit convention), so the string is the binary representation of the
+    /// basis-state index (statevector index bit k = qubit k). The previous
+    /// implementation reversed the string, violating the contract.
     pub fn outcome_to_bitstring(&self, outcome: usize) -> String {
         format!("{:0width$b}", outcome, width = self.num_qubits)
-            .chars()
-            .rev()
-            .collect()
     }
 }
 
