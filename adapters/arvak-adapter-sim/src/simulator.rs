@@ -39,6 +39,8 @@ pub struct SimulatorBackend {
     jobs: Arc<Mutex<FxHashMap<String, SimJob>>>,
     /// Maximum number of qubits supported.
     max_qubits: u32,
+    /// Optional RNG seed for reproducible sampling.
+    seed: Option<u64>,
 }
 
 impl SimulatorBackend {
@@ -50,6 +52,7 @@ impl SimulatorBackend {
             capabilities: Capabilities::simulator(max_qubits),
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             max_qubits,
+            seed: None,
         }
     }
 
@@ -60,15 +63,25 @@ impl SimulatorBackend {
             capabilities: Capabilities::simulator(max_qubits),
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             max_qubits,
+            seed: None,
         }
+    }
+
+    /// Set the RNG seed for reproducible measurement sampling.
+    #[must_use]
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = Some(seed);
+        self
     }
 
     /// Run simulation synchronously.
     ///
-    /// This is the core simulation engine. It initialises a statevector in the
-    /// |0…0⟩ state, applies all gates in topological order, and samples a
-    /// measurement outcome for each shot. Returns a [`ExecutionResult`] with
-    /// the resulting histogram.
+    /// This is the core simulation engine. Circuits without `Reset`
+    /// instructions are deterministic up to the final measurement, so the
+    /// statevector is evolved ONCE and the histogram is sampled from the
+    /// final distribution — O(G·2^n + shots·n) instead of the previous
+    /// O(shots·G·2^n) per-shot re-simulation. Circuits containing `Reset`
+    /// collapse stochastically mid-circuit and are re-run per shot.
     ///
     /// Returns an error if a gate has unresolved symbolic parameters or if an
     /// unsupported gate type is encountered.
@@ -77,50 +90,78 @@ impl SimulatorBackend {
     /// without going through the async [`Backend`] trait.
     #[instrument(skip(self, circuit))]
     pub fn run_simulation(&self, circuit: &Circuit, shots: u32) -> Result<ExecutionResult, String> {
-        let start = Instant::now();
+        run_simulation_seeded(circuit, shots, self.seed)
+    }
+}
 
-        let num_qubits = circuit.num_qubits();
-        debug!(
-            "Starting simulation: {} qubits, {} shots",
-            num_qubits, shots
-        );
+/// Free-standing simulation engine (does not need backend state).
+///
+/// `seed` makes runs reproducible; `None` seeds from OS entropy.
+pub fn run_simulation_seeded(
+    circuit: &Circuit,
+    shots: u32,
+    seed: Option<u64>,
+) -> Result<ExecutionResult, String> {
+    use rand::SeedableRng;
 
-        let mut counts = Counts::new();
+    let start = Instant::now();
 
-        // Collect instructions
-        let instructions: Vec<_> = circuit
-            .dag()
-            .topological_ops()
-            .map(|(_, inst)| inst.clone())
-            .collect();
+    let num_qubits = circuit.num_qubits();
+    debug!(
+        "Starting simulation: {} qubits, {} shots",
+        num_qubits, shots
+    );
 
-        debug!("Circuit has {} instructions", instructions.len());
+    let mut rng = match seed {
+        Some(s) => rand::rngs::StdRng::seed_from_u64(s),
+        None => rand::rngs::StdRng::from_entropy(),
+    };
 
-        // Run shots
+    // Collect instructions
+    let instructions: Vec<_> = circuit
+        .dag()
+        .topological_ops()
+        .map(|(_, inst)| inst.clone())
+        .collect();
+
+    debug!("Circuit has {} instructions", instructions.len());
+
+    let has_reset = instructions
+        .iter()
+        .any(|inst| matches!(inst.kind, arvak_ir::InstructionKind::Reset));
+
+    let mut counts = Counts::new();
+
+    if has_reset {
+        // Mid-circuit reset collapses stochastically: each shot is an
+        // independent trajectory.
         for shot in 0..shots {
-            // Initialize statevector
             let mut sv = Statevector::new(num_qubits);
-
-            // Apply all gates
             for inst in &instructions {
-                sv.apply(inst)?;
+                sv.apply(inst, &mut rng)?;
             }
-
-            // Sample and record result
-            let outcome = sv.sample();
-            let bitstring = sv.outcome_to_bitstring(outcome);
-            counts.insert(bitstring, 1);
+            let outcome = sv.sample(&mut rng);
+            counts.insert(sv.outcome_to_bitstring(outcome), 1);
 
             if shot > 0 && shot % 1000 == 0 {
                 debug!("Completed {} shots", shot);
             }
         }
-
-        let elapsed = start.elapsed();
-        debug!("Simulation completed in {:?}", elapsed);
-
-        Ok(ExecutionResult::new(counts, shots).with_execution_time(elapsed.as_millis() as u64))
+    } else {
+        // Deterministic evolution: simulate once, sample the distribution.
+        let mut sv = Statevector::new(num_qubits);
+        for inst in &instructions {
+            sv.apply(inst, &mut rng)?;
+        }
+        for (outcome, count) in sv.sample_counts(shots, &mut rng) {
+            counts.insert(sv.outcome_to_bitstring(outcome), count.into());
+        }
     }
+
+    let elapsed = start.elapsed();
+    debug!("Simulation completed in {:?}", elapsed);
+
+    Ok(ExecutionResult::new(counts, shots).with_execution_time(elapsed.as_millis() as u64))
 }
 
 impl Default for SimulatorBackend {
@@ -207,15 +248,12 @@ impl Backend for SimulatorBackend {
 
         // Run simulation on a blocking thread to avoid starving the async runtime.
         let circuit_clone = circuit.clone();
-        let max_qubits = self.max_qubits;
-        let result = tokio::task::spawn_blocking(move || {
-            // Construct a temporary SimulatorBackend to reuse run_simulation.
-            let sim = SimulatorBackend::with_max_qubits(max_qubits);
-            sim.run_simulation(&circuit_clone, shots)
-        })
-        .await
-        .map_err(|e| HalError::Backend(format!("simulation task panicked: {e}")))?
-        .map_err(|e| HalError::Backend(format!("simulation failed: {e}")))?;
+        let seed = self.seed;
+        let result =
+            tokio::task::spawn_blocking(move || run_simulation_seeded(&circuit_clone, shots, seed))
+                .await
+                .map_err(|e| HalError::Backend(format!("simulation task panicked: {e}")))?
+                .map_err(|e| HalError::Backend(format!("simulation failed: {e}")))?;
 
         // Update job with result
         {
@@ -280,11 +318,17 @@ impl BackendFactory for SimulatorBackend {
             ));
         }
 
+        let seed = config
+            .extra
+            .get("seed")
+            .and_then(serde_json::value::Value::as_u64);
+
         Ok(Self {
             capabilities: Capabilities::simulator(max_qubits),
             config,
             jobs: Arc::new(Mutex::new(FxHashMap::default())),
             max_qubits,
+            seed,
         })
     }
 }
@@ -300,6 +344,40 @@ mod tests {
 
         assert!(caps.is_simulator);
         assert_eq!(caps.num_qubits, 20);
+    }
+
+    #[tokio::test]
+    async fn test_bitstring_convention_q0_rightmost() {
+        // HAL Contract conformance: qubit 0 is the RIGHTMOST character
+        // (OpenQASM 3 / Qiskit convention). X on q0 of a 2-qubit register
+        // must yield "01", never "10".
+        let backend = SimulatorBackend::new();
+
+        let mut circuit = Circuit::with_size("conformance", 2, 2);
+        circuit.x(arvak_ir::QubitId(0)).unwrap();
+        circuit.measure_all().unwrap();
+
+        let job_id = backend.submit(&circuit, 100, None).await.unwrap();
+        let result = backend.result(&job_id).await.unwrap();
+        assert_eq!(
+            result.counts.get("01"),
+            100,
+            "X(q0) must produce \"01\" — q0 is the rightmost bit"
+        );
+        assert_eq!(result.counts.get("10"), 0);
+    }
+
+    #[tokio::test]
+    async fn test_seeded_simulation_reproducible() {
+        let backend = SimulatorBackend::new().with_seed(42);
+        let circuit = Circuit::bell().unwrap();
+
+        let job_a = backend.submit(&circuit, 500, None).await.unwrap();
+        let counts_a = backend.result(&job_a).await.unwrap().counts;
+        let job_b = backend.submit(&circuit, 500, None).await.unwrap();
+        let counts_b = backend.result(&job_b).await.unwrap().counts;
+        assert_eq!(counts_a.get("00"), counts_b.get("00"));
+        assert_eq!(counts_a.get("11"), counts_b.get("11"));
     }
 
     #[tokio::test]

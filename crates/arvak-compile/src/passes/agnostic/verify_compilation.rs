@@ -505,18 +505,111 @@ fn apply_standard_gate(
             ];
             apply_2q_unitary(sv, num_qubits, qubits[0].0, qubits[1].0, &ecr);
         }
-        // Parameterized two-qubit gates and three-qubit gates: skip for now
-        // (they are decomposed by BasisTranslation before verification runs).
-        _ => {
-            // For gates we haven't implemented, warn and skip.
-            warn!(
-                gate = ?gate,
-                "VerifyCompilation: unsupported gate in verification, skipping"
-            );
+        StandardGate::ISwap => {
+            // |01⟩ → i|10⟩, |10⟩ → i|01⟩ (symmetric in qubit order).
+            let z = Complex64::new(0.0, 0.0);
+            let o = Complex64::new(1.0, 0.0);
+            let i = Complex64::new(0.0, 1.0);
+            let m = [o, z, z, z, z, z, i, z, z, i, z, z, z, z, z, o];
+            apply_2q_unitary(sv, num_qubits, qubits[0].0, qubits[1].0, &m);
+        }
+        StandardGate::CRx(theta) => {
+            let t = param_f64(theta, "CRx")?;
+            let c = Complex64::new((t / 2.0).cos(), 0.0);
+            let s = Complex64::new(0.0, -(t / 2.0).sin());
+            apply_controlled_1q(sv, num_qubits, qubits[0].0, qubits[1].0, &[c, s, s, c]);
+        }
+        StandardGate::CRy(theta) => {
+            let t = param_f64(theta, "CRy")?;
+            let c = Complex64::new((t / 2.0).cos(), 0.0);
+            let s = Complex64::new((t / 2.0).sin(), 0.0);
+            apply_controlled_1q(sv, num_qubits, qubits[0].0, qubits[1].0, &[c, -s, s, c]);
+        }
+        StandardGate::CRz(theta) => {
+            let t = param_f64(theta, "CRz")?;
+            let m = [
+                Complex64::from_polar(1.0, -t / 2.0),
+                Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0),
+                Complex64::from_polar(1.0, t / 2.0),
+            ];
+            apply_controlled_1q(sv, num_qubits, qubits[0].0, qubits[1].0, &m);
+        }
+        StandardGate::CP(lambda) => {
+            let l = param_f64(lambda, "CP")?;
+            let m = [
+                Complex64::new(1.0, 0.0),
+                Complex64::new(0.0, 0.0),
+                Complex64::new(0.0, 0.0),
+                Complex64::from_polar(1.0, l),
+            ];
+            apply_controlled_1q(sv, num_qubits, qubits[0].0, qubits[1].0, &m);
+        }
+        StandardGate::RXX(theta) => {
+            let t = param_f64(theta, "RXX")?;
+            let c = Complex64::new((t / 2.0).cos(), 0.0);
+            let s = Complex64::new(0.0, -(t / 2.0).sin());
+            let z = Complex64::new(0.0, 0.0);
+            // exp(-i θ/2 X⊗X), symmetric in qubit order.
+            let m = [c, z, z, s, z, c, s, z, z, s, c, z, s, z, z, c];
+            apply_2q_unitary(sv, num_qubits, qubits[0].0, qubits[1].0, &m);
+        }
+        StandardGate::RYY(theta) => {
+            let t = param_f64(theta, "RYY")?;
+            let c = Complex64::new((t / 2.0).cos(), 0.0);
+            let s = Complex64::new(0.0, (t / 2.0).sin());
+            let ns = -s;
+            let z = Complex64::new(0.0, 0.0);
+            // exp(-i θ/2 Y⊗Y): the |00⟩↔|11⟩ block gets +i sin, |01⟩↔|10⟩ gets −i sin.
+            let m = [c, z, z, s, z, c, ns, z, z, ns, c, z, s, z, z, c];
+            apply_2q_unitary(sv, num_qubits, qubits[0].0, qubits[1].0, &m);
+        }
+        StandardGate::RZZ(theta) => {
+            let t = param_f64(theta, "RZZ")?;
+            let e_neg = Complex64::from_polar(1.0, -t / 2.0);
+            let e_pos = Complex64::from_polar(1.0, t / 2.0);
+            let z = Complex64::new(0.0, 0.0);
+            // exp(-i θ/2 Z⊗Z) = diag(e^{-iθ/2}, e^{iθ/2}, e^{iθ/2}, e^{-iθ/2}).
+            let m = [
+                e_neg, z, z, z, z, e_pos, z, z, z, z, e_pos, z, z, z, z, e_neg,
+            ];
+            apply_2q_unitary(sv, num_qubits, qubits[0].0, qubits[1].0, &m);
+        }
+
+        // Three-qubit gates.
+        StandardGate::CCX => {
+            let c1 = 1usize << qubits[0].0;
+            let c2 = 1usize << qubits[1].0;
+            let tgt = 1usize << qubits[2].0;
+            let dim = 1usize << num_qubits;
+            for i in 0..dim {
+                if i & c1 != 0 && i & c2 != 0 && i & tgt == 0 {
+                    sv.swap(i, i | tgt);
+                }
+            }
+        }
+        StandardGate::CSwap => {
+            let ctrl = 1usize << qubits[0].0;
+            let m1 = 1usize << qubits[1].0;
+            let m2 = 1usize << qubits[2].0;
+            let dim = 1usize << num_qubits;
+            for i in 0..dim {
+                if i & ctrl != 0 && i & m1 != 0 && i & m2 == 0 {
+                    sv.swap(i, (i & !m1) | m2);
+                }
+            }
         }
     }
 
     Ok(())
+}
+
+/// Extract a concrete f64 from a gate parameter, or fail verification.
+fn param_f64(p: &arvak_ir::ParameterExpression, gate_name: &str) -> CompileResult<f64> {
+    p.as_f64().ok_or_else(|| CompileError::PassFailed {
+        name: "VerifyCompilation".into(),
+        reason: format!("symbolic parameter in {gate_name}, cannot verify"),
+    })
 }
 
 /// Apply a custom unitary matrix to the statevector.
@@ -804,9 +897,11 @@ mod tests {
     }
 
     #[test]
-    fn test_eagle_cx_decomposition_known_issue() {
-        // DEBT-03: The CX→ECR decomposition has a qubit-ordering issue.
-        // VerifyCompilation correctly detects this as non-equivalent.
+    fn test_eagle_cx_decomposition_verified() {
+        // DEBT-03 resolved: the CX→ECR decomposition is now
+        // CX = (X·S ⊗ SX†) · ECR and must verify as unitary-equivalent.
+        // (This test previously asserted the *failure* of the old, broken
+        // decomposition.)
         use crate::passes::BasisTranslation;
         use crate::property::{BasisGates, CouplingMap};
 
@@ -819,12 +914,10 @@ mod tests {
         let mut props = PropertySet::new().with_target(CouplingMap::linear(5), BasisGates::eagle());
         BasisTranslation.run(&mut dag, &mut props).unwrap();
 
-        // This should fail because the CX→ECR decomposition is incorrect.
-        let result = verifier.run(&mut dag, &mut props);
-        assert!(
-            result.is_err(),
-            "expected Eagle CX→ECR decomposition to fail verification (DEBT-03)"
-        );
+        let mut verify_props = PropertySet::new();
+        verifier
+            .run(&mut dag, &mut verify_props)
+            .expect("Eagle CX→ECR decomposition must be unitary-equivalent to CX");
     }
 
     #[test]

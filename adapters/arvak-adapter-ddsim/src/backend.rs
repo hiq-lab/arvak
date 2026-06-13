@@ -164,6 +164,8 @@ finally:
         let raw_counts: FxHashMap<String, u64> = serde_json::from_str(&stdout)
             .map_err(|e| DdsimError::OutputParse(format!("{e}: {stdout}")))?;
 
+        // mqt.ddsim returns Qiskit-style keys (qubit 0 rightmost), which is
+        // the HAL Contract bit order — pass through unchanged.
         let mut counts = Counts::new();
         for (bitstring, count) in raw_counts {
             counts.insert(bitstring, count);

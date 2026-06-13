@@ -150,6 +150,13 @@ impl QuantinuumBackend {
     ///
     /// The API returns `results` as `{register_name: [bit_shot_0, bit_shot_1, ...]}`.
     /// We sort register names and concatenate bits per shot to form bitstrings.
+    ///
+    /// TODO(bit-order): the HAL Contract requires qubit/clbit 0 in the
+    /// RIGHTMOST character (OpenQASM 3 / Qiskit convention). The register
+    /// naming/order returned by the Quantinuum API has not been verified
+    /// against live results — confirm and normalize before relying on
+    /// cross-backend count comparisons. Note also that the lexicographic
+    /// sort misorders registers beyond 9 (`"c10" < "c2"`).
     fn parse_results(results: &std::collections::HashMap<String, Vec<u8>>) -> Counts {
         let mut counts = Counts::new();
 

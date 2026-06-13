@@ -38,18 +38,24 @@ impl Statevector {
 
     /// Apply an instruction to the statevector.
     ///
+    /// `rng` is used for the stochastic collapse of `Reset` instructions.
+    ///
     /// Returns an error if a parametric gate has unresolved symbolic parameters
     /// or if a custom gate is encountered.
-    pub fn apply(&mut self, instruction: &Instruction) -> Result<(), String> {
+    pub fn apply<R: rand::Rng>(
+        &mut self,
+        instruction: &Instruction,
+        rng: &mut R,
+    ) -> Result<(), String> {
         match &instruction.kind {
             InstructionKind::Gate(gate) => {
                 let qubits: Vec<_> = instruction.qubits.iter().map(|q| q.0 as usize).collect();
                 self.apply_gate(&gate.kind, &qubits)?;
             }
             InstructionKind::Reset => {
-                // Simplified reset: collapse to |0⟩ on the qubit
                 let qubit = instruction.qubits[0].0 as usize;
-                self.reset(qubit);
+                let r: f64 = rng.r#gen();
+                self.reset(qubit, r);
             }
             InstructionKind::Measure
             | InstructionKind::Barrier
@@ -450,38 +456,53 @@ impl Statevector {
         }
     }
 
-    fn reset(&mut self, qubit: usize) {
-        // Simplified reset: project to |0⟩ and renormalize.
-        // Two-pass approach to avoid computing norm while modifying amplitudes.
+    /// Reset a qubit to |0⟩ via stochastic projective measurement.
+    ///
+    /// `r` is a uniform random sample in [0, 1) selecting the measurement
+    /// outcome. The state is projected onto the measured branch,
+    /// renormalized, and (if the outcome was |1⟩) flipped back to |0⟩.
+    ///
+    /// Note: the previous implementation coherently *added* the |1⟩
+    /// amplitudes into the |0⟩ branch, which is unphysical — resetting a
+    /// qubit in |−⟩ annihilated the entire statevector.
+    fn reset(&mut self, qubit: usize, r: f64) {
         let mask = 1 << qubit;
 
-        // Pass 1: Collapse |1⟩ into |0⟩ subspace and zero out |1⟩ amplitudes.
+        // Probability of measuring |1⟩ on this qubit.
+        let mut p1 = 0.0;
         for i in 0..(1 << self.num_qubits) {
             if i & mask != 0 {
-                let j = i & !mask;
-                let val = self.amplitudes[i];
-                self.amplitudes[j] += val;
-                self.amplitudes[i] = Complex64::new(0.0, 0.0);
+                p1 += self.amplitudes[i].norm_sqr();
             }
         }
 
-        // Pass 2: Compute norm from the (now settled) |0⟩ subspace and renormalize.
-        let mut norm_sq = 0.0;
-        for amp in &self.amplitudes {
-            norm_sq += amp.norm_sqr();
-        }
-        let norm = norm_sq.sqrt();
-        if norm > 0.0 {
-            for amp in &mut self.amplitudes {
-                *amp /= norm;
+        let outcome_one = r < p1;
+        let p_branch = if outcome_one { p1 } else { 1.0 - p1 };
+        // Guard: with a normalized state p_branch > 0 for the sampled
+        // outcome, but protect against rounding pathologies.
+        let scale = if p_branch > 1e-300 {
+            1.0 / p_branch.sqrt()
+        } else {
+            1.0
+        };
+
+        for i in 0..(1 << self.num_qubits) {
+            if i & mask != 0 {
+                let j = i & !mask;
+                if outcome_one {
+                    // Project onto |1⟩, renormalize, then flip to |0⟩.
+                    self.amplitudes[j] = self.amplitudes[i] * scale;
+                }
+                self.amplitudes[i] = Complex64::new(0.0, 0.0);
+            } else if !outcome_one {
+                // Project onto |0⟩ and renormalize.
+                self.amplitudes[i] *= scale;
             }
         }
     }
 
     /// Sample a measurement outcome.
-    pub fn sample(&self) -> usize {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+    pub fn sample<R: rand::Rng>(&self, rng: &mut R) -> usize {
         let r: f64 = rng.r#gen();
 
         let mut cumulative = 0.0;
@@ -496,12 +517,40 @@ impl Statevector {
         self.amplitudes.len() - 1
     }
 
+    /// Sample `shots` measurement outcomes from the final state.
+    ///
+    /// Builds the cumulative distribution once, then draws each shot with a
+    /// binary search — O(2^n + shots·n) instead of O(shots·2^n).
+    pub fn sample_counts<R: rand::Rng>(
+        &self,
+        shots: u32,
+        rng: &mut R,
+    ) -> rustc_hash::FxHashMap<usize, u32> {
+        let mut cumulative = Vec::with_capacity(self.amplitudes.len());
+        let mut acc = 0.0;
+        for amp in &self.amplitudes {
+            acc += amp.norm_sqr();
+            cumulative.push(acc);
+        }
+
+        let mut counts: rustc_hash::FxHashMap<usize, u32> = rustc_hash::FxHashMap::default();
+        for _ in 0..shots {
+            let r: f64 = rng.r#gen::<f64>() * acc.min(1.0);
+            let idx = cumulative.partition_point(|&c| c <= r);
+            let idx = idx.min(self.amplitudes.len() - 1);
+            *counts.entry(idx).or_insert(0) += 1;
+        }
+        counts
+    }
+
     /// Convert measurement outcome to bitstring.
+    ///
+    /// HAL Contract bit order: the rightmost character is qubit 0 (OpenQASM 3
+    /// / Qiskit convention), so the string is the binary representation of the
+    /// basis-state index (statevector index bit k = qubit k). The previous
+    /// implementation reversed the string, violating the contract.
     pub fn outcome_to_bitstring(&self, outcome: usize) -> String {
         format!("{:0width$b}", outcome, width = self.num_qubits)
-            .chars()
-            .rev()
-            .collect()
     }
 }
 
@@ -560,8 +609,50 @@ mod tests {
         let mut sv = Statevector::new(1);
         sv.apply_x(0);
 
+        let mut rng = rand::thread_rng();
         for _ in 0..100 {
-            assert_eq!(sv.sample(), 1);
+            assert_eq!(sv.sample(&mut rng), 1);
+        }
+    }
+
+    #[test]
+    fn test_reset_minus_state() {
+        // Reset of |−⟩ = (|0⟩−|1⟩)/√2 must yield a normalized |0⟩ state
+        // (up to global phase) for ANY measurement outcome — regression test:
+        // the old implementation summed the amplitudes and annihilated the
+        // state.
+        for r in [0.0, 0.3, 0.7, 0.999] {
+            let mut sv = Statevector::new(1);
+            sv.apply_x(0);
+            sv.apply_h(0); // |−⟩
+            sv.reset(0, r);
+            assert!(
+                (sv.amplitudes[0].norm() - 1.0).abs() < 1e-10,
+                "r={r}: |0⟩ amplitude should have norm 1, got {:?}",
+                sv.amplitudes[0]
+            );
+            assert!(sv.amplitudes[1].norm() < 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_reset_entangled_bell() {
+        // Reset q0 of a Bell state (|00⟩+|11⟩)/√2. `r < p1` selects outcome
+        // |1⟩: the state collapses to |11⟩ and q0 is flipped back → index 2
+        // (q1=1, q0=0). Outcome |0⟩ collapses to |00⟩ → index 0.
+        for (r, expect_idx) in [(0.1, 2usize), (0.9, 0usize)] {
+            let mut sv = Statevector::new(2);
+            sv.apply_h(0);
+            sv.apply_cx(0, 1); // (|00⟩+|11⟩)/√2
+            sv.reset(0, r);
+            // Norm must be 1 and the q0 bit must be 0 in all support states.
+            let total: f64 = sv
+                .amplitudes
+                .iter()
+                .map(num_complex::Complex64::norm_sqr)
+                .sum();
+            assert!((total - 1.0).abs() < 1e-10, "norm {total}");
+            assert!((sv.amplitudes[expect_idx].norm() - 1.0).abs() < 1e-10);
         }
     }
 }

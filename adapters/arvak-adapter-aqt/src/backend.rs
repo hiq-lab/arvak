@@ -294,9 +294,10 @@ impl AqtBackend {
     /// Aggregate AQT raw measurement samples into a `Counts` histogram.
     ///
     /// AQT returns `result["0"]` as a `[shots × n_qubits]` array.
-    /// Each inner array is one shot; values are 0 or 1 per qubit.
-    /// We concatenate each shot's bits into a bitstring (qubit 0 first)
-    /// and count occurrences.
+    /// Each inner array is one shot; values are 0 or 1 per qubit, with array
+    /// index i = qubit i. The HAL Contract bit order puts qubit 0 in the
+    /// RIGHTMOST character (OpenQASM 3 / Qiskit convention), so the per-shot
+    /// array is reversed when building the bitstring key.
     fn parse_results(result_map: &std::collections::HashMap<String, Vec<Vec<u8>>>) -> Counts {
         let mut counts = Counts::new();
 
@@ -308,6 +309,7 @@ impl AqtBackend {
         for shot in shots {
             let bitstring: String = shot
                 .iter()
+                .rev()
                 .map(|&b| if b != 0 { '1' } else { '0' })
                 .collect();
             counts.insert(bitstring, 1);
@@ -681,6 +683,17 @@ mod tests {
         let result_map = HashMap::new();
         let counts = AqtBackend::parse_results(&result_map);
         assert_eq!(counts.total_shots(), 0);
+    }
+
+    #[test]
+    fn test_parse_results_bit_order() {
+        // HAL Contract conformance: qubit 0 is the RIGHTMOST character.
+        // One shot with q0=1, q1=0 (array index i = qubit i) must yield "01".
+        let mut result_map = HashMap::new();
+        result_map.insert("0".to_string(), vec![vec![1, 0]]);
+        let counts = AqtBackend::parse_results(&result_map);
+        assert_eq!(counts.get("01"), 1, "q0=1 must be the rightmost bit");
+        assert_eq!(counts.get("10"), 0);
     }
 
     #[test]

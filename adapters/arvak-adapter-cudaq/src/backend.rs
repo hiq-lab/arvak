@@ -393,6 +393,10 @@ impl Backend for CudaqBackend {
             return Err(HalError::JobFailed(error));
         }
 
+        // TODO(bit-order): the HAL Contract requires qubit 0 in the RIGHTMOST
+        // character (OpenQASM 3 / Qiskit convention). CUDA-Q sample results
+        // are believed to list qubit 0 LEFTMOST (allocation order); verify
+        // against the service and reverse here if confirmed.
         let counts = match response.counts {
             Some(ref api_counts) => {
                 let mut counts = Counts::new();
