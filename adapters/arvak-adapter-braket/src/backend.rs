@@ -131,6 +131,11 @@ impl BraketBackend {
 
     /// Parse task result into execution counts.
     ///
+    /// Braket bitstrings and measurement arrays are big-endian with qubit 0
+    /// as the LEFTMOST bit; the HAL Contract bit order puts qubit 0 in the
+    /// RIGHTMOST character (OpenQASM 3 / Qiskit convention), so every result
+    /// path reverses the bit order.
+    ///
     /// `submitted_shots` is used as the denominator when the only available
     /// result format is `measurementProbabilities`. Pass 0 to use the default
     /// fallback of 1000 (for callers that don't have the shot count available).
@@ -140,20 +145,22 @@ impl BraketBackend {
         submitted_shots: u32,
     ) -> Counts {
         let mut counts = Counts::new();
+        let normalize = |bitstring: &str| -> String { bitstring.chars().rev().collect() };
 
         // Prefer measurementCounts (bitstring -> count)
         if let Some(measurement_counts) = &result.measurement_counts {
             for (bitstring, &count) in measurement_counts {
-                counts.insert(bitstring.clone(), count);
+                counts.insert(normalize(bitstring), count);
             }
             return counts;
         }
 
-        // Fall back to raw measurements (array of arrays)
+        // Fall back to raw measurements (array of arrays, index i = qubit i)
         if let Some(measurements) = &result.measurements {
             for measurement in measurements {
                 let bitstring: String = measurement
                     .iter()
+                    .rev()
                     .map(|b| if *b == 0 { '0' } else { '1' })
                     .collect();
                 counts.insert(bitstring, 1);
@@ -171,7 +178,7 @@ impl BraketBackend {
             for (bitstring, &prob) in probs {
                 let count = (prob * total_shots).max(0.0).round() as u64;
                 if count > 0 {
-                    counts.insert(bitstring.clone(), count);
+                    counts.insert(normalize(bitstring), count);
                 }
             }
         }
@@ -478,6 +485,37 @@ mod tests {
         assert_eq!(counts.get("00"), 2);
         assert_eq!(counts.get("11"), 2);
         assert_eq!(counts.total_shots(), 4);
+    }
+
+    #[test]
+    fn test_parse_result_bit_order() {
+        // HAL Contract conformance: qubit 0 is the RIGHTMOST character.
+        // Braket keys are big-endian with q0 LEFTMOST: "10" means q0=1, q1=0
+        // and must become "01".
+        let result = crate::api::TaskResult {
+            measurement_counts: Some({
+                let mut m = std::collections::HashMap::new();
+                m.insert("10".to_string(), 7);
+                m
+            }),
+            measurement_probabilities: None,
+            measurements: None,
+            measured_qubits: Some(vec![0, 1]),
+            additional_metadata: None,
+        };
+        let counts = BraketBackend::parse_result(&result, 2, 7);
+        assert_eq!(counts.get("01"), 7, "q0=1 must be the rightmost bit");
+
+        // Raw measurement arrays (index i = qubit i): [1, 0] → "01".
+        let result = crate::api::TaskResult {
+            measurement_counts: None,
+            measurement_probabilities: None,
+            measurements: Some(vec![vec![1, 0]]),
+            measured_qubits: Some(vec![0, 1]),
+            additional_metadata: None,
+        };
+        let counts = BraketBackend::parse_result(&result, 2, 1);
+        assert_eq!(counts.get("01"), 1);
     }
 
     #[test]

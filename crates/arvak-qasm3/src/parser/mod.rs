@@ -26,12 +26,19 @@ pub fn parse_ast(source: &str) -> ParseResult<Program> {
     parser.parse_program()
 }
 
+/// Maximum expression nesting depth. Recursive-descent parsing recurses once
+/// per nesting level; without a limit, adversarial input such as thousands of
+/// nested parentheses overflows the stack and aborts the process.
+pub(super) const MAX_EXPR_DEPTH: usize = 256;
+
 /// Parser state.
 pub(super) struct Parser {
     pub(super) tokens: Vec<SpannedToken>,
     pub(super) pos: usize,
     // TODO: Track line numbers by incrementing on newline tokens
     pub(super) line: usize,
+    /// Current expression recursion depth (guarded by `MAX_EXPR_DEPTH`).
+    pub(super) expr_depth: usize,
 }
 
 #[allow(
@@ -63,6 +70,7 @@ impl Parser {
             tokens,
             pos: 0,
             line: 1,
+            expr_depth: 0,
         })
     }
 
@@ -259,5 +267,24 @@ mod tests {
 
         let result = parse(source);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_deeply_nested_expression_rejected() {
+        // Adversarial input: thousands of nested parentheses previously
+        // overflowed the stack (recursive descent without a depth limit).
+        let depth = 100_000;
+        let expr = format!("{}pi{}", "(".repeat(depth), ")".repeat(depth));
+        let source = format!("OPENQASM 3.0;\nqubit q;\nrx({expr}) q;\n");
+
+        let result = parse(&source);
+        assert!(matches!(result, Err(ParseError::ExpressionTooDeep(_))));
+    }
+
+    #[test]
+    fn test_reasonable_nesting_accepted() {
+        // Ordinary nesting depths must keep working.
+        let source = "OPENQASM 3.0;\nqubit q;\nrx((((pi / 2) + 0.1) * 2)) q;\n";
+        parse(source).unwrap();
     }
 }

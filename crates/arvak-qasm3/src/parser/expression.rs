@@ -11,8 +11,25 @@ impl Parser {
         self.parse_binary_expr(0)
     }
 
+    /// Enter one level of expression recursion, failing if the depth limit
+    /// is exceeded. Callers must decrement `expr_depth` when done.
+    fn enter_expr(&mut self) -> ParseResult<()> {
+        if self.expr_depth >= super::MAX_EXPR_DEPTH {
+            return Err(ParseError::ExpressionTooDeep(super::MAX_EXPR_DEPTH));
+        }
+        self.expr_depth += 1;
+        Ok(())
+    }
+
     /// Parse binary expression with precedence climbing.
     fn parse_binary_expr(&mut self, min_prec: u8) -> ParseResult<Expression> {
+        self.enter_expr()?;
+        let result = self.parse_binary_expr_inner(min_prec);
+        self.expr_depth -= 1;
+        result
+    }
+
+    fn parse_binary_expr_inner(&mut self, min_prec: u8) -> ParseResult<Expression> {
         let mut left = self.parse_unary_expr()?;
 
         while let Some(op) = self.peek_binary_op() {
@@ -35,6 +52,13 @@ impl Parser {
 
     /// Parse unary expression.
     fn parse_unary_expr(&mut self) -> ParseResult<Expression> {
+        self.enter_expr()?;
+        let result = self.parse_unary_expr_inner();
+        self.expr_depth -= 1;
+        result
+    }
+
+    fn parse_unary_expr_inner(&mut self) -> ParseResult<Expression> {
         if self.consume(&Token::Minus) {
             let expr = self.parse_unary_expr()?;
             return Ok(Expression::Neg(Box::new(expr)));

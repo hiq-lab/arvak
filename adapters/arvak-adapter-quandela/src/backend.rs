@@ -550,6 +550,10 @@ impl Backend for QuandelaBackend {
             .and_then(|c| c.as_object())
             .ok_or_else(|| HalError::Backend("bridge result: missing counts object".into()))?;
 
+        // TODO(bit-order): keys come from the photonic bridge (Fock-state /
+        // mode occupation derived). Verify how the bridge maps modes to the
+        // HAL Contract bit order (qubit 0 rightmost) before relying on
+        // cross-backend count comparisons.
         let mut counts = arvak_hal::Counts::new();
         let mut total: u64 = 0;
         for (bitstring, count_val) in counts_obj {

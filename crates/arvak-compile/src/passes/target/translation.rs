@@ -169,6 +169,24 @@ fn decompose_custom_2q(
     data.copy_from_slice(matrix);
     let u4 = Unitary4x4 { data };
     let kak = u4.kak_decompose();
+
+    // KAK local-factor extraction is only implemented for product states
+    // (num_cnots == 0); for entangling unitaries `kak_decompose` returns
+    // identity placeholders for a0/a1/b0/b1, so synthesizing a circuit from
+    // them would produce a WRONG circuit. Fail explicitly instead
+    // (project rule: never silently produce incorrect results).
+    if kak.num_cnots > 0 {
+        return Err(CompileError::PassFailed {
+            name: "BasisTranslation".into(),
+            reason: format!(
+                "cannot synthesize entangling 2-qubit custom gate \
+                 (requires {} CNOTs): KAK local-factor extraction is not \
+                 yet implemented",
+                kak.num_cnots
+            ),
+        });
+    }
+
     let circuit_ops = kak.to_circuit();
 
     // Convert TwoQubitGateOp sequence to Instructions, then translate each.
@@ -265,14 +283,35 @@ fn translate_to_iqm(
 
         // Rz(θ) = virtual Z (absorbed) or PRX decomposition
         // Rz(θ) can be commuted through PRX gates, but for correctness:
-        // Rz(θ) = PRX(π, θ/2) · PRX(π, 0)
+        // Rz(θ) = PRX(π, θ/2) · PRX(π, 0)   [matrix notation, right applied first]
+        //
+        // Application order therefore is PRX(π, 0) FIRST, then PRX(π, θ/2).
+        // The previous emission order was reversed and implemented Rz(−θ)
+        // (verified numerically).
         StandardGate::Rz(theta) => {
             let half_theta = theta.clone() / ParameterExpression::constant(2.0);
             vec![
-                Instruction::single_qubit_gate(StandardGate::PRX(PI.into(), half_theta), q0),
                 Instruction::single_qubit_gate(StandardGate::PRX(PI.into(), 0.0.into()), q0),
+                Instruction::single_qubit_gate(StandardGate::PRX(PI.into(), half_theta), q0),
             ]
         }
+
+        // S/Sdg/T/Tdg are Z-rotations up to global phase: reuse the Rz path.
+        StandardGate::S => translate_to_iqm(&StandardGate::Rz((PI / 2.0).into()), qubits)?,
+        StandardGate::Sdg => translate_to_iqm(&StandardGate::Rz((-PI / 2.0).into()), qubits)?,
+        StandardGate::T => translate_to_iqm(&StandardGate::Rz((PI / 4.0).into()), qubits)?,
+        StandardGate::Tdg => translate_to_iqm(&StandardGate::Rz((-PI / 4.0).into()), qubits)?,
+
+        // SX = Rx(π/2) up to global phase = PRX(π/2, 0)
+        StandardGate::SX => vec![Instruction::single_qubit_gate(
+            StandardGate::PRX((PI / 2.0).into(), 0.0.into()),
+            q0,
+        )],
+        // SXdg = Rx(-π/2) up to global phase = PRX(-π/2, 0)
+        StandardGate::SXdg => vec![Instruction::single_qubit_gate(
+            StandardGate::PRX((-PI / 2.0).into(), 0.0.into()),
+            q0,
+        )],
 
         // CX = H · CZ · H (on target)
         StandardGate::CX => {
@@ -366,20 +405,19 @@ fn translate_to_ibm(
         // SX is native
         StandardGate::SX => vec![Instruction::single_qubit_gate(StandardGate::SX, q0)],
 
-        // Rx(θ) = Rz(-π/2) · SX · Rz(π/2) for θ = π/2
-        // General: Rz(-π/2) · SX · Rz(θ-π/2) · SX · Rz(-π/2)
-        // Simplified for now
-        StandardGate::Rx(theta) => {
-            // Rx(θ) = Rz(-π/2) · X · Rz(θ) · X · Rz(-π/2) for general θ
-            // Or use euler decomposition
-            vec![
-                Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
-                Instruction::single_qubit_gate(StandardGate::SX, q0),
-                Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
-                Instruction::single_qubit_gate(StandardGate::SX, q0),
-                Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
-            ]
-        }
+        // Rx(θ) = RZ(π/2) · SX · RZ(θ+π) · SX · RZ(π/2) up to global phase
+        // (U3 form; verified numerically — the previous middle angle θ with
+        // outer −π/2 rotations equals X at θ=0, not identity).
+        StandardGate::Rx(theta) => vec![
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
+            Instruction::single_qubit_gate(
+                StandardGate::Rz(theta.clone() + ParameterExpression::constant(PI)),
+                q0,
+            ),
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
+        ],
 
         // Ry(θ) = SX · Rz(θ) · SXdg
         StandardGate::Ry(theta) => vec![
@@ -482,18 +520,30 @@ fn translate_to_eagle(
             Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
         ],
         StandardGate::SX => vec![Instruction::single_qubit_gate(StandardGate::SX, q0)],
+        // Rx(θ) = RZ(π/2) · SX · RZ(θ+π) · SX · RZ(π/2) up to global phase
+        // (U3 form; verified numerically — the previous middle angle θ with
+        // outer −π/2 rotations equals X at θ=0, not identity).
         StandardGate::Rx(theta) => vec![
-            Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
+            Instruction::single_qubit_gate(
+                StandardGate::Rz(theta.clone() + ParameterExpression::constant(PI)),
+                q0,
+            ),
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
         ],
+        // Ry(θ) = RZ(π) · SX · RZ(θ+π) · SX up to global phase
+        // (verified numerically — the previous form SX·RZ(θ)·SX·RZ(−π) is
+        // not RY(θ) for generic θ).
         StandardGate::Ry(theta) => vec![
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
+            Instruction::single_qubit_gate(
+                StandardGate::Rz(theta.clone() + ParameterExpression::constant(PI)),
+                q0,
+            ),
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz((-PI).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::Rz(PI.into()), q0),
         ],
         StandardGate::Rz(theta) => vec![Instruction::single_qubit_gate(
             StandardGate::Rz(theta.clone()),
@@ -506,18 +556,24 @@ fn translate_to_eagle(
             vec![Instruction::two_qubit_gate(StandardGate::ECR, q0, q1)]
         }
 
-        // CX = RZ(π/2,q0) · RZ(π/2,q1) · ECR(q0,q1) · X(q0) · SX(q1)
+        // CX(q0→q1) = (X·S on q0) ⊗ (SX† on q1) · ECR(q0,q1)
         //
-        // Verified decomposition from IBM Eagle basis (same as Qiskit's BasisTranslator):
-        // RZ(π/2) on both qubits first, then ECR, then X on control, SX on target.
+        // In the |q0,q1⟩ (q0 = high bit) convention used by gate.rs and the
+        // verification simulator, the ECR matrix equals Qiskit's ECR after the
+        // endianness conversion, and CX requires only POST-rotations:
+        //   q0: S = RZ(π/2), then X
+        //   q1: SX† = RZ(π)·SX·RZ(π) (up to global phase; SX† is not native)
+        // Verified numerically. The previous sequence (RZ(π/2) pre-rotations,
+        // X/SX post) did not equal CX in any convention.
         StandardGate::CX => {
             let q1 = qubits[1];
             vec![
-                Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
-                Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q1),
                 Instruction::two_qubit_gate(StandardGate::ECR, q0, q1),
+                Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
                 Instruction::single_qubit_gate(StandardGate::X, q0),
+                Instruction::single_qubit_gate(StandardGate::Rz(PI.into()), q1),
                 Instruction::single_qubit_gate(StandardGate::SX, q1),
+                Instruction::single_qubit_gate(StandardGate::Rz(PI.into()), q1),
             ]
         }
 
@@ -599,23 +655,52 @@ fn translate_to_heron(
             Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
         ],
         StandardGate::SX => vec![Instruction::single_qubit_gate(StandardGate::SX, q0)],
+        // Rx(θ) = RZ(π/2) · SX · RZ(θ+π) · SX · RZ(π/2) up to global phase
+        // (U3 form; verified numerically — the previous middle angle θ with
+        // outer −π/2 rotations equals X at θ=0, not identity).
         StandardGate::Rx(theta) => vec![
-            Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
+            Instruction::single_qubit_gate(
+                StandardGate::Rz(theta.clone() + ParameterExpression::constant(PI)),
+                q0,
+            ),
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz((-PI / 2.0).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
         ],
-        // Ry(θ) = Rz(π/2) · Rx(θ) · Rz(-π/2) = SX · Rz(θ) · SX · Rz(-π)
+        // Ry(θ) = RZ(π) · SX · RZ(θ+π) · SX up to global phase.
         // Uses only native gates (no SXdg which IBM rejects).
+        // (Verified numerically — the previous form SX·RZ(θ)·SX·RZ(−π) is
+        // not RY(θ) for generic θ.)
         StandardGate::Ry(theta) => vec![
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
+            Instruction::single_qubit_gate(
+                StandardGate::Rz(theta.clone() + ParameterExpression::constant(PI)),
+                q0,
+            ),
             Instruction::single_qubit_gate(StandardGate::SX, q0),
-            Instruction::single_qubit_gate(StandardGate::Rz((-PI).into()), q0),
+            Instruction::single_qubit_gate(StandardGate::Rz(PI.into()), q0),
         ],
         StandardGate::Rz(theta) => vec![Instruction::single_qubit_gate(
             StandardGate::Rz(theta.clone()),
+            q0,
+        )],
+
+        // S/Sdg/T/Tdg are Z-rotations up to global phase (same as IBM basis).
+        StandardGate::S => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 2.0).into()),
+            q0,
+        )],
+        StandardGate::Sdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 2.0).into()),
+            q0,
+        )],
+        StandardGate::T => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((PI / 4.0).into()),
+            q0,
+        )],
+        StandardGate::Tdg => vec![Instruction::single_qubit_gate(
+            StandardGate::Rz((-PI / 4.0).into()),
             q0,
         )],
 
@@ -853,13 +938,11 @@ mod tests {
     use crate::unitary::Unitary2x2;
     use arvak_ir::{Circuit, QubitId};
 
-    // TODO(DEBT-03 follow-up): Add a 4×4 unitary correctness test for the Eagle
-    // CX→ECR decomposition. Requires reconciling qubit-ordering conventions: the ECR
-    // gate matrix stored in gate.rs uses Qiskit's little-endian basis (q0=LSB) while
-    // Arvak's 2-qubit gate algebra (e.g. for CX) uses big-endian (q0=MSB). The
-    // gate-count test below verifies the decomposition produces the correct 5-gate
-    // sequence; a full unitary check needs the correct BE ECR matrix and a verified
-    // CX→ECR algebraic identity in that convention.
+    // DEBT-03 resolved: the ECR matrix documented in gate.rs (and implemented in
+    // the VerifyCompilation simulator) is Qiskit's ECR correctly converted to
+    // Arvak's big-endian |q0,q1⟩ (q0 = MSB) convention — there is no convention
+    // clash. The CX→ECR decomposition is unitary-verified end-to-end in
+    // tests/unitary_equivalence.rs via the VerifyCompilation pass.
 
     /// Verify that the IQM H decomposition is unitarily correct.
     ///
@@ -922,8 +1005,8 @@ mod tests {
         let mut props =
             PropertySet::new().with_target(CouplingMap::linear(127), BasisGates::eagle());
         BasisTranslation.run(&mut dag, &mut props).unwrap();
-        // CX = RZ(q0) + RZ(q1) + ECR + X(q0) + SX(q1) = 5 gates
-        assert_eq!(dag.num_ops(), 5);
+        // CX = ECR + [RZ, X](q0) + [RZ, SX, RZ](q1) = 6 gates
+        assert_eq!(dag.num_ops(), 6);
     }
 
     #[test]
