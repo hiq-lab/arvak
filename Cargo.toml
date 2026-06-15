@@ -76,9 +76,17 @@ console = "0.15"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # AWS SDK
+# Disable the "rustls" default feature on the SDK clients to avoid pulling
+# the legacy rustls 0.21 / rustls-webpki 0.101.7 chain in
+# aws-smithy-http-client (via aws-smithy-runtime/tls-rustls →
+# legacy-rustls-ring). The modern HTTPS path uses rustls 0.23 via
+# "default-https-client" (rustls-aws-lc). aws-config itself already sets
+# default-features = false on its transitive aws-sdk-* deps, so this only
+# needs to cover our DIRECT aws-sdk-* deps. See
+# RUSTSEC-2026-0098/-0099/-0104.
 aws-config = { version = "1", features = ["behavior-version-latest"] }
-aws-sdk-braket = "1"
-aws-sdk-s3 = "1"
+aws-sdk-braket = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
+aws-sdk-s3 = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio", "sigv4a", "http-1x"] }
 
 # Hashing
 rustc-hash = "2.1"
