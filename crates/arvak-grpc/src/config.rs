@@ -85,7 +85,7 @@ impl fmt::Debug for ServerConfig {
 /// Storage backend configuration.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
-    /// Storage backend type: "memory", "sqlite", "postgres"
+    /// Storage backend type: "memory", "sqlite"
     #[serde(default = "default_storage_type")]
     pub backend: String,
 
@@ -603,7 +603,7 @@ impl Config {
 
         // Validate storage backend
         match self.storage.backend.as_str() {
-            "memory" | "sqlite" | "postgres" => {}
+            "memory" | "sqlite" => {}
             other => {
                 return Err(ConfigError::ValidationError(format!(
                     "Unknown storage backend: {other}"

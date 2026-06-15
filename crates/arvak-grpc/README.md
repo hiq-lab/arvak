@@ -69,7 +69,7 @@ See [STREAMING.md](STREAMING.md) for streaming patterns and examples.
 ✅ **Storage**
 - Pluggable storage backend architecture
 - In-memory storage (default)
-- SQLite/PostgreSQL support (future)
+- SQLite support (feature-gated)
 
 ## Architecture
 
@@ -198,7 +198,7 @@ ARVAK_GRPC_ADDRESS=0.0.0.0:50051      # gRPC server address
 ARVAK_HTTP_ADDRESS=0.0.0.0:8080       # HTTP server address
 ARVAK_LOG_LEVEL=info                   # trace, debug, info, warn, error
 ARVAK_LOG_FORMAT=console               # console or json
-ARVAK_STORAGE_TYPE=memory              # memory, sqlite, postgres
+ARVAK_STORAGE_TYPE=memory              # memory, sqlite
 ARVAK_MAX_CONCURRENT_JOBS=100          # Resource limits
 ARVAK_OTLP_ENDPOINT=http://localhost:4317  # OpenTelemetry
 ```
@@ -541,7 +541,7 @@ server:
 - ✅ Middleware and interceptors
 - ✅ Graceful shutdown
 - ✅ Pluggable storage architecture
-- ✅ SQLite and PostgreSQL storage backends
+- ✅ SQLite storage backend (feature-gated)
 
 ### Phase 5: Production Security & Resilience (In Planning)
 - [ ] TLS/SSL support with mTLS
