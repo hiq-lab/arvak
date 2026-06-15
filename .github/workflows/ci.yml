@@ -20,10 +20,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -38,7 +38,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -57,10 +57,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -80,10 +80,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -98,7 +98,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -172,10 +172,10 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -194,7 +194,7 @@ jobs:
         run: brew install protobuf
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -216,10 +216,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -241,10 +241,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -259,7 +259,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -275,10 +275,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -289,7 +289,7 @@ jobs:
           toolchain: nightly-2026-02-09
 
       - name: Cache cargo-audit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-audit
           key: cargo-audit-0.22.1-${{ runner.os }}
