@@ -5,7 +5,6 @@
 //!
 //! - `MemoryStorage`: In-memory storage (no persistence)
 //! - `SqliteStorage`: `SQLite` database for single-node deployments
-//! - `PostgresStorage`: `PostgreSQL` for production clusters
 
 use arvak_hal::job::{JobId, JobStatus};
 use arvak_hal::result::ExecutionResult;
@@ -20,17 +19,11 @@ pub mod memory;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 
-#[cfg(feature = "postgres")]
-pub mod postgres;
-
 // Re-exports
 pub use memory::MemoryStorage;
 
 #[cfg(feature = "sqlite")]
 pub use sqlite::SqliteStorage;
-
-#[cfg(feature = "postgres")]
-pub use postgres::PostgresStorage;
 
 /// Stored job with metadata and state.
 #[derive(Clone)]
@@ -91,7 +84,7 @@ impl JobFilter {
 /// Convert a `JobStatus` to its canonical storage string.
 ///
 /// Shared by all storage backends to guarantee a consistent on-disk format.
-#[cfg(any(feature = "sqlite", feature = "postgres"))]
+#[cfg(feature = "sqlite")]
 pub(crate) fn job_status_to_string(status: &JobStatus) -> String {
     match status {
         JobStatus::Queued => "queued".to_string(),
@@ -106,7 +99,7 @@ pub(crate) fn job_status_to_string(status: &JobStatus) -> String {
 ///
 /// Returns an error for unrecognised strings so callers can surface storage
 /// corruption early rather than silently mis-classify jobs.
-#[cfg(any(feature = "sqlite", feature = "postgres"))]
+#[cfg(feature = "sqlite")]
 pub(crate) fn job_status_from_string(s: &str) -> Result<JobStatus> {
     match s {
         "queued" => Ok(JobStatus::Queued),

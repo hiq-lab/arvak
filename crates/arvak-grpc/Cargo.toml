@@ -39,7 +39,6 @@ arvak-adapter-quandela = { workspace = true, optional = true }
 
 # Storage backends (feature-gated)
 rusqlite = { version = "0.31", features = ["bundled"], optional = true }
-tokio-postgres = { version = "0.7", features = ["runtime"], optional = true }
 
 # Data structures
 rustc-hash = { workspace = true }
@@ -96,7 +95,6 @@ quantinuum = ["arvak-adapter-quantinuum"]
 aqt = ["arvak-adapter-aqt"]
 quandela = ["arvak-adapter-quandela"]
 sqlite = ["rusqlite"]
-postgres = ["tokio-postgres"]
 
 [[bin]]
 name = "arvak-grpc-server"
