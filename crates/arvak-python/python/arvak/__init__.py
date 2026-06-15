@@ -42,6 +42,16 @@ from arvak._native import (
     run_tebd,
     # Compilation
     compile,
+    # Native backend bridge (HAL Backend trait via PyO3)
+    Backend,
+    JobHandle,
+    Capabilities,
+    Availability,
+    ValidationResult,
+    JobStatus,
+    ExecutionResult,
+    backend_for,
+    list_backends,
 )
 
 # Import integration registry
@@ -102,7 +112,7 @@ def integration_status():
     Example:
         >>> status = arvak.integration_status()
         >>> print(status['qiskit'])
-        {'name': 'qiskit', 'available': True, 'packages': ['qiskit>=1.0.0']}
+        {'name': 'qiskit', 'available': True, 'packages': ['qiskit>=2.0.0']}
     """
     return IntegrationRegistry.status()
 
@@ -181,6 +191,16 @@ __all__ = [
     "run_tebd",
     # Compilation
     "compile",
+    # Native backend bridge
+    "Backend",
+    "JobHandle",
+    "Capabilities",
+    "Availability",
+    "ValidationResult",
+    "JobStatus",
+    "ExecutionResult",
+    "backend_for",
+    "list_backends",
     # Integration API
     "list_integrations",
     "integration_status",

@@ -32,10 +32,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -47,7 +47,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache cargo tools
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/cargo-audit
@@ -142,7 +142,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dependency-checks
           path: |
@@ -170,10 +170,10 @@ jobs:
             profile: release
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -193,7 +193,7 @@ jobs:
         run: brew install protobuf
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -234,10 +234,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -252,7 +252,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -326,10 +326,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -346,7 +346,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build libboost-dev nlohmann-json3-dev libspdlog-dev
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -357,7 +357,7 @@ jobs:
             nightly-${{ runner.os }}-ddsim-
 
       - name: Cache DDSIM build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build-ddsim
           key: ddsim-pinned-v3.4.1-${{ runner.os }}-${{ hashFiles('crates/arvak-qdmi/ci/ddsim_shim/CMakeLists.txt') }}
@@ -432,10 +432,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -449,7 +449,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -475,10 +475,10 @@ jobs:
         python-version: ['3.11', '3.13']
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -493,7 +493,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -524,7 +524,7 @@ jobs:
           "
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: arvak-wheel-py${{ matrix.python-version }}
           path: |
@@ -540,10 +540,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -558,7 +558,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -578,7 +578,7 @@ jobs:
 
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmarks
           path: bench-output.txt
@@ -592,10 +592,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -610,7 +610,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -645,7 +645,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-reports
           path: |
@@ -667,10 +667,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -698,10 +698,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -738,10 +738,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -793,7 +793,7 @@ jobs:
           chmod +x ~/.ssh/ssh_retry.sh
 
       - name: Download Python wheel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: arvak-wheel-py3.11
           path: wheel-artifact
@@ -952,10 +952,10 @@ jobs:
     needs: [python-bindings]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
           path: .hal-contract
@@ -970,7 +970,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
@@ -1031,7 +1031,7 @@ jobs:
       - notebook-tests
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Ensure labels exist
         env:

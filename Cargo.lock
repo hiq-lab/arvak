@@ -589,6 +589,7 @@ dependencies = [
  "num-complex",
  "pyo3",
  "rand 0.8.5",
+ "tokio",
 ]
 
 [[package]]

@@ -16,9 +16,9 @@ jobs:
       matrix:
         target: [x86_64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
@@ -34,7 +34,7 @@ jobs:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-linux-${{ matrix.target }}
           path: crates/arvak-python/dist
@@ -48,8 +48,8 @@ jobs:
   #         - x86_64-unknown-linux-musl
   #         - aarch64-unknown-linux-musl
   #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
+  #     - uses: actions/checkout@v5
+  #     - uses: actions/setup-python@v6
   #       with:
   #         python-version: '3.13'
   #     - name: Build wheels
@@ -63,7 +63,7 @@ jobs:
   #       env:
   #         PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
   #     - name: Upload wheels
-  #       uses: actions/upload-artifact@v4
+  #       uses: actions/upload-artifact@v5
   #       with:
   #         name: wheels-musllinux-${{ matrix.target }}
   #         path: crates/arvak-python/dist
@@ -74,9 +74,9 @@ jobs:
       matrix:
         target: [x64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           architecture: ${{ matrix.target }}
@@ -92,7 +92,7 @@ jobs:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-windows-${{ matrix.target }}
           path: crates/arvak-python/dist
@@ -103,9 +103,9 @@ jobs:
       matrix:
         target: [aarch64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
@@ -120,7 +120,7 @@ jobs:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-macos-${{ matrix.target }}
           path: crates/arvak-python/dist
@@ -128,7 +128,7 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build sdist
         uses: PyO3/maturin-action@v1
@@ -138,7 +138,7 @@ jobs:
           working-directory: crates/arvak-python
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-sdist
           path: crates/arvak-python/dist
@@ -147,7 +147,7 @@ jobs:
     name: QDMI Device Library (Linux x86_64)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -162,7 +162,7 @@ jobs:
         run: cp target/release/libarvak_qdmi_device.so libqdmi_arvak.so
 
       - name: Upload QDMI library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: qdmi-linux-x86_64
           path: libqdmi_arvak.so
@@ -171,7 +171,7 @@ jobs:
     name: QDMI Device Library (macOS ARM)
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -186,7 +186,7 @@ jobs:
         run: cp target/release/libarvak_qdmi_device.dylib libqdmi_arvak.dylib
 
       - name: Upload QDMI library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: qdmi-macos-aarch64
           path: libqdmi_arvak.dylib
@@ -200,7 +200,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
 
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
