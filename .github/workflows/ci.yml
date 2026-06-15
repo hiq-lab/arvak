@@ -303,8 +303,23 @@ jobs:
 
       - name: Run security audit
         id: audit
+        # Ignored advisories are sourced from audit.toml in the repo root.
+        # Each entry there has a written rationale (why we don't trigger
+        # the bug) and a removal path (what would let us drop the ignore).
+        # Adding an ID to audit.toml without a matching written rationale
+        # is a review-block.
         run: |
-          cargo audit 2>&1 | tee audit-output.txt
+          IGNORE_ARGS=$(awk '
+            /^\[advisories\]/ { in_section = 1; next }
+            /^\[/             { in_section = 0 }
+            in_section && /^[[:space:]]*"RUSTSEC-/ {
+              gsub(/[",]/, "")
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+              printf " --ignore %s", $0
+            }
+          ' audit.toml 2>/dev/null || true)
+          echo "Ignoring advisories from audit.toml:$IGNORE_ARGS"
+          cargo audit $IGNORE_ARGS 2>&1 | tee audit-output.txt
           EXIT_CODE=${PIPESTATUS[0]}
           if [ $EXIT_CODE -ne 0 ]; then
             echo "⚠️ Security audit found issues (exit code: $EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
