@@ -39,7 +39,7 @@ def qiskit_to_arvak(circuit: 'QuantumCircuit') -> 'arvak.Circuit':
     except ImportError:
         raise ImportError(
             "Qiskit is required for this operation. "
-            "Install with: pip install qiskit>=1.0.0"
+            "Install with: pip install qiskit>=2.0.0"
         )
 
     import arvak
@@ -80,7 +80,7 @@ def arvak_to_qiskit(circuit: 'arvak.Circuit') -> 'QuantumCircuit':
     except ImportError:
         raise ImportError(
             "Qiskit is required for this operation. "
-            "Install with: pip install qiskit>=1.0.0"
+            "Install with: pip install qiskit>=2.0.0"
         )
 
     import arvak

@@ -37,7 +37,7 @@ class BenchReference:
 # Static table — representative MQT Bench entries (algorithm × qubit counts)
 # Generated from MQT Bench v1.1, abstraction_level="indep", target="qiskit"
 # ---------------------------------------------------------------------------
-_BASE_URL = "https://github.com/cda-tum/mqt-bench/tree/main/src/mqt/bench/benchmarks"
+_BASE_URL = "https://github.com/munich-quantum-toolkit/bench/tree/main/src/mqt/bench/benchmarks"
 
 _STATIC_TABLE: list[dict] = [
     # QAOA
@@ -206,12 +206,52 @@ _ALIASES: dict[str, str] = {
 
 
 def _mqt_bench_available() -> bool:
-    """Check if mqt.bench is installed."""
+    """Check if mqt.bench is installed and compatible with the installed Qiskit.
+
+    mqt-bench < 2.2.2 breaks on Qiskit 2.4 (see mqt-bench PR #895). When that
+    combination is detected, fall back to the static reference table.
+    """
     try:
         import mqt.bench  # noqa: F401
-        return True
     except ImportError:
         return False
+    try:
+        import importlib.metadata as _md
+
+        def _ver(s: str) -> tuple[int, ...]:
+            out: list[int] = []
+            for p in s.split("."):
+                digits = ""
+                for c in p:
+                    if c.isdigit():
+                        digits += c
+                    else:
+                        break
+                if not digits:
+                    break
+                out.append(int(digits))
+            return tuple(out)
+
+        bench_v = _ver(_md.version("mqt.bench"))
+        if bench_v and bench_v < (2, 2, 2):
+            try:
+                qiskit_v = _ver(_md.version("qiskit"))
+            except _md.PackageNotFoundError:
+                qiskit_v = ()
+            if qiskit_v >= (2, 4):
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "mqt.bench %s is incompatible with qiskit %s "
+                    "(need mqt.bench>=2.2.2 for Qiskit 2.4); "
+                    "falling back to static reference table.",
+                    ".".join(map(str, bench_v)),
+                    ".".join(map(str, qiskit_v)),
+                )
+                return False
+    except Exception:
+        pass
+    return True
 
 
 def find_references(

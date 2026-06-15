@@ -41,7 +41,7 @@ class QiskitIntegration(FrameworkIntegration):
     @property
     def required_packages(self) -> list[str]:
         """Required packages for this integration."""
-        return ["qiskit>=1.0.0"]
+        return ["qiskit>=2.0.0"]
 
     def is_available(self) -> bool:
         """Check if Qiskit is installed."""
@@ -92,9 +92,9 @@ if _integration.is_available():
     IntegrationRegistry.register(_integration)
 
     # Expose public API at package level
-    from .backend import ArvakProvider
+    from .backend import ArvakProvider, ArvakBackend
     from .converter import qiskit_to_arvak, arvak_to_qiskit
 
-    __all__ = ['ArvakProvider', 'qiskit_to_arvak', 'arvak_to_qiskit', 'QiskitIntegration']
+    __all__ = ['ArvakProvider', 'ArvakBackend', 'qiskit_to_arvak', 'arvak_to_qiskit', 'QiskitIntegration']
 else:
     __all__ = ['QiskitIntegration']
