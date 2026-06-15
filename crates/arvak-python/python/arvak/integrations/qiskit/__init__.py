@@ -41,7 +41,7 @@ class QiskitIntegration(FrameworkIntegration):
     @property
     def required_packages(self) -> list[str]:
         """Required packages for this integration."""
-        return ["qiskit>=1.0.0"]
+        return ["qiskit>=2.0.0"]
 
     def is_available(self) -> bool:
         """Check if Qiskit is installed."""
