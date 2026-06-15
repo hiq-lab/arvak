@@ -102,7 +102,7 @@ def integration_status():
     Example:
         >>> status = arvak.integration_status()
         >>> print(status['qiskit'])
-        {'name': 'qiskit', 'available': True, 'packages': ['qiskit>=1.0.0']}
+        {'name': 'qiskit', 'available': True, 'packages': ['qiskit>=2.0.0']}
     """
     return IntegrationRegistry.status()
 
