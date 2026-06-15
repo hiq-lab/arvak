@@ -20,6 +20,7 @@
 //! qc2 = arvak.from_qasm(qasm)
 //! ```
 
+mod backend;
 mod circuit;
 mod compile;
 mod error;
@@ -66,6 +67,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Projection simulator
     projection::register(m)?;
+
+    // Native backend bridge (HAL Backend trait via PyO3)
+    backend::register(m)?;
 
     Ok(())
 }

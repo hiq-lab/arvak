@@ -269,7 +269,9 @@ class ArvakProvider:
             List of backend instances
         """
         if not self._backends:
-            self._backends['sim'] = ArvakSimulatorBackend(provider=self)
+            # Native HAL-backed simulator (replaces ArvakSimulatorBackend as of v2.0).
+            # See docs/RFC/0001-native-backend-unification.md.
+            self._backends['sim'] = ArvakBackend(provider=self, backend_name='sim')
 
         # Lazily create IBM backends on demand
         if name and name in self._IBM_BACKENDS and name not in self._backends:
@@ -385,8 +387,126 @@ class ArvakProvider:
         return f"<ArvakProvider(backends={list(self._backends.keys())})>"
 
 
+def _qiskit_to_qasm3(qc) -> str:
+    """Serialize a Qiskit circuit to QASM3 (with QASM2 fallback)."""
+    try:
+        from qiskit.qasm3 import dumps
+        return dumps(qc)
+    except (ImportError, AttributeError):
+        from qiskit.qasm2 import dumps as dumps2
+        return dumps2(qc)
+
+
+class ArvakBackend:
+    """Native Arvak backend, Qiskit-compatible.
+
+    Wraps an ``arvak.Backend`` from the PyO3 layer (which in turn wraps any
+    ``arvak_hal::Backend`` adapter — sim, IQM, IBM, etc.). The Qiskit-shaped
+    surface (``.name``, ``.num_qubits``, ``.basis_gates``, ``.coupling_map``,
+    ``.run()``) is provided here so existing callers continue to work; all
+    actual work happens in the native Rust adapter through a single code
+    path.
+
+    Use ``ArvakProvider().get_backend(name)`` to obtain instances — do not
+    construct directly.
+
+    See ``docs/RFC/0001-native-backend-unification.md`` for the architecture.
+    """
+
+    def __init__(self, provider: ArvakProvider, backend_name: str):
+        import arvak  # imported lazily — arvak.Backend is from the PyO3 layer
+
+        self._provider = provider
+        self._native = arvak.backend_for(backend_name)
+        # Qiskit-compatible metadata
+        self.name = self._native.name
+        self.description = f"Arvak native backend '{self.name}'"
+        self.backend_version = '2.0.0'
+        # Kept for backwards-compat with ArvakSimulatorBackend's surface — some
+        # Qiskit-shaped callers introspect this. No semantic meaning beyond
+        # "this backend type exists".
+        self.online_date = '2024-01-01'
+
+    @property
+    def max_circuits(self) -> Optional[int]:
+        return None
+
+    @property
+    def num_qubits(self) -> int:
+        return self._native.num_qubits
+
+    @property
+    def basis_gates(self) -> list[str]:
+        return list(self._native.basis_gates)
+
+    @property
+    def coupling_map(self) -> Optional[list[list[int]]]:
+        cm = self._native.coupling_map
+        if cm is None:
+            return None
+        return [[a, b] for (a, b) in cm]
+
+    def capabilities(self):
+        """Return the underlying ``arvak.Capabilities`` (HAL view)."""
+        return self._native.capabilities()
+
+    def availability(self):
+        """Query backend availability (returns ``arvak.Availability``)."""
+        return self._native.availability()
+
+    def validate(self, circuit) -> 'arvak.ValidationResult':
+        """Validate a Qiskit circuit against backend constraints.
+
+        Returns an ``arvak.ValidationResult`` from the HAL layer with three
+        possible states: valid, invalid (with reasons), or requires
+        transpilation. Use ``bool(result)`` for a quick valid/invalid check.
+
+        Args:
+            circuit: A single Qiskit ``QuantumCircuit``.
+
+        Returns:
+            ``arvak.ValidationResult`` — supports ``bool()``, ``.valid``,
+            ``.reasons``, ``.requires_transpilation``, ``.details``.
+        """
+        qasm = _qiskit_to_qasm3(circuit)
+        return self._native.validate(qasm)
+
+    def run(self, circuits, shots: int = 1024, **options) -> 'ArvakJob':
+        """Submit one or many Qiskit circuits and block until results are in.
+
+        Args:
+            circuits: A single Qiskit ``QuantumCircuit`` or a list of them.
+            shots: Number of measurement shots (default: 1024).
+
+        Returns:
+            An ``ArvakJob`` whose ``.result().get_counts(idx)`` returns the
+            measurement counts for circuit *idx* (defaults to 0).
+        """
+        if not isinstance(circuits, list):
+            circuits = [circuits]
+
+        parameters = options.get('parameters')  # forwarded to HAL submit()
+
+        all_counts: list[dict[str, int]] = []
+        for qc in circuits:
+            qasm = _qiskit_to_qasm3(qc)
+            exec_result = self._native.run(qasm, shots, parameters)
+            all_counts.append(dict(exec_result.counts))
+
+        return ArvakJob(backend=self, counts=all_counts, shots=shots)
+
+    def __repr__(self) -> str:
+        return f"<ArvakBackend('{self.name}')>"
+
+
 class ArvakSimulatorBackend:
     """Arvak simulator backend with Qiskit-compatible interface.
+
+    .. deprecated:: 2.0
+        Use :class:`ArvakBackend` instead. ``ArvakProvider.get_backend('sim')``
+        now returns the new native-backed class automatically. Direct
+        instantiation of this class still works but will be removed in a
+        future release. See ``docs/RFC/0001-native-backend-unification.md``.
 
     Wraps Arvak's built-in Rust statevector simulator. Circuits are converted
     to OpenQASM 3, compiled and simulated in Rust, and results are returned
@@ -396,6 +516,14 @@ class ArvakSimulatorBackend:
     """
 
     def __init__(self, provider: ArvakProvider):
+        import warnings
+        warnings.warn(
+            "ArvakSimulatorBackend is deprecated; ArvakProvider.get_backend('sim') "
+            "now returns ArvakBackend (native HAL-backed). See "
+            "docs/RFC/0001-native-backend-unification.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._provider = provider
         self.name = 'arvak_simulator'
         self.description = 'Arvak Rust statevector simulator'
@@ -440,14 +568,7 @@ class ArvakSimulatorBackend:
         # Execute each circuit on the simulator
         all_counts = []
         for qc in circuits:
-            # Convert Qiskit circuit to QASM → Arvak circuit
-            try:
-                from qiskit.qasm3 import dumps
-                qasm_str = dumps(qc)
-            except (ImportError, AttributeError):
-                from qiskit.qasm2 import dumps as dumps2
-                qasm_str = dumps2(qc)
-
+            qasm_str = _qiskit_to_qasm3(qc)
             arvak_circuit = arvak.from_qasm(qasm_str)
             counts = arvak.run_sim(arvak_circuit, shots)
             all_counts.append(counts)
