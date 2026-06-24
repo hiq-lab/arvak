@@ -22,12 +22,11 @@ server:
 
 # Storage backend configuration
 storage:
-  # Backend type: "memory", "sqlite", "postgres"
+  # Backend type: "memory", "sqlite"
   backend: "memory"
 
-  # Database connection string (for sqlite/postgres)
+  # Database connection string (for sqlite)
   # connection_string: "sqlite://arvak.db"
-  # connection_string: "postgres://user:pass@localhost/arvak"
 
   # Database connection pool size
   pool_size: 10
