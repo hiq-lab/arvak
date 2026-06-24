@@ -54,4 +54,26 @@ ignore = [
     #   Same as RUSTSEC-2026-0176 — bump pyo3 to >= 0.29.0 once the
     #   Rust toolchain in CI supports it.
     "RUSTSEC-2026-0177",
+
+    # ----------------------------------------------------------------
+    # RUSTSEC-2024-0436 — paste crate is no longer maintained.
+    # Severity: informational/unmaintained (not a vulnerability —
+    # cargo audit exits 0 with this present, but listing it here keeps
+    # the warning count at zero for clean CI summaries).
+    #
+    # Why ignored:
+    #   paste is a transitive proc-macro dep we never use directly. It
+    #   is pulled in through gemm (matrix multiplication kernels) ->
+    #   faer (tensor network linear algebra) -> arvak-proj. Upstream
+    #   gemm/pulp/faer would need to migrate to a maintained
+    #   alternative (e.g. pastey or std `concat_idents!` once it
+    #   stabilises). Confirmed via `cargo tree --invert paste` on
+    #   2026-06-24 that we have no direct use.
+    #
+    # Removal path:
+    #   When faer/gemm/pulp drop the paste dependency (track gemm
+    #   upstream at https://github.com/sarah-quinones/gemm). Once
+    #   `cargo tree --invert paste` returns no matches in this
+    #   workspace, delete this entry.
+    "RUSTSEC-2024-0436",
 ]
