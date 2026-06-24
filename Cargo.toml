@@ -69,7 +69,7 @@ anyhow = "1.0"
 
 # CLI
 clap = { version = "4.5", features = ["derive", "env"] }
-indicatif = "0.17"
+indicatif = "0.18"
 console = "0.15"
 
 # HTTP
@@ -110,8 +110,8 @@ libloading = "0.8"
 # Allocator
 mimalloc = { version = "0.1", default-features = false }
 
-# Random
-rand = "0.8"
+# Random (>= 0.8.6 closes RUSTSEC-2026-0097 unsoundness; cf. audit.toml)
+rand = "0.8.6"
 
 # Testing
 proptest = "1.5"
