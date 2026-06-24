@@ -1,0 +1,57 @@
+# cargo-audit configuration.
+#
+# Read by `cargo audit` from the workspace root. Used to suppress specific
+# RUSTSEC advisories that have been reviewed and determined not to affect
+# this codebase (e.g., affected API not in use), or that require an
+# infeasible toolchain bump to remediate directly.
+#
+# Every entry here MUST have:
+#   1. Why the advisory is ignored (which check was done).
+#   2. What it would take to remove the ignore (so the entry has a clear
+#      removal path, not silent forever-suppression).
+#
+# CI's Security Audit job consumes this file. Adding an entry without
+# justification is grounds for blocking the PR at review.
+
+[advisories]
+ignore = [
+    # ----------------------------------------------------------------
+    # RUSTSEC-2026-0176 — pyo3 OOB read in BoundListIterator::nth /
+    # nth_back and BoundTupleIterator::nth / nth_back.
+    # Affected: pyo3 >= 0.24.0, < 0.29.0
+    # Patched:  pyo3 >= 0.29.0
+    #
+    # Why ignored:
+    #   We do not call BoundListIterator::nth / nth_back or
+    #   BoundTupleIterator::nth / nth_back anywhere in the codebase.
+    #   Verified by `grep -rn "BoundListIterator\|nth_back" --include="*.rs"`
+    #   on 2026-06-15 — zero hits. Our PyO3 surface uses iteration via
+    #   `for ... in ...` over native types, which goes through
+    #   `Iterator::next`, not the optimized `nth` paths.
+    #
+    # Removal path:
+    #   Bump to pyo3 >= 0.29.0. Currently blocked because pyo3 0.29
+    #   uses the unstable `cfg_select!` macro that needs Rust ≥ 1.91
+    #   (see github.com/rust-lang/rust/issues/115585). Will be removed
+    #   once we bump CI's pinned Rust toolchain — a separate change.
+    "RUSTSEC-2026-0176",
+
+    # ----------------------------------------------------------------
+    # RUSTSEC-2026-0177 — pyo3 missing Sync bound on
+    # PyCFunction::new_closure.
+    # Affected: pyo3 >= 0.15.0, < 0.29.0
+    # Patched:  pyo3 >= 0.29.0
+    #
+    # Why ignored:
+    #   We do not call PyCFunction::new_closure (or new_closure_bound)
+    #   anywhere in the codebase. Verified by `grep -rn
+    #   "PyCFunction::new_closure\|new_closure_bound" --include="*.rs"`
+    #   on 2026-06-15 — zero hits. Our Python-callable surface is
+    #   exposed via `#[pyfunction]` and `#[pymethods]` macros, never
+    #   via runtime closure construction.
+    #
+    # Removal path:
+    #   Same as RUSTSEC-2026-0176 — bump pyo3 to >= 0.29.0 once the
+    #   Rust toolchain in CI supports it.
+    "RUSTSEC-2026-0177",
+]
