@@ -46,9 +46,11 @@ is a thin façade" actually true, instead of partially true.
 
 Arvak has 12 native Rust backend adapters (`adapters/arvak-adapter-*`)
 implementing `arvak_hal::Backend`. The CLI and gRPC paths use them
-directly. **The Python `ArvakProvider` does not.** Instead, six parallel
-Python classes re-implement vendor submission, polling, and result
-parsing on top of vendor SDKs:
+directly. **The Python framework integrations do not.** Instead, every
+Python framework integration that exists today has its own Python wrapper
+classes that re-implement vendor submission paths.
+
+#### Qiskit integration — six parallel Python classes
 
 | Python class | File:line | Lines | Uses (Python SDK) | Native Rust adapter exists? |
 |---|---|---|---|---|
@@ -60,16 +62,28 @@ parsing on top of vendor SDKs:
 | `ArvakAQTBackend` | `backend.py:2422` | ~300 | AQT Arnica HTTP | `arvak-adapter-aqt` |
 | `ArvakIonQBackend` | `backend.py:2814` | ~370 | IonQ Cloud REST | `arvak-adapter-ionq` |
 
-The only Python class that *does* use the native Rust path is
-`ArvakSimulatorBackend`, and even it goes through `arvak.run_sim` (a
-`#[pyfunction]`) rather than through `arvak-adapter-sim` as a `Backend`
-trait impl.
+#### Other framework integrations — same architectural pattern
+
+Each of the other three framework integrations has its own backend
+wrapper module with the same anti-pattern of bypassing the native HAL
+trait. Two of them (cirq, pennylane) are simulator-only so the cost is
+just "wrong abstraction"; one of them (qrisp) **also** bypasses our
+native IQM adapter via `iqm.qiskit_iqm`, replicating the exact problem
+the qiskit integration has.
+
+| Integration | Backend class(es) | File | Lines | Cloud-vendor bypass? |
+|---|---|---|---|---|
+| `arvak.integrations.cirq` | `ArvakSampler`, `ArvakEngine`, `ArvakResult` | `cirq/backend.py` | 193 | no — sim only via `arvak.run_sim` |
+| `arvak.integrations.pennylane` | `ArvakDevice` | `pennylane/backend.py` | 237 | no — sim only via `arvak.run_sim` |
+| `arvak.integrations.qrisp` | `ArvakBackendClient`, `ArvakProvider` | `qrisp/backend.py` | 431 | **yes** — imports `iqm.qiskit_iqm.IQMProvider` for IQM-resonance submission, same bypass as the qiskit integration |
+| `arvak.integrations.pulser` | (converter + calibrate only, no backend class) | `pulser/*.py` | n/a | n/a — no backend layer to fix |
 
 Concretely: today, calling `provider.get_backend('iqm_garnet').run(qc)`
 imports `iqm-client[qiskit]==33.0.3`, transpiles via `qiskit-on-iqm`,
 and submits through the IQM SDK — even though
 `adapters/arvak-adapter-iqm/src/api.rs` already implements the IQM
 Resonance REST API in 435 lines of `reqwest` against the same endpoint.
+The same pattern repeats for the qrisp integration's IQM client.
 
 ### Why this is wrong
 
@@ -101,68 +115,115 @@ Resonance REST API in 435 lines of `reqwest` against the same endpoint.
 
 1. One implementation per vendor, in Rust, exposed to Python through
    PyO3.
-2. Single Python class — `arvak.ArvakBackend` — works for any backend
-   the Rust side knows about.
+2. Single underlying Python class per framework — `ArvakBackend` for
+   qiskit, `ArvakSampler`/`ArvakEngine` for cirq, `ArvakDevice` for
+   pennylane, `ArvakBackendClient` for qrisp — each a thin format
+   adapter, no per-vendor branching inside.
 3. Provider discovery driven by a Rust `BackendRegistry`, not by
    hard-coded sets in Python.
 4. Remove vendor SDK dependencies from `arvak-python/pyproject.toml`
-   extras.
+   extras (notably `iqm-client[qiskit]`, which is consumed by **both**
+   the qiskit and qrisp integrations today).
 5. Backward-compatible during migration: existing
-   `provider.get_backend('iqm_garnet').run(qc)` keeps working while
-   the implementation underneath swaps.
+   `provider.get_backend('iqm_garnet').run(qc)` (and the equivalent
+   Cirq/PennyLane/Qrisp entry points) keep working while the
+   implementation underneath swaps.
+6. **One native call site, N framework adapters.** Once a vendor is
+   ported in any phase, all framework integrations that touch that
+   vendor land in the same PR — no half-migrated state where qiskit is
+   native but qrisp is still SDK-bypassed for the same backend.
 
 ## Non-goals
 
-- **Killing the `ArvakProvider` Qiskit-compat surface.** Users who write
-  Qiskit-style `provider.get_backend(...).run(circuit)` should keep
-  working forever. Only the *implementation* changes.
+- **Killing the framework-shaped surfaces.** Users who write
+  Qiskit-style `provider.get_backend(...).run(circuit)`, Cirq-style
+  `ArvakSampler(...).run(circuit)`, PennyLane-style
+  `ArvakDevice(...)`, or Qrisp-style `ArvakBackendClient(...)` should
+  keep working forever. Only the *implementation underneath* changes.
 - **Adding new vendor support.** This RFC is consolidation, not
   expansion.
+- **Adding new framework support.** Pulser already has a converter
+  layer (no backend class); adding a pulser backend wrapper is future
+  work, not part of this RFC. Other frameworks (Catalyst, Bloqade,
+  etc.) likewise out of scope.
 - **Touching the compiler pipeline.** `arvak.compile`,
   `BasisGates.iqm()`, `CouplingMap.*` are unchanged.
-- **Replacing the QASM3 ingress format.** Python passes QASM3 strings to
-  Rust; the Rust adapter takes `arvak_ir::Circuit`. Conversion happens
-  once at the boundary.
+- **Replacing the QASM3 ingress format.** Python passes QASM3 strings
+  to Rust; the Rust adapter takes `arvak_ir::Circuit`. Conversion
+  happens once at the boundary, regardless of which framework wrapper
+  produced the QASM3.
 
 ## Proposed architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│  Python                                                          │
-│  arvak.integrations.qiskit                                       │
-│    ArvakProvider                                                 │
-│      .get_backend(name) → ArvakBackend                           │
-│                                                                  │
-│    ArvakBackend  (Qiskit-compat duck-typed class)                │
-│      .name, .num_qubits, .basis_gates, .coupling_map             │
-│      .run(qc, shots) → ArvakJob                                  │
-│      .availability(), .validate(), .submit(), .status(), ...     │
-│                                                                  │
-│    ArvakJob                                                      │
-│      .job_id(), .status(), .result()                             │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │ PyO3
-┌────────────────────────────▼─────────────────────────────────────┐
-│  arvak-python (Rust, PyO3)                                       │
-│    #[pyclass] PyBackend     ← wraps Box<dyn arvak_hal::Backend>  │
-│    #[pyclass] PyJobHandle   ← wraps (backend_ref, JobId)         │
-│    #[pyclass] PyCapabilities, PyJobStatus, PyExecutionResult     │
-│    #[pyfunction] backend_for(name: &str) -> PyBackend            │
-│    #[pyfunction] list_backends() -> Vec<String>                  │
-│                                                                  │
-│    BackendRegistry — single-process registry, lazy construction  │
-└────────────────────────────┬─────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Python — framework-agnostic native surface                                │
+│                                                                            │
+│  import arvak                                                              │
+│    arvak.Backend / arvak.JobHandle / arvak.ExecutionResult ...             │
+│    arvak.backend_for(name)  /  arvak.list_backends()                       │
+│                                                                            │
+│  Accepts QASM3 strings, returns native types. NO framework dependency.     │
+│  This is the canonical user-facing API; all integrations below are thin    │
+│  framework-shaped wrappers around this one surface.                        │
+└────────────────────────────────────────────────────────────────────────────┘
+        ▲                ▲                ▲                ▲
+        │                │                │                │
+┌───────┴─────┐  ┌───────┴─────┐  ┌───────┴─────┐  ┌───────┴─────┐
+│ integrations│  │ integrations│  │ integrations│  │ integrations│
+│   /qiskit   │  │    /cirq    │  │ /pennylane  │  │   /qrisp    │
+│             │  │             │  │             │  │             │
+│ ArvakProvi- │  │ ArvakSampler│  │ ArvakDevice │  │ ArvakBackend│
+│ der +       │  │ ArvakEngine │  │ (PennyLane- │  │ Client +    │
+│ ArvakBackend│  │ (Cirq-shaped│  │ shaped)     │  │ ArvakProvi- │
+│ (Qiskit-    │  │ Sampler/    │  │             │  │ der (Qrisp- │
+│ shaped duck │  │ Engine)     │  │             │  │ shaped)     │
+│ types)      │  │             │  │             │  │             │
+└─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘
+        │                │                │                │
+        └────────────────┴────────────────┴────────────────┘
+                                  │
+                                  │ each integration converts:
+                                  │   framework_circuit → QASM3 → arvak.Backend
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│  arvak-python (Rust, PyO3) — single bridge to HAL                          │
+│    #[pyclass] PyBackend     ← wraps Arc<dyn arvak_hal::Backend>            │
+│    #[pyclass] PyJobHandle   ← wraps (backend_ref, JobId)                   │
+│    #[pyclass] PyCapabilities, PyJobStatus, PyExecutionResult,              │
+│               PyValidationResult, PyAvailability                           │
+│    #[pyfunction] backend_for(name: &str) -> PyBackend                      │
+│    #[pyfunction] list_backends() -> Vec<String>                            │
+│                                                                            │
+│    BackendRegistry — single-process registry, lazy construction            │
+└────────────────────────────┬───────────────────────────────────────────────┘
                              │ Rust trait dispatch
-┌────────────────────────────▼─────────────────────────────────────┐
-│  arvak-hal::Backend                                              │
-│    name, capabilities, availability, validate,                   │
-│    submit, status, result, cancel, wait                          │
-└────────────────────────────┬─────────────────────────────────────┘
+┌────────────────────────────▼───────────────────────────────────────────────┐
+│  arvak-hal::Backend                                                        │
+│    name, capabilities, availability, validate,                             │
+│    submit, status, result, cancel, wait                                    │
+└────────────────────────────┬───────────────────────────────────────────────┘
                              │ implements
        ┌─────────────────────┼─────────────────────┐
        ▼                     ▼                     ▼
   adapter-ibm          adapter-iqm            adapter-quantinuum  ... (12 total)
 ```
+
+**Key point:** the four framework integrations are *not competing surfaces* —
+they are *format adapters around the same native `arvak.Backend`*. Adding a
+fifth framework integration in the future is a pure conversion job, with no
+re-implementation of vendor submission, polling, or result parsing.
+
+**What "Qiskit-shaped" means in this diagram:** the Python classes under
+`integrations/qiskit/` expose attributes and method signatures that mimic
+the Qiskit `BackendV2`/`JobV1` contract (`.name`, `.num_qubits`,
+`.basis_gates`, `.coupling_map`, `.run(qc, shots) → job`, `.result().get_counts()`).
+This is a *duck-typed surface* — none of our classes inherit from Qiskit
+base classes. The same pattern repeats per framework: cirq uses
+Sampler/Engine terminology, pennylane uses Device terminology, qrisp uses
+Backend/Provider terminology. All four ultimately call into the same
+`arvak.Backend` PyO3 layer.
 
 ### PyO3 surface
 
@@ -516,24 +577,64 @@ The vendor we just discussed. Validates the cloud-vendor pattern.
 
 1. Wire `arvak-adapter-iqm` as an optional feature.
 2. Add IQM branch to `BackendRegistry::get`.
-3. Switch `provider.get_backend('iqm_*')` to return `ArvakBackend`.
-4. Remove `iqm-client[qiskit]==33.0.3` from `pyproject.toml` extras.
-5. Mark `ArvakIQMResonanceBackend` deprecated.
+3. **In the qiskit integration:** switch
+   `provider.get_backend('iqm_*')` to return `ArvakBackend`.
+4. **In the qrisp integration:** rewrite the
+   `iqm.qiskit_iqm.IQMProvider` path in `qrisp/backend.py` to delegate
+   to the same native `arvak.backend_for(name)`. This is the **second
+   bypass site for IQM** — leaving it would mean the qrisp surface
+   keeps the vendor SDK round-trip even after the qiskit surface is
+   clean.
+5. Remove `iqm-client[qiskit]==33.0.3` from `pyproject.toml` extras
+   (used by both integration paths).
+6. Mark `ArvakIQMResonanceBackend` and the qrisp IQM path deprecated.
 
 **Validates:** cloud auth via env (`IQM_TOKEN`), OIDC path for LUMI/LRZ
 still works (existing native adapter supports it), submission/polling
-through PyO3.
+through PyO3, **and** the cross-framework pattern (one native call
+site, two framework adapters consuming it).
 
 ### Phases 3–6 — Remaining vendors (1–2 days each)
 
 In order of likely difficulty / blast radius:
 3. Scaleway (similar shape to IQM)
-4. IBM (most users — extra care, more parametrized circuits)
-5. Quantinuum (batch API quirks)
+4. IBM (most users — extra care, more parametrized circuits). **Before
+   starting:** evaluate **MQT YAQS** (`munich-quantum-toolkit/yaqs`,
+   active as of 2026-06) for replacing or extending Nathan's
+   `nathan.noise` module. YAQS focuses on noisy/open-system simulation
+   and may be a better authoritative noise model than what we have for
+   IBM Heron/Eagle backends. If adopted, it influences the
+   capabilities surface we report from the IBM HAL adapter; if not,
+   IBM phase proceeds as today.
+5. Quantinuum (batch API quirks). **Before starting:** evaluate **MQT
+   ionshuttler** (`munich-quantum-toolkit/ionshuttler`, active as of
+   2026-06) for QCCD shuttling schedules. Quantinuum H1/H2 are QCCD
+   ion-trap; ionshuttler generates the exact schedules Quantinuum
+   wants. May feed into the compile pipeline for Quantinuum-specific
+   gate ordering. If adopted, becomes a compile-pass dep before
+   submission; if not, Quantinuum phase proceeds as today.
 6. AQT, IonQ (smaller surface)
 
-Each phase: native adapter wired + Python class switched + vendor SDK
-dependency removed + old class deprecated.
+Each phase: native adapter wired + relevant Python class(es) switched
+across **all** affected framework integrations (qiskit, cirq, pennylane,
+qrisp) + vendor SDK dependency removed + old classes deprecated.
+
+**Per-integration impact map** (use this to know which framework
+modules each phase touches):
+
+| Phase | Vendor | qiskit | cirq | pennylane | qrisp |
+|---|---|:---:|:---:|:---:|:---:|
+| 2 | IQM | switch `ArvakIQMResonanceBackend` | n/a (sim only) | n/a (sim only) | rewrite IQM path in `ArvakBackendClient` |
+| 3 | Scaleway | switch `ArvakScalewayBackend` | n/a | n/a | n/a |
+| 4 | IBM | switch `ArvakIBMBackend` | n/a | n/a | n/a |
+| 5 | Quantinuum | switch `ArvakQuantinuumBackend` | n/a | n/a | n/a |
+| 6 | AQT, IonQ | switch `ArvakAQTBackend`, `ArvakIonQBackend` | n/a | n/a | n/a |
+| 1.5+post-Phase-2 cleanup | sim | already done | switch `ArvakSampler`/`ArvakEngine` from `arvak.run_sim` to `arvak.backend_for('sim')` | switch `ArvakDevice` from `arvak.run_sim` to `arvak.backend_for('sim')` | switch sim path |
+
+(The cirq/pennylane/qrisp sim switches are mechanical 1-line changes
+per integration but should ride with Phase 2 once the deferred
+`ArvakJob` from A2 lands — otherwise they regress on eager-blocking
+semantics in framework-specific ways.)
 
 ### Phase 7 — Cleanup (0.5 day)
 
@@ -578,6 +679,25 @@ dependency removed + old class deprecated.
 4. **gRPC service compatibility.** `arvak-grpc` already uses these
    native adapters — no change needed. But if Phase N changes the HAL
    `Backend` trait shape (it shouldn't), gRPC needs to follow.
+5. **Optional MQT-tool adoption in vendor phases.** Phase 4 (IBM) and
+   Phase 5 (Quantinuum) flag MQT YAQS / ionshuttler as adoption
+   candidates. *Risk:* adopting an MQT dep mid-migration adds a new
+   external project to track, and YAQS/ionshuttler are themselves
+   early-active projects (June 2026). *Mitigation:* the adoption check
+   is non-blocking — if either tool is not mature enough or
+   architecturally awkward to integrate, the corresponding phase
+   proceeds without it. The point of flagging is to *consider* before
+   shipping, not to *require*. Re-check at the start of the relevant
+   phase, not now.
+6. **Cross-framework feature drift.** With four integrations
+   delegating to the same native surface, a backend behavior change
+   in the Rust adapter is supposed to flow to all four. *Risk:* a
+   framework-specific Python wrapper grows a workaround for an old
+   behaviour and never gets updated when the underlying behavior
+   changes. *Mitigation:* phase-N PRs must touch *all* affected
+   integrations in a single PR (the impact map in Phases 3–6 above
+   makes this explicit); audit each framework's tests against the new
+   native surface before deleting deprecated classes in Phase 7.
 
 ### Open questions
 
