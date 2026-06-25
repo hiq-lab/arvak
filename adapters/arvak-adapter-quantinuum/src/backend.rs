@@ -190,8 +190,27 @@ impl QuantinuumBackend {
     }
 }
 
+/// Per-target qubit counts for known Quantinuum machines.
+///
+/// Matches the legacy `ArvakQuantinuumBackend._MACHINE_QUBITS` dict so the
+/// capabilities surface remains stable when the Python integration switches
+/// to the native adapter. Falls back to the caller-supplied default for
+/// unknown targets so user-defined machine names still work.
+///
+/// Note: the H1/H2 lines have well-known stable qubit counts (Quantinuum
+/// hasn't changed these in years). The TTL-cached `machine_info` API
+/// query overrides this at runtime once available.
+fn qubits_for_target(target: &str, default: u32) -> u32 {
+    match target {
+        "H2-1" | "H2-1E" | "H2-1LE" => 32,
+        "H1-1" | "H1-1E" => 20,
+        _ => default,
+    }
+}
+
 /// Build `Capabilities` for a Quantinuum machine from its name.
-fn build_capabilities(target: &str, num_qubits: u32) -> Capabilities {
+fn build_capabilities(target: &str, num_qubits_default: u32) -> Capabilities {
+    let num_qubits = qubits_for_target(target, num_qubits_default);
     let is_simulator = target.ends_with('E') || target.ends_with("LE");
     Capabilities::quantinuum(target, num_qubits).with_simulator(is_simulator)
 }
