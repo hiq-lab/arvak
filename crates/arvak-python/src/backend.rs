@@ -724,6 +724,59 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 ))
             }
         }
+        // Quantinuum H1/H2 ion-trap systems (real hardware + emulators).
+        // Auth via QUANTINUUM_EMAIL + QUANTINUUM_PASSWORD env vars.
+        //
+        // Registry name → Quantinuum machine identifier:
+        //   quantinuum_h2           → H2-1   (real H2 hardware)
+        //   quantinuum_h2_emulator  → H2-1E  (cloud emulator)
+        //   quantinuum_h1_emulator  → H1-1E  (cloud emulator)
+        //   (the local noiseless emulator H2-1LE is the adapter default)
+        //
+        // RFC §Phase 5 gate: evaluated MQT ionshuttler on 2026-06-25,
+        // decided to skip. ionshuttler is a generic QCCD research tool —
+        // Quantinuum's commercial pipeline handles shuttling internally
+        // and doesn't expose shuttle-schedule input via REST. Not
+        // useful in our thin-adapter shape.
+        n if n.starts_with("quantinuum_") => {
+            #[cfg(feature = "adapter-quantinuum")]
+            {
+                let machine = match n {
+                    "quantinuum_h2" => "H2-1",
+                    "quantinuum_h2_emulator" => "H2-1E",
+                    "quantinuum_h1_emulator" => "H1-1E",
+                    other => {
+                        return Err(HalError::Configuration(format!(
+                            "unknown Quantinuum backend: {other} \
+                             (known: quantinuum_h2, quantinuum_h2_emulator, quantinuum_h1_emulator)"
+                        )));
+                    }
+                };
+                // Pre-validate env vars for clearer error messages than the
+                // adapter's bare MissingEmail / MissingPassword variants.
+                std::env::var("QUANTINUUM_EMAIL").map_err(|_| {
+                    HalError::Configuration(
+                        "QUANTINUUM_EMAIL not set — required for Quantinuum API auth. \
+                         Sign up at quantinuum.com."
+                            .into(),
+                    )
+                })?;
+                std::env::var("QUANTINUUM_PASSWORD").map_err(|_| {
+                    HalError::Configuration(
+                        "QUANTINUUM_PASSWORD not set — required for Quantinuum API auth.".into(),
+                    )
+                })?;
+                let backend = arvak_adapter_quantinuum::QuantinuumBackend::with_target(machine)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-quantinuum"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "Quantinuum adapter not compiled in for backend {n} (enable 'adapter-quantinuum' feature)"
+                )))
+            }
+        }
         // IBM Quantum (Cloud API). Modern path uses IBM_API_KEY + a service
         // CRN. EU-hosted backends (brussels, strasbourg, aachen) check
         // IBM_SERVICE_CRN_EU first, with fallback to IBM_SERVICE_CRN — matches
@@ -890,6 +943,12 @@ fn known_backends() -> Vec<String> {
         v.push("scaleway_garnet".into());
         v.push("scaleway_sirius".into());
         v.push("scaleway_emerald".into());
+    }
+    #[cfg(feature = "adapter-quantinuum")]
+    {
+        v.push("quantinuum_h2".into());
+        v.push("quantinuum_h2_emulator".into());
+        v.push("quantinuum_h1_emulator".into());
     }
     #[cfg(feature = "adapter-ibm")]
     {
