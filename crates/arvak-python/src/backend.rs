@@ -724,6 +724,68 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 ))
             }
         }
+        // IBM Quantum (Cloud API). Modern path uses IBM_API_KEY + a service
+        // CRN. EU-hosted backends (brussels, strasbourg, aachen) check
+        // IBM_SERVICE_CRN_EU first, with fallback to IBM_SERVICE_CRN — matches
+        // the legacy ArvakIBMBackend behaviour. US-East backends use
+        // IBM_SERVICE_CRN directly. The native adapter parses the CRN to
+        // pick the correct region endpoint.
+        n if n.starts_with("ibm_") => {
+            #[cfg(feature = "adapter-ibm")]
+            {
+                const EU_BACKENDS: &[&str] = &["ibm_brussels", "ibm_strasbourg", "ibm_aachen"];
+                let is_eu = EU_BACKENDS.contains(&n);
+
+                // Sanity check: we want IBM_API_KEY to be set before going
+                // further so the error message points at the missing key
+                // rather than an IbmError::MissingServiceCrn surfaced from
+                // deep inside connect().
+                std::env::var("IBM_API_KEY").map_err(|_| {
+                    HalError::Configuration(
+                        "IBM_API_KEY not set — required for IBM Cloud Quantum API. \
+                         Get it from cloud.ibm.com → API keys."
+                            .into(),
+                    )
+                })?;
+
+                // EU path: prefer IBM_SERVICE_CRN_EU, fall back to IBM_SERVICE_CRN.
+                // Adapter reads IBM_SERVICE_CRN directly, so we shim the EU CRN
+                // through it when present.
+                if is_eu && let Ok(eu_crn) = std::env::var("IBM_SERVICE_CRN_EU") {
+                    // SAFETY: setting env var to redirect the adapter's read.
+                    // Single-threaded at this point in the registry path.
+                    unsafe {
+                        std::env::set_var("IBM_SERVICE_CRN", &eu_crn);
+                    }
+                }
+
+                if std::env::var("IBM_SERVICE_CRN").is_err() {
+                    let hint = if is_eu {
+                        "IBM_SERVICE_CRN_EU or IBM_SERVICE_CRN not set — required for \
+                         EU-hosted IBM backends (Frankfurt region)."
+                    } else {
+                        "IBM_SERVICE_CRN not set — required for IBM Cloud Quantum API. \
+                         Format: crn:v1:bluemix:public:quantum-computing:<region>:..."
+                    };
+                    return Err(HalError::Configuration(hint.into()));
+                }
+
+                // IbmBackend::connect() is async (fetches real topology /
+                // qubit count from the Cloud API). Block on it via the
+                // shared runtime.
+                let target = n.to_string();
+                let backend = runtime()
+                    .block_on(arvak_adapter_ibm::IbmBackend::connect(target))
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-ibm"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "IBM adapter not compiled in for backend {n} (enable 'adapter-ibm' feature)"
+                )))
+            }
+        }
         // Scaleway QaaS — IQM hardware (Garnet/Sirius/Emerald) hosted by
         // Scaleway, accessed via their REST API. Requires three env vars:
         // SCALEWAY_SECRET_KEY, SCALEWAY_PROJECT_ID, SCALEWAY_SESSION_ID
@@ -828,6 +890,22 @@ fn known_backends() -> Vec<String> {
         v.push("scaleway_garnet".into());
         v.push("scaleway_sirius".into());
         v.push("scaleway_emerald".into());
+    }
+    #[cfg(feature = "adapter-ibm")]
+    {
+        // US-East
+        v.push("ibm_torino".into());
+        v.push("ibm_fez".into());
+        v.push("ibm_marrakesh".into());
+        v.push("ibm_brisbane".into());
+        v.push("ibm_kyoto".into());
+        v.push("ibm_osaka".into());
+        v.push("ibm_sherbrooke".into());
+        v.push("ibm_nazca".into());
+        // EU (Frankfurt)
+        v.push("ibm_brussels".into());
+        v.push("ibm_strasbourg".into());
+        v.push("ibm_aachen".into());
     }
     v
 }
