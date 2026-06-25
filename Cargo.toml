@@ -40,6 +40,7 @@ arvak-proj = { path = "crates/arvak-proj" }
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
 arvak-adapter-ddsim = { path = "adapters/arvak-adapter-ddsim" }
 arvak-adapter-braket = { path = "adapters/arvak-adapter-braket" }
+arvak-adapter-cudaq = { path = "adapters/arvak-adapter-cudaq" }
 arvak-adapter-ionq = { path = "adapters/arvak-adapter-ionq" }
 arvak-adapter-quandela = { path = "adapters/arvak-adapter-quandela" }
 
