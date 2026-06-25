@@ -9,7 +9,8 @@ use tracing::{debug, info, instrument};
 
 use arvak_hal::{
     Backend, BackendAvailability, BackendConfig, BackendFactory, Capabilities, Counts,
-    ExecutionResult, HalError, HalResult, Job, JobId, JobStatus, ValidationResult,
+    ExecutionResult, HalError, HalResult, Job, JobId, JobStatus, OidcAuth, OidcConfig,
+    ValidationResult,
 };
 use arvak_ir::Circuit;
 
@@ -92,15 +93,65 @@ impl IqmBackend {
         token: impl Into<String>,
         target: impl Into<String>,
     ) -> IqmResult<Self> {
-        let mut config = BackendConfig::new("iqm")
+        let target_str: String = target.into();
+        let mut config = BackendConfig::new(format!("iqm_{}", target_str))
             .with_endpoint(endpoint)
             .with_token(token);
 
         config
             .extra
-            .insert("target".into(), serde_json::json!(target.into()));
+            .insert("target".into(), serde_json::json!(target_str));
 
         Self::from_config_impl(config)
+    }
+
+    /// Create a backend authenticated via OIDC (LUMI Helmi / LRZ).
+    ///
+    /// Reads a cached OIDC token (from a prior interactive `arvak auth
+    /// login` session) and uses it as the bearer for IQM Resonance
+    /// REST calls. If no valid cached token is found, returns an
+    /// authentication error pointing the user at the login command.
+    ///
+    /// The endpoint URL is required and must be provided by the
+    /// caller — LUMI's URL is delivered via the `HELMI_CORTEX_URL`
+    /// environment variable inside the LUMI module environment; LRZ
+    /// users get theirs from the LRZ documentation.
+    ///
+    /// # Limitation
+    ///
+    /// The bearer token is fetched once at construction. For very
+    /// long-running jobs (≫ 1 hour) that exceed the OIDC access
+    /// token lifetime, the in-flight HTTP call may fail with 401 and
+    /// the user must reconstruct the backend (which triggers
+    /// auto-refresh from the cached refresh token via `OidcAuth`).
+    /// A proper auto-refresh path is future work.
+    pub fn with_oidc(
+        config: OidcConfig,
+        target: impl Into<String>,
+        endpoint: impl Into<String>,
+    ) -> IqmResult<Self> {
+        let auth = OidcAuth::new(config)
+            .map_err(|e| IqmError::AuthFailed(format!("OIDC handler init failed: {e}")))?;
+
+        // Sync block on the async get_token. OidcAuth tries cache → refresh
+        // and only fails if no valid path is available.
+        let rt = tokio::runtime::Handle::try_current().ok();
+        let token = if let Some(handle) = rt {
+            // We're already inside a tokio runtime (PyO3 wrapper path) —
+            // block_in_place + handle.block_on, or just use the handle.
+            // Safest: spawn a temporary runtime on the current thread.
+            tokio::task::block_in_place(|| handle.block_on(auth.get_token()))
+        } else {
+            // Standalone Rust caller — build a private runtime.
+            let private_rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| IqmError::AuthFailed(format!("runtime build failed: {e}")))?;
+            private_rt.block_on(auth.get_token())
+        }
+        .map_err(|e| IqmError::AuthFailed(format!("OIDC token fetch failed: {e}")))?;
+
+        Self::with_credentials(endpoint, token, target)
     }
 
     fn from_config_impl(config: BackendConfig) -> IqmResult<Self> {

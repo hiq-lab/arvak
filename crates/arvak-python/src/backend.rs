@@ -652,6 +652,78 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 ))
             }
         }
+        // LUMI Helmi at CSC Finland — IQM hardware via CSC OIDC auth.
+        // Endpoint comes from HELMI_CORTEX_URL (set by LUMI's helmi_qiskit
+        // module) so we don't hardcode a private URL. Project ID comes
+        // from LUMI_PROJECT_ID. Initial OIDC login is handled by `arvak
+        // auth login` (out-of-band, browser-based); this call reads the
+        // cached token and refreshes via refresh-token if needed.
+        "iqm_helmi" => {
+            #[cfg(feature = "adapter-iqm")]
+            {
+                let endpoint = std::env::var("HELMI_CORTEX_URL").map_err(|_| {
+                    HalError::Configuration(
+                        "HELMI_CORTEX_URL not set — LUMI's helmi_qiskit module \
+                         sets this env var when loaded. For local use outside \
+                         LUMI, set it manually to the Helmi Cortex API URL."
+                            .into(),
+                    )
+                })?;
+                let project_id = std::env::var("LUMI_PROJECT_ID").map_err(|_| {
+                    HalError::Configuration(
+                        "LUMI_PROJECT_ID not set — required for CSC OIDC auth. \
+                         Use the project ID you applied for on LUMI."
+                            .into(),
+                    )
+                })?;
+                let oidc = arvak_hal::OidcConfig::lumi(&project_id);
+                let backend = arvak_adapter_iqm::IqmBackend::with_oidc(oidc, "helmi", endpoint)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-iqm"))]
+            {
+                Err(HalError::Configuration(
+                    "IQM adapter not compiled in (enable 'adapter-iqm' feature)".into(),
+                ))
+            }
+        }
+        // LRZ-hosted IQM machines via LRZ OIDC.
+        // Endpoint from LRZ_IQM_URL, project from LRZ_PROJECT_ID.
+        // Target name follows pattern iqm_lrz_<machine>.
+        n if n.starts_with("iqm_lrz_") => {
+            #[cfg(feature = "adapter-iqm")]
+            {
+                let target = &n["iqm_lrz_".len()..];
+                if target.is_empty() {
+                    return Err(HalError::Configuration(format!(
+                        "invalid LRZ backend name: {n} (expected 'iqm_lrz_<machine>')"
+                    )));
+                }
+                let endpoint = std::env::var("LRZ_IQM_URL").map_err(|_| {
+                    HalError::Configuration(
+                        "LRZ_IQM_URL not set — required for LRZ-hosted IQM access. \
+                         See LRZ quantum-computing documentation for the URL."
+                            .into(),
+                    )
+                })?;
+                let project_id = std::env::var("LRZ_PROJECT_ID").map_err(|_| {
+                    HalError::Configuration(
+                        "LRZ_PROJECT_ID not set — required for LRZ OIDC auth.".into(),
+                    )
+                })?;
+                let oidc = arvak_hal::OidcConfig::lrz(&project_id);
+                let backend = arvak_adapter_iqm::IqmBackend::with_oidc(oidc, target, endpoint)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-iqm"))]
+            {
+                Err(HalError::Configuration(
+                    "IQM adapter not compiled in (enable 'adapter-iqm' feature)".into(),
+                ))
+            }
+        }
         n if n.starts_with("iqm_") => {
             #[cfg(feature = "adapter-iqm")]
             {
@@ -693,10 +765,15 @@ fn known_backends() -> Vec<String> {
     }
     #[cfg(feature = "adapter-iqm")]
     {
+        // IQM Resonance Cloud — token auth via IQM_TOKEN
         v.push("iqm_garnet".into());
         v.push("iqm_sirius".into());
         v.push("iqm_emerald".into());
         v.push("iqm_crystal".into());
+        // LUMI Helmi at CSC — OIDC auth via cached token
+        v.push("iqm_helmi".into());
+        // LRZ-hosted IQM machines — OIDC auth; users append machine name
+        // (e.g. iqm_lrz_<machine>). The bare "iqm_lrz_" form is invalid.
     }
     v
 }
