@@ -724,6 +724,47 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 ))
             }
         }
+        // Quandela — photonic QPUs and simulators via Perceval Cloud.
+        // Auth: PCVL_CLOUD_TOKEN env var (Perceval's convention; the
+        // adapter passes this to a Perceval Python subprocess bridge).
+        // Platform layout from arvak_adapter_quandela::backend:
+        //   sim:ascella (6q free sim)  qpu:ascella (6q QPU)
+        //   sim:belenos (12q sim)      qpu:belenos (12q QPU, 2025)
+        //   quandela_altair (legacy Altair 4K cryocooled, 5q —
+        //     also the InternalCode PUF target)
+        n if n.starts_with("quandela_") => {
+            #[cfg(feature = "adapter-quandela")]
+            {
+                let platform = match n {
+                    "quandela_ascella_sim" => "sim:ascella",
+                    "quandela_ascella" => "qpu:ascella",
+                    "quandela_belenos_sim" => "sim:belenos",
+                    "quandela_belenos" => "qpu:belenos",
+                    "quandela_altair" => "quandela_altair",
+                    other => {
+                        return Err(HalError::Configuration(format!(
+                            "unknown Quandela backend: {other} \
+                             (known: quandela_ascella_sim, quandela_ascella, \
+                             quandela_belenos_sim, quandela_belenos, quandela_altair)"
+                        )));
+                    }
+                };
+                // PCVL_CLOUD_TOKEN is required for Quandela Cloud platforms.
+                // The `sim:*` simulators may run without it via local mock,
+                // but the Perceval bridge consults the env var either way.
+                // We don't gate on it here — let the bridge surface the
+                // auth error with its own Perceval-specific message.
+                let backend = arvak_adapter_quandela::QuandelaBackend::for_platform(platform)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-quandela"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "Quandela adapter not compiled in for backend {n} (enable 'adapter-quandela' feature)"
+                )))
+            }
+        }
         // AQT (Alpine Quantum Technologies) — ion-trap simulators and
         // IBEX Q1 hardware via the Arnica cloud API. AQT_TOKEN is
         // required even for offline simulators (Arnica validates).
@@ -1041,6 +1082,14 @@ fn known_backends() -> Vec<String> {
         v.push("ionq_aria_1".into());
         v.push("ionq_aria_2".into());
         v.push("ionq_forte_1".into());
+    }
+    #[cfg(feature = "adapter-quandela")]
+    {
+        v.push("quandela_ascella_sim".into());
+        v.push("quandela_ascella".into());
+        v.push("quandela_belenos_sim".into());
+        v.push("quandela_belenos".into());
+        v.push("quandela_altair".into());
     }
     #[cfg(feature = "adapter-ibm")]
     {
