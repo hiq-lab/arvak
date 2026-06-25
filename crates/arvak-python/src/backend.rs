@@ -1239,16 +1239,25 @@ fn known_backends() -> Vec<String> {
     }
     #[cfg(feature = "adapter-ibm")]
     {
-        // US-East
-        v.push("ibm_torino".into());
+        // IBM aggressively retires older devices (typically 6–18 months
+        // after release). The names below were confirmed reachable
+        // on 2026-06-25 against current US-East and Frankfurt CRNs.
+        // Six older 127q Eagle systems (Kyoto, Osaka, Brisbane,
+        // Sherbrooke, Nazca, Torino) were retired during 2025 and
+        // have been pruned from this list — even though make_backend()
+        // would still attempt them on request, surfacing
+        // "Backend not available" via the IBM Cloud API.
+        //
+        // The make_backend() prefix branch accepts any `ibm_*` name
+        // not listed here, so a future device or a name we missed
+        // still works without a code change — list_backends() just
+        // won't advertise it.
+        //
+        // US-East Heron r3 (156q):
         v.push("ibm_fez".into());
         v.push("ibm_marrakesh".into());
-        v.push("ibm_brisbane".into());
-        v.push("ibm_kyoto".into());
-        v.push("ibm_osaka".into());
-        v.push("ibm_sherbrooke".into());
-        v.push("ibm_nazca".into());
-        // EU (Frankfurt)
+        // EU Frankfurt (require IBM_SERVICE_CRN_EU). Brussels and
+        // Strasbourg are 127q Eagles, Aachen is a 156q Heron r3.
         v.push("ibm_brussels".into());
         v.push("ibm_strasbourg".into());
         v.push("ibm_aachen".into());
