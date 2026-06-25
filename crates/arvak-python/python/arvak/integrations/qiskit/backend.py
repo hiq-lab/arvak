@@ -273,15 +273,21 @@ class ArvakProvider:
             # See docs/RFC/0001-native-backend-unification.md.
             self._backends['sim'] = ArvakBackend(provider=self, backend_name='sim')
 
-        # Lazily create IBM backends on demand
+        # Lazily create IBM backends on demand — Phase 4: native arvak-adapter-ibm
+        # via PyO3. Construction triggers an HTTP call to fetch real backend
+        # topology / qubit count from IBM Cloud (no more 127-qubit fallback).
+        # See RFC-0001 Phase 4.
         if name and name in self._IBM_BACKENDS and name not in self._backends:
             try:
-                self._backends[name] = ArvakIBMBackend(provider=self, target=name)
-            except (ValueError, ImportError) as e:
-                # Credentials not set or requests not available
+                self._backends[name] = ArvakBackend(
+                    provider=self, backend_name=name,
+                )
+            except (ValueError, RuntimeError, ConnectionError, PermissionError) as e:
                 raise ValueError(
                     f"Cannot connect to {name}: {e}. "
-                    f"Set IBM_API_KEY and IBM_SERVICE_CRN environment variables."
+                    f"Set IBM_API_KEY and IBM_SERVICE_CRN environment variables. "
+                    f"For EU backends (brussels/strasbourg/aachen), also set "
+                    f"IBM_SERVICE_CRN_EU."
                 ) from e
 
         # Lazily create Scaleway backends — Phase 3: native arvak-adapter-scaleway
@@ -598,6 +604,17 @@ class ArvakSimulatorBackend:
 class ArvakIBMBackend:
     """Arvak IBM Quantum backend with Qiskit-compatible interface.
 
+    .. deprecated:: 2.3
+        Use :class:`ArvakBackend` instead.
+        ``ArvakProvider.get_backend('ibm_torino')`` now returns the
+        native-HAL-backed class automatically (Phase 4). Direct
+        instantiation of this class still works but will be removed in
+        a future release. The native path replaces the in-Python
+        ``requests`` HTTP loop with ``arvak-adapter-ibm`` (Rust REST
+        client) reached via PyO3, and fetches real backend topology
+        from the IBM Cloud API at construction (no more 127-qubit
+        fallback).
+
     Compiles circuits with Arvak's Rust compiler and submits them to
     IBM Quantum hardware via the IBM Cloud REST API.
 
@@ -609,6 +626,15 @@ class ArvakIBMBackend:
     _BACKEND_INFO_TTL: int = 300
 
     def __init__(self, provider: ArvakProvider, target: str = 'ibm_torino'):
+        import warnings
+        warnings.warn(
+            "ArvakIBMBackend is deprecated; "
+            "ArvakProvider.get_backend('ibm_*') now returns ArvakBackend "
+            "(native HAL-backed, fetches real topology from IBM Cloud). See "
+            "docs/RFC/0001-native-backend-unification.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         import requests as _requests
         self._requests = _requests
 
