@@ -626,9 +626,18 @@ impl PyBackend {
 // Backend registry — builds backends by name
 // ---------------------------------------------------------------------------
 
-/// Construct a backend by name. Phase 1 supports `"sim"` only.
+/// Construct a backend by name.
 ///
-/// Future phases will add IBM/IQM/Quantinuum/etc. behind feature flags.
+/// Supported as of Phase 2a:
+///   - `"sim"` / `"simulator"` / `"arvak_simulator"` — local statevector
+///     simulator (feature `simulator`, on by default).
+///   - `"iqm_garnet"` / `"iqm_sirius"` / `"iqm_emerald"` / `"iqm_crystal"`
+///     — IQM Resonance cloud machines (feature `adapter-iqm`, on by
+///     default). Auth via `IQM_TOKEN` env var.
+///
+/// LUMI Helmi / LRZ paths (OIDC-authenticated) are out of scope for
+/// 2a — they need the missing `IqmBackend::with_oidc()` glue (RFC
+/// Phase 2b).
 fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> {
     match name {
         "sim" | "arvak_simulator" | "simulator" => {
@@ -643,6 +652,28 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 ))
             }
         }
+        n if n.starts_with("iqm_") => {
+            #[cfg(feature = "adapter-iqm")]
+            {
+                // Strip the "iqm_" prefix to get the target name the
+                // native adapter expects ("garnet", "sirius", etc.).
+                let target = &n["iqm_".len()..];
+                if target.is_empty() {
+                    return Err(HalError::Configuration(format!(
+                        "invalid IQM backend name: {n} (expected 'iqm_<target>', e.g. 'iqm_garnet')"
+                    )));
+                }
+                let backend = arvak_adapter_iqm::IqmBackend::with_target(target)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-iqm"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "IQM adapter not compiled in for backend {n} (enable 'adapter-iqm' feature)"
+                )))
+            }
+        }
         other => Err(HalError::Configuration(format!(
             "unknown backend: {other} (known: {})",
             known_backends().join(", ")
@@ -651,11 +682,21 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
 }
 
 /// List backend names known to this build.
+///
+/// Reports the *canonical* names a caller can pass to
+/// [`make_backend`]. IQM backends use the `iqm_<target>` form.
 fn known_backends() -> Vec<String> {
     let mut v: Vec<String> = Vec::new();
     #[cfg(feature = "simulator")]
     {
         v.push("sim".into());
+    }
+    #[cfg(feature = "adapter-iqm")]
+    {
+        v.push("iqm_garnet".into());
+        v.push("iqm_sirius".into());
+        v.push("iqm_emerald".into());
+        v.push("iqm_crystal".into());
     }
     v
 }

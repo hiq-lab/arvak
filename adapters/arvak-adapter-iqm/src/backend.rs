@@ -68,16 +68,20 @@ impl IqmBackend {
     }
 
     /// Create a backend targeting a specific IQM device.
+    ///
+    /// `Backend::name()` will return `"iqm_<target>"` so multiple IQM
+    /// instances in the same process remain distinguishable to callers.
     pub fn with_target(target: impl Into<String>) -> IqmResult<Self> {
         let token = std::env::var("IQM_TOKEN").map_err(|_| IqmError::MissingToken)?;
+        let target_str: String = target.into();
 
-        let mut config = BackendConfig::new("iqm")
+        let mut config = BackendConfig::new(format!("iqm_{}", target_str))
             .with_endpoint(DEFAULT_ENDPOINT)
             .with_token(&token);
 
         config
             .extra
-            .insert("target".into(), serde_json::json!(target.into()));
+            .insert("target".into(), serde_json::json!(target_str));
 
         Self::from_config_impl(config)
     }
@@ -115,7 +119,18 @@ impl IqmBackend {
 
         let client = IqmClient::new(endpoint, token)?;
 
-        let capabilities = Capabilities::iqm(&target, 20);
+        // Per-target qubit counts for known IQM Resonance machines.
+        // Falls back to 20 (Garnet, the most common default) for unknown
+        // targets so we stay conservative on capacity reporting. The
+        // adapter's TTL-cached `backend_info` query overrides this at
+        // runtime once the HTTP API answers — these defaults are only
+        // used until the first successful availability/backend-info call.
+        let num_qubits = match target.to_ascii_lowercase().as_str() {
+            "sirius" => 16,
+            "emerald" | "crystal" => 54,
+            _ => 20,
+        };
+        let capabilities = Capabilities::iqm(&target, num_qubits);
 
         Ok(Self {
             config,
