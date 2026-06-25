@@ -59,7 +59,12 @@ async fn test_bell_state_sim_ascella() {
         QuandelaBackend::for_platform("sim:ascella").expect("failed to create sim:ascella backend");
 
     let circuit = arvak_ir::Circuit::bell().expect("failed to build Bell circuit");
-    let shots = 500u32;
+    // Photonic post-selection on `sim:ascella` (heralded CNOT plus dual-rail
+    // decoding) typically yields ~15% of the requested shots as valid Bell
+    // samples — at shots=500 we observed ~77 valid samples, which gives a
+    // ~10% standard error on the Bell fraction. Bumping to 2000 yields ~300
+    // samples and pulls the σ below the 90% assertion threshold.
+    let shots = 2_000u32;
 
     // Validate first.
     let vr = backend.validate(&circuit).await.expect("validate failed");

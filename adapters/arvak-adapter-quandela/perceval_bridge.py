@@ -291,27 +291,42 @@ def _build_remote_processor(circuit_json: dict, platform: str, token: str):
 
 def _decode_results(raw_results: dict, qubit_modes: list,
                     ancilla_list: list, n_total: int, n_qubits: int) -> dict:
-    """Convert Perceval FockState counts → qubit bitstring counts."""
+    """Convert Perceval FockState counts → qubit bitstring counts.
+
+    Events that don't decode to a clean dual-rail per qubit (photon
+    collision, partial detection, or mode-mapping failure) are dropped
+    rather than aggregated under a `"?"` bucket — those bits would
+    otherwise leak into the count distribution and dilute the real
+    measurement outcomes.
+    """
     non_herald = _non_herald_modes(n_total, ancilla_list)
     counts: dict = {}
 
     for fock_state, count in raw_results.items():
         photons = list(fock_state)
         bits = []
+        valid = True
         for q in range(n_qubits):
             m0, m1 = qubit_modes[q], qubit_modes[q] + 1
             try:
                 i0 = non_herald.index(m0)
                 i1 = non_herald.index(m1)
             except ValueError:
-                bits.append("?")
-                continue
+                valid = False
+                break
             if photons[i0] == 1 and photons[i1] == 0:
                 bits.append("0")
             elif photons[i0] == 0 and photons[i1] == 1:
                 bits.append("1")
             else:
-                bits.append("?")
+                # Either both rails occupied (collision) or both empty
+                # (incomplete detection) — not a valid dual-rail qubit
+                # state. Drop the event rather than reporting a garbage
+                # bitstring.
+                valid = False
+                break
+        if not valid:
+            continue
         bitstring = "".join(bits)
         counts[bitstring] = counts.get(bitstring, 0) + int(count)
 
@@ -333,7 +348,26 @@ def cmd_submit(platform: str, shots: int, circuit_json_str: str):
     circuit_json = json.loads(circuit_json_str)
     token = _get_token()
     rp = _build_remote_processor(circuit_json, platform, token)
-    sampler = Sampler(rp, max_shots_per_call=shots)
+
+    # Photonic distinction: "shots" (Perceval `max_shots_per_call`) is
+    # laser pulses; "samples" (`execute_async(N)`) is post-selected
+    # detection events. The HAL contract's `shots` argument represents
+    # the user's target sample count, so the shot budget must exceed it
+    # by enough margin to cover heralded-gate failure (postprocessed
+    # CNOT: ~1/9 success per gate) plus photon-loss post-selection.
+    #
+    # The previous wiring set both to the same value, which gave the
+    # server no slack — Bell-state submissions came back with 2 counts
+    # instead of the requested ~500. Default multiplier of 100 covers
+    # one heralded CNOT comfortably; override via
+    # PCVL_SHOT_BUDGET_MULTIPLIER for deeper circuits or noisier QPUs.
+    try:
+        multiplier = max(1, int(os.environ.get("PCVL_SHOT_BUDGET_MULTIPLIER", "100")))
+    except ValueError:
+        multiplier = 100
+    max_shots = max(shots * multiplier, 10_000)
+
+    sampler = Sampler(rp, max_shots_per_call=max_shots)
     job = sampler.sample_count
     job.execute_async(shots)
     print(json.dumps({"job_id": job.id, "error": None}))
