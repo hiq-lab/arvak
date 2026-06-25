@@ -701,32 +701,60 @@ semantics in framework-specific ways.)
 
 ### Open questions
 
-1. **Should `ArvakBackend` be the same class for all backends, or a
-   thin Qiskit-compat subclass per vendor?** Going with single class +
-   prefix-dispatch in this RFC. If users complain about `.basis_gates`
-   needing to look different per vendor, revisit — but a single class
-   that asks Rust for `capabilities().native_gates()` is cleaner.
-2. **Job persistence across processes.** Current vendor classes store
-   nothing between sessions. Native adapters return `JobId(String)`
-   which IS persistable across processes via `backend.status(JobId)`.
-   Worth exposing a `provider.attach_job(backend_name, job_id)` helper?
-   Out of scope for v1.
-3. **Adapter feature defaults.** Ship `arvak` with all adapters
-   compiled in by default (bigger wheel, no-friction), or with `sim`
-   only (small wheel, `pip install arvak[hardware]` for the rest)?
-   Recommendation: ship all by default — the size delta is modest and
-   `pip install arvak` should "just work" for new users.
-4. **What about `arvak.integrations.cirq`, `pennylane`, `qrisp`?** Same
-   pattern applies — their backend objects also currently exist as
-   Python classes. This RFC scopes to the Qiskit integration. Once
-   Qiskit is done, the pattern ports trivially. Out of scope here.
+These are forward-looking design uncertainties that emerge from the
+amended scope but do not block any specific phase. Each one has a
+defer condition — revisit only when the trigger fires.
+
+1. **Vendor instance enumeration via `backend_for(name)`.** Today the
+   registry treats backend identity as a flat string (`iqm_garnet`,
+   `iqm_sirius`, `ibm_heron`, ...). Some vendors have *deployment
+   modes* not just devices — IQM ships the same hardware via Cloud
+   Resonance (token auth) **and** via LUMI Helmi / LRZ (OIDC auth);
+   the native adapter handles both. The current name-string is enough
+   if "different auth = different backend name" (e.g. `iqm_garnet`
+   vs `iqm_garnet_lumi`). *Revisit when:* we wire IQM (Phase 2) and
+   find a real user who needs to pick between auth modes for the same
+   physical device. Until then, the flat-name model is correct.
+
+2. **Framework-specific result-type translation in the integrations.**
+   Cirq's `cirq.Result` and PennyLane's measurement returns are not
+   plain `dict[str, int]`. Today's qiskit `ArvakBackend` returns a
+   bag of counts (matches Qiskit `JobV1.result().get_counts()` shape).
+   When cirq's `ArvakSampler` / pennylane's `ArvakDevice` move to
+   `arvak.backend_for(name)` (the post-Phase-2 sim cleanup row in
+   the impact map), they need to wrap our `ExecutionResult` into the
+   right framework-native type. *Revisit when:* the cirq/pennylane
+   sim cleanup ships — likely small per-integration helpers, not a
+   structural change. Note this is not a *Backend* question, it is a
+   *per-framework adapter* question.
+
+3. **gRPC parity for framework integrations.** `arvak-grpc` exposes
+   the native HAL backends but currently has no Python framework
+   adapter layered on it. A future caller pattern `qiskit user →
+   ArvakProvider → grpc submit` is not in scope here, but the PyO3
+   wiring this RFC builds is what would underpin it. *Revisit when:*
+   someone asks for "Qiskit-shaped client that talks to a remote
+   `arvak-grpc-server`" — at that point the native PyO3 surface is
+   the substrate; integration adapters re-use it whether the
+   underlying `Backend` is local-Rust or grpc-tonic.
+
+4. **MQT-tool integration as a HAL extension vs. compile pass.** If
+   the Phase-4 YAQS check or Phase-5 ionshuttler check ships, where
+   does the MQT call site live — inside the corresponding native
+   adapter (`arvak-adapter-ibm` / `-quantinuum`) so it's transparent
+   to Python callers, or as a separate optional compile pass in
+   `arvak-compile`? *Revisit when:* either MQT evaluation gate
+   triggers a "yes, adopt" verdict at phase start. Default lean:
+   compile pass, because keeping vendor adapters thin (HTTP/REST
+   only) is what makes the cross-vendor swap cheap.
 
 ## Acceptance criteria for marking this RFC accepted
 
-- [ ] Daniel reads it, marks `Status: Accepted` (or returns with
-  changes).
-- [ ] Phase 1 sub-tasks have rough size estimates.
-- [ ] Open question 3 (default features) decided.
+- [x] Daniel reads it, marks `Status: Accepted` (settled 2026-05-23).
+- [x] Phase 1 sub-tasks have rough size estimates (Phase 1 done
+  2026-05-23, Phase 1.5 estimated at ~½ day in the cost table).
+- [x] Default-features decision settled — all 12 adapters in the
+  default wheel.
 
 ## Acceptance criteria for closing each phase
 
