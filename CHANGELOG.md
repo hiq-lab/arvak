@@ -5,6 +5,98 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-06-25
+
+Closes the additive part of RFC-0001 (Native Backend Unification) and
+brings the IQM adapter onto the current Resonance v1 API. Live shot
+verification on real hardware: IBM Marrakesh (156q Heron), IQM Garnet
+(20q Resonance), Quandela `sim:ascella`. Five PRs merged.
+
+### Added
+
+- **AWS Braket, NVIDIA CUDA-Q, MQT DDSIM in the Python registry** (#30).
+  13 new backend names: `braket_sv1/tn1/dm1/rigetti_ankaa/ionq_aria_{1,2}/
+  ionq_forte_1/iqm_garnet`, `cudaq_mqpu/custatevec/tensornet/density_matrix`,
+  `ddsim`. Each routes through `make_backend()` with feature gating
+  (`adapter-braket`, `adapter-cudaq`, `adapter-ddsim`), env-var
+  pre-validation, and the same constructor pattern as Phase 6/6.5.
+  After this PR every adapter in tree except QDMI is in the native
+  registry.
+
+### Changed
+
+- **IQM Resonance v1 API migration** (#33). The
+  `cocos.resonance.meetiqm.com/api/v1` endpoint was retired by IQM.
+  Full rewrite of `arvak-adapter-iqm` against `resonance.iqm.tech/api/v1`:
+  - New URL structure (`POST /jobs/{qc}/{job_type}`; `GET /jobs/{id}`
+    replaces separate status/result endpoints; counts live under
+    `/artifacts/measurement_counts`).
+  - New JSON wire format (IR-style `{circuits: [{name, instructions:
+    [{name, locus, args, implementation}]}], shots}` with QB1/QB2/...
+    locus labels).
+  - New status enum `{waiting, processing, completed, failed,
+    cancelled}`, mapped to HAL `JobStatus`.
+  - HAL-thin layering: adapter advertises native gate set `{prx, cz}`,
+    `validate()` rejects non-native circuits with an actionable
+    `arvak.compile()` message — transpilation lives in arvak-compile,
+    not in the adapter (matches the IBM Heron / AQT / Quantinuum /
+    Quandela pattern).
+  - Always sends `User-Agent: arvak-adapter-iqm/1.0` (the new endpoint
+    is fronted by Cloudflare and 1010-blocks bare HTTP clients).
+  - Live-verified end-to-end: `PRX(π/2, 0)` + measure on Garnet,
+    real-shot round trip.
+
+- **IBM backend list pruned of retired devices** (#32).
+  Six 127q Eagle systems IBM retired during 2025 — Kyoto, Osaka,
+  Brisbane, Sherbrooke, Nazca, Torino — removed from
+  `arvak.list_backends()`. Remaining IBM names: `fez`, `marrakesh`
+  (US-East Heron r3), `brussels`, `strasbourg`, `aachen` (EU
+  Frankfurt, require `IBM_SERVICE_CRN_EU`). `make_backend()`'s
+  `ibm_*` prefix branch still accepts any name and surfaces the IBM
+  Cloud error for unrecognised ones — `list_backends()` is the
+  *advertised* surface, not the gate.
+
+### Fixed
+
+- **Quandela `quandela_altair` registry mapping** (#31).
+  `make_backend()` mapped it to the literal string `"quandela_altair"`;
+  the real Perceval Cloud platform name is `qpu:altair`. Result: 404
+  on every construction. Now routes correctly. (Free-tier tokens still
+  get 403 because Altair access is gated upstream — that's a vendor
+  auth concern.)
+
+- **Quandela job-status parser** (#31).
+  Quandela's server returns `"completed"` for success, not
+  `"success"`. The bridge compared against `"SUCCESS"` (after
+  `.upper()`) and every successful job got mapped to the bridge's
+  `"unknown"` sentinel, surfaced to the caller as `Failed("unknown
+  status: unknown")` — jobs that **completed successfully upstream
+  were being reported as failed**. Fix: route the raw status through
+  Perceval's own `RunningStatus.from_server_response()` (which knows
+  the `"completed"` special case) and map all eight enum values
+  explicitly. `SUSPENDED` and `CANCEL_REQUESTED` now map to
+  `"running"` (transient, non-terminal).
+
+- **Quandela shot accounting on photonic backends** (#34).
+  The bridge was calling
+  `Sampler(rp, max_shots_per_call=shots).sample_count.execute_async(shots)`
+  with the same value in both places. In Perceval those mean different
+  things: `max_shots_per_call` is the total laser-pulse budget; the
+  argument to `execute_async` is the target post-selected sample
+  count. With heralded gates (postprocessed CNOT: ~1/9 success) and
+  dual-rail decoding, the actual yield is ~10–15% — at `shots=500`
+  the user got 2 samples back. Fix: `max_shots = max(shots * 100,
+  10_000)`, multiplier overridable via `PCVL_SHOT_BUDGET_MULTIPLIER`.
+  Before: Bell-state fraction 50% on `sim:ascella`. After: 92.8%.
+
+- **Quandela `_decode_results` dropping garbage dual-rail events** (#34).
+  Events where a qubit's dual-rail couldn't be cleanly decoded (photon
+  collision or partial detection) used to append `"?"` and accumulate
+  into the count dict as separate buckets (e.g. `"1?"`). Those leaked
+  into the Bell-fraction calculation. Now dropped entirely — a
+  partially-decoded photonic event is *undetected*, not a distinct
+  outcome.
+
 ## [1.9.2] - 2026-03-05
 
 ### Added
@@ -779,6 +871,7 @@ If upgrading from development versions:
 
 ---
 
+[1.10.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.10.0
 [1.9.2]: https://github.com/hiq-lab/arvak/releases/tag/v1.9.2
 [1.9.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.9.1
 [1.9.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.9.0

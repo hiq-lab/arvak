@@ -280,7 +280,7 @@ pub unsafe extern "C" fn ARVAK_QDMI_device_session_query_device_property(
                     write_query_result(data, size, value, size_ret)
                 }
                 ffi::QDMI_DEVICE_PROPERTY_VERSION => {
-                    let data = b"1.9.4\0";
+                    let data = b"1.10.0\0";
                     write_query_result(data, size, value, size_ret)
                 }
                 ffi::QDMI_DEVICE_PROPERTY_STATUS => {
