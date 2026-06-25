@@ -11,7 +11,7 @@ name = "arvak"
 crate-type = ["cdylib"]
 
 [features]
-default = ["simulator", "adapter-iqm", "adapter-scaleway", "adapter-ibm", "adapter-quantinuum", "adapter-aqt", "adapter-ionq"]
+default = ["simulator", "adapter-iqm", "adapter-scaleway", "adapter-ibm", "adapter-quantinuum", "adapter-aqt", "adapter-ionq", "adapter-quandela"]
 simulator = ["arvak-adapter-sim"]
 adapter-iqm = ["arvak-adapter-iqm"]
 adapter-scaleway = ["arvak-adapter-scaleway"]
@@ -19,6 +19,7 @@ adapter-ibm = ["arvak-adapter-ibm"]
 adapter-quantinuum = ["arvak-adapter-quantinuum"]
 adapter-aqt = ["arvak-adapter-aqt"]
 adapter-ionq = ["arvak-adapter-ionq"]
+adapter-quandela = ["arvak-adapter-quandela"]
 
 [dependencies]
 pyo3 = { version = "0.28.2", features = ["extension-module"] }
@@ -33,6 +34,7 @@ arvak-adapter-ibm = { path = "../../adapters/arvak-adapter-ibm", optional = true
 arvak-adapter-quantinuum = { path = "../../adapters/arvak-adapter-quantinuum", optional = true }
 arvak-adapter-aqt = { path = "../../adapters/arvak-adapter-aqt", optional = true }
 arvak-adapter-ionq = { path = "../../adapters/arvak-adapter-ionq", optional = true }
+arvak-adapter-quandela = { workspace = true, optional = true }
 arvak-sim = { workspace = true }
 arvak-proj = { workspace = true }
 num-complex = { workspace = true }

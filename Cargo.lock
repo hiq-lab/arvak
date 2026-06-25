@@ -591,6 +591,7 @@ dependencies = [
  "arvak-adapter-ibm",
  "arvak-adapter-ionq",
  "arvak-adapter-iqm",
+ "arvak-adapter-quandela",
  "arvak-adapter-quantinuum",
  "arvak-adapter-scaleway",
  "arvak-adapter-sim",
