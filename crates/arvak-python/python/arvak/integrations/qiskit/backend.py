@@ -298,14 +298,15 @@ class ArvakProvider:
                     f"SCALEWAY_SESSION_ID environment variables."
                 ) from e
 
-        # Lazily create IQM Resonance backends on demand
+        # Lazily create IQM Resonance backends on demand — Phase 2a:
+        # routes through the native arvak-adapter-iqm via PyO3, no longer
+        # imports iqm-client[qiskit]. See RFC-0001 Phase 2.
         if name and name in self._IQM_RESONANCE_BACKENDS and name not in self._backends:
             try:
-                computer = self._IQM_RESONANCE_COMPUTER_MAP[name]
-                self._backends[name] = ArvakIQMResonanceBackend(
-                    provider=self, computer=computer,
+                self._backends[name] = ArvakBackend(
+                    provider=self, backend_name=name,
                 )
-            except (ValueError, ImportError) as e:
+            except (ValueError, RuntimeError, ConnectionError) as e:
                 raise ValueError(
                     f"Cannot connect to {name}: {e}. "
                     f"Set IQM_TOKEN environment variable (from resonance.meetiqm.com)."
@@ -1404,6 +1405,15 @@ class ArvakScalewayBackend:
 class ArvakIQMResonanceBackend:
     """Arvak IQM Resonance backend — submits directly to IQM's cloud API.
 
+    .. deprecated:: 2.1
+        Use :class:`ArvakBackend` instead.
+        ``ArvakProvider.get_backend('iqm_garnet')`` now returns the
+        native-HAL-backed class automatically (Phase 2a). Direct
+        instantiation of this class still works but will be removed in
+        a future release. The native path no longer requires
+        ``iqm-client[qiskit]`` — IQM Resonance is reached through
+        ``arvak-adapter-iqm`` (Rust REST client) via PyO3.
+
     Uses qiskit-on-iqm (iqm-client[qiskit]) for transpilation and submission.
     Arvak provides qubit routing and gate compilation (PRX + CZ basis);
     iqm-client handles serialisation to IQM's native JSON format and auth.
@@ -1419,6 +1429,15 @@ class ArvakIQMResonanceBackend:
     }
 
     def __init__(self, provider: ArvakProvider, computer: str = "sirius"):
+        import warnings
+        warnings.warn(
+            "ArvakIQMResonanceBackend is deprecated; "
+            "ArvakProvider.get_backend('iqm_*') now returns ArvakBackend "
+            "(native HAL-backed, no iqm-client dependency). See "
+            "docs/RFC/0001-native-backend-unification.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         try:
             from iqm.qiskit_iqm import IQMProvider as _IQMProvider
         except ImportError as exc:

@@ -5,15 +5,13 @@ Arvak circuits through Qrisp's backend API.
 
 Supported backends:
   - 'sim'      : Arvak's built-in Rust statevector simulator (no credentials)
-  - 'iqm'      : IQM Resonance QPU via iqm-client / qiskit-iqm (requires IQM_TOKEN)
+  - 'iqm'      : IQM Resonance QPU via the native arvak-adapter-iqm
+                 (requires IQM_TOKEN; no qiskit-iqm dependency)
   - 'scaleway' : Scaleway QaaS (IQM QPU) via REST API (requires SCALEWAY credentials)
 """
 
 import os
 from typing import Optional, Union
-
-# IQM Resonance endpoint
-_IQM_RESONANCE_URL = "https://resonance.meetiqm.com/"
 
 # IQM topology coupling maps (qubit count and connectivity style)
 # Sirius  : 16-qubit  star topology  (QPU-SIRIUS-24PQ physical, 16 usable)
@@ -136,15 +134,21 @@ class ArvakBackendClient:
         return arvak.run_sim(arvak_circuit, shots)
 
     def _run_iqm(self, arvak_circuit, shots: int, **options) -> dict[str, int]:
-        """Compile with Arvak and submit to IQM Resonance.
+        """Compile with Arvak and submit to IQM Resonance via the native adapter.
+
+        Phase 2a: no longer imports ``iqm.qiskit_iqm``. Submission goes
+        through the native Rust ``arvak-adapter-iqm`` (REST against
+        ``https://api.resonance.meetiqm.com``) reached via
+        ``arvak.backend_for("iqm_<computer>")``.
 
         Requires:
           - ``IQM_TOKEN``    env var (Resonance bearer token)
-          - ``IQM_COMPUTER`` env var (default: 'sirius'; options: garnet, emerald)
-          - ``iqm-client`` and ``qiskit-iqm`` Python packages
+          - ``IQM_COMPUTER`` env var (default: ``'sirius'``;
+            options: ``garnet``, ``emerald``, ``crystal``)
 
         The circuit is routed and gate-translated by Arvak's Rust compiler
-        for the selected IQM topology, then submitted via ``qiskit-iqm``.
+        for the selected IQM topology, then submitted via PyO3 to the
+        native adapter — no qiskit-iqm involved.
         """
         import arvak
 
@@ -160,12 +164,13 @@ class ArvakBackendClient:
         num_qubits = topo_info['qubits']
         topology = topo_info['topology']
 
-        # Compile circuit with Arvak for the target IQM topology
+        # Compile circuit with Arvak for the target IQM topology.
+        # This keeps the same per-vendor compile step the legacy code had —
+        # Arvak's compiler handles layout / routing / basis translation
+        # before the QASM3 is handed to the native adapter for HTTP submit.
         if topology == 'star':
             coupling = arvak.CouplingMap.star(num_qubits)
         else:
-            # crystal topology — use linear approximation until CouplingMap.crystal
-            # is available; the compiler will handle remapping
             coupling = arvak.CouplingMap.linear(num_qubits)
 
         basis = arvak.BasisGates.iqm()
@@ -176,34 +181,14 @@ class ArvakBackendClient:
             optimization_level=options.get('optimization_level', 1),
         )
 
-        # Export compiled circuit to QASM3
         qasm_str = arvak.to_qasm(compiled)
 
-        # Submit to IQM Resonance via qiskit-iqm
-        try:
-            from iqm.qiskit_iqm import IQMProvider
-            from qiskit import QuantumCircuit as QiskitCircuit, transpile
-            from qiskit.qasm3 import loads as qasm3_loads
-        except ImportError as exc:
-            raise ImportError(
-                "IQM backend requires 'iqm-client' and 'qiskit-iqm' packages.\n"
-                "Install with: pip install iqm-client qiskit-iqm"
-            ) from exc
-
-        # Parse compiled QASM back to Qiskit for submission
-        qiskit_circuit = qasm3_loads(qasm_str)
-
-        provider = IQMProvider(
-            _IQM_RESONANCE_URL,
-            quantum_computer=computer,
-        )
-        backend = provider.get_backend()
-        qc_transpiled = transpile(qiskit_circuit, backend=backend, optimization_level=0)
-
-        job = backend.run(qc_transpiled, shots=shots)
-        result = job.result()
-        counts = result.get_counts()
-        return dict(counts)
+        # Submit to IQM Resonance via the native Rust adapter — no Qiskit /
+        # qiskit-iqm in the path. The adapter reads IQM_TOKEN itself.
+        backend = arvak.backend_for(f"iqm_{computer}")
+        handle = backend.submit(qasm_str, shots)
+        result = handle.result()  # blocks until done, no fixed timeout
+        return dict(result.counts)
 
     def _run_scaleway(self, arvak_circuit, shots: int, **options) -> dict[str, int]:
         """Compile with Arvak and submit to Scaleway QaaS (IQM QPU).
