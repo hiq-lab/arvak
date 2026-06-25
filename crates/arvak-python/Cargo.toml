@@ -11,8 +11,9 @@ name = "arvak"
 crate-type = ["cdylib"]
 
 [features]
-default = ["simulator"]
+default = ["simulator", "adapter-iqm"]
 simulator = ["arvak-adapter-sim"]
+adapter-iqm = ["arvak-adapter-iqm"]
 
 [dependencies]
 pyo3 = { version = "0.28.2", features = ["extension-module"] }
@@ -21,6 +22,7 @@ arvak-compile = { workspace = true }
 arvak-qasm3 = { workspace = true }
 arvak-hal = { workspace = true }
 arvak-adapter-sim = { workspace = true, optional = true }
+arvak-adapter-iqm = { path = "../../adapters/arvak-adapter-iqm", optional = true }
 arvak-sim = { workspace = true }
 arvak-proj = { workspace = true }
 num-complex = { workspace = true }
