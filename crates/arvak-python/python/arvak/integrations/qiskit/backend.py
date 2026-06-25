@@ -284,14 +284,15 @@ class ArvakProvider:
                     f"Set IBM_API_KEY and IBM_SERVICE_CRN environment variables."
                 ) from e
 
-        # Lazily create Scaleway backends on demand
+        # Lazily create Scaleway backends — Phase 3: native arvak-adapter-scaleway
+        # via PyO3. No more in-Python `requests` HTTP path.
+        # See RFC-0001 Phase 3.
         if name and name in self._SCALEWAY_BACKENDS and name not in self._backends:
             try:
-                platform = self._SCALEWAY_PLATFORM_MAP[name]
-                self._backends[name] = ArvakScalewayBackend(
-                    provider=self, platform=platform,
+                self._backends[name] = ArvakBackend(
+                    provider=self, backend_name=name,
                 )
-            except (ValueError, ImportError) as e:
+            except (ValueError, RuntimeError, ConnectionError) as e:
                 raise ValueError(
                     f"Cannot connect to {name}: {e}. "
                     f"Set SCALEWAY_SECRET_KEY, SCALEWAY_PROJECT_ID, and "
@@ -1121,6 +1122,15 @@ class ArvakIBMJob:
 class ArvakScalewayBackend:
     """Arvak Scaleway/IQM backend with Qiskit-compatible interface.
 
+    .. deprecated:: 2.2
+        Use :class:`ArvakBackend` instead.
+        ``ArvakProvider.get_backend('scaleway_garnet')`` now returns
+        the native-HAL-backed class automatically (Phase 3). Direct
+        instantiation of this class still works but will be removed in
+        a future release. The native path replaces the in-Python
+        ``requests`` HTTP loop with ``arvak-adapter-scaleway`` (Rust
+        REST client) reached via PyO3.
+
     Compiles circuits with Arvak's Rust compiler (PRX + CZ basis, star topology)
     and submits them to IQM hardware via Scaleway's QaaS REST API.
 
@@ -1145,6 +1155,15 @@ class ArvakScalewayBackend:
 
     def __init__(self, provider: ArvakProvider,
                  platform: str = "QPU-GARNET-20PQ"):
+        import warnings
+        warnings.warn(
+            "ArvakScalewayBackend is deprecated; "
+            "ArvakProvider.get_backend('scaleway_*') now returns ArvakBackend "
+            "(native HAL-backed). See "
+            "docs/RFC/0001-native-backend-unification.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         import requests as _requests
         self._requests = _requests
 

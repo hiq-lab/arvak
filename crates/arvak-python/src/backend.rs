@@ -724,6 +724,54 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 ))
             }
         }
+        // Scaleway QaaS — IQM hardware (Garnet/Sirius/Emerald) hosted by
+        // Scaleway, accessed via their REST API. Requires three env vars:
+        // SCALEWAY_SECRET_KEY, SCALEWAY_PROJECT_ID, SCALEWAY_SESSION_ID
+        // (the session must be pre-created in the Scaleway console).
+        n if n.starts_with("scaleway_") => {
+            #[cfg(feature = "adapter-scaleway")]
+            {
+                let machine = &n["scaleway_".len()..];
+                let platform = match machine {
+                    "garnet" => "QPU-GARNET-20PQ",
+                    "sirius" => "QPU-SIRIUS-24PQ",
+                    "emerald" => "QPU-EMERALD-54PQ",
+                    _ => {
+                        return Err(HalError::Configuration(format!(
+                            "unknown Scaleway machine: {n} \
+                             (known: scaleway_garnet, scaleway_sirius, scaleway_emerald)"
+                        )));
+                    }
+                };
+                let secret_key = std::env::var("SCALEWAY_SECRET_KEY").map_err(|_| {
+                    HalError::Configuration(
+                        "SCALEWAY_SECRET_KEY not set — get it from \
+                         console.scaleway.com → API keys"
+                            .into(),
+                    )
+                })?;
+                let project_id = std::env::var("SCALEWAY_PROJECT_ID")
+                    .map_err(|_| HalError::Configuration("SCALEWAY_PROJECT_ID not set".into()))?;
+                let session_id = std::env::var("SCALEWAY_SESSION_ID").map_err(|_| {
+                    HalError::Configuration(
+                        "SCALEWAY_SESSION_ID not set — create a session at \
+                         console.scaleway.com → Quantum Computing → Sessions"
+                            .into(),
+                    )
+                })?;
+                let backend = arvak_adapter_scaleway::ScalewayBackend::with_credentials(
+                    secret_key, project_id, session_id, platform,
+                )
+                .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-scaleway"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "Scaleway adapter not compiled in for backend {n} (enable 'adapter-scaleway' feature)"
+                )))
+            }
+        }
         n if n.starts_with("iqm_") => {
             #[cfg(feature = "adapter-iqm")]
             {
@@ -774,6 +822,12 @@ fn known_backends() -> Vec<String> {
         v.push("iqm_helmi".into());
         // LRZ-hosted IQM machines — OIDC auth; users append machine name
         // (e.g. iqm_lrz_<machine>). The bare "iqm_lrz_" form is invalid.
+    }
+    #[cfg(feature = "adapter-scaleway")]
+    {
+        v.push("scaleway_garnet".into());
+        v.push("scaleway_sirius".into());
+        v.push("scaleway_emerald".into());
     }
     v
 }

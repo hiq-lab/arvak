@@ -7,7 +7,8 @@ Supported backends:
   - 'sim'      : Arvak's built-in Rust statevector simulator (no credentials)
   - 'iqm'      : IQM Resonance QPU via the native arvak-adapter-iqm
                  (requires IQM_TOKEN; no qiskit-iqm dependency)
-  - 'scaleway' : Scaleway QaaS (IQM QPU) via REST API (requires SCALEWAY credentials)
+  - 'scaleway' : Scaleway QaaS (IQM QPU) via the native arvak-adapter-scaleway
+                 (requires SCALEWAY credentials; no requests-loop in Python)
 """
 
 import os
@@ -29,9 +30,6 @@ SCALEWAY_PLATFORMS = {
     "QPU-GARNET-20PQ": {"qubits": 20, "topology": "crystal"},
     "QPU-EMERALD-54PQ": {"qubits": 54, "topology": "crystal"},
 }
-
-# Scaleway QaaS REST endpoint
-_SCALEWAY_API_URL = "https://api.scaleway.com/qaas/v1alpha1"
 
 
 class ArvakBackendClient:
@@ -191,7 +189,12 @@ class ArvakBackendClient:
         return dict(result.counts)
 
     def _run_scaleway(self, arvak_circuit, shots: int, **options) -> dict[str, int]:
-        """Compile with Arvak and submit to Scaleway QaaS (IQM QPU).
+        """Compile with Arvak and submit to Scaleway QaaS via the native adapter.
+
+        Phase 3: no longer makes direct HTTP calls with `requests`.
+        Submission goes through the native Rust ``arvak-adapter-scaleway``
+        (REST against ``api.scaleway.com/qaas``) reached via
+        ``arvak.backend_for("scaleway_<machine>")``.
 
         Requires:
           - ``SCALEWAY_SECRET_KEY``  env var
@@ -199,25 +202,21 @@ class ArvakBackendClient:
           - ``SCALEWAY_SESSION_ID``  env var (pre-created QaaS session)
           - ``SCALEWAY_PLATFORM``    env var (optional; default: QPU-GARNET-20PQ)
 
-        The circuit is compiled by Arvak for the selected IQM topology and
-        submitted as QASM3 to the Scaleway QaaS REST API.
+        The compile pass (PRX+CZ basis, topology-aware routing) runs
+        unchanged on the Arvak side; only the submission path moved to
+        Rust.
         """
         import arvak
-        import json
 
-        secret_key = os.environ.get('SCALEWAY_SECRET_KEY')
-        project_id = os.environ.get('SCALEWAY_PROJECT_ID')
-        session_id = os.environ.get('SCALEWAY_SESSION_ID')
-
-        if not secret_key:
-            raise RuntimeError("SCALEWAY_SECRET_KEY environment variable not set.")
-        if not project_id:
-            raise RuntimeError("SCALEWAY_PROJECT_ID environment variable not set.")
-        if not session_id:
-            raise RuntimeError(
-                "SCALEWAY_SESSION_ID environment variable not set.\n"
-                "Create a session at console.scaleway.com > Quantum Computing > Sessions."
-            )
+        # Validate env vars early with clear messages (the native adapter
+        # also checks but produces less context-rich errors at PyO3 layer).
+        for var in ("SCALEWAY_SECRET_KEY", "SCALEWAY_PROJECT_ID", "SCALEWAY_SESSION_ID"):
+            if not os.environ.get(var):
+                hint = ""
+                if var == "SCALEWAY_SESSION_ID":
+                    hint = ("\nCreate a session at "
+                            "console.scaleway.com > Quantum Computing > Sessions.")
+                raise RuntimeError(f"{var} environment variable not set.{hint}")
 
         platform = options.get(
             'platform',
@@ -227,7 +226,7 @@ class ArvakBackendClient:
         num_qubits = plat_info['qubits']
         topology = plat_info['topology']
 
-        # Compile circuit with Arvak for the target IQM topology
+        # Compile circuit with Arvak for the target IQM topology — unchanged.
         if topology == 'star':
             coupling = arvak.CouplingMap.star(num_qubits)
         else:
@@ -241,102 +240,21 @@ class ArvakBackendClient:
             optimization_level=options.get('optimization_level', 1),
         )
 
-        # Export compiled circuit to QASM3 with stdgates include for Scaleway
         qasm_str = arvak.to_qasm(compiled)
-        qasm_str = qasm_str.replace(
-            "OPENQASM 3.0;",
-            'OPENQASM 3.0;\ninclude "stdgates.inc";',
-            1,
-        )
 
-        # Submit to Scaleway QaaS REST API
-        try:
-            import requests
-        except ImportError as exc:
-            raise ImportError(
-                "Scaleway backend requires the 'requests' package.\n"
-                "Install with: pip install requests"
-            ) from exc
+        # Map platform string to the arvak.backend_for registry name.
+        # The registry branch translates back to the QPU-* platform string
+        # for the native adapter — single mapping point.
+        machine = {
+            "QPU-GARNET-20PQ": "garnet",
+            "QPU-SIRIUS-24PQ": "sirius",
+            "QPU-EMERALD-54PQ": "emerald",
+        }.get(platform, "garnet")
 
-        headers = {
-            "X-Auth-Token": secret_key,
-            "Content-Type": "application/json",
-        }
-
-        # Create a job in the existing session
-        body = {
-            "session_id": session_id,
-            "circuit": {
-                "type": "QASM",
-                "content": qasm_str,
-            },
-            "shots": shots,
-        }
-
-        resp = requests.post(
-            f"{_SCALEWAY_API_URL}/jobs",
-            headers=headers,
-            json=body,
-            timeout=60,
-        )
-        if not resp.ok:
-            raise RuntimeError(
-                f"Scaleway job submission failed ({resp.status_code}): {resp.text}"
-            )
-
-        job_data = resp.json()
-        job_id = job_data.get("id")
-
-        # Poll for completion
-        import time
-        timeout = options.get('timeout', 600)
-        poll_interval = options.get('poll_interval', 5)
-        start = time.time()
-
-        while True:
-            elapsed = time.time() - start
-            if elapsed > timeout:
-                raise RuntimeError(
-                    f"Scaleway job {job_id} timed out after {timeout}s"
-                )
-
-            resp = requests.get(
-                f"{_SCALEWAY_API_URL}/jobs/{job_id}",
-                headers=headers,
-                timeout=30,
-            )
-            if not resp.ok:
-                raise RuntimeError(f"Failed to poll job status: {resp.text}")
-
-            data = resp.json()
-            status = data.get("status", "").upper()
-
-            if status in ("COMPLETED", "SUCCEEDED", "DONE"):
-                break
-            elif status in ("FAILED", "ERROR", "CANCELLED"):
-                raise RuntimeError(
-                    f"Scaleway job {job_id} {status.lower()}: "
-                    f"{data.get('error', {}).get('message', 'unknown error')}"
-                )
-
-            time.sleep(poll_interval)
-
-        # Fetch results
-        resp = requests.get(
-            f"{_SCALEWAY_API_URL}/jobs/{job_id}/results",
-            headers=headers,
-            timeout=60,
-        )
-        if not resp.ok:
-            raise RuntimeError(f"Failed to fetch Scaleway results: {resp.text}")
-
-        results_data = resp.json()
-        counts: dict[str, int] = {}
-        for result in results_data.get("results", []):
-            for bitstring, count in result.get("counts", {}).items():
-                counts[bitstring] = counts.get(bitstring, 0) + count
-
-        return counts
+        backend = arvak.backend_for(f"scaleway_{machine}")
+        handle = backend.submit(qasm_str, shots)
+        result = handle.result()  # blocks until done
+        return dict(result.counts)
 
     def __repr__(self) -> str:
         return f"<ArvakBackendClient('{self.name}')>"
