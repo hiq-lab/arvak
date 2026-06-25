@@ -24,11 +24,27 @@ use crate::error::{IonQError, IonQResult};
 /// IonQ simulator backend name.
 pub const SIMULATOR: &str = "simulator";
 
-/// Simulator qubit limit.
+/// Simulator qubit limit (free-tier).
 const SIMULATOR_MAX_QUBITS: u32 = 29;
 
-/// QPU qubit limit (Aria/Forte — 25 algorithmic qubits).
+/// Aria QPU qubit limit (algorithmic qubits, Aria-1 and Aria-2).
 const QPU_MAX_QUBITS: u32 = 25;
+
+/// Per-target qubit count for known IonQ backends.
+///
+/// Mirrors the legacy `ArvakIonQBackend._BACKEND_QUBITS` dict so the
+/// capabilities surface stays stable when the Python integration switches
+/// to the native adapter. Forte-1 is 36 qubits — explicitly distinct from
+/// Aria's 25. Falls back to [`QPU_MAX_QUBITS`] for unknown QPU names so
+/// user-supplied targets still build a capability.
+fn qubits_for_backend(backend_name: &str) -> u32 {
+    match backend_name {
+        SIMULATOR => SIMULATOR_MAX_QUBITS,
+        "qpu.aria-1" | "qpu.aria-2" => 25,
+        "qpu.forte-1" => 36,
+        _ => QPU_MAX_QUBITS,
+    }
+}
 
 /// Maximum number of cached job entries before evicting terminal-state entries.
 const MAX_CACHED_JOBS: usize = 10_000;
@@ -104,11 +120,7 @@ impl IonQBackend {
         let backend_name = backend_name.into();
         let name = format!("ionq_{}", backend_name.replace('.', "_"));
 
-        let max_qubits = if backend_name == SIMULATOR {
-            SIMULATOR_MAX_QUBITS
-        } else {
-            QPU_MAX_QUBITS
-        };
+        let max_qubits = qubits_for_backend(&backend_name);
         let capabilities = build_capabilities(&backend_name, max_qubits);
 
         Ok(Self {
@@ -130,11 +142,7 @@ impl IonQBackend {
         let backend_name = backend_name.into();
         let name = format!("ionq_{}", backend_name.replace('.', "_"));
 
-        let max_qubits = if backend_name == SIMULATOR {
-            SIMULATOR_MAX_QUBITS
-        } else {
-            QPU_MAX_QUBITS
-        };
+        let max_qubits = qubits_for_backend(&backend_name);
         let capabilities = build_capabilities(&backend_name, max_qubits);
 
         Ok(Self {
