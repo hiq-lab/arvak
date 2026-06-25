@@ -337,21 +337,27 @@ class ArvakProvider:
                     f"Set QUANTINUUM_EMAIL and QUANTINUUM_PASSWORD environment variables."
                 ) from e
 
-        # Lazily create AQT backends on demand
+        # Lazily create AQT backends on demand — Phase 6: native
+        # arvak-adapter-aqt via PyO3.
         if name and name in self._AQT_BACKENDS and name not in self._backends:
-            workspace, resource = self._AQT_RESOURCE_MAP[name]
-            self._backends[name] = ArvakAQTBackend(
-                provider=self, workspace=workspace, resource=resource,
-            )
+            try:
+                self._backends[name] = ArvakBackend(
+                    provider=self, backend_name=name,
+                )
+            except (ValueError, RuntimeError, ConnectionError, PermissionError) as e:
+                raise ValueError(
+                    f"Cannot connect to {name}: {e}. "
+                    f"Set AQT_TOKEN environment variable."
+                ) from e
 
-        # Lazily create IonQ backends on demand
+        # Lazily create IonQ backends on demand — Phase 6: native
+        # arvak-adapter-ionq via PyO3.
         if name and name in self._IONQ_BACKENDS and name not in self._backends:
             try:
-                device = self._IONQ_DEVICE_MAP[name]
-                self._backends[name] = ArvakIonQBackend(
-                    provider=self, backend_name=device,
+                self._backends[name] = ArvakBackend(
+                    provider=self, backend_name=name,
                 )
-            except (ValueError, ImportError) as e:
+            except (ValueError, RuntimeError, ConnectionError, PermissionError) as e:
                 raise ValueError(
                     f"Cannot connect to {name}: {e}. "
                     f"Set IONQ_API_KEY environment variable."
@@ -2737,6 +2743,14 @@ def _iqm_postprocess_qasm(qasm: str) -> str:
 class ArvakAQTBackend:
     """Arvak AQT backend — submits directly to AQT's Arnica REST API.
 
+    .. deprecated:: 2.5
+        Use :class:`ArvakBackend` instead.
+        ``ArvakProvider.get_backend('aqt_*')`` now returns the native-HAL-
+        backed class automatically (Phase 6). Direct instantiation of this
+        class still works but will be removed in a future release. The
+        native path replaces the in-Python ``requests`` HTTP loop with
+        ``arvak-adapter-aqt`` (Rust REST client) reached via PyO3.
+
     Transpiles Qiskit circuits to the AQT native gate set (rz, rx, rxx) using
     Qiskit's transpiler, then serialises to AQT's JSON circuit format and
     submits to `https://arnica.aqt.eu/api/v1`.
@@ -2762,6 +2776,15 @@ class ArvakAQTBackend:
         workspace: str = 'default',
         resource: str = 'offline_simulator_no_noise',
     ):
+        import warnings
+        warnings.warn(
+            "ArvakAQTBackend is deprecated; "
+            "ArvakProvider.get_backend('aqt_*') now returns ArvakBackend "
+            "(native HAL-backed). See "
+            "docs/RFC/0001-native-backend-unification.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         import requests as _requests
         self._requests = _requests
 
@@ -3129,6 +3152,15 @@ class ArvakAQTResult:
 class ArvakIonQBackend:
     """Arvak IonQ backend — submits directly to IonQ's REST API v0.4.
 
+    .. deprecated:: 2.5
+        Use :class:`ArvakBackend` instead.
+        ``ArvakProvider.get_backend('ionq_*')`` now returns the
+        native-HAL-backed class automatically (Phase 6). Direct
+        instantiation of this class still works but will be removed in
+        a future release. The native path replaces the in-Python
+        ``requests`` HTTP loop with ``arvak-adapter-ionq`` (Rust REST
+        client) reached via PyO3.
+
     Uses the IonQ **QIS gateset** — Arvak compiles to standard gates
     (h, cx, rx, ry, rz, etc.) and IonQ compiles to native gates server-side.
     All IonQ devices have all-to-all qubit connectivity.
@@ -3155,6 +3187,15 @@ class ArvakIonQBackend:
         provider,
         backend_name: str = 'simulator',
     ):
+        import warnings
+        warnings.warn(
+            "ArvakIonQBackend is deprecated; "
+            "ArvakProvider.get_backend('ionq_*') now returns ArvakBackend "
+            "(native HAL-backed). See "
+            "docs/RFC/0001-native-backend-unification.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         import requests as _requests
         self._requests = _requests
 

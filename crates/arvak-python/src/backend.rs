@@ -724,6 +724,85 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 ))
             }
         }
+        // AQT (Alpine Quantum Technologies) — ion-trap simulators and
+        // IBEX Q1 hardware via the Arnica cloud API. AQT_TOKEN is
+        // required even for offline simulators (Arnica validates).
+        n if n.starts_with("aqt_") => {
+            #[cfg(feature = "adapter-aqt")]
+            {
+                // Registry name → (workspace, resource) on Arnica.
+                let (workspace, resource) = match n {
+                    "aqt_offline_sim" => ("default", "offline_simulator_no_noise"),
+                    "aqt_noise_sim" => ("default", "offline_simulator_noise"),
+                    "aqt_cloud_sim" => ("aqt_simulators", "simulator_noise"),
+                    other => {
+                        return Err(HalError::Configuration(format!(
+                            "unknown AQT backend: {other} \
+                             (known: aqt_offline_sim, aqt_noise_sim, aqt_cloud_sim)"
+                        )));
+                    }
+                };
+                // The adapter itself tolerates an empty AQT_TOKEN (offline
+                // sim path) but Arnica still validates tokens server-side.
+                // We surface a clearer error if the user hasn't set one.
+                if std::env::var("AQT_TOKEN")
+                    .ok()
+                    .filter(|s| !s.is_empty())
+                    .is_none()
+                {
+                    return Err(HalError::Configuration(
+                        "AQT_TOKEN not set — required by Arnica cloud API even for \
+                         offline simulators (confirmed 2026-02-21). Get a token from \
+                         arnica.aqt.eu."
+                            .into(),
+                    ));
+                }
+                let backend = arvak_adapter_aqt::AqtBackend::with_resource(workspace, resource)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-aqt"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "AQT adapter not compiled in for backend {n} (enable 'adapter-aqt' feature)"
+                )))
+            }
+        }
+        // IonQ — cloud simulator (29q free tier) + Aria-1/2 (25q) +
+        // Forte-1 (36q) trapped-ion QPUs via REST. Auth: IONQ_API_KEY.
+        n if n.starts_with("ionq_") => {
+            #[cfg(feature = "adapter-ionq")]
+            {
+                let device = match n {
+                    "ionq_simulator" => "simulator",
+                    "ionq_aria_1" => "qpu.aria-1",
+                    "ionq_aria_2" => "qpu.aria-2",
+                    "ionq_forte_1" => "qpu.forte-1",
+                    other => {
+                        return Err(HalError::Configuration(format!(
+                            "unknown IonQ backend: {other} \
+                             (known: ionq_simulator, ionq_aria_1, ionq_aria_2, ionq_forte_1)"
+                        )));
+                    }
+                };
+                std::env::var("IONQ_API_KEY").map_err(|_| {
+                    HalError::Configuration(
+                        "IONQ_API_KEY not set — required for IonQ Cloud API. \
+                         Get a key from cloud.ionq.com."
+                            .into(),
+                    )
+                })?;
+                let backend = arvak_adapter_ionq::IonQBackend::with_backend(device)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-ionq"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "IonQ adapter not compiled in for backend {n} (enable 'adapter-ionq' feature)"
+                )))
+            }
+        }
         // Quantinuum H1/H2 ion-trap systems (real hardware + emulators).
         // Auth via QUANTINUUM_EMAIL + QUANTINUUM_PASSWORD env vars.
         //
@@ -949,6 +1028,19 @@ fn known_backends() -> Vec<String> {
         v.push("quantinuum_h2".into());
         v.push("quantinuum_h2_emulator".into());
         v.push("quantinuum_h1_emulator".into());
+    }
+    #[cfg(feature = "adapter-aqt")]
+    {
+        v.push("aqt_offline_sim".into());
+        v.push("aqt_noise_sim".into());
+        v.push("aqt_cloud_sim".into());
+    }
+    #[cfg(feature = "adapter-ionq")]
+    {
+        v.push("ionq_simulator".into());
+        v.push("ionq_aria_1".into());
+        v.push("ionq_aria_2".into());
+        v.push("ionq_forte_1".into());
     }
     #[cfg(feature = "adapter-ibm")]
     {
