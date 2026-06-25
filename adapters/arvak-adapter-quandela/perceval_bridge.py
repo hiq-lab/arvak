@@ -342,18 +342,34 @@ def cmd_submit(platform: str, shots: int, circuit_json_str: str):
 def cmd_status(platform: str, job_id: str):
     rpc = RPCHandler(platform, CLOUD_URL, _get_token())
     resp = rpc.get_job_status(job_id)
-    raw = resp.get("status", "UNKNOWN").upper()
+    raw = resp.get("status", "UNKNOWN")
+    # Route the server's raw status string through Perceval's own
+    # `RunningStatus.from_server_response()` so any string the upstream
+    # produces — including server-name special cases like "completed" → SUCCESS
+    # that don't follow the enum-name-uppercased convention — is normalised
+    # into a known enum value first.  Unknown server strings end up as
+    # RunningStatus.UNKNOWN, which we treat as a terminal error.
+    from perceval.runtime.job_status import RunningStatus
+    enum_val = RunningStatus.from_server_response(raw)
+    enum_name = enum_val.name  # "WAITING" | "RUNNING" | ... | "UNKNOWN"
+    # SUSPENDED and CANCEL_REQUESTED are transient and non-terminal — keep
+    # the caller polling. UNKNOWN is a terminal error with raw context.
     mapping = {
-        "WAITING": "queued",
-        "RUNNING": "running",
-        "SUCCESS": "done",
-        "ERROR":   "error",
-        "CANCEL_REQUESTED": "cancelled",
+        "WAITING":          "queued",
+        "RUNNING":          "running",
+        "SUSPENDED":        "running",
+        "CANCEL_REQUESTED": "running",
+        "SUCCESS":          "done",
+        "ERROR":            "error",
         "CANCELED":         "cancelled",
+        "UNKNOWN":          "error",
     }
-    status = mapping.get(raw, "unknown")
+    status = mapping[enum_name]
     msg = resp.get("status_message", "")
-    print(json.dumps({"status": status, "raw": raw, "message": msg, "error": None}))
+    if status == "error" and not msg:
+        msg = f"Perceval RunningStatus={enum_name} (server={raw!r})"
+    print(json.dumps(
+        {"status": status, "raw": enum_name, "message": msg, "error": None}))
 
 
 def cmd_result(platform: str, job_id: str, n_qubits: int, circuit_json_str: str):
