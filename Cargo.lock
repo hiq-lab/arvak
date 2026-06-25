@@ -588,6 +588,7 @@ name = "arvak-python"
 version = "1.9.5"
 dependencies = [
  "arvak-adapter-iqm",
+ "arvak-adapter-scaleway",
  "arvak-adapter-sim",
  "arvak-compile",
  "arvak-hal",
