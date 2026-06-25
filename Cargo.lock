@@ -589,6 +589,7 @@ version = "1.9.5"
 dependencies = [
  "arvak-adapter-ibm",
  "arvak-adapter-iqm",
+ "arvak-adapter-quantinuum",
  "arvak-adapter-scaleway",
  "arvak-adapter-sim",
  "arvak-compile",
