@@ -844,6 +844,122 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                 )))
             }
         }
+        // AWS Braket — managed quantum service. Cloud simulators (SV1/
+        // TN1/DM1) plus QPU access to Rigetti Ankaa-3, IonQ Aria-1/2/
+        // Forte-1, and IQM Garnet. Auth via standard AWS chain (env,
+        // SSO, config, IAM role). Requires ARVAK_BRAKET_S3_BUCKET for
+        // task result storage. Device ARN constants live in
+        // arvak_adapter_braket::device.
+        n if n.starts_with("braket_") => {
+            #[cfg(feature = "adapter-braket")]
+            {
+                use arvak_adapter_braket::device;
+                let arn = match n {
+                    "braket_sv1" => device::SV1,
+                    "braket_tn1" => device::TN1,
+                    "braket_dm1" => device::DM1,
+                    "braket_rigetti_ankaa" => device::RIGETTI_ANKAA_3,
+                    "braket_ionq_aria_1" => device::IONQ_ARIA,
+                    "braket_ionq_aria_2" => device::IONQ_ARIA_2,
+                    "braket_ionq_forte_1" => device::IONQ_FORTE,
+                    "braket_iqm_garnet" => device::IQM_GARNET,
+                    other => {
+                        return Err(HalError::Configuration(format!(
+                            "unknown Braket backend: {other} \
+                             (known: braket_sv1, braket_tn1, braket_dm1, \
+                             braket_rigetti_ankaa, braket_ionq_aria_1, \
+                             braket_ionq_aria_2, braket_ionq_forte_1, \
+                             braket_iqm_garnet)"
+                        )));
+                    }
+                };
+                // ARVAK_BRAKET_S3_BUCKET is required by the adapter for
+                // result storage. Surface it before going async so the
+                // user gets a clear message rather than an opaque
+                // BraketError::MissingS3Bucket from inside connect().
+                std::env::var("ARVAK_BRAKET_S3_BUCKET").map_err(|_| {
+                    HalError::Configuration(
+                        "ARVAK_BRAKET_S3_BUCKET not set — required for Braket task results. \
+                         Create an S3 bucket and grant Braket write access (see AWS docs)."
+                            .into(),
+                    )
+                })?;
+                // BraketBackend::connect() is async (initializes AWS
+                // SDK client + fetches device info for unknown ARNs).
+                let backend = runtime()
+                    .block_on(arvak_adapter_braket::BraketBackend::connect(arn))
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-braket"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "Braket adapter not compiled in for backend {n} (enable 'adapter-braket' feature)"
+                )))
+            }
+        }
+        // NVIDIA CUDA-Q — GPU-accelerated simulators (and eventually
+        // hardware backends) via REST. Targets:
+        //   cudaq_mqpu          → nvidia-mqpu (40q multi-GPU statevector)
+        //   cudaq_custatevec    → custatevec  (32q single-GPU statevector)
+        //   cudaq_tensornet     → tensornet   (100q tensor-network)
+        //   cudaq_density_matrix→ density-matrix (20q noise sim)
+        // Auth via CUDAQ_API_TOKEN.
+        n if n.starts_with("cudaq_") => {
+            #[cfg(feature = "adapter-cudaq")]
+            {
+                let target = match n {
+                    "cudaq_mqpu" => arvak_adapter_cudaq::targets::MQPU,
+                    "cudaq_custatevec" => arvak_adapter_cudaq::targets::CUSTATEVEC,
+                    "cudaq_tensornet" => arvak_adapter_cudaq::targets::TENSORNET,
+                    "cudaq_density_matrix" => arvak_adapter_cudaq::targets::DM,
+                    other => {
+                        return Err(HalError::Configuration(format!(
+                            "unknown CUDA-Q backend: {other} \
+                             (known: cudaq_mqpu, cudaq_custatevec, cudaq_tensornet, \
+                             cudaq_density_matrix)"
+                        )));
+                    }
+                };
+                // CUDAQ_API_TOKEN is read by CudaqBackend::with_target() —
+                // pre-check it here to provide a clearer error than
+                // CudaqError::MissingToken.
+                std::env::var("CUDAQ_API_TOKEN").map_err(|_| {
+                    HalError::Configuration(
+                        "CUDAQ_API_TOKEN not set — required for NVIDIA CUDA-Q Cloud API. \
+                         Get a token from build.nvidia.com → API keys."
+                            .into(),
+                    )
+                })?;
+                let backend = arvak_adapter_cudaq::CudaqBackend::with_target(target)
+                    .map_err(|e| HalError::Backend(e.to_string()))?;
+                Ok(Arc::new(backend))
+            }
+            #[cfg(not(feature = "adapter-cudaq"))]
+            {
+                Err(HalError::Configuration(format!(
+                    "CUDA-Q adapter not compiled in for backend {n} (enable 'adapter-cudaq' feature)"
+                )))
+            }
+        }
+        // MQT DDSIM — local decision-diagram simulator. Runs out-of-
+        // process via a python3 subprocess (`pip install mqt.ddsim`).
+        // No cloud auth. The bare name "ddsim" maps to default
+        // settings (128q ceiling); future targets like ddsim_path,
+        // ddsim_hybrid can be added if/when we wire alternative DDSIM
+        // engines.
+        "ddsim" => {
+            #[cfg(feature = "adapter-ddsim")]
+            {
+                Ok(Arc::new(arvak_adapter_ddsim::DdsimBackend::new()))
+            }
+            #[cfg(not(feature = "adapter-ddsim"))]
+            {
+                Err(HalError::Configuration(
+                    "DDSIM adapter not compiled in (enable 'adapter-ddsim' feature)".into(),
+                ))
+            }
+        }
         // Quantinuum H1/H2 ion-trap systems (real hardware + emulators).
         // Auth via QUANTINUUM_EMAIL + QUANTINUUM_PASSWORD env vars.
         //
@@ -1090,6 +1206,30 @@ fn known_backends() -> Vec<String> {
         v.push("quandela_belenos_sim".into());
         v.push("quandela_belenos".into());
         v.push("quandela_altair".into());
+    }
+    #[cfg(feature = "adapter-braket")]
+    {
+        // Amazon managed simulators
+        v.push("braket_sv1".into());
+        v.push("braket_tn1".into());
+        v.push("braket_dm1".into());
+        // QPUs (auth + S3 bucket required at construction)
+        v.push("braket_rigetti_ankaa".into());
+        v.push("braket_ionq_aria_1".into());
+        v.push("braket_ionq_aria_2".into());
+        v.push("braket_ionq_forte_1".into());
+        v.push("braket_iqm_garnet".into());
+    }
+    #[cfg(feature = "adapter-cudaq")]
+    {
+        v.push("cudaq_mqpu".into());
+        v.push("cudaq_custatevec".into());
+        v.push("cudaq_tensornet".into());
+        v.push("cudaq_density_matrix".into());
+    }
+    #[cfg(feature = "adapter-ddsim")]
+    {
+        v.push("ddsim".into());
     }
     #[cfg(feature = "adapter-ibm")]
     {
