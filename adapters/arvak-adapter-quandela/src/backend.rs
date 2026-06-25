@@ -512,14 +512,27 @@ impl Backend for QuandelaBackend {
             .and_then(|m| m.as_str())
             .unwrap_or("")
             .to_string();
+        // Bridge includes the upper-cased Perceval enum name as `raw`. Keep
+        // it in the error path so the Rust-side message points at the real
+        // upstream status rather than the bridge's translated string.
+        let raw = resp.get("raw").and_then(|r| r.as_str()).unwrap_or("");
 
         Ok(match status {
             "queued" => JobStatus::Queued,
             "running" => JobStatus::Running,
             "done" => JobStatus::Completed,
             "cancelled" => JobStatus::Cancelled,
-            "error" => JobStatus::Failed(msg),
-            other => JobStatus::Failed(format!("unknown status: {other}")),
+            "error" => {
+                let detail = if msg.is_empty() {
+                    format!("Perceval RunningStatus={raw}")
+                } else {
+                    format!("{msg} (RunningStatus={raw})")
+                };
+                JobStatus::Failed(detail)
+            }
+            other => JobStatus::Failed(format!(
+                "unrecognized bridge status: {other} (RunningStatus={raw})"
+            )),
         })
     }
 

@@ -740,7 +740,13 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
                     "quandela_ascella" => "qpu:ascella",
                     "quandela_belenos_sim" => "sim:belenos",
                     "quandela_belenos" => "qpu:belenos",
-                    "quandela_altair" => "quandela_altair",
+                    // Perceval Cloud uses the `qpu:<name>` prefix for hardware
+                    // platforms. Verified 2026-06-25 against the live Cloud
+                    // API: `qpu:altair` returns 200, the literal string
+                    // `quandela_altair` returns 404. (Free-tier tokens get
+                    // 403 on this platform — Altair access is gated — but
+                    // that's an upstream auth concern, not a routing bug.)
+                    "quandela_altair" => "qpu:altair",
                     other => {
                         return Err(HalError::Configuration(format!(
                             "unknown Quandela backend: {other} \
