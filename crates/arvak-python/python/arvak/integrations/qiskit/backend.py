@@ -472,28 +472,38 @@ class ArvakBackend:
         return self._native.validate(qasm)
 
     def run(self, circuits, shots: int = 1024, **options) -> 'ArvakJob':
-        """Submit one or many Qiskit circuits and block until results are in.
+        """Submit one or many Qiskit circuits; return a deferred job handle.
+
+        This method submits each circuit and **returns immediately** with
+        a job wrapper. Results are fetched on ``job.result()``, which
+        blocks until the underlying HAL backends report completion. This
+        matches Qiskit ``JobV1`` semantics and is important for cloud
+        backends where jobs can sit in queue for hours.
+
+        For sim, ``submit`` + ``result`` are effectively instant so the
+        deferred-vs-eager distinction is invisible.
 
         Args:
             circuits: A single Qiskit ``QuantumCircuit`` or a list of them.
             shots: Number of measurement shots (default: 1024).
+            **options: ``parameters`` is forwarded to HAL ``submit()``.
 
         Returns:
-            An ``ArvakJob`` whose ``.result().get_counts(idx)`` returns the
-            measurement counts for circuit *idx* (defaults to 0).
+            An ``ArvakJob`` in deferred mode. Use ``job.result()`` to
+            block on completion, ``job.status()`` to poll, ``job.cancel()``
+            to abort.
         """
         if not isinstance(circuits, list):
             circuits = [circuits]
 
         parameters = options.get('parameters')  # forwarded to HAL submit()
 
-        all_counts: list[dict[str, int]] = []
-        for qc in circuits:
-            qasm = _qiskit_to_qasm3(qc)
-            exec_result = self._native.run(qasm, shots, parameters)
-            all_counts.append(dict(exec_result.counts))
+        handles = [
+            self._native.submit(_qiskit_to_qasm3(qc), shots, parameters)
+            for qc in circuits
+        ]
 
-        return ArvakJob(backend=self, counts=all_counts, shots=shots)
+        return ArvakJob(backend=self, shots=shots, handles=handles)
 
     def __repr__(self) -> str:
         return f"<ArvakBackend('{self.name}')>"
@@ -575,8 +585,8 @@ class ArvakSimulatorBackend:
 
         return ArvakJob(
             backend=self,
+            shots=shots,
             counts=all_counts,
-            shots=shots
         )
 
     def __repr__(self) -> str:
@@ -2267,29 +2277,126 @@ class ArvakQuantinuumJob:
 
 
 class ArvakJob:
-    """Job returned by ArvakSimulatorBackend.run().
+    """Job returned by an Arvak backend's ``run()``.
 
-    Contains real simulation results from the Rust statevector simulator.
+    Operates in one of two modes:
+
+    - **Eager mode** — constructed with ``counts=[...]``. Results are
+      already computed (used by ``ArvakSimulatorBackend`` and other
+      legacy vendor backend classes that compute eagerly).
+    - **Deferred mode** — constructed with ``handles=[...]``, where
+      each handle is an ``arvak.JobHandle`` from
+      ``backend.submit()``. Results are fetched lazily on
+      ``.result()``, allowing the caller to do other work between
+      submission and result retrieval. This is the path
+      ``ArvakBackend`` (the native HAL-backed class) uses.
+
+    Either ``counts`` *or* ``handles`` must be passed; passing both is
+    a programming error.
     """
 
-    def __init__(self, backend, counts, shots):
+    def __init__(self, backend, shots, counts=None, handles=None):
+        if (counts is None) == (handles is None):
+            raise ValueError(
+                "ArvakJob requires exactly one of `counts` (eager) or "
+                "`handles` (deferred)"
+            )
         self._backend = backend
-        self._counts = counts  # list[Dict[str, int]], one per circuit
         self._shots = shots
+        # Eager-mode state:
+        self._counts = counts  # list[dict[str,int]] or None
+        # Deferred-mode state:
+        self._handles = handles  # list[arvak.JobHandle] or None
+        self._cached_counts: list[dict[str, int]] | None = None
 
-    def result(self) -> 'ArvakResult':
-        """Get job result."""
+    def _is_deferred(self) -> bool:
+        return self._handles is not None
+
+    def result(self, timeout: float | None = None,
+               poll_interval_ms: int = 500) -> 'ArvakResult':
+        """Block until all circuits have completed; return aggregated result.
+
+        Args:
+            timeout: Maximum seconds to wait, applied per-handle. ``None``
+                waits forever (matches Qiskit ``JobV1.result()`` semantics
+                for cloud-vendor jobs with long queue times). Ignored in
+                eager mode (results are already available).
+            poll_interval_ms: Polling cadence forwarded to each handle's
+                ``result()`` call. Default 500 ms. Ignored in eager mode.
+
+        Returns:
+            ``ArvakResult`` whose ``.get_counts(idx)`` returns the counts
+            dict for circuit at index ``idx``.
+        """
+        if self._is_deferred():
+            if self._cached_counts is None:
+                self._cached_counts = [
+                    dict(h.result(timeout=timeout,
+                                  poll_interval_ms=poll_interval_ms).counts)
+                    for h in self._handles
+                ]
+            counts = self._cached_counts
+        else:
+            counts = self._counts
+
         return ArvakResult(
             backend_name=self._backend.name,
-            counts=self._counts,
-            shots=self._shots
+            counts=counts,
+            shots=self._shots,
         )
 
     def status(self) -> str:
-        return "DONE"
+        """Aggregate status across all submitted circuits.
+
+        Eager mode returns ``"DONE"`` (results were computed at construction).
+        Deferred mode polls each handle's status and aggregates:
+        - ``"DONE"`` — every handle is completed.
+        - ``"ERROR"`` — any handle reports failed.
+        - ``"CANCELLED"`` — any handle reports cancelled.
+        - ``"RUNNING"`` — at least one handle is running, none failed.
+        - ``"QUEUED"`` — all handles are still queued.
+        """
+        if not self._is_deferred():
+            return "DONE"
+
+        states = [h.status().state for h in self._handles]
+        if any(s == "failed" for s in states):
+            return "ERROR"
+        if any(s == "cancelled" for s in states):
+            return "CANCELLED"
+        if all(s == "completed" for s in states):
+            return "DONE"
+        if any(s == "running" for s in states):
+            return "RUNNING"
+        return "QUEUED"
+
+    def cancel(self) -> None:
+        """Cancel all in-flight handles. No-op in eager mode."""
+        if not self._is_deferred():
+            return
+        for h in self._handles:
+            try:
+                h.cancel()
+            except Exception:  # noqa: BLE001 — best-effort cancellation
+                pass
+
+    def job_id(self) -> str | list[str]:
+        """Return the underlying HAL job id(s). Empty string in eager mode.
+
+        Returns a single string when only one circuit was submitted,
+        a list of strings for multi-circuit batches.
+        """
+        if not self._is_deferred():
+            return ""
+        ids = [h.job_id for h in self._handles]
+        return ids[0] if len(ids) == 1 else ids
 
     def __repr__(self) -> str:
-        return f"<ArvakJob(circuits={len(self._counts)}, shots={self._shots})>"
+        if self._is_deferred():
+            return (f"<ArvakJob(deferred, circuits={len(self._handles)}, "
+                    f"shots={self._shots}, status={self.status()})>")
+        return (f"<ArvakJob(eager, circuits={len(self._counts)}, "
+                f"shots={self._shots})>")
 
 
 class ArvakResult:

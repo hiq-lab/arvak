@@ -24,6 +24,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use pyo3::exceptions::{
     PyConnectionError, PyPermissionError, PyRuntimeError, PyTimeoutError, PyValueError,
@@ -427,14 +428,52 @@ impl PyJobHandle {
 
     /// Block until the job completes, then return the result.
     ///
-    /// Uses the HAL `wait()` default implementation (500 ms poll interval,
-    /// 5-minute timeout). For shot-only simulators this returns essentially
-    /// immediately.
-    fn result(&self, py: Python<'_>) -> PyResult<PyExecutionResult> {
+    /// Polls `status()` at `poll_interval_ms` cadence until terminal,
+    /// then fetches `result()`. Unlike the HAL `wait()` default (which
+    /// has a 5-minute hard cap), this method has no built-in timeout —
+    /// passing `timeout=None` (the default) waits indefinitely, matching
+    /// Qiskit `JobV1.result()` semantics for cloud-vendor jobs that can
+    /// sit in queue for hours.
+    ///
+    /// Args:
+    ///   timeout: maximum seconds to wait. `None` means wait forever.
+    ///   poll_interval_ms: cadence of `status()` polls (default 500 ms).
+    ///
+    /// Raises:
+    ///   `TimeoutError` if `timeout` elapses before the job reaches a
+    ///   terminal state.
+    #[pyo3(signature = (timeout=None, poll_interval_ms=500))]
+    fn result(
+        &self,
+        timeout: Option<f64>,
+        poll_interval_ms: u64,
+        py: Python<'_>,
+    ) -> PyResult<PyExecutionResult> {
         let backend = self.backend.clone();
         let job_id = self.job_id.clone();
+        let poll = Duration::from_millis(poll_interval_ms.max(1));
+        let deadline = timeout.map(|s| Instant::now() + Duration::from_secs_f64(s.max(0.0)));
+
         let res = py
-            .detach(move || runtime().block_on(async move { backend.wait(&job_id).await }))
+            .detach(move || {
+                runtime().block_on(async move {
+                    loop {
+                        match backend.status(&job_id).await? {
+                            JobStatus::Completed => return backend.result(&job_id).await,
+                            JobStatus::Failed(m) => return Err(HalError::JobFailed(m)),
+                            JobStatus::Cancelled => return Err(HalError::JobCancelled),
+                            JobStatus::Queued | JobStatus::Running => {
+                                if let Some(d) = deadline
+                                    && Instant::now() >= d
+                                {
+                                    return Err(HalError::Timeout(job_id.0.clone()));
+                                }
+                                tokio::time::sleep(poll).await;
+                            }
+                        }
+                    }
+                })
+            })
             .map_err(hal_to_py_err)?;
         Ok(PyExecutionResult {
             inner: Arc::new(res),
@@ -442,8 +481,14 @@ impl PyJobHandle {
     }
 
     /// Alias for [`Self::result`] (Qiskit `JobV1` compat).
-    fn wait(&self, py: Python<'_>) -> PyResult<PyExecutionResult> {
-        self.result(py)
+    #[pyo3(signature = (timeout=None, poll_interval_ms=500))]
+    fn wait(
+        &self,
+        timeout: Option<f64>,
+        poll_interval_ms: u64,
+        py: Python<'_>,
+    ) -> PyResult<PyExecutionResult> {
+        self.result(timeout, poll_interval_ms, py)
     }
 
     fn __repr__(&self) -> String {
@@ -551,17 +596,21 @@ impl PyBackend {
 
     /// Submit + wait + fetch — convenience wrapper.
     ///
-    /// Equivalent to `backend.submit(qasm, shots, parameters).result()`.
-    #[pyo3(signature = (qasm, shots=1024, parameters=None))]
+    /// Equivalent to `backend.submit(qasm, shots, parameters).result(timeout)`.
+    /// For deferred submission (return immediately, fetch later), call
+    /// `.submit()` directly.
+    #[pyo3(signature = (qasm, shots=1024, parameters=None, timeout=None, poll_interval_ms=500))]
     fn run(
         &self,
         qasm: &str,
         shots: u32,
         parameters: Option<HashMap<String, f64>>,
+        timeout: Option<f64>,
+        poll_interval_ms: u64,
         py: Python<'_>,
     ) -> PyResult<PyExecutionResult> {
         let handle = self.submit(qasm, shots, parameters, py)?;
-        handle.result(py)
+        handle.result(timeout, poll_interval_ms, py)
     }
 
     fn __repr__(&self) -> String {
