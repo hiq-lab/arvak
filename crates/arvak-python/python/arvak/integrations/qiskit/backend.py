@@ -319,14 +319,19 @@ class ArvakProvider:
                     f"Set IQM_TOKEN environment variable (from resonance.meetiqm.com)."
                 ) from e
 
-        # Lazily create Quantinuum backends on demand
+        # Lazily create Quantinuum backends — Phase 5: native
+        # arvak-adapter-quantinuum via PyO3. The registry maps the
+        # arvak-side names (quantinuum_h2 / _h1_emulator / _h2_emulator)
+        # to Quantinuum machine identifiers (H2-1 / H1-1E / H2-1E).
+        # ionshuttler integration evaluated and skipped per RFC §Phase 5
+        # gate eval on 2026-06-25 — Quantinuum's commercial pipeline
+        # owns shuttle scheduling, not user-controllable via REST.
         if name and name in self._QUANTINUUM_BACKENDS and name not in self._backends:
             try:
-                device = self._QUANTINUUM_DEVICE_MAP[name]
-                self._backends[name] = ArvakQuantinuumBackend(
-                    provider=self, device_name=device,
+                self._backends[name] = ArvakBackend(
+                    provider=self, backend_name=name,
                 )
-            except (ValueError, ImportError) as e:
+            except (ValueError, RuntimeError, ConnectionError, PermissionError) as e:
                 raise ValueError(
                     f"Cannot connect to {name}: {e}. "
                     f"Set QUANTINUUM_EMAIL and QUANTINUUM_PASSWORD environment variables."
@@ -1928,6 +1933,15 @@ class ArvakScalewayJob:
 class ArvakQuantinuumBackend:
     """Arvak Quantinuum backend — submits directly to Quantinuum's REST API.
 
+    .. deprecated:: 2.4
+        Use :class:`ArvakBackend` instead.
+        ``ArvakProvider.get_backend('quantinuum_h2')`` now returns the
+        native-HAL-backed class automatically (Phase 5). Direct
+        instantiation of this class still works but will be removed in
+        a future release. The native path replaces the in-Python
+        ``requests`` HTTP loop with ``arvak-adapter-quantinuum`` (Rust
+        REST client) reached via PyO3.
+
     Accepts Qiskit circuits, converts them to QASM 2.0 (using qiskit.qasm2),
     and submits to Quantinuum's cloud API.  The Quantinuum cloud compiles
     circuits to its native ion-trap gate set (ZZMax/ZZPhase/U1q/Rz) internally.
@@ -1949,6 +1963,15 @@ class ArvakQuantinuumBackend:
     _MACHINE_INFO_TTL: int = 300
 
     def __init__(self, provider: ArvakProvider, device_name: str = 'H2-1LE'):
+        import warnings
+        warnings.warn(
+            "ArvakQuantinuumBackend is deprecated; "
+            "ArvakProvider.get_backend('quantinuum_*') now returns ArvakBackend "
+            "(native HAL-backed). See "
+            "docs/RFC/0001-native-backend-unification.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         import requests as _requests
         self._requests = _requests
 
