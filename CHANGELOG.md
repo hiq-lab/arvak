@@ -5,6 +5,66 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-06-26
+
+Phase 7 of RFC-0001 (Native Backend Unification): the deprecated
+per-vendor backend classes that have emitted `DeprecationWarning` since
+1.9.x are removed. All hardware routing goes through the unified
+`ArvakBackend` (HAL-backed via PyO3) and the canonical
+`arvak.backend_for(name)` / `ArvakProvider().get_backend(name)` entry
+points.
+
+### Removed (breaking)
+
+- `arvak.integrations.qiskit.backend.ArvakSimulatorBackend`
+- `arvak.integrations.qiskit.backend.ArvakIBMBackend` + `ArvakIBMJob`
+- `arvak.integrations.qiskit.backend.ArvakScalewayBackend` + `ArvakScalewayJob`
+- `arvak.integrations.qiskit.backend.ArvakIQMResonanceBackend` + `ArvakIQMResonanceJob`
+- `arvak.integrations.qiskit.backend.ArvakQuantinuumBackend` + `ArvakQuantinuumJob`
+- `arvak.integrations.qiskit.backend.ArvakAQTBackend` + `ArvakAQTJob` + `ArvakAQTResult`
+- `arvak.integrations.qiskit.backend.ArvakIonQBackend` + `ArvakIonQJob` + `ArvakIonQResult`
+- `arvak.optimize.HalBackend.ibm()` / `.iqm()` / `.aqt()` / `.quantinuum()`
+  factory methods (replaced by the single `HalBackend.from_name(name)`).
+
+### Migration
+
+Replace:
+
+    from arvak.integrations.qiskit.backend import ArvakIBMBackend
+    backend = ArvakIBMBackend(provider, target="ibm_marrakesh")
+
+with:
+
+    import arvak
+    backend = arvak.backend_for("ibm_marrakesh")
+
+or, for the Qiskit-shaped path:
+
+    from arvak.integrations.qiskit.backend import ArvakProvider
+    backend = ArvakProvider().get_backend("ibm_marrakesh")
+
+`ArvakProvider().get_backend(name)` already routed every recognised
+vendor prefix to the new `ArvakBackend` in 1.x, so callers that were
+on the provider path keep working unchanged.
+
+For `arvak.optimize.HalBackend`:
+
+    HalBackend.ibm("ibm_marrakesh")     →  HalBackend.from_name("ibm_marrakesh")
+    HalBackend.iqm("Garnet")            →  HalBackend.from_name("iqm_garnet")
+    HalBackend.aqt("offline_simulator…") →  HalBackend.from_name("aqt_offline_sim")
+    HalBackend.quantinuum("H2-1LE")     →  HalBackend.from_name("quantinuum_h2")
+
+### Changed
+
+- The qiskit integration module (`arvak.integrations.qiskit.backend`)
+  shrank from ~3,600 lines to ~680. All removed code was deprecated
+  shims that ran in parallel with the native HAL path.
+- `demos/aqt_test.py` and `demos/quantinuum_test.py` updated to use
+  `ArvakProvider().get_backend(...)` instead of the deleted classes.
+- `docs/INTEGRATION_GUIDE.md` example class renamed from
+  `ArvakSimulatorBackend` to a generic template name to avoid suggesting
+  the removed class is still importable.
+
 ## [1.10.0] - 2026-06-25
 
 Closes the additive part of RFC-0001 (Native Backend Unification) and
@@ -871,6 +931,7 @@ If upgrading from development versions:
 
 ---
 
+[2.0.0]: https://github.com/hiq-lab/arvak/releases/tag/v2.0.0
 [1.10.0]: https://github.com/hiq-lab/arvak/releases/tag/v1.10.0
 [1.9.2]: https://github.com/hiq-lab/arvak/releases/tag/v1.9.2
 [1.9.1]: https://github.com/hiq-lab/arvak/releases/tag/v1.9.1

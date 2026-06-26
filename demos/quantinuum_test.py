@@ -70,16 +70,19 @@ print()
 
 from arvak.integrations.qiskit.backend import ArvakProvider  # noqa: E402
 
+# Map Quantinuum device names to the canonical registry name.
+_DEVICE_TO_NAME = {
+    "H2-1":   "quantinuum_h2",
+    "H2-1E":  "quantinuum_h2_emulator",
+    "H1-1E":  "quantinuum_h1_emulator",
+    # H2-1LE (noiseless local emulator) is the adapter default — submitting
+    # to the H2-1 name with no live-emulator flag picks it up.
+    "H2-1LE": "quantinuum_h2",
+}
+backend_name = _DEVICE_TO_NAME.get(DEVICE, "quantinuum_h2_emulator")
+
 provider = ArvakProvider()
-backend = provider.get_backend(
-    f"quantinuum_{'h2_emulator' if 'H2' in DEVICE and 'LE' not in DEVICE else 'h2'}"
-    if DEVICE not in {"H2-1LE"} else "quantinuum_h2"
-)
-
-# For direct device targeting, construct the backend directly
-from arvak.integrations.qiskit.backend import ArvakQuantinuumBackend  # noqa: E402
-
-backend = ArvakQuantinuumBackend(provider=provider, device_name=DEVICE)
+backend = provider.get_backend(backend_name)
 print(f"Backend: {backend.name}")
 avail = backend.availability()
 print(f"Availability: {'online' if avail.online else 'OFFLINE'} — {avail.status_message}")

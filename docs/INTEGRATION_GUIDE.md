@@ -307,7 +307,7 @@ class YourFrameworkProvider:
         """
         if not self._backends:
             self._backends = {
-                'sim': ArvakSimulatorBackend(provider=self),
+                'sim': MyFrameworkSimulatorBackend(provider=self),
             }
 
         if name:
@@ -338,7 +338,7 @@ class YourFrameworkProvider:
         return backends[0]
 
 
-class ArvakSimulatorBackend:
+class MyFrameworkSimulatorBackend:
     """Arvak simulator backend with YourFramework-compatible interface."""
 
     def __init__(self, provider: YourFrameworkProvider):

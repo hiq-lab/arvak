@@ -1,25 +1,14 @@
 """HAL backend adapter for PCESolver.
 
-Bridges any Arvak HAL backend (IBM, IQM, AQT, Quantinuum, Scaleway, Simulator)
-to the Backend callable protocol expected by PCESolver.
-
-Conversion chain for real hardware::
-
-    arvak.Circuit
-        → arvak.to_qasm()       (QASM3 string)
-        → qiskit.qasm3.loads()  (Qiskit QuantumCircuit)
-        → backend.run(shots)    (HAL job)
-        → job.result(timeout)   (ArvakResult)
-        → .get_counts()         (dict[str, int])
-
-For the local simulator, arvak.run_sim() is called directly — no Qiskit needed.
+Wraps any Arvak HAL backend (via :func:`arvak.backend_for`) as the callable
+protocol expected by :class:`PCESolver`.
 
 Example::
 
+    import arvak
     from arvak.optimize import BinaryQubo, PCESolver, HalBackend
-    from arvak.integrations.qiskit.backend import ArvakIBMBackend
 
-    ibm = ArvakIBMBackend(backend_name="ibm_torino")
+    ibm = arvak.backend_for("ibm_marrakesh")
     qubo = BinaryQubo.from_matrix(Q)
     solver = PCESolver(qubo, backend=HalBackend(ibm), shots=1024)
     result = solver.solve()
@@ -42,9 +31,9 @@ class HalBackend:
 
         backend(circuit: arvak.Circuit, shots: int) -> dict[str, int]
 
-    HalBackend adapts any HAL backend (ArvakIBMBackend, ArvakAQTBackend, etc.)
-    to that interface by converting the arvak.Circuit to a Qiskit QuantumCircuit
-    via QASM3 before submission.
+    HalBackend adapts any HAL backend (one of the eleven backends in
+    :func:`arvak.list_backends`) to that interface by converting the
+    arvak.Circuit to a Qiskit QuantumCircuit via QASM3 before submission.
 
     Args:
         backend:     Any Arvak HAL backend instance (must have .run() and accept
@@ -129,53 +118,23 @@ class HalBackend:
         return backend
 
     @classmethod
-    def ibm(cls, backend_name: str, **kwargs) -> "HalBackend":
-        """Return a HalBackend wrapping an IBM Quantum backend.
+    def from_name(cls, name: str, **wrapper_kwargs) -> "HalBackend":
+        """Return a HalBackend wrapping any registered HAL backend by name.
+
+        Replaces the legacy ``ibm()`` / ``iqm()`` / ``aqt()`` / ``quantinuum()``
+        per-vendor factory methods that were removed in 2.0. Pick any name
+        from :func:`arvak.list_backends`.
 
         Args:
-            backend_name: IBM backend name, e.g. "ibm_torino", "ibm_strasbourg".
-            **kwargs:     Passed to ArvakIBMBackend (e.g. service_crn, region).
+            name:           Canonical backend name, e.g. ``"ibm_marrakesh"``,
+                            ``"iqm_garnet"``, ``"aqt_offline_sim"``,
+                            ``"quantinuum_h2_emulator"``, ``"sim"``.
+            wrapper_kwargs: Forwarded to ``HalBackend.__init__`` (e.g.
+                            ``poll_timeout``, ``check_availability``).
         """
-        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakIBMBackend
+        from arvak.integrations.qiskit.backend import ArvakProvider
         provider = ArvakProvider()
-        return cls(ArvakIBMBackend(provider, target=backend_name, **kwargs))
-
-    @classmethod
-    def iqm(cls, computer: str = "Garnet", **kwargs) -> "HalBackend":
-        """Return a HalBackend wrapping an IQM Resonance backend.
-
-        Args:
-            computer: IQM quantum computer name, e.g. "Garnet", "Sirius", "Emerald".
-            **kwargs: Passed to ArvakIQMResonanceBackend.
-        """
-        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakIQMResonanceBackend
-        provider = ArvakProvider()
-        return cls(ArvakIQMResonanceBackend(provider, computer=computer, **kwargs))
-
-    @classmethod
-    def aqt(cls, resource: str = "offline_simulator_no_noise", **kwargs) -> "HalBackend":
-        """Return a HalBackend wrapping an AQT backend.
-
-        Args:
-            resource: AQT resource ID. Default is the free offline simulator.
-            **kwargs: Passed to ArvakAQTBackend.
-        """
-        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakAQTBackend
-        provider = ArvakProvider()
-        return cls(ArvakAQTBackend(provider, resource=resource, **kwargs))
-
-    @classmethod
-    def quantinuum(cls, device: str = "H2-1LE", **kwargs) -> "HalBackend":
-        """Return a HalBackend wrapping a Quantinuum backend.
-
-        Args:
-            device: Quantinuum device name. Default "H2-1LE" (noiseless emulator,
-                    free, 32 qubits, all-to-all).
-            **kwargs: Passed to ArvakQuantinuumBackend.
-        """
-        from arvak.integrations.qiskit.backend import ArvakProvider, ArvakQuantinuumBackend
-        provider = ArvakProvider()
-        return cls(ArvakQuantinuumBackend(provider, device_name=device, **kwargs))
+        return cls(provider.get_backend(name), **wrapper_kwargs)
 
     # ------------------------------------------------------------------
     # Internals
@@ -200,9 +159,8 @@ class HalBackend:
 class NoisyBackend:
     """Wraps a backend with a noise model, forwarding it on every call.
 
-    Works with any backend that accepts noise_model as a keyword arg (e.g.
-    ArvakSimulatorBackend with Qiskit Aer). Silently ignores it for backends
-    that don't support it.
+    Works with any backend that accepts noise_model as a keyword arg.
+    Silently ignores it for backends that don't support it.
 
     Args:
         backend:     A callable with signature (circuit, shots) → dict[str, int].
