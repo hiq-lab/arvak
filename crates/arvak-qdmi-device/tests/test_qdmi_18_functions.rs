@@ -23,7 +23,9 @@ use arvak_qdmi_device::*;
 
 /// Resolve the gRPC server URL from the env, or return `None` to skip.
 fn server_url() -> Option<String> {
-    std::env::var("ARVAK_QDMI_TEST_URL").ok().filter(|s| !s.is_empty())
+    std::env::var("ARVAK_QDMI_TEST_URL")
+        .ok()
+        .filter(|s| !s.is_empty())
 }
 
 /// Helper: two-phase query returning raw bytes.
