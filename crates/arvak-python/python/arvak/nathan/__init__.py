@@ -1,7 +1,11 @@
-"""arvak.nathan — AI-powered research optimizer for quantum computing.
+"""arvak.nathan — literature-grounded circuit analyser.
 
-Analyze quantum circuits against 1700+ papers and get optimization
-suggestions, hardware fit analysis, and relevant literature.
+Analyse quantum circuits against a corpus of quantum computing papers
+(arXiv, Semantic Scholar, Springer, plus vendor documentation from
+PennyLane, Qiskit, Classiq, and D-Wave) and get optimization
+suggestions, hardware fit analysis, and relevant literature. The exact
+corpus size depends on what the hosted service has indexed at request
+time — query `https://arvak.io/api/nathan/health` for the live count.
 
 Example:
     >>> import arvak
