@@ -58,9 +58,19 @@ print()
 # Connect to AQT and submit
 # ---------------------------------------------------------------------------
 
-from arvak.integrations.qiskit.backend import ArvakAQTBackend  # noqa: E402
+from arvak.integrations.qiskit.backend import ArvakProvider  # noqa: E402
 
-backend = ArvakAQTBackend(provider=None, workspace=WORKSPACE, resource=RESOURCE)
+# Canonical name in the native registry; per-workspace/resource routing
+# is handled inside the adapter from the AQT_TOKEN env var and the
+# `aqt_*` backend name. AQT_WORKSPACE / AQT_RESOURCE are read only
+# for the informational printout below.
+_NAME_BY_RESOURCE = {
+    "offline_simulator_no_noise": "aqt_offline_sim",
+    "offline_simulator_noise":    "aqt_noise_sim",
+    "simulator_noise":            "aqt_cloud_sim",
+}
+backend_name = _NAME_BY_RESOURCE.get(RESOURCE, "aqt_offline_sim")
+backend = ArvakProvider().get_backend(backend_name)
 print(f"Backend: {backend.name}")
 avail = backend.availability()
 print(f"Availability: {'online' if avail.online else 'OFFLINE'} — {avail.status_message}")
