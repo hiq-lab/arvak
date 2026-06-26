@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Integration test for all 18 QDMI device interface functions.
 //!
-//! Connects to the live Arvak gRPC server and exercises every function
+//! Connects to a live Arvak gRPC server and exercises every function
 //! in the QDMI v1.2.1 device interface with the `ARVAK_` prefix.
 //!
-//! Requires: `ARVAK_QDMI_TEST_URL` env var (e.g. `http://***REDACTED-IP***:50051`).
-//! Skip with: `cargo test -p arvak-qdmi-device` (no env var → test skipped).
+//! Requires `ARVAK_QDMI_TEST_URL` to be set to a reachable
+//! `http://host:port` of an `arvak-grpc` server. Without it the test
+//! is silently skipped (so it does not gate CI for downstream users
+//! who do not run their own gRPC server).
 
 #![allow(
     unsafe_code,
@@ -19,10 +21,9 @@ use std::ffi::{c_int, c_void};
 use arvak_qdmi::ffi;
 use arvak_qdmi_device::*;
 
-/// Resolve the gRPC server URL, or skip the test.
-fn server_url() -> String {
-    std::env::var("ARVAK_QDMI_TEST_URL")
-        .unwrap_or_else(|_| "http://***REDACTED-IP***:50051".to_string())
+/// Resolve the gRPC server URL from the env, or return `None` to skip.
+fn server_url() -> Option<String> {
+    std::env::var("ARVAK_QDMI_TEST_URL").ok().filter(|s| !s.is_empty())
 }
 
 /// Helper: two-phase query returning raw bytes.
@@ -65,7 +66,15 @@ unsafe fn query_cint(f: impl Fn(usize, *mut c_void, *mut usize) -> c_int) -> c_i
 // global state (OnceLock) and must run in lifecycle order.
 #[test]
 fn test_all_18_qdmi_functions() {
-    let url = server_url();
+    let Some(url) = server_url() else {
+        eprintln!(
+            "SKIP: ARVAK_QDMI_TEST_URL not set — \
+             this test requires a live arvak-grpc server. \
+             Start one with `cargo run --bin arvak-grpc-server` and set \
+             ARVAK_QDMI_TEST_URL=http://localhost:50051."
+        );
+        return;
+    };
     eprintln!("QDMI integration test against {url}");
 
     unsafe {
