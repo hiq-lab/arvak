@@ -1140,7 +1140,7 @@ python tests/verify_integration_system.py
 - [x] Scaleway QaaS adapter (IQM Garnet 20q, Emerald 54q, Sirius 16q)
 - [x] AWS Braket adapter (IonQ, Rigetti, IQM, simulators)
 - [x] IBM Cloud API adapter with Heron compilation support
-- [x] Nathan AI research optimizer (7,900+ papers, 680+ method mappings, hardware-aware analysis)
+- [x] Nathan literature-grounded circuit analyser (paper retrieval, QCEC-verified rewrites, hardware-aware fidelity estimation)
 - [x] Code anonymization for Nathan (PII protection before LLM analysis)
 - [x] Multi-backend CLI (`arvak run --backend scaleway/braket/ibm`)
 - [x] Python compile bindings
