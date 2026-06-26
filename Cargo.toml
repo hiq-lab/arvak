@@ -4,7 +4,6 @@ members = [
     "crates/*",
     "adapters/*",
     "demos",
-    "demos/lumi-hybrid",
 ]
 
 [workspace.package]
@@ -13,7 +12,7 @@ edition = "2024"
 rust-version = "1.85"
 license = "Apache-2.0"
 repository = "https://github.com/hiq-lab/arvak"
-keywords = ["quantum", "hpc", "compiler", "qasm", "orchestration"]
+keywords = ["quantum", "compiler", "qasm", "hal", "openqasm"]
 categories = ["science", "compilers", "simulation"]
 
 [workspace.dependencies]
@@ -34,7 +33,6 @@ arvak-dashboard = { path = "crates/arvak-dashboard" }
 arvak-bench = { path = "crates/arvak-bench" }
 arvak-eval = { path = "crates/arvak-eval" }
 arvak-sim = { path = "crates/arvak-sim" }
-arvak-proj = { path = "crates/arvak-proj" }
 
 # Adapter crates
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }

@@ -42,7 +42,6 @@ arvak-adapter-braket = { workspace = true, optional = true }
 arvak-adapter-cudaq = { workspace = true, optional = true }
 arvak-adapter-ddsim = { workspace = true, optional = true }
 arvak-sim = { workspace = true }
-arvak-proj = { workspace = true }
 num-complex = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true }

@@ -730,8 +730,7 @@ fn make_backend(name: &str) -> Result<Arc<dyn Backend + Send + Sync>, HalError> 
         // Platform layout from arvak_adapter_quandela::backend:
         //   sim:ascella (6q free sim)  qpu:ascella (6q QPU)
         //   sim:belenos (12q sim)      qpu:belenos (12q QPU, 2025)
-        //   quandela_altair (legacy Altair 4K cryocooled, 5q —
-        //     also the InternalCode PUF target)
+        //   quandela_altair (legacy Altair 4K cryocooled, 5q)
         n if n.starts_with("quandela_") => {
             #[cfg(feature = "adapter-quandela")]
             {

@@ -38,41 +38,13 @@ use tracing::instrument;
 use arvak_hal::{
     Backend, BackendAvailability, BackendConfig, BackendFactory, Capabilities, ExecutionResult,
     HalError, HalResult, JobId, JobStatus, ValidationResult,
-    capability::{CompressorSpec, CompressorType, CoolingProfile},
 };
 use arvak_ir::{Circuit, instruction::InstructionKind};
 
 use crate::api::{MAX_CACHED_JOBS, call_bridge, find_bridge_script, find_python};
 use crate::error::{QuandelaError, QuandelaResult};
 
-// Re-export HAL cooling types used in ingest methods.
-use arvak_hal::capability::{PufEnrollment, QuietWindow, TransferFunctionSample};
 use arvak_ir::gate::GateKind;
-
-/// InternalCode enrollment record from the internalcode-lab `/signature` API.
-///
-/// Deserialises the JSON output of `POST /signature` from internalcode-lab.
-/// Field names match the Python `InternalCodeEnrollment` schema exactly —
-/// this is a contract test boundary.
-#[derive(Debug, serde::Deserialize)]
-pub struct InternalCodeEnrollment {
-    /// Installation-unique identifier.
-    pub installation_id: String,
-    /// Compressor type as classified by internalcode spectral analysis.
-    pub compressor_type: String,
-    /// SHA-256 fingerprint hash (hex, 64 chars).
-    pub fingerprint_hash: String,
-    /// Unix timestamp of enrollment.
-    pub enrolled_at: u64,
-    /// Shots used per sample point during enrollment.
-    pub enrollment_shots: u32,
-    /// Maximum acceptable intra-distance for verification.
-    pub intra_distance_threshold: Option<f64>,
-    /// Dominant compressor vibration frequency in Hz.
-    pub fundamental_hz: f64,
-    /// HOM visibility per compressor phase (len = sample_count).
-    pub hom_visibility_by_phase: Vec<f64>,
-}
 
 // ---------------------------------------------------------------------------
 // Per-job metadata cached at submit() time.
@@ -104,18 +76,6 @@ fn build_capabilities(platform: &str) -> Capabilities {
     let n = platform_num_qubits(platform);
     let is_sim = platform_is_simulator(platform);
 
-    // Altair is the only cryocooled variant.
-    let cooling = if platform == "quandela_altair" {
-        Some(CoolingProfile::new(CompressorSpec {
-            model: "Quandela Altair 4K cryocooler".into(),
-            cycle_frequency_hz: 1.0,
-            stage_temperatures_k: vec![4.0],
-            compressor_type: CompressorType::GiffordMcMahon,
-        }))
-    } else {
-        None
-    };
-
     Capabilities {
         name: platform.into(),
         num_qubits: n,
@@ -126,7 +86,6 @@ fn build_capabilities(platform: &str) -> Capabilities {
         is_simulator: is_sim,
         features: vec!["photonic".into()],
         noise_profile: None,
-        cooling_profile: cooling,
     }
 }
 
@@ -299,69 +258,6 @@ impl QuandelaBackend {
     pub fn with_bridge(mut self, bridge: impl Into<PathBuf>) -> Self {
         self.bridge = bridge.into();
         self
-    }
-
-    // ── InternalCode integration (Altair only) ────────────────────────────────────
-
-    /// Ingest an internalcode-lab enrollment record into the `CoolingProfile`.
-    ///
-    /// Populates `cooling_profile.puf_enrollment` and stores per-phase
-    /// `visibility_modulation` samples in the transfer function.
-    pub fn ingest_internalcode_enrollment(&mut self, e: InternalCodeEnrollment) {
-        let puf = PufEnrollment {
-            installation_id: e.installation_id,
-            fingerprint_hash: e.fingerprint_hash,
-            enrolled_at: e.enrolled_at,
-            enrollment_shots: e.enrollment_shots,
-            intra_distance_threshold: e.intra_distance_threshold,
-        };
-
-        let fundamental_hz = e.fundamental_hz;
-        let n = e.hom_visibility_by_phase.len();
-        let transfer_function: Vec<TransferFunctionSample> = e
-            .hom_visibility_by_phase
-            .into_iter()
-            .enumerate()
-            .map(|(i, vis)| {
-                let phase_fraction = if n > 1 { i as f64 / n as f64 } else { 0.0 };
-                TransferFunctionSample {
-                    freq_hz: fundamental_hz * (1.0 + phase_fraction),
-                    t1_modulation: 0.0,
-                    visibility_modulation: Some(vis),
-                }
-            })
-            .collect();
-
-        if let Some(ref mut cp) = self.capabilities.cooling_profile {
-            cp.puf_enrollment = Some(puf);
-            cp.transfer_function = transfer_function;
-        } else {
-            let mut cp = CoolingProfile::new(CompressorSpec {
-                model: "Quandela Altair 4K cryocooler".into(),
-                cycle_frequency_hz: fundamental_hz,
-                stage_temperatures_k: vec![4.0],
-                compressor_type: CompressorType::GiffordMcMahon,
-            });
-            cp.puf_enrollment = Some(puf);
-            cp.transfer_function = transfer_function;
-            self.capabilities.cooling_profile = Some(cp);
-        }
-    }
-
-    /// Ingest quiet windows from internalcode-lab scheduling output.
-    pub fn ingest_internalcode_schedule(&mut self, windows: Vec<QuietWindow>) {
-        if let Some(ref mut cp) = self.capabilities.cooling_profile {
-            cp.quiet_windows = windows;
-        } else {
-            let mut cp = CoolingProfile::new(CompressorSpec {
-                model: "Quandela Altair 4K cryocooler".into(),
-                cycle_frequency_hz: 1.0,
-                stage_temperatures_k: vec![4.0],
-                compressor_type: CompressorType::GiffordMcMahon,
-            });
-            cp.quiet_windows = windows;
-            self.capabilities.cooling_profile = Some(cp);
-        }
     }
 
     // ── Bridge helpers ───────────────────────────────────────────────────────
@@ -625,7 +521,6 @@ mod tests {
         assert_eq!(caps.num_qubits, 6);
         assert!(caps.is_simulator);
         assert!(caps.features.contains(&"photonic".to_string()));
-        assert!(caps.cooling_profile.is_none());
     }
 
     #[test]
@@ -637,11 +532,10 @@ mod tests {
     }
 
     #[test]
-    fn test_capabilities_altair_has_cooling_profile() {
+    fn test_capabilities_altair() {
         let b = QuandelaBackend::for_platform("quandela_altair").unwrap();
         let caps = b.capabilities();
         assert_eq!(caps.num_qubits, 5);
-        assert!(caps.cooling_profile.is_some());
     }
 
     #[tokio::test]
@@ -676,59 +570,5 @@ mod tests {
         // Should contain H and CX at minimum
         assert!(gates.iter().any(|g| g["name"] == "h"));
         assert!(gates.iter().any(|g| g["name"] == "cx"));
-    }
-
-    #[test]
-    fn test_ingest_internalcode_enrollment_populates_cooling_profile() {
-        let mut b = QuandelaBackend::for_platform("quandela_altair").unwrap();
-        let enrollment = InternalCodeEnrollment {
-            installation_id: "altair-sn001-paris".into(),
-            compressor_type: "bellows".into(),
-            fingerprint_hash: "a".repeat(64),
-            enrolled_at: 1_740_000_000,
-            enrollment_shots: 1000,
-            intra_distance_threshold: Some(0.08),
-            fundamental_hz: 1.2,
-            hom_visibility_by_phase: vec![0.95, 0.92, 0.88, 0.90, 0.93, 0.91, 0.89, 0.94],
-        };
-        b.ingest_internalcode_enrollment(enrollment);
-
-        let cp = b.capabilities().cooling_profile.as_ref().unwrap();
-        assert!(cp.is_enrolled());
-        assert_eq!(cp.transfer_function.len(), 8);
-        assert!(cp.transfer_function[0].visibility_modulation.is_some());
-    }
-
-    #[test]
-    fn test_ingest_internalcode_schedule_populates_quiet_windows() {
-        let mut b = QuandelaBackend::for_platform("quandela_altair").unwrap();
-        let windows = vec![QuietWindow {
-            cycle_offset: 0.1,
-            cycle_fraction: 0.15,
-            t1_improvement_factor: None,
-        }];
-        b.ingest_internalcode_schedule(windows);
-
-        let cp = b.capabilities().cooling_profile.as_ref().unwrap();
-        assert_eq!(cp.quiet_windows.len(), 1);
-    }
-
-    #[test]
-    fn test_internalcode_enrollment_schema_matches_arvak_struct() {
-        // Contract test: JSON produced by internalcode-lab /signature must deserialise
-        // into InternalCodeEnrollment without errors.
-        let json = r#"{
-            "installation_id": "altair-sn001",
-            "compressor_type": "bellows",
-            "fingerprint_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "enrolled_at": 1740000000,
-            "enrollment_shots": 1000,
-            "intra_distance_threshold": 0.08,
-            "fundamental_hz": 1.2,
-            "hom_visibility_by_phase": [0.95, 0.92]
-        }"#;
-        let enrollment: InternalCodeEnrollment = serde_json::from_str(json).unwrap();
-        assert_eq!(enrollment.installation_id, "altair-sn001");
-        assert_eq!(enrollment.hom_visibility_by_phase.len(), 2);
     }
 }

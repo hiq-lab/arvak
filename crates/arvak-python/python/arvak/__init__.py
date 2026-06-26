@@ -36,10 +36,6 @@ from arvak._native import (
     to_qasm,
     # Simulation
     run_sim,
-    # Projection simulator
-    run_projection,
-    # TEBD adiabatic evolution
-    run_tebd,
     # Compilation
     compile,
     # Native backend bridge (HAL Backend trait via PyO3)
@@ -187,8 +183,6 @@ __all__ = [
     "to_qasm",
     # Simulation
     "run_sim",
-    "run_projection",
-    "run_tebd",
     # Compilation
     "compile",
     # Native backend bridge

@@ -1928,7 +1928,7 @@ function renderNathanResults(data) {
         <div><strong>Est. Qubits:</strong> ${escapeHtml(data.estimated_qubits || 'N/A')}</div>
     </div>`;
 
-    // Hardness (pair-counting, Internal Reference)
+    // Hardness (entangling-pair count)
     if (data.pair_count != null || data.hardness_score != null) {
         const hardPct = Math.round((data.hardness_score || 0) * 100);
         const hardClass = hardPct >= 80 ? 'high' : hardPct >= 40 ? 'medium' : 'low';
@@ -1942,7 +1942,6 @@ function renderNathanResults(data) {
                 </div>
                 <div class="nathan-stat"><span class="nathan-stat-label">Best Backend</span><span class="nathan-stat-value">${escapeHtml(data.recommended_backend || 'simulator')}</span></div>
             </div>
-            <div class="nathan-hardness-citation">N(N\u22121)/2 gate-count bound \u2014 <a href="https://doi.org/10.5281/zenodo.19185407" target="_blank" rel="noopener">Internal Reference</a></div>
         </div>`;
     }
 

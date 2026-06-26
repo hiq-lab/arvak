@@ -159,7 +159,6 @@ impl CudaqBackend {
             is_simulator,
             features: vec!["gpu-accelerated".into(), "qasm3".into()],
             noise_profile: None,
-            cooling_profile: None,
         };
 
         Ok(Self {

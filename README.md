@@ -1,15 +1,23 @@
-# Arvak: Rust-Native Quantum Compilation Stack
+# Arvak: a Rust HAL for quantum hardware
 
 [![Version](https://img.shields.io/badge/version-1.10.0-blue.svg)](https://github.com/hiq-lab/arvak/releases/tag/v1.10.0)
 [![PyPI](https://img.shields.io/pypi/v/arvak.svg)](https://pypi.org/project/arvak/)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
-**HPC-Integrated Quantum Orchestration Platform with Deep Framework Integration**
+**One Python API across eleven quantum platforms. Native Rust core, PyO3 bindings, framework converters for Qiskit / Cirq / Qrisp / PennyLane.**
 
-Arvak is a Rust-native quantum compilation and orchestration stack designed for HPC environments. It provides blazing-fast compilation, first-class HPC scheduler integration, and **seamless interoperability** with the entire quantum ecosystem through deep framework integrations.
+```python
+import arvak
 
-> **Latest (Mar 2026):** `arvak-proj` — MPS-based tensor network circuit projection for large-qubit simulation. Mixed-frequency quantum kicked rotor benchmarks, adaptive bond partitioning, and Laplace-spectrum accuracy validation. Also: MQT integration, SABRE routing, ConsolidateBlocks (KAK), ML-based device selection. See [CHANGELOG.md](CHANGELOG.md).
+backend = arvak.backend_for("ibm_marrakesh")    # or "iqm_garnet", "sim", "ddsim", ...
+result = backend.run(qasm, shots=1024)
+print(result.counts)
+```
+
+The HAL contract is the same regardless of vendor. Submit the same `Circuit` to a local simulator, a Heron r3 QPU, or a photonic dual-rail processor; the adapter handles auth, transpilation hand-off, status polling, and result decoding.
+
+See [CHANGELOG.md](CHANGELOG.md) for what shipped in the current release.
 
 ## Quick Install
 
@@ -29,15 +37,13 @@ pip install arvak[all]             # All frameworks + Jupyter notebooks
 
 ## Why Arvak?
 
-Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platform** that:
+Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a thin Rust HAL that sits underneath them:
 
-1. **Integrates deeply** with existing quantum frameworks through auto-discovery plugin architecture
-2. **Provides** Rust-native compilation for performance-critical HPC workflows
-3. **Prioritizes** European HPC quantum installations (LUMI, LRZ) as first-class citizens
-4. **Enables** seamless interoperability: use Qiskit/Cirq/Qrisp circuits with Arvak backends
-5. **Offers** unified access to IQM, IBM Quantum, Quantinuum, AQT, Quandela, Scaleway QaaS, AWS Braket, MQT DDSIM, NVIDIA CUDA-Q, and any QDMI-compliant device
-6. **Supports** neutral-atom architectures with zone-aware routing and shuttling
-7. **Includes** Nathan, an AI research optimizer grounded in 7,900+ quantum computing papers and 680+ method mappings
+1. **One API across vendors** — same `Circuit`, same `Backend` trait, eleven vendor adapters (sim, ddsim, IBM, IQM, Quantinuum, AQT, IonQ, Quandela, Scaleway, AWS Braket, NVIDIA CUDA-Q).
+2. **Frameworks as input** — Qiskit / Cirq / Qrisp / PennyLane circuits convert in through OpenQASM 3, then hit the same HAL. Use the framework you already know; pick the hardware at run-time.
+3. **HAL-thin adapters** — each adapter advertises its native gate set in `capabilities()`, validates against it, and translates IR straight to the vendor wire format. Transpilation lives in `arvak-compile`, not in the adapter.
+4. **Real shots verified** — IBM Marrakesh (156q Heron r3), IQM Garnet (20q Resonance), Quandela `sim:ascella` (photonic dual-rail). End-to-end round-trips in CI-adjacent live tests.
+5. **Includes Nathan** — circuit analysis and research-grounded device recommendations, built on top of the same HAL.
 
 ## Architecture: Deep Modular Integration
 
@@ -67,7 +73,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 │  │  arvak-ir    │  │ arvak-compile│  │  arvak-hal   │  │ arvak-sched │  │ arvak-types│   │
 │  │            │  │            │  │            │  │           │  │          │   │
 │  │ Circuit IR │  │ Pass mgr   │  │ Backend    │  │ SLURM/PBS │  │ Quantum  │   │
-│  │ QASM3      │  │ Optimizer  │  │ abstraction│  │ Workflows │  │ Types    │   │
+│  │ QASM3      │  │ Optimizer  │  │ abstraction│  │ (experim.)│  │ Types    │   │
 │  └────────────┘  └────────────┘  └────────────┘  └───────────┘  └──────────┘   │
 │                                                                                   │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
@@ -89,9 +95,9 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a **complementary platfor
 - **Bidirectional**: Convert to/from any supported framework seamlessly
 - **Extensible**: Add new frameworks in ~30 minutes with template system
 
-## Nathan: AI Research Optimizer
+## Nathan: hardware-aware circuit analysis
 
-Arvak includes **Nathan**, an AI-powered quantum research optimizer grounded in 7,900+ peer-reviewed quantum computing papers and 680+ algorithm–hardware method mappings from arXiv, D-Wave, Qiskit, PennyLane, and Classiq. Nathan provides hardware-aware circuit analysis and optimization recommendations.
+Arvak includes **Nathan**, a literature-grounded circuit analyser that pairs your circuit with relevant papers, suggests rewrites verified by MQT QCEC, and estimates fidelity using the DDSIM noise model. It targets the hardware advertised in `capabilities()` rather than a generic ideal device.
 
 ```python
 import arvak
@@ -115,17 +121,15 @@ print(response)
 ```
 
 **Features:**
-- **7,900+ papers**: Peer-reviewed quantum computing literature from arXiv, D-Wave, Qiskit, PennyLane, and Classiq
-- **680+ method mappings**: Algorithm–hardware pairings curated from vendor documentation and benchmarks
-- **QCEC verification**: Verifies LLM-suggested rewrites preserve circuit semantics using MQT QCEC
-- **QMAP Clifford synthesis**: SAT-based provably optimal Clifford decompositions via MQT QMAP
-- **Noise-aware fidelity**: Estimates circuit fidelity via DDSIM simulation or heuristic fallback (15 backend profiles)
-- **QECC suggestions**: Auto-triggers error correction recommendations when suitability is low
-- **MQT Bench references**: ~200 benchmark circuits across 15 algorithms for comparison
-- **ML device selection**: Circuit feature extraction + heuristic/ML device ranking (`arvak.predictor`)
-- **Session workflow**: Multi-turn analysis with `session.analyze().apply(0).compare()`
-- **Hardware-aware**: Recommendations tailored to target backend (IBM, IQM, Quantinuum, AQT, etc.)
-- **Available at**: [arvak.io/nathan](https://arvak.io/nathan)
+- **Paper grounding**: pairs circuits with relevant quantum computing literature from a curated corpus
+- **QCEC-verified rewrites**: LLM-suggested rewrites are checked for equivalence with MQT QCEC before being returned
+- **QMAP Clifford synthesis**: SAT-based Clifford decompositions via MQT QMAP
+- **Noise-aware fidelity**: estimates fidelity via DDSIM (15 backend noise profiles) with a heuristic fallback
+- **QECC suggestions**: auto-triggers error-correction recommendations when suitability drops
+- **MQT Bench references**: benchmark circuits across common algorithms for comparison
+- **Device selection**: circuit feature extraction + heuristic/ML ranking (`arvak.predictor`)
+- **Session workflow**: multi-turn analysis with `session.analyze().apply(0).compare()`
+- **Hardware-aware**: recommendations are conditioned on the target backend's gate set and topology
 
 ## gRPC Service API
 
@@ -791,21 +795,23 @@ cargo test
 
 ## Backend Support
 
-| Backend | Status | Auth | Notes |
-|---------|--------|------|-------|
-| Simulator | ✅ | None | Local statevector, up to ~20 qubits |
-| MQT DDSIM | ✅ | None | Decision-diagram simulator via Python, up to 128 qubits |
-| IQM Resonance | ✅ | `IQM_TOKEN` | Cloud API (Sirius 16q, Garnet 20q, Emerald 54q) |
-| IBM Quantum | ✅ | `IBM_API_KEY` | Cloud API (Heron 156q, Eagle 127q) |
-| Quantinuum | ✅ | `QUANTINUUM_EMAIL` | H1/H2 trapped-ion (32q, all-to-all) |
-| AQT | ✅ | `AQT_TOKEN` | Trapped-ion (20q, all-to-all) |
-| Quandela | ✅ | `QUANDELA_TOKEN` | Photonic (Ascella 6q, Belenos 12q) |
-| Scaleway QaaS | ✅ | `SCALEWAY_SECRET_KEY` | IQM Garnet (20q), Emerald (54q), Sirius (16q) |
-| AWS Braket | ✅ | AWS credentials | IonQ, Rigetti, IQM, simulators |
-| NVIDIA CUDA-Q | ⚠️ Library-only | `CUDAQ_API_TOKEN` | GPU-accelerated simulation (mqpu, custatevec, tensornet) |
-| IQM LUMI | ✅ | OIDC | On-premise (CSC Finland) |
-| IQM LRZ | ✅ | OIDC | On-premise (Germany) |
-| QDMI (MQSS) | ⚠️ Library-only | Token/OIDC | Any QDMI-compliant device |
+| Backend | Auth | Live-shot verified | Notes |
+|---|---|---|---|
+| `sim` | none | ✅ | Local Rust statevector simulator |
+| `ddsim` | none | ✅ | MQT DDSIM via Python subprocess (decision-diagram) |
+| `ibm_*` | `IBM_API_KEY` + `IBM_SERVICE_CRN` | ✅ Marrakesh (156q Heron r3) | US-East and EU Frankfurt CRNs; native gateset via `IbmBackend::connect()` |
+| `iqm_*` | `IQM_TOKEN` | ✅ Garnet (20q) | Resonance v1 API (`resonance.iqm.tech/api/v1`); HAL-thin (advertises `{prx, cz}`, validates, no in-adapter transpile) |
+| `quandela_*` | `PCVL_CLOUD_TOKEN` | ✅ `sim:ascella` photonic | Perceval Cloud via Python bridge; dual-rail; heralded-CNOT post-selection |
+| `quantinuum_*` | `QUANTINUUM_EMAIL` + `QUANTINUUM_PASSWORD` | constructs | H1/H2 ion-trap (32q, all-to-all) |
+| `aqt_*` | `AQT_TOKEN` | constructs | Trapped-ion offline / noise / cloud sims |
+| `ionq_*` | `IONQ_API_KEY` | ✅ simulator | Aria-1/2 (25q), Forte-1 (36q) QPUs available; simulator is the free tier |
+| `scaleway_*` | `SCALEWAY_SECRET_KEY` + `_PROJECT_ID` + `_SESSION_ID` | constructs | IQM Garnet / Emerald / Sirius hosted by Scaleway |
+| `braket_*` | AWS default chain + `ARVAK_BRAKET_S3_BUCKET` | constructs | AWS Braket: SV1/TN1/DM1 sims, Rigetti Ankaa-3, IonQ Aria/Forte, IQM Garnet |
+| `cudaq_*` | `CUDAQ_API_TOKEN` | ❌ endpoint not GA | NVIDIA CUDA-Q Cloud (mqpu, custatevec, tensornet, density-matrix); waiting on the public endpoint to come online |
+
+"Live-shot verified" = a real round-trip with measurement counts back from a real device or simulator. "constructs" = the adapter routes correctly and authenticates against the live API, but no published end-to-end shot in this repo's CI; the path exists for users with credentials.
+
+LUMI Helmi and LRZ on-premise IQM are reachable via `iqm_helmi` / `iqm_lrz_<machine>` if you have the OIDC tokens (the adapter handles the token cache + refresh).
 
 ## Compilation Targets
 
@@ -821,11 +827,11 @@ cargo test
 | `scaleway-sirius` | PRX, CZ | IQM Sirius (16 qubits) |
 | `simulator` | Universal | Full connectivity |
 
-## HPC Deployment
+## HPC Scheduler Integration (experimental)
 
-Arvak provides first-class support for HPC environments with both SLURM and PBS schedulers.
+`arvak-sched` ships a SLURM/PBS submission layer. The code is in tree and the type surface is stable, but the production-deployment story is not — treat it as a working prototype, not a managed service. If you're running a quantum workload behind a SLURM cluster (e.g. the CSC LUMI quantum partition), this is the entry point.
 
-### LUMI (CSC, Finland)
+### Example: LUMI (CSC, Finland)
 
 ```yaml
 # ~/.arvak/config.yaml
@@ -1270,24 +1276,6 @@ let result = backend.wait(&job_id).await?;
 ```
 
 **Supported targets:** `nvidia-mqpu` (multi-GPU), `custatevec` (single-GPU statevector), `tensornet` (tensor network), `dm` (density matrix).
-
-## Neutral-Atom Support
-
-Arvak provides first-class support for neutral-atom quantum architectures with zoned topologies and qubit shuttling:
-
-```rust
-use arvak_hal::capability::{Topology, Capabilities};
-use arvak_compile::passes::NeutralAtomRouting;
-
-// Configure neutral-atom topology with 3 interaction zones
-let topology = Topology::neutral_atom(20, 3);
-let caps = Capabilities::neutral_atom("my-device", 20, 3);
-
-// Zone-aware routing automatically inserts shuttle instructions
-let routing_pass = NeutralAtomRouting::new(20, 3);
-```
-
-The compiler automatically inserts shuttle instructions for cross-zone two-qubit gates, enabling efficient compilation for platforms like planqc or Pasqal.
 
 ## Acknowledgments
 

@@ -182,7 +182,6 @@ impl QdmiBackend {
             is_simulator: false,
             features: vec!["qdmi".into(), "mqss".into()],
             noise_profile: None,
-            cooling_profile: None,
         };
         Self {
             config: BackendConfig::new("qdmi"),
@@ -302,7 +301,6 @@ impl QdmiBackend {
             is_simulator: false,
             features: vec!["qdmi".into(), "mqss".into()],
             noise_profile: None,
-            cooling_profile: None,
         })
     }
 }
@@ -326,7 +324,6 @@ impl QdmiBackend {
             is_simulator: false,
             features: vec!["qdmi".into(), "mqss".into(), "system".into()],
             noise_profile: None,
-            cooling_profile: None,
         };
         Self {
             config: BackendConfig::new("qdmi"),
@@ -553,7 +550,6 @@ impl QdmiBackend {
                 is_simulator: false,
                 features: vec!["qdmi".into(), "mqss".into(), "system".into()],
                 noise_profile: None,
-                cooling_profile: None,
             })
         }
     }

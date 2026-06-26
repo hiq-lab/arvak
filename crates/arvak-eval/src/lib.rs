@@ -123,7 +123,6 @@ impl EvalConfig {
                 is_simulator: false,
                 features: vec!["dynamic_circuits".into()],
                 noise_profile: None,
-                cooling_profile: None,
             },
             "simulator" => Capabilities::simulator(self.target_qubits),
             // Default to IQM

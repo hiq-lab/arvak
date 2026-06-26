@@ -12,20 +12,12 @@
 //! | `qpu:ascella`   | 6      | Ascella physical QPU                |
 //! | `sim:belenos`   | 12     | Belenos simulator (launched 2025)   |
 //! | `qpu:belenos`   | 12     | Belenos physical QPU (12q)          |
-//! | `quandela_altair`| 5     | Legacy Altair 4K cryocooled (InternalCode)|
+//! | `quandela_altair`| 5     | Legacy Altair 4K cryocooled         |
 //!
 //! # Authentication
 //!
 //! Set `PCVL_CLOUD_TOKEN` (or place the token in
 //! `~/.openclaw/credentials/quandela/cloud.key`).
-//!
-//! # InternalCode integration
-//!
-//! The Altair platform includes a 4K Gifford-McMahon cryocooler tracked via
-//! InternalCode for HOM-visibility PUF fingerprinting.  Use
-//! [`QuandelaBackend::ingest_internalcode_enrollment`] and
-//! [`QuandelaBackend::ingest_internalcode_schedule`] to populate the
-//! `CoolingProfile`.
 //!
 //! # Example
 //!
@@ -42,10 +34,9 @@
 
 mod api;
 mod backend;
-mod decoherence;
 mod error;
 
-pub use backend::{InternalCodeEnrollment, QuandelaBackend};
+pub use backend::QuandelaBackend;
 pub use error::{QuandelaError, QuandelaResult};
 
 // Re-export common HAL types for convenience.

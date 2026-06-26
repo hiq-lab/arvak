@@ -131,10 +131,7 @@ pub mod result;
 
 pub use auth::{CachedToken, EnvTokenProvider, OidcAuth, OidcConfig, TokenProvider};
 pub use backend::{Backend, BackendAvailability, BackendConfig, BackendFactory, ValidationResult};
-pub use capability::{
-    Capabilities, CompressorSpec, CoolingProfile, DecoherenceMonitor, GateSet, NoiseProfile,
-    PufEnrollment, QuietWindow, Topology, TopologyKind, TransferFunctionSample,
-};
+pub use capability::{Capabilities, GateSet, NoiseProfile, Topology, TopologyKind};
 pub use error::{HalError, HalResult};
 pub use job::{Job, JobId, JobStatus};
 pub use plugin::{BackendPlugin, PluginInfo};

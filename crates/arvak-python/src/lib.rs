@@ -24,7 +24,6 @@ mod backend;
 mod circuit;
 mod compile;
 mod error;
-mod projection;
 mod qasm;
 mod qubits;
 mod sim;
@@ -64,9 +63,6 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Sim submodule
     sim::register(m)?;
-
-    // Projection simulator
-    projection::register(m)?;
 
     // Native backend bridge (HAL Backend trait via PyO3)
     backend::register(m)?;
