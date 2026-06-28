@@ -206,11 +206,11 @@ jobs:
 
       - name: Run tests (debug)
         if: matrix.profile == 'debug'
-        run: cargo test --workspace --exclude arvak-python --exclude arvak-proj
+        run: cargo test --workspace --exclude arvak-python
 
       - name: Run tests (release)
         if: matrix.profile == 'release'
-        run: cargo test --workspace --exclude arvak-python --exclude arvak-proj --release
+        run: cargo test --workspace --exclude arvak-python --release
 
       # Adapter feature-flag builds (ubuntu release only — folded from adapter-compat)
       - name: Build CLI with all backends
