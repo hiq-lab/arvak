@@ -53,7 +53,6 @@ COPY adapters/arvak-adapter-cudaq/Cargo.toml adapters/arvak-adapter-cudaq/Cargo.
 COPY crates/arvak-eval/Cargo.toml crates/arvak-eval/Cargo.toml
 COPY crates/arvak-bench/Cargo.toml crates/arvak-bench/Cargo.toml
 COPY demos/Cargo.toml demos/Cargo.toml
-COPY demos/lumi-hybrid/Cargo.toml demos/lumi-hybrid/Cargo.toml
 
 # Create stub source files matching each crate's expected targets
 RUN mkdir -p .hal-contract/rust/src && echo "" > .hal-contract/rust/src/lib.rs \
@@ -96,9 +95,6 @@ RUN mkdir -p .hal-contract/rust/src && echo "" > .hal-contract/rust/src/lib.rs \
         && echo "fn main() {}" > demos/bin/demo_speed_vqe.rs \
         && echo "fn main() {}" > demos/bin/demo_speed_qml.rs \
         && echo "fn main() {}" > demos/bin/demo_speed_qaoa.rs \
-    && mkdir -p demos/lumi-hybrid/src \
-        && echo "fn main() {}" > demos/lumi-hybrid/src/main.rs \
-        && echo "fn main() {}" > demos/lumi-hybrid/src/quantum_worker.rs \
     && mkdir -p demos/data \
         && echo "{}" > demos/data/vqe_result.json
 
@@ -126,7 +122,7 @@ RUN find crates/ adapters/ demos/ -name "*.rs" -exec touch {} +
 RUN cargo build --release -p arvak-dashboard --features "${DASHBOARD_FEATURES}"
 RUN cargo build --release -p arvak-cli
 RUN cargo build --release -p arvak-grpc --features "simulator,sqlite,ibm"
-RUN cargo build --release -p arvak-demos -p lumi-hybrid
+RUN cargo build --release -p arvak-demos
 
 # ============================================================
 # Stage 2: Runtime (minimal)

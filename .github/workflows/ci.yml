@@ -49,7 +49,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Run tests
-        run: cargo test --workspace --exclude arvak-python --exclude arvak-proj
+        run: cargo test --workspace --exclude arvak-python
 
   fmt:
     name: Formatting
