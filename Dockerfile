@@ -151,8 +151,6 @@ COPY --from=builder /build/target/release/demo-qi-nutshell /usr/local/bin/demo-q
 COPY --from=builder /build/target/release/demo-speed-vqe /usr/local/bin/demo-speed-vqe
 COPY --from=builder /build/target/release/demo-speed-qml /usr/local/bin/demo-speed-qml
 COPY --from=builder /build/target/release/demo-speed-qaoa /usr/local/bin/demo-speed-qaoa
-COPY --from=builder /build/target/release/lumi_vqe /usr/local/bin/lumi_vqe
-COPY --from=builder /build/target/release/quantum_worker /usr/local/bin/quantum_worker
 
 # Copy example QASM files
 COPY examples/*.qasm /home/arvak/examples/
