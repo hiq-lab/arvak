@@ -335,8 +335,19 @@ impl Backend for DdsimBackend {
             .jobs
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        jobs.get(&job_id.0)
-            .and_then(|j| j.result.clone())
+        let ddsim_job = jobs
+            .get(&job_id.0)
+            .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))?;
+        // HAL Contract v2 §3.3 rule 5: result() is only valid in Completed.
+        if !matches!(ddsim_job.job.status, JobStatus::Completed) {
+            return Err(HalError::Backend(format!(
+                "result() called on job {} in state {} (expected Completed)",
+                job_id.0, ddsim_job.job.status
+            )));
+        }
+        ddsim_job
+            .result
+            .clone()
             .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))
     }
 
