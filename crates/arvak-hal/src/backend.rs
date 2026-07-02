@@ -322,6 +322,7 @@ mod tests {
 
     #[async_trait]
     impl Backend for ExpiredBackend {
+        #[allow(clippy::unnecessary_literal_bound)]
         fn name(&self) -> &str {
             "expired"
         }
