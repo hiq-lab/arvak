@@ -102,6 +102,7 @@ fn job_status_string(status: &arvak_hal::job::JobStatus) -> String {
         arvak_hal::job::JobStatus::Completed => "completed".to_string(),
         arvak_hal::job::JobStatus::Failed(_) => "failed".to_string(),
         arvak_hal::job::JobStatus::Cancelled => "cancelled".to_string(),
+        arvak_hal::job::JobStatus::ResultExpired => "result_expired".to_string(),
     }
 }
 

@@ -204,6 +204,9 @@ pub trait Backend: Send + Sync {
                 JobStatus::Completed => return self.result(job_id).await,
                 JobStatus::Failed(msg) => return Err(HalError::JobFailed(msg)),
                 JobStatus::Cancelled => return Err(HalError::JobCancelled),
+                JobStatus::ResultExpired => {
+                    return Err(HalError::ResultExpired(job_id.0.clone()));
+                }
                 JobStatus::Queued | JobStatus::Running => {
                     sleep(poll_interval).await;
                 }
@@ -310,5 +313,55 @@ mod tests {
             }
             .is_valid()
         );
+    }
+
+    /// Mock whose jobs are always in `ResultExpired` state.
+    struct ExpiredBackend {
+        capabilities: Capabilities,
+    }
+
+    #[async_trait]
+    impl Backend for ExpiredBackend {
+        fn name(&self) -> &str {
+            "expired"
+        }
+        fn capabilities(&self) -> &Capabilities {
+            &self.capabilities
+        }
+        async fn availability(&self) -> HalResult<BackendAvailability> {
+            Ok(BackendAvailability::always_available())
+        }
+        async fn validate(&self, _c: &Circuit, _shots: u32) -> HalResult<ValidationResult> {
+            Ok(ValidationResult::Valid)
+        }
+        async fn submit(
+            &self,
+            _c: &Circuit,
+            _shots: u32,
+            _parameters: Option<&std::collections::HashMap<String, f64>>,
+        ) -> HalResult<JobId> {
+            Ok(JobId::new("expired-job"))
+        }
+        async fn status(&self, _id: &JobId) -> HalResult<JobStatus> {
+            Ok(JobStatus::ResultExpired)
+        }
+        async fn result(&self, id: &JobId) -> HalResult<ExecutionResult> {
+            Err(crate::error::HalError::ResultExpired(id.0.clone()))
+        }
+        async fn cancel(&self, _id: &JobId) -> HalResult<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_wait_surfaces_result_expired() {
+        let backend = ExpiredBackend {
+            capabilities: Capabilities::simulator(2),
+        };
+        let err = backend.wait(&JobId::new("expired-job")).await.unwrap_err();
+        assert!(matches!(
+            err,
+            crate::error::HalError::ResultExpired(ref id) if id == "expired-job"
+        ));
     }
 }

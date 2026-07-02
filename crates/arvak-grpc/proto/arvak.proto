@@ -13,6 +13,9 @@ enum JobState {
   JOB_STATE_COMPLETED = 3;
   JOB_STATE_FAILED = 4;
   JOB_STATE_CANCELED = 5;
+  // Job completed but results were purged by the backend (HAL Contract
+  // v2.1 §5.1). Distinct from FAILED — the job ran successfully.
+  JOB_STATE_RESULT_EXPIRED = 6;
 }
 
 /// Circuit payload - supports multiple formats.

@@ -38,6 +38,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -176,6 +177,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -240,6 +242,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -332,6 +335,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -438,6 +442,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust 1.85
@@ -481,6 +486,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -546,6 +552,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -598,6 +605,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -673,6 +681,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -704,6 +713,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -744,6 +754,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain
@@ -958,6 +969,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: hiq-lab/hal-contract-spec
+          ref: 0f75b14a699e7892bb4246ff019fb31edb281b35 # ref-impl v2.3 sync — bump deliberately
           path: .hal-contract
 
       - name: Install Rust toolchain

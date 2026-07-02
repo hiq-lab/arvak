@@ -135,6 +135,7 @@ pub(super) fn to_proto_state(status: &JobStatus) -> JobState {
         JobStatus::Completed => JobState::Completed,
         JobStatus::Failed(_) => JobState::Failed,
         JobStatus::Cancelled => JobState::Canceled,
+        JobStatus::ResultExpired => JobState::ResultExpired,
     }
 }
 

@@ -8,7 +8,7 @@
 //! |----------|----------|----------|
 //! | **Transient** | `BackendUnavailable`, `Timeout` | Retry with backoff |
 //! | **Permanent** | `InvalidCircuit`, `CircuitTooLarge`, `InvalidShots`, `Unsupported` | Fix input |
-//! | **Job-level** | `JobFailed`, `JobCancelled`, `JobNotFound` | Resubmit or abort |
+//! | **Job-level** | `SubmissionFailed`, `JobFailed`, `JobCancelled`, `JobNotFound`, `ResultExpired` | Resubmit or abort |
 //! | **Auth** | `AuthenticationFailed` | Re-authenticate |
 //! | **Config** | `Configuration`, `Backend` | Fix configuration |
 
@@ -16,7 +16,7 @@ use thiserror::Error;
 
 /// Errors that can occur in HAL operations.
 ///
-/// All 13 spec variants are present. Arvak-specific extensions are
+/// All 14 spec variants are present. Arvak-specific extensions are
 /// grouped at the end and clearly marked.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -45,6 +45,11 @@ pub enum HalError {
     /// Job not found.
     #[error("Job not found: {0}")]
     JobNotFound(String),
+
+    /// Job completed but results were purged by the backend (terminal —
+    /// resubmit to obtain new results). See `JobStatus::ResultExpired`.
+    #[error("Result expired for job {0}")]
+    ResultExpired(String),
 
     /// Invalid circuit (permanent — fix input).
     #[error("Invalid circuit: {0}")]
@@ -118,6 +123,7 @@ impl From<hal_contract::HalError> for HalError {
             hal_contract::HalError::JobFailed(s) => Self::JobFailed(s),
             hal_contract::HalError::JobCancelled => Self::JobCancelled,
             hal_contract::HalError::JobNotFound(s) => Self::JobNotFound(s),
+            hal_contract::HalError::ResultExpired(s) => Self::ResultExpired(s),
             hal_contract::HalError::AuthenticationFailed(s) => Self::AuthenticationFailed(s),
             hal_contract::HalError::Configuration(s) => Self::Configuration(s),
             hal_contract::HalError::Backend(s) => Self::Backend(s),
