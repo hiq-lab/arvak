@@ -71,23 +71,35 @@ pub struct ListBackendsResponse {
 }
 
 /// GET /v1/backends/{id}
+///
+/// The `num_qubits`, `gate_set`, `topology`, and `noise_profile` fields
+/// follow HAL Contract v2 §10 / §4.1 (structured JSON). The flat
+/// `max_qubits` / `supported_gates` / `*_json` fields predate that shape
+/// and are kept for backward compatibility — prefer the structured ones.
 #[derive(Debug, Serialize)]
 pub struct BackendDetailResponse {
     pub backend_id: String,
     pub name: String,
     pub is_available: bool,
-    pub max_qubits: u32,
+    // ── HAL Contract v2 §4.1 shape ────────────────────────────────
+    pub num_qubits: u32,
+    pub gate_set: arvak_hal::capability::GateSet,
+    pub topology: arvak_hal::capability::Topology,
     pub max_shots: u32,
-    pub supported_gates: Vec<String>,
-    pub topology_json: String,
-    /// Device-wide noise averages; `null` when unavailable (DEBT-24).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub noise_profile_json: Option<String>,
     /// Maximum gate operations per circuit; `null` = no limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_circuit_ops: Option<u32>,
     pub is_simulator: bool,
     pub features: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub noise_profile: Option<arvak_hal::capability::NoiseProfile>,
+    // ── Legacy flat fields (pre-§10; deprecated) ──────────────────
+    pub max_qubits: u32,
+    pub supported_gates: Vec<String>,
+    pub topology_json: String,
+    /// Device-wide noise averages; `null` when unavailable (DEBT-24).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub noise_profile_json: Option<String>,
 }
 
 /// POST /v1/compile response

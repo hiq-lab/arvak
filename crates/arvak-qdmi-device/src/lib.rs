@@ -659,6 +659,8 @@ async unsafe fn check_job_status_async(
                 JobState::Completed => ffi::QDMI_JOB_STATUS_DONE,
                 JobState::Failed => ffi::QDMI_JOB_STATUS_FAILED,
                 JobState::Canceled => ffi::QDMI_JOB_STATUS_CANCELED,
+                // QDMI has no expired-result state; execution did complete.
+                JobState::ResultExpired => ffi::QDMI_JOB_STATUS_DONE,
                 JobState::Unspecified => ffi::QDMI_JOB_STATUS_SUBMITTED,
             };
             ffi::QDMI_SUCCESS

@@ -30,7 +30,7 @@ pub use hal_contract::capability::{NoiseProfile, Topology, TopologyKind};
 ///
 /// # HAL Contract v2
 ///
-/// All fields except `features` are defined by the spec.
+/// All fields are defined by the spec (§4.1, v2.1+).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Capabilities {
     /// Name of the backend.

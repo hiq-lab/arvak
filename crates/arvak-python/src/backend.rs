@@ -308,6 +308,10 @@ impl From<JobStatus> for PyJobStatus {
                 state: "cancelled".into(),
                 message: None,
             },
+            JobStatus::ResultExpired => Self {
+                state: "result_expired".into(),
+                message: None,
+            },
         }
     }
 }
@@ -315,7 +319,10 @@ impl From<JobStatus> for PyJobStatus {
 #[pymethods]
 impl PyJobStatus {
     fn is_terminal(&self) -> bool {
-        matches!(self.state.as_str(), "completed" | "failed" | "cancelled")
+        matches!(
+            self.state.as_str(),
+            "completed" | "failed" | "cancelled" | "result_expired"
+        )
     }
 
     fn is_done(&self) -> bool {
@@ -462,6 +469,9 @@ impl PyJobHandle {
                             JobStatus::Completed => return backend.result(&job_id).await,
                             JobStatus::Failed(m) => return Err(HalError::JobFailed(m)),
                             JobStatus::Cancelled => return Err(HalError::JobCancelled),
+                            JobStatus::ResultExpired => {
+                                return Err(HalError::ResultExpired(job_id.0.clone()));
+                            }
                             JobStatus::Queued | JobStatus::Running => {
                                 if let Some(d) = deadline
                                     && Instant::now() >= d

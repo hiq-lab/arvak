@@ -8,7 +8,7 @@
 //! The job state machine:
 //!
 //! ```text
-//!   submit() ──→ Queued ──→ Running ──→ Completed
+//!   submit() ──→ Queued ──→ Running ──→ Completed ──→ ResultExpired
 //!                  │           │
 //!                  │           ├──→ Failed(reason)
 //!                  │           │
@@ -16,9 +16,11 @@
 //! ```
 //!
 //! **Invariants:**
-//! - `submit()` MUST return `Queued`.
+//! - A job created by `submit()` starts in `Queued`.
 //! - Transitions are monotonic — a job never moves backward.
-//! - Terminal states (`Completed`, `Failed`, `Cancelled`) are permanent.
+//! - `Failed`, `Cancelled`, and `ResultExpired` are permanent; `Completed`
+//!   is terminal for execution but may transition to `ResultExpired` when
+//!   the backend purges results.
 //! - `result()` is only valid when status is `Completed`.
 
 // ── Re-exported from HAL Contract spec ──────────────────────────────────────

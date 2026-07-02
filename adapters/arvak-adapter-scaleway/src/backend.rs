@@ -551,6 +551,14 @@ impl Backend for ScalewayBackend {
             ));
         }
 
+        // HAL Contract v2 §3.3 rule 5: result() is only valid in Completed.
+        if !job_response.is_completed() {
+            return Err(HalError::Backend(format!(
+                "result() called on job {} in state {} (expected completed)",
+                job_id.0, job_response.status
+            )));
+        }
+
         // Try inline result_distribution first
         let counts = if let Some(ref dist) = job_response.result_distribution {
             let c = self.parse_result_distribution(dist);
