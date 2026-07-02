@@ -17,7 +17,7 @@ version = "1.0.0"
 edition = "2024"
 rust-version = "1.85"
 license = "Apache-2.0"
-repository = "https://github.com/arvak-project/arvak"
+repository = "https://github.com/hiq-lab/arvak"
 keywords = ["quantum", "hpc", "compiler", "qasm", "orchestration"]
 categories = ["science", "compilers", "simulation"]
 
