@@ -248,7 +248,7 @@ impl Backend for QuantinuumBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -258,6 +258,13 @@ impl Backend for QuantinuumBackend {
                 circuit.num_qubits(),
                 self.target,
                 caps.num_qubits
+            ));
+        }
+
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {shots} shots but {} allows at most {}",
+                self.target, caps.max_shots
             ));
         }
 
@@ -300,21 +307,20 @@ impl Backend for QuantinuumBackend {
             shots
         );
 
+        // Precise fast-fail on shot bounds (InvalidShots is more specific
+        // than InvalidCircuit and callers may rely on it).
         let caps = self.capabilities();
-        if circuit.num_qubits() > caps.num_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but {} supports at most {}",
-                circuit.num_qubits(),
-                self.target,
-                caps.num_qubits
-            )));
-        }
-
         if shots > caps.max_shots {
             return Err(HalError::InvalidShots(format!(
                 "Requested {shots} shots but maximum is {}",
                 caps.max_shots
             )));
+        }
+
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        // RequiresTranspilation does not block submission.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
         }
 
         let qasm2 =
@@ -500,6 +506,37 @@ mod tests {
         let results = std::collections::HashMap::new();
         let counts = QuantinuumBackend::parse_results(&results);
         assert_eq!(counts.total_shots(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_shots_over_max() {
+        let backend =
+            QuantinuumBackend::with_credentials(DEFAULT_MACHINE, "test@example.com", "password")
+                .expect("constructs");
+
+        let circuit = Circuit::with_size("shots-test", 1, 1);
+        let over = backend.capabilities().max_shots + 1;
+        let vr = backend.validate(&circuit, over).await.unwrap();
+        match vr {
+            ValidationResult::Invalid { reasons } => {
+                assert!(
+                    reasons.iter().any(|r| r.contains("shots")),
+                    "expected a shots reason, got {reasons:?}"
+                );
+            }
+            other => panic!("expected Invalid, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_validate_accepts_shots_within_max() {
+        let backend =
+            QuantinuumBackend::with_credentials(DEFAULT_MACHINE, "test@example.com", "password")
+                .expect("constructs");
+
+        let circuit = Circuit::with_size("shots-ok", 1, 1);
+        let vr = backend.validate(&circuit, 100).await.unwrap();
+        assert!(matches!(vr, ValidationResult::Valid), "got {vr:?}");
     }
 
     #[test]

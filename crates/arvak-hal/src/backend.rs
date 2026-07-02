@@ -26,8 +26,8 @@
 //! | `name()` | sync | yes | `&str` |
 //! | `capabilities()` | sync | yes | `&Capabilities` |
 //! | `availability()` | async | yes | `HalResult<BackendAvailability>` |
-//! | `validate()` | async | yes | `HalResult<ValidationResult>` |
-//! | `submit()` | async | yes | `HalResult<JobId>` |
+//! | `validate(circuit, shots)` | async | yes | `HalResult<ValidationResult>` |
+//! | `submit(circuit, shots, parameters)` | async | yes | `HalResult<JobId>` |
 //! | `status()` | async | yes | `HalResult<JobStatus>` |
 //! | `result()` | async | yes | `HalResult<ExecutionResult>` |
 //! | `cancel()` | async | yes | `HalResult<()>` |
@@ -140,28 +140,35 @@ pub trait Backend: Send + Sync {
     /// intelligent routing decisions by schedulers.
     async fn availability(&self) -> HalResult<BackendAvailability>;
 
-    /// Validate a circuit against backend constraints.
+    /// Validate a circuit and shot count against backend constraints.
     ///
-    /// SHOULD check at minimum:
+    /// Per HAL Contract v2 §3.3 rule 3, MUST check at minimum:
     /// - Qubit count vs `capabilities().num_qubits`
+    /// - Shot count vs `capabilities().max_shots`
     /// - Gate support vs `capabilities().gate_set`
+    /// - Total operation count vs `capabilities().max_circuit_ops` (if set)
     ///
     /// Returns a three-state result: `Valid`, `Invalid`, or
     /// `RequiresTranspilation`. The third state lets an orchestrator
     /// decide to compile and retry vs. route elsewhere.
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult>;
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult>;
 
-    /// Submit a circuit for execution.
+    /// Submit a circuit for execution with optional parameter bindings.
     ///
     /// Returns a job ID that can be used to check status and retrieve results.
-    /// The job MUST start in `Queued` status.
-    /// Submit a circuit for execution with optional parameter bindings.
+    /// The job MUST start in `Queued` status. Per HAL Contract v2 §3.3 rule 4,
+    /// implementations MUST validate internally before dispatching and return
+    /// `HalError::InvalidCircuit` (without submitting) if validation fails.
     ///
     /// `parameters` maps OpenQASM 3.0 `input float[64]` parameter names to
     /// concrete float values.  Backends that do not support parametric circuits
     /// MUST return `HalError::Unsupported` when `parameters` is `Some(_)` with
     /// at least one entry.  Backends that do support it bind the values before
     /// dispatching to hardware.
+    ///
+    /// Note: the HAL Contract v2.3 spec models parameter binding as a separate
+    /// provided method `submit_with_parameters()`; Arvak folds it into
+    /// `submit()` directly, which is a conforming superset.
     async fn submit(
         &self,
         circuit: &Circuit,

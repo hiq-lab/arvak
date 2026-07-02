@@ -452,7 +452,7 @@ impl Backend for IbmBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -462,6 +462,22 @@ impl Backend for IbmBackend {
                 circuit.num_qubits(),
                 caps.num_qubits
             ));
+        }
+
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but backend allows at most {}",
+                shots, caps.max_shots
+            ));
+        }
+
+        if let Some(max_ops) = caps.max_circuit_ops {
+            let num_ops = circuit.dag().num_ops();
+            if num_ops > max_ops as usize {
+                reasons.push(format!(
+                    "Circuit has {num_ops} operations but backend allows at most {max_ops}"
+                ));
+            }
         }
 
         if !reasons.is_empty() {
@@ -515,27 +531,18 @@ impl Backend for IbmBackend {
             ));
         }
 
-        // Pre-submission validation (DEBT-01): catch unsupported gates and
-        // qubit-count violations before burning queue time or quantum credits.
-        if let ValidationResult::Invalid { reasons } = self.validate(circuit).await? {
+        // Pre-submission validation (DEBT-01): catch unsupported gates, qubit-count
+        // and shot-count violations before burning queue time or quantum credits.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
             return Err(HalError::InvalidCircuit(reasons.join("; ")));
         }
 
-        // Check qubit count
+        // Check if backend is operational
         let info = self
             .get_backend_info()
             .await
             .map_err(|e| HalError::Backend(e.to_string()))?;
 
-        if circuit.num_qubits() > info.num_qubits {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit requires {} qubits but backend only has {}",
-                circuit.num_qubits(),
-                info.num_qubits
-            )));
-        }
-
-        // Check if backend is operational
         if !info.status.operational {
             return Err(HalError::BackendUnavailable(
                 info.status
@@ -797,6 +804,22 @@ mod tests {
         // Single qubit: max 1 → 1 bit
         let samples = vec!["0x0".into(), "0x1".into()];
         assert_eq!(infer_bit_width(&samples), 1);
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_excess_shots() {
+        let config = BackendConfig::new("ibm").with_token("test-token");
+        let backend = IbmBackend::with_config(config).unwrap();
+        let circuit = Circuit::with_size("test", 2, 2);
+
+        let max_shots = backend.capabilities().max_shots;
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
+        match result {
+            ValidationResult::Invalid { reasons } => {
+                assert!(reasons.iter().any(|r| r.contains("shots")));
+            }
+            other => panic!("expected Invalid, got {other:?}"),
+        }
     }
 
     #[test]

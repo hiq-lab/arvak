@@ -878,7 +878,7 @@ impl Backend for QdmiBackend {
         Ok(BackendAvailability::unavailable("failed to initialize"))
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -888,6 +888,24 @@ impl Backend for QdmiBackend {
                 circuit.num_qubits(),
                 caps.num_qubits
             ));
+        }
+
+        // Shot count (HAL Contract v2 §3.3).
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but device supports at most {}",
+                shots, caps.max_shots
+            ));
+        }
+
+        // Total operation count (when the backend imposes a limit).
+        if let Some(max_ops) = caps.max_circuit_ops {
+            let num_ops = circuit.dag().num_ops();
+            if num_ops > max_ops as usize {
+                reasons.push(format!(
+                    "Circuit has {num_ops} operations but maximum is {max_ops}"
+                ));
+            }
         }
 
         // Check gate set support
@@ -920,6 +938,11 @@ impl Backend for QdmiBackend {
             return Err(HalError::Unsupported(
                 "QDMI backend does not support runtime parameter binding".into(),
             ));
+        }
+
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
         }
 
         debug!("Submitting circuit with {} shots via QDMI", shots);
@@ -1338,6 +1361,26 @@ mod tests {
 
         let status = backend.status(&job_id).await.unwrap();
         assert!(matches!(status, JobStatus::Cancelled));
+    }
+
+    #[tokio::test]
+    async fn test_qdmi_validate_rejects_excessive_shots() {
+        let backend = QdmiBackend::new();
+
+        let mut circuit = Circuit::with_size("test", 1, 1);
+        circuit.h(arvak_ir::QubitId(0)).unwrap();
+
+        let max_shots = backend.capabilities().max_shots;
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
+        match result {
+            ValidationResult::Invalid { reasons } => {
+                assert!(
+                    reasons.iter().any(|r| r.contains("shots")),
+                    "reasons should mention shots: {reasons:?}"
+                );
+            }
+            other => panic!("expected Invalid for excessive shots, got {other:?}"),
+        }
     }
 
     /// Gate set is now built from `MockDevice::operations`, not hardcoded to universal.

@@ -94,11 +94,16 @@
 //!         Ok(BackendAvailability::always_available())
 //!     }
 //!
-//!     async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+//!     async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
 //!         Ok(ValidationResult::Valid)
 //!     }
 //!
-//!     async fn submit(&self, circuit: &Circuit, shots: u32) -> HalResult<JobId> {
+//!     async fn submit(
+//!         &self,
+//!         circuit: &Circuit,
+//!         shots: u32,
+//!         parameters: Option<&std::collections::HashMap<String, f64>>,
+//!     ) -> HalResult<JobId> {
 //!         // Submit circuit to hardware
 //!         # todo!()
 //!     }

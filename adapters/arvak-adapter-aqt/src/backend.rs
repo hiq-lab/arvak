@@ -371,7 +371,7 @@ impl Backend for AqtBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -382,6 +382,17 @@ impl Backend for AqtBackend {
                 circuit.num_qubits(),
                 self.resource,
                 caps.num_qubits
+            ));
+        }
+
+        // Check shot count.
+        if shots == 0 {
+            reasons.push("Shot count must be at least 1".into());
+        }
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {shots} shots but AQT maximum is {}",
+                caps.max_shots
             ));
         }
 
@@ -453,17 +464,8 @@ impl Backend for AqtBackend {
             shots
         );
 
-        let caps = self.capabilities();
-
-        if circuit.num_qubits() > caps.num_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but AQT {} supports at most {}",
-                circuit.num_qubits(),
-                self.resource,
-                caps.num_qubits
-            )));
-        }
-
+        // Precise fast-fail on shot bounds (InvalidShots is more specific
+        // than InvalidCircuit and callers may rely on it).
         if shots > AQT_MAX_SHOTS {
             return Err(HalError::InvalidShots(format!(
                 "Requested {shots} shots but AQT maximum is {AQT_MAX_SHOTS}"
@@ -476,18 +478,15 @@ impl Backend for AqtBackend {
             ));
         }
 
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        // RequiresTranspilation does not block submission.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
+        }
+
         let n_qubits = u32::try_from(circuit.num_qubits()).unwrap_or(AQT_MAX_QUBITS);
 
         let ops = Self::serialize_circuit(circuit).map_err(|e| HalError::Backend(e.to_string()))?;
-
-        if ops.len() > AQT_MAX_OPS + 1 {
-            // +1 for the terminal MEASURE
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} operations but AQT allows at most {}",
-                ops.len() - 1,
-                AQT_MAX_OPS
-            )));
-        }
 
         let circuit_payload = CircuitPayload {
             repetitions: shots,
@@ -754,6 +753,34 @@ mod tests {
 
         let result = AqtBackend::gate_to_aqt_op(&gate, &qubits);
         assert!(matches!(result, Err(AqtError::UnsupportedGate(_))));
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_shots_over_max() {
+        let backend = AqtBackend::with_token(DEFAULT_WORKSPACE, DEFAULT_RESOURCE, "test-token")
+            .expect("constructs");
+
+        let circuit = Circuit::with_size("shots-test", 1, 1);
+        let vr = backend.validate(&circuit, AQT_MAX_SHOTS + 1).await.unwrap();
+        match vr {
+            ValidationResult::Invalid { reasons } => {
+                assert!(
+                    reasons.iter().any(|r| r.contains("shots")),
+                    "expected a shots reason, got {reasons:?}"
+                );
+            }
+            other => panic!("expected Invalid, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_validate_accepts_shots_within_max() {
+        let backend = AqtBackend::with_token(DEFAULT_WORKSPACE, DEFAULT_RESOURCE, "test-token")
+            .expect("constructs");
+
+        let circuit = Circuit::with_size("shots-ok", 1, 1);
+        let vr = backend.validate(&circuit, 100).await.unwrap();
+        assert!(matches!(vr, ValidationResult::Valid), "got {vr:?}");
     }
 
     #[test]

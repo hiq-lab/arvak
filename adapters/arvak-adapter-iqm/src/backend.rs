@@ -433,7 +433,7 @@ impl Backend for IqmBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -443,6 +443,13 @@ impl Backend for IqmBackend {
                 circuit.num_qubits(),
                 self.target,
                 caps.num_qubits
+            ));
+        }
+
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but maximum is {}",
+                shots, caps.max_shots
             ));
         }
 
@@ -493,20 +500,20 @@ impl Backend for IqmBackend {
             shots
         );
 
+        // Precise fast-fail on shot bounds (InvalidShots is more specific
+        // than InvalidCircuit and callers may rely on it).
         let caps = self.capabilities();
-        if circuit.num_qubits() > caps.num_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but {} only supports {}",
-                circuit.num_qubits(),
-                self.target,
-                caps.num_qubits
-            )));
-        }
         if shots > caps.max_shots {
             return Err(HalError::InvalidShots(format!(
                 "Requested {} shots but maximum is {}",
                 shots, caps.max_shots
             )));
+        }
+
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        // RequiresTranspilation does not block submission.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
         }
 
         let iqm_circuit = self.circuit_to_iqm(circuit)?;
@@ -711,7 +718,7 @@ mod tests {
         // Build a circuit with H (not native) — must be rejected.
         let mut c = Circuit::with_size("h-test", 1, 1);
         c.h(QubitId(0)).unwrap();
-        let vr = backend.validate(&c).await.unwrap();
+        let vr = backend.validate(&c, 100).await.unwrap();
         match vr {
             ValidationResult::Invalid { reasons } => {
                 assert!(
@@ -742,8 +749,27 @@ mod tests {
         c.measure(QubitId(0), arvak_ir::ClbitId(0)).unwrap();
         c.measure(QubitId(1), arvak_ir::ClbitId(1)).unwrap();
 
-        let vr = backend.validate(&c).await.unwrap();
+        let vr = backend.validate(&c, 100).await.unwrap();
         assert!(matches!(vr, ValidationResult::Valid), "got {vr:?}");
+    }
+
+    #[tokio::test]
+    async fn validate_rejects_shots_over_max() {
+        let backend =
+            IqmBackend::with_credentials("https://example/api/v1", "test-token", "garnet").unwrap();
+
+        let c = Circuit::with_size("shots-test", 1, 1);
+        let over = backend.capabilities().max_shots + 1;
+        let vr = backend.validate(&c, over).await.unwrap();
+        match vr {
+            ValidationResult::Invalid { reasons } => {
+                assert!(
+                    reasons.iter().any(|r| r.contains("shots")),
+                    "expected a shots reason, got {reasons:?}"
+                );
+            }
+            other => panic!("expected Invalid, got {other:?}"),
+        }
     }
 
     #[test]

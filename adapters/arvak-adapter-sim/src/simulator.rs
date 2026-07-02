@@ -184,17 +184,29 @@ impl Backend for SimulatorBackend {
         Ok(BackendAvailability::always_available())
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
+        let mut reasons = Vec::new();
+
         if circuit.num_qubits() > self.max_qubits as usize {
-            return Ok(ValidationResult::Invalid {
-                reasons: vec![format!(
-                    "Circuit has {} qubits but simulator only supports {}",
-                    circuit.num_qubits(),
-                    self.max_qubits
-                )],
-            });
+            reasons.push(format!(
+                "Circuit has {} qubits but simulator only supports {}",
+                circuit.num_qubits(),
+                self.max_qubits
+            ));
         }
-        Ok(ValidationResult::Valid)
+
+        if shots > self.capabilities.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but simulator supports max {}",
+                shots, self.capabilities.max_shots
+            ));
+        }
+
+        if reasons.is_empty() {
+            Ok(ValidationResult::Valid)
+        } else {
+            Ok(ValidationResult::Invalid { reasons })
+        }
     }
 
     #[instrument(skip(self, circuit, parameters))]
@@ -211,13 +223,12 @@ impl Backend for SimulatorBackend {
             ));
         }
 
-        // Validate circuit size
-        if circuit.num_qubits() > self.max_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but simulator only supports {}",
-                circuit.num_qubits(),
-                self.max_qubits
-            )));
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        match self.validate(circuit, shots).await? {
+            ValidationResult::Invalid { reasons } => {
+                return Err(HalError::InvalidCircuit(reasons.join("; ")));
+            }
+            ValidationResult::Valid | ValidationResult::RequiresTranspilation { .. } => {}
         }
 
         // Generate job ID
@@ -420,6 +431,17 @@ mod tests {
         let circuit = Circuit::with_size("test", 10, 0);
         let result = backend.submit(&circuit, 100, None).await;
 
-        assert!(matches!(result, Err(HalError::CircuitTooLarge(_))));
+        assert!(matches!(result, Err(HalError::InvalidCircuit(_))));
+    }
+
+    #[tokio::test]
+    async fn test_simulator_validate_too_many_shots() {
+        let backend = SimulatorBackend::new();
+        let max_shots = backend.capabilities().max_shots;
+
+        let circuit = Circuit::bell().unwrap();
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
+
+        assert!(matches!(result, ValidationResult::Invalid { .. }));
     }
 }

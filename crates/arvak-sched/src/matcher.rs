@@ -304,6 +304,7 @@ mod tests {
         async fn validate(
             &self,
             _circuit: &arvak_ir::Circuit,
+            _shots: u32,
         ) -> arvak_hal::HalResult<ValidationResult> {
             Ok(ValidationResult::Valid)
         }

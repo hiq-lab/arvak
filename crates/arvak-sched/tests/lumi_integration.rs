@@ -51,7 +51,7 @@ impl Backend for MockHelmiBackend {
         Ok(BackendAvailability::always_available())
     }
 
-    async fn validate(&self, _circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, _circuit: &Circuit, _shots: u32) -> HalResult<ValidationResult> {
         Ok(ValidationResult::Valid)
     }
 

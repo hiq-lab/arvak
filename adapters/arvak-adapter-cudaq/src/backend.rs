@@ -239,7 +239,7 @@ impl Backend for CudaqBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -249,6 +249,13 @@ impl Backend for CudaqBackend {
                 circuit.num_qubits(),
                 self.target,
                 caps.num_qubits
+            ));
+        }
+
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but {} supports max {}",
+                shots, self.target, caps.max_shots
             ));
         }
 
@@ -281,20 +288,19 @@ impl Backend for CudaqBackend {
         );
 
         let caps = self.capabilities();
-        if circuit.num_qubits() > caps.num_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but {} supports max {}",
-                circuit.num_qubits(),
-                self.target,
-                caps.num_qubits
-            )));
-        }
-
         if shots > caps.max_shots {
             return Err(HalError::InvalidShots(format!(
                 "Requested {} shots but maximum is {}",
                 shots, caps.max_shots
             )));
+        }
+
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        match self.validate(circuit, shots).await? {
+            ValidationResult::Invalid { reasons } => {
+                return Err(HalError::InvalidCircuit(reasons.join("; ")));
+            }
+            ValidationResult::Valid | ValidationResult::RequiresTranspilation { .. } => {}
         }
 
         let qasm = self
@@ -545,6 +551,21 @@ mod tests {
 
         assert_eq!(caps.name, "tensornet");
         assert_eq!(caps.num_qubits, 100);
+    }
+
+    #[tokio::test]
+    async fn test_validate_too_many_shots() {
+        let config = BackendConfig::new("cudaq")
+            .with_endpoint(DEFAULT_ENDPOINT)
+            .with_token("test-token");
+
+        let backend = CudaqBackend::from_config_impl(config).unwrap();
+        let max_shots = backend.capabilities().max_shots;
+
+        let circuit = Circuit::with_size("test", 2, 2);
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
+
+        assert!(matches!(result, ValidationResult::Invalid { .. }));
     }
 
     #[test]

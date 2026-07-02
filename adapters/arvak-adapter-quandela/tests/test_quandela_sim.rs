@@ -67,7 +67,10 @@ async fn test_bell_state_sim_ascella() {
     let shots = 2_000u32;
 
     // Validate first.
-    let vr = backend.validate(&circuit).await.expect("validate failed");
+    let vr = backend
+        .validate(&circuit, shots)
+        .await
+        .expect("validate failed");
     assert!(
         matches!(vr, arvak_hal::ValidationResult::Valid),
         "Bell circuit should be Valid, got {vr:?}"
