@@ -296,8 +296,19 @@ impl Backend for SimulatorBackend {
             .jobs
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        jobs.get(&job_id.0)
-            .and_then(|j| j.result.clone())
+        let sim_job = jobs
+            .get(&job_id.0)
+            .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))?;
+        // HAL Contract v2 §3.3 rule 5: result() is only valid in Completed.
+        if !matches!(sim_job.job.status, JobStatus::Completed) {
+            return Err(HalError::Backend(format!(
+                "result() called on job {} in state {} (expected Completed)",
+                job_id.0, sim_job.job.status
+            )));
+        }
+        sim_job
+            .result
+            .clone()
             .ok_or_else(|| HalError::JobNotFound(job_id.0.clone()))
     }
 
@@ -443,5 +454,19 @@ mod tests {
         let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
 
         assert!(matches!(result, ValidationResult::Invalid { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_result_rejects_non_completed_job() {
+        let backend = SimulatorBackend::new();
+        let circuit = Circuit::bell().unwrap();
+
+        let job_id = backend.submit(&circuit, 100, None).await.unwrap();
+        backend.cancel(&job_id).await.unwrap();
+
+        // §3.3 rule 5: result() in a non-Completed state returns
+        // HalError::Backend instead of the cached result.
+        let err = backend.result(&job_id).await.unwrap_err();
+        assert!(matches!(err, HalError::Backend(ref msg) if msg.contains("Cancelled")));
     }
 }

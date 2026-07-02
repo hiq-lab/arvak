@@ -51,12 +51,12 @@ pub fn rest_router(state: AppState, cors_origins: &str) -> Router {
     Router::new()
         .route("/v1/health", get(health_handler))
         .route("/v1/backends", get(list_backends_handler))
-        .route("/v1/backends/{id}", get(get_backend_handler))
+        .route("/v1/backends/:id", get(get_backend_handler))
         .route("/v1/compile", post(compile_handler))
         .route("/v1/jobs", post(submit_job_handler))
-        .route("/v1/jobs/{id}", get(get_job_status_handler))
-        .route("/v1/jobs/{id}/result", get(get_job_result_handler))
-        .route("/v1/jobs/{id}", delete(cancel_job_handler))
+        .route("/v1/jobs/:id", get(get_job_status_handler))
+        .route("/v1/jobs/:id/result", get(get_job_result_handler))
+        .route("/v1/jobs/:id", delete(cancel_job_handler))
         .layer(middleware::from_fn(auth::bearer_auth))
         .layer(cors)
         .layer(axum::Extension(state.auth.clone()))
@@ -175,14 +175,18 @@ async fn get_backend_handler(
         backend_id: id,
         name: caps.name.clone(),
         is_available,
-        max_qubits: caps.num_qubits,
+        num_qubits: caps.num_qubits,
+        gate_set: caps.gate_set.clone(),
+        topology: caps.topology.clone(),
         max_shots: caps.max_shots,
-        supported_gates,
-        topology_json,
-        noise_profile_json,
         max_circuit_ops: caps.max_circuit_ops,
         is_simulator: caps.is_simulator,
         features: caps.features.clone(),
+        noise_profile: caps.noise_profile.clone(),
+        max_qubits: caps.num_qubits,
+        supported_gates,
+        topology_json,
+        noise_profile_json,
     }))
 }
 

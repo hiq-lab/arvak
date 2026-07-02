@@ -457,6 +457,15 @@ impl Backend for QuandelaBackend {
 
     #[instrument(skip(self))]
     async fn result(&self, job_id: &JobId) -> HalResult<ExecutionResult> {
+        // HAL Contract v2 §3.3 rule 5: result() is only valid in Completed.
+        let status = self.status(job_id).await?;
+        if !matches!(status, JobStatus::Completed) {
+            return Err(HalError::Backend(format!(
+                "result() called on job {} in state {status} (expected Completed)",
+                job_id.0
+            )));
+        }
+
         let meta = cache_get(&self.job_cache, &job_id.0).await.ok_or_else(|| {
             HalError::Backend(format!(
                 "no cached circuit metadata for job {}: \
