@@ -252,7 +252,7 @@ impl Backend for BraketBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -263,6 +263,24 @@ impl Backend for BraketBackend {
                 circuit.num_qubits(),
                 caps.num_qubits
             ));
+        }
+
+        // Check shot count
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but device allows at most {}",
+                shots, caps.max_shots
+            ));
+        }
+
+        // Check operation count
+        if let Some(max_ops) = caps.max_circuit_ops {
+            let num_ops = circuit.dag().num_ops();
+            if num_ops > max_ops as usize {
+                reasons.push(format!(
+                    "Circuit has {num_ops} operations but device allows at most {max_ops}"
+                ));
+            }
         }
 
         // Check gate set support
@@ -297,13 +315,9 @@ impl Backend for BraketBackend {
             ));
         }
 
-        // Validate qubit count
-        if circuit.num_qubits() > self.capabilities.num_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit requires {} qubits but device only has {}",
-                circuit.num_qubits(),
-                self.capabilities.num_qubits
-            )));
+        // Pre-submission validation: catch constraint violations before dispatch.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
         }
 
         // Convert circuit to QASM3
@@ -516,6 +530,30 @@ mod tests {
         };
         let counts = BraketBackend::parse_result(&result, 2, 1);
         assert_eq!(counts.get("01"), 1);
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_excess_shots() {
+        let client = BraketClient::new("us-east-1", "test-bucket", "test-prefix")
+            .await
+            .unwrap();
+        let backend = BraketBackend {
+            client: Arc::new(client),
+            device_arn: "arn:aws:braket:::device/quantum-simulator/amazon/sv1".to_string(),
+            capabilities: Capabilities::braket_simulator("SV1", 34),
+            jobs: Arc::new(Mutex::new(FxHashMap::default())),
+            device_info: Arc::new(RwLock::new(None)),
+        };
+        let circuit = Circuit::with_size("test", 2, 2);
+
+        let max_shots = backend.capabilities().max_shots;
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
+        match result {
+            ValidationResult::Invalid { reasons } => {
+                assert!(reasons.iter().any(|r| r.contains("shots")));
+            }
+            other => panic!("expected Invalid, got {other:?}"),
+        }
     }
 
     #[test]

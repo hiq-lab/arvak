@@ -553,12 +553,16 @@ impl PyBackend {
         Ok(a.into())
     }
 
-    /// Validate a circuit (parsed from QASM3) against backend constraints.
-    fn validate(&self, qasm: &str, py: Python<'_>) -> PyResult<PyValidationResult> {
+    /// Validate a circuit (parsed from QASM3) and shot count against
+    /// backend constraints (HAL Contract v2 §3.3 rule 3).
+    #[pyo3(signature = (qasm, shots=1024))]
+    fn validate(&self, qasm: &str, shots: u32, py: Python<'_>) -> PyResult<PyValidationResult> {
         let circuit = arvak_qasm3::parse(qasm).map_err(crate::error::parse_to_py_err)?;
         let backend = self.inner.clone();
         let v = py
-            .detach(move || runtime().block_on(async move { backend.validate(&circuit).await }))
+            .detach(move || {
+                runtime().block_on(async move { backend.validate(&circuit, shots).await })
+            })
             .map_err(hal_to_py_err)?;
         Ok(v.into())
     }

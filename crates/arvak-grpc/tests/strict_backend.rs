@@ -86,7 +86,7 @@ impl Backend for StrictBackend {
         Ok(BackendAvailability::always_available())
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, _shots: u32) -> HalResult<ValidationResult> {
         match self.validate_gates(circuit) {
             Ok(()) => Ok(ValidationResult::Valid),
             Err(rejected) => Ok(ValidationResult::Invalid {

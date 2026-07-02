@@ -208,7 +208,7 @@ impl Backend for DdsimBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let mut reasons = Vec::new();
 
         if circuit.num_qubits() > self.max_qubits as usize {
@@ -216,6 +216,13 @@ impl Backend for DdsimBackend {
                 "Circuit has {} qubits but DDSIM adapter is configured for max {}",
                 circuit.num_qubits(),
                 self.max_qubits
+            ));
+        }
+
+        if shots > self.capabilities.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but DDSIM adapter supports max {}",
+                shots, self.capabilities.max_shots
             ));
         }
 
@@ -245,13 +252,12 @@ impl Backend for DdsimBackend {
             ));
         }
 
-        // Validate qubit count
-        if circuit.num_qubits() > self.max_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but DDSIM adapter supports max {}",
-                circuit.num_qubits(),
-                self.max_qubits
-            )));
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        match self.validate(circuit, shots).await? {
+            ValidationResult::Invalid { reasons } => {
+                return Err(HalError::InvalidCircuit(reasons.join("; ")));
+            }
+            ValidationResult::Valid | ValidationResult::RequiresTranspilation { .. } => {}
         }
 
         // Serialize to QASM2
@@ -427,7 +433,16 @@ mod tests {
     async fn test_ddsim_validate_too_many_qubits() {
         let backend = DdsimBackend::with_max_qubits(5);
         let circuit = Circuit::with_size("test", 10, 0);
-        let result = backend.validate(&circuit).await.unwrap();
+        let result = backend.validate(&circuit, 100).await.unwrap();
+        assert!(matches!(result, ValidationResult::Invalid { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_ddsim_validate_too_many_shots() {
+        let backend = DdsimBackend::new();
+        let max_shots = backend.capabilities().max_shots;
+        let circuit = Circuit::bell().unwrap();
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
         assert!(matches!(result, ValidationResult::Invalid { .. }));
     }
 
@@ -436,7 +451,7 @@ mod tests {
         let backend = DdsimBackend::with_max_qubits(5);
         let circuit = Circuit::with_size("test", 10, 0);
         let result = backend.submit(&circuit, 100, None).await;
-        assert!(matches!(result, Err(HalError::CircuitTooLarge(_))));
+        assert!(matches!(result, Err(HalError::InvalidCircuit(_))));
     }
 
     /// Integration test: runs only when DDSIM is installed.

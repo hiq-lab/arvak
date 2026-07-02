@@ -44,3 +44,4 @@ demos/data/*/
 
 # HAL contract spec (checked out from external repo at CI time)
 .hal-contract
+*.dSYM/

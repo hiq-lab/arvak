@@ -317,7 +317,7 @@ impl Backend for QuandelaBackend {
     }
 
     #[instrument(skip(self, circuit))]
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -329,6 +329,24 @@ impl Backend for QuandelaBackend {
                 self.platform,
                 caps.num_qubits,
             ));
+        }
+
+        // Shot count (HAL Contract v2 §3.3).
+        if shots > caps.max_shots {
+            reasons.push(format!(
+                "requested {} shots; {} supports at most {}",
+                shots, self.platform, caps.max_shots,
+            ));
+        }
+
+        // Total operation count (when the backend imposes a limit).
+        if let Some(max_ops) = caps.max_circuit_ops {
+            let num_ops = circuit.dag().num_ops();
+            if num_ops > max_ops as usize {
+                reasons.push(format!(
+                    "circuit has {num_ops} operations; maximum is {max_ops}"
+                ));
+            }
         }
 
         // Gate set.
@@ -361,6 +379,11 @@ impl Backend for QuandelaBackend {
             return Err(HalError::Unsupported(
                 "Quandela backend does not support runtime parameter binding".into(),
             ));
+        }
+
+        // HAL Contract v2 §3.3 rule 4: validate before dispatching.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
         }
 
         let circuit_json =
@@ -542,7 +565,7 @@ mod tests {
     async fn test_validate_bell_valid() {
         let b = QuandelaBackend::for_platform("sim:ascella").unwrap();
         let circuit = bell_circuit();
-        let result = b.validate(&circuit).await.unwrap();
+        let result = b.validate(&circuit, 100).await.unwrap();
         assert!(
             matches!(result, ValidationResult::Valid),
             "expected Valid, got {result:?}"
@@ -553,11 +576,28 @@ mod tests {
     async fn test_validate_too_many_qubits() {
         let b = QuandelaBackend::for_platform("sim:ascella").unwrap();
         let circuit = Circuit::with_size("big", 7, 0);
-        let result = b.validate(&circuit).await.unwrap();
+        let result = b.validate(&circuit, 100).await.unwrap();
         assert!(
             matches!(result, ValidationResult::Invalid { .. }),
             "expected Invalid for 7 qubits, got {result:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn test_validate_excessive_shots() {
+        let b = QuandelaBackend::for_platform("sim:ascella").unwrap();
+        let circuit = bell_circuit();
+        let max_shots = b.capabilities().max_shots;
+        let result = b.validate(&circuit, max_shots + 1).await.unwrap();
+        match result {
+            ValidationResult::Invalid { reasons } => {
+                assert!(
+                    reasons.iter().any(|r| r.contains("shots")),
+                    "reasons should mention shots: {reasons:?}"
+                );
+            }
+            other => panic!("expected Invalid for excessive shots, got {other:?}"),
+        }
     }
 
     #[test]

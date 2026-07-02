@@ -494,7 +494,7 @@ impl Backend for IonQBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -506,6 +506,27 @@ impl Backend for IonQBackend {
                 self.backend_name,
                 caps.num_qubits
             ));
+        }
+
+        // Check shot count.
+        if shots == 0 {
+            reasons.push("Shot count must be at least 1".to_string());
+        } else if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but IonQ {} allows at most {}",
+                shots, self.backend_name, caps.max_shots
+            ));
+        }
+
+        // Check operation count.
+        if let Some(max_ops) = caps.max_circuit_ops {
+            let num_ops = circuit.dag().num_ops();
+            if num_ops > max_ops as usize {
+                reasons.push(format!(
+                    "Circuit has {num_ops} operations but IonQ {} allows at most {max_ops}",
+                    self.backend_name
+                ));
+            }
         }
 
         // Check gate set.
@@ -565,23 +586,18 @@ impl Backend for IonQBackend {
             shots
         );
 
-        let caps = self.capabilities();
-
-        if circuit.num_qubits() > caps.num_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but IonQ {} supports at most {}",
-                circuit.num_qubits(),
-                self.backend_name,
-                caps.num_qubits
-            )));
-        }
-
         if shots == 0 {
             return Err(HalError::InvalidShots(
                 "Shot count must be at least 1".into(),
             ));
         }
 
+        // Pre-submission validation: catch constraint violations before dispatch.
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
+            return Err(HalError::InvalidCircuit(reasons.join("; ")));
+        }
+
+        let caps = self.capabilities();
         let n_qubits = u32::try_from(circuit.num_qubits()).unwrap_or(caps.num_qubits);
 
         let gates =
@@ -895,6 +911,21 @@ mod tests {
         let qubits = vec![QubitId(0)];
         let result = IonQBackend::gate_to_ionq(&gate, &qubits);
         assert!(matches!(result, Err(IonQError::UnsupportedGate(_))));
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_excess_shots() {
+        let backend = IonQBackend::with_api_key(SIMULATOR, "test-key").unwrap();
+        let circuit = Circuit::with_size("test", 2, 2);
+
+        let max_shots = backend.capabilities().max_shots;
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
+        match result {
+            ValidationResult::Invalid { reasons } => {
+                assert!(reasons.iter().any(|r| r.contains("shots")));
+            }
+            other => panic!("expected Invalid, got {other:?}"),
+        }
     }
 
     #[test]

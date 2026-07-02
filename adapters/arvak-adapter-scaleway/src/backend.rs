@@ -346,7 +346,7 @@ impl Backend for ScalewayBackend {
         }
     }
 
-    async fn validate(&self, circuit: &Circuit) -> HalResult<ValidationResult> {
+    async fn validate(&self, circuit: &Circuit, shots: u32) -> HalResult<ValidationResult> {
         let caps = self.capabilities();
         let mut reasons = Vec::new();
 
@@ -357,6 +357,26 @@ impl Backend for ScalewayBackend {
                 self.platform,
                 caps.num_qubits
             ));
+        }
+
+        // Shot count (HAL Contract v2 §3.3).
+        if shots == 0 {
+            reasons.push("shots must be ≥ 1".to_string());
+        } else if shots > caps.max_shots {
+            reasons.push(format!(
+                "Requested {} shots but maximum is {}",
+                shots, caps.max_shots
+            ));
+        }
+
+        // Total operation count (when the backend imposes a limit).
+        if let Some(max_ops) = caps.max_circuit_ops {
+            let num_ops = circuit.dag().num_ops();
+            if num_ops > max_ops as usize {
+                reasons.push(format!(
+                    "Circuit has {num_ops} operations but maximum is {max_ops}"
+                ));
+            }
         }
 
         // Check gate set support
@@ -411,28 +431,9 @@ impl Backend for ScalewayBackend {
             )));
         }
 
-        // Pre-submission circuit validation (gate set + qubit count).
-        if let ValidationResult::Invalid { reasons } = self.validate(circuit).await? {
+        // Pre-submission validation (gate set + qubit count + shots).
+        if let ValidationResult::Invalid { reasons } = self.validate(circuit, shots).await? {
             return Err(HalError::InvalidCircuit(reasons.join("; ")));
-        }
-
-        // Validate circuit size
-        let caps = self.capabilities();
-        if circuit.num_qubits() > caps.num_qubits as usize {
-            return Err(HalError::CircuitTooLarge(format!(
-                "Circuit has {} qubits but {} only supports {}",
-                circuit.num_qubits(),
-                self.platform,
-                caps.num_qubits
-            )));
-        }
-
-        // Validate shots
-        if shots > caps.max_shots {
-            return Err(HalError::InvalidShots(format!(
-                "Requested {} shots but maximum is {}",
-                shots, caps.max_shots
-            )));
         }
 
         // Convert circuit to QASM3
@@ -702,6 +703,30 @@ mod tests {
             }
         }
         assert_eq!(counts.total_shots(), 4000);
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_excessive_shots() {
+        let backend = ScalewayBackend::with_credentials(
+            "test-key",
+            "proj-123",
+            "sess-456",
+            "QPU-GARNET-20PQ",
+        )
+        .unwrap();
+        let circuit = Circuit::bell().unwrap();
+        let max_shots = backend.capabilities().max_shots;
+
+        let result = backend.validate(&circuit, max_shots + 1).await.unwrap();
+        match result {
+            ValidationResult::Invalid { reasons } => {
+                assert!(
+                    reasons.iter().any(|r| r.contains("shots")),
+                    "reasons should mention shots: {reasons:?}"
+                );
+            }
+            other => panic!("expected Invalid for excessive shots, got {other:?}"),
+        }
     }
 
     #[test]
