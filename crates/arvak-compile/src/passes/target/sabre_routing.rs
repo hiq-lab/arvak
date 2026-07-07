@@ -443,22 +443,11 @@ impl Pass for SabreRouting {
         let new_initial = layout_l0.clone();
         let new_final = fwd_layout;
 
-        // Build the new DAG with physical qubit wires.
+        // Build the new DAG with physical qubit wires spanning the whole
+        // device, so the circuit's qubit count stays consistent with the
+        // highest referenced physical index (emitters declare `qubit[n]`).
         let mut new_dag = CircuitDag::new();
-
-        // Add physical qubit wires for all qubits in the coupling map that
-        // are referenced in the output.
-        let mut used_qubits: FxHashSet<u32> = FxHashSet::default();
-        for inst in &chosen_ops {
-            for &q in &inst.qubits {
-                used_qubits.insert(q.0);
-            }
-        }
-        // Also ensure all initially-mapped qubits are present.
-        for (_, phys) in layout_l0.iter() {
-            used_qubits.insert(phys);
-        }
-        for &p in &used_qubits {
+        for p in 0..coupling_map.num_qubits() {
             new_dag.add_qubit(QubitId(p));
         }
         for clbit in dag.clbits().collect::<Vec<_>>() {
