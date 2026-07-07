@@ -5,6 +5,50 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-07-07
+
+Fixes for the QASM3 emitter, parser, and compiler prompted by external
+reviewer feedback (IQM). `to_qasm()` output is now standalone-valid
+OpenQASM 3 accepted by `qiskit.qasm3.loads`, and `compile()` no longer
+requires pre-transpilation for gates outside the target basis.
+
+### Fixed
+
+- **QASM3 emitter produces valid standalone QASM3**: emits
+  `include "stdgates.inc";`, inline `gate` definitions for non-standard
+  gates (`prx`, `ecr`, `iswap`, `sxdg`, `rxx`, `ryy`, `rzz`), the `U`
+  builtin instead of undefined lowercase `u`, and `dt`-unit delay
+  durations. Previously even a Bell circuit failed strict importers with
+  "gate 'h' is not defined". The emitted `prx` definition uses `p0`/`p1`
+  parameter names to work around Qiskit's QASM3 importer (<= 2.4) binding
+  definition parameters alphabetically instead of positionally.
+- **Parser accepts Qiskit's QASM3 output**: `U`/`CX` builtin statements,
+  `gate` definitions (skipped as opaque declarations), `delay[...]`
+  statements (now lowered to IR delays), `r` gate calls (Qiskit/IQM name
+  for PRX), and `ecr` calls. Integer literals larger than `i64::MAX` are
+  rejected instead of silently wrapping.
+- **Routed circuits span the whole device**: with `DenseLayout`
+  (optimization level >= 2) the compiled circuit could reference physical
+  qubits beyond its declared register (`qubit[2] q;` with `cx q[1], q[2];`),
+  producing unparseable QASM. Routing output now covers all device qubits,
+  matching Qiskit's post-transpile convention.
+
+### Added
+
+- **Generic gate decomposition in `BasisTranslation`**: gates without a
+  target-specific rule (`U`, `P`, `CCX`, `CP`, `CY`, `CH`, `CRx`/`CRy`/`CRz`,
+  `RXX`/`RYY`/`RZZ`, `iSWAP`, `ECR`, `CSwap`, `SXdg`) are decomposed into
+  simpler standard gates and translated recursively on all five target
+  bases (ibm, eagle, heron, iqm, neutral_atom). Every decomposition is
+  statevector-verified in `tests/unitary_equivalence.rs`.
+- `Circuit::ecr()` in `arvak-ir`.
+
+### CI
+
+- The release workflow now checks out the `hal-contract` workspace path
+  dependency; the v1.10.0 and v2.0.0 tags never reached PyPI because
+  every build job failed on the missing manifest.
+
 ## [2.0.0] - 2026-06-26
 
 Phase 7 of RFC-0001 (Native Backend Unification): the deprecated
