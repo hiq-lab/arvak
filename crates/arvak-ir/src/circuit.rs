@@ -304,6 +304,13 @@ impl Circuit {
         Ok(self)
     }
 
+    /// Apply ECR (echoed cross-resonance) gate.
+    pub fn ecr(&mut self, q1: QubitId, q2: QubitId) -> IrResult<&mut Self> {
+        self.dag
+            .apply(Instruction::two_qubit_gate(StandardGate::ECR, q1, q2))?;
+        Ok(self)
+    }
+
     /// Apply controlled-Rz gate.
     pub fn crz(
         &mut self,
@@ -683,8 +690,8 @@ impl Circuit {
 
             // Controlled rotations
             for j in (i + 1)..n {
-                let k = j - i;
-                let angle = PI / 2.0_f64.powi(k as i32);
+                let k = i32::try_from(j - i).unwrap_or(i32::MAX);
+                let angle = PI / 2.0_f64.powi(k);
                 circuit.cp(angle, QubitId(j), QubitId(i))?;
             }
         }

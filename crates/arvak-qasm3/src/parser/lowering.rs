@@ -129,10 +129,11 @@ impl Lowerer {
             }
 
             Statement::GateDef { .. } => {
-                // TODO: Implement custom gate definitions
-                Err(ParseError::Generic(
-                    "Custom gate definitions not yet supported".into(),
-                ))
+                // Gate definitions are treated as opaque declarations: calls
+                // to known gates (prx, ecr, iswap, ...) are resolved by name
+                // in `lower_gate_call`, so the body is not needed. Calls to
+                // truly unknown gates still fail at the call site.
+                Ok(())
             }
 
             Statement::Assignment { .. } => {
@@ -141,8 +142,11 @@ impl Lowerer {
                 Ok(())
             }
 
-            Statement::Delay { .. } => {
-                // TODO: Implement delays
+            Statement::Delay { duration, qubits } => {
+                let duration = const_u64(duration)?;
+                for q in self.resolve_qubits(qubits)? {
+                    circuit.delay(q, duration)?;
+                }
                 Ok(())
             }
         }
@@ -290,6 +294,11 @@ impl Lowerer {
             "iswap" => {
                 check_qubit_count("iswap", &qubits, 2)?;
                 circuit.iswap(qubits[0], qubits[1])?;
+                Ok(())
+            }
+            "ecr" => {
+                check_qubit_count("ecr", &qubits, 2)?;
+                circuit.ecr(qubits[0], qubits[1])?;
                 Ok(())
             }
             "crz" => {
@@ -459,6 +468,17 @@ impl Lowerer {
             }
         }
         Ok(ids)
+    }
+}
+
+/// Evaluate an expression to a constant non-negative integer (e.g. a delay
+/// duration in device units).
+fn const_u64(expr: &Expression) -> ParseResult<u64> {
+    match expr {
+        Expression::Int(v) if *v >= 0 => Ok(u64::try_from(*v).unwrap_or(0)),
+        _ => Err(ParseError::Generic(format!(
+            "expected a non-negative integer duration, found {expr:?}"
+        ))),
     }
 }
 

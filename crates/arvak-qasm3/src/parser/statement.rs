@@ -20,9 +20,19 @@ impl Parser {
             Token::Measure => self.parse_measure(),
             Token::Reset => self.parse_reset(),
             Token::Barrier => self.parse_barrier(),
+            Token::Delay => self.parse_delay(),
             Token::If => self.parse_if(),
             Token::For => self.parse_for(),
             Token::Gate => self.parse_gate_def(),
+            // Built-in gates have dedicated tokens but parse as gate calls.
+            Token::GateU => {
+                self.advance();
+                self.parse_gate_call("U".into())
+            }
+            Token::GateCX => {
+                self.advance();
+                self.parse_gate_call("CX".into())
+            }
             Token::Identifier(_) => self.parse_identifier_statement(),
             _ => Err(ParseError::UnexpectedToken {
                 line: self.line,
@@ -30,6 +40,26 @@ impl Parser {
                 found: token.to_string(),
             }),
         }
+    }
+
+    /// Parse a delay statement: `delay[<duration><unit>?] q, ...;`
+    ///
+    /// The unit suffix (`dt`, `ns`, `us`, `ms`, `s`) is accepted and
+    /// discarded — IR durations are in device-specific units (`dt`).
+    fn parse_delay(&mut self) -> ParseResult<Statement> {
+        self.expect(Token::Delay)?;
+        self.expect(Token::LBracket)?;
+        let duration = self.parse_expression()?;
+        // Optional time unit written adjacent to the literal, e.g. `160dt`,
+        // which the lexer splits into an integer and an identifier.
+        if matches!(self.peek(), Some(Token::Identifier(_))) {
+            self.advance();
+        }
+        self.expect(Token::RBracket)?;
+        let qubits = self.parse_qubit_refs()?;
+        self.expect(Token::Semicolon)?;
+
+        Ok(Statement::Delay { duration, qubits })
     }
 
     /// Parse include statement.

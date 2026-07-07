@@ -42,9 +42,12 @@ impl Emitter {
     }
 
     fn emit_circuit(&mut self, circuit: &Circuit) -> ParseResult<String> {
-        // Version
+        // Version and standard gate library
         self.writeln("OPENQASM 3.0;");
+        self.writeln("include \"stdgates.inc\";");
         self.writeln("");
+
+        self.emit_nonstandard_gate_defs(circuit);
 
         // Qubit declarations
         let num_qubits = circuit.num_qubits();
@@ -68,6 +71,87 @@ impl Emitter {
         }
 
         Ok(self.output.clone())
+    }
+
+    /// Emit inline `gate` definitions for gates that are not part of
+    /// `stdgates.inc`, so the output is self-contained valid QASM3.
+    ///
+    /// The definitions are exact up to global phase, which is unobservable
+    /// for uncontrolled use (all Arvak circuits emit these gates uncontrolled).
+    fn emit_nonstandard_gate_defs(&mut self, circuit: &Circuit) {
+        let mut needs_sxdg = false;
+        let mut needs_iswap = false;
+        let mut needs_rxx = false;
+        let mut needs_ryy = false;
+        let mut needs_rzz = false;
+        let mut needs_prx = false;
+        let mut needs_ecr = false;
+
+        for (_, inst) in circuit.dag().topological_ops() {
+            if let InstructionKind::Gate(gate) = &inst.kind {
+                match &gate.kind {
+                    GateKind::Standard(StandardGate::SXdg) => needs_sxdg = true,
+                    GateKind::Standard(StandardGate::ISwap) => needs_iswap = true,
+                    GateKind::Standard(StandardGate::RXX(_)) => needs_rxx = true,
+                    GateKind::Standard(StandardGate::RYY(_)) => needs_ryy = true,
+                    GateKind::Standard(StandardGate::RZZ(_)) => needs_rzz = true,
+                    GateKind::Standard(StandardGate::PRX(_, _)) => needs_prx = true,
+                    GateKind::Standard(StandardGate::ECR) => needs_ecr = true,
+                    _ => {}
+                }
+            }
+        }
+
+        let any = needs_sxdg
+            || needs_iswap
+            || needs_rxx
+            || needs_ryy
+            || needs_rzz
+            || needs_prx
+            || needs_ecr;
+
+        if needs_sxdg {
+            // SXdg = S · H · S up to global phase e^{-i pi/4}
+            self.writeln("gate sxdg a { s a; h a; s a; }");
+        }
+        if needs_iswap {
+            self.writeln("gate iswap a, b { s a; s b; h a; cx a, b; cx b, a; h b; }");
+        }
+        if needs_rxx {
+            self.writeln(
+                "gate rxx(theta) a, b { h a; h b; cx a, b; rz(theta) b; cx a, b; h a; h b; }",
+            );
+        }
+        if needs_ryy {
+            self.writeln(
+                "gate ryy(theta) a, b { rx(pi/2) a; rx(pi/2) b; cx a, b; rz(theta) b; \
+                 cx a, b; rx(-pi/2) a; rx(-pi/2) b; }",
+            );
+        }
+        if needs_rzz {
+            self.writeln("gate rzz(theta) a, b { cx a, b; rz(theta) b; cx a, b; }");
+        }
+        if needs_prx {
+            // PRX(theta, phi) = Rz(phi) · Rx(theta) · Rz(-phi)  (IQM native).
+            // Parameters are named p0/p1 (not theta/phi) because Qiskit's
+            // QASM3 importer (<= 2.4) binds definition parameters in
+            // alphabetical rather than positional order.
+            self.writeln("gate prx(p0, p1) a { rz(-p1) a; rx(p0) a; rz(p1) a; }");
+        }
+        if needs_ecr {
+            // ECR = RZX(pi/4) · (X ⊗ I) · RZX(-pi/4)
+            // RZX(t) a, b = H b; CX a, b; Rz(t) b; CX a, b; H b
+            self.writeln(
+                "gate ecr a, b { \
+                 h b; cx a, b; rz(pi/4) b; cx a, b; h b; \
+                 x a; \
+                 h b; cx a, b; rz(-pi/4) b; cx a, b; h b; }",
+            );
+        }
+
+        if any {
+            self.writeln("");
+        }
     }
 
     fn emit_instruction(&mut self, instruction: &Instruction) -> ParseResult<()> {
@@ -113,8 +197,9 @@ impl Emitter {
             }
 
             InstructionKind::Delay { duration } => {
+                // IR durations are in device-specific units => QASM3 `dt`.
                 let qubits = self.emit_qubits(&instruction.qubits);
-                self.writeln(&format!("delay[{duration}] {qubits};"));
+                self.writeln(&format!("delay[{duration}dt] {qubits};"));
             }
 
             InstructionKind::Shuttle { from_zone, to_zone } => {
@@ -153,7 +238,8 @@ impl Emitter {
                 StandardGate::Ry(_) => "ry".into(),
                 StandardGate::Rz(_) => "rz".into(),
                 StandardGate::P(_) => "p".into(),
-                StandardGate::U(_, _, _) => "u".into(),
+                // Lowercase `u` is not in stdgates.inc; `U` is the spec builtin.
+                StandardGate::U(_, _, _) => "U".into(),
                 StandardGate::CX => "cx".into(),
                 StandardGate::CY => "cy".into(),
                 StandardGate::CZ => "cz".into(),
@@ -538,10 +624,112 @@ mod tests {
         let qasm = emit(&circuit).unwrap();
 
         assert!(qasm.contains("OPENQASM 3.0;"));
+        assert!(qasm.contains("include \"stdgates.inc\";"));
         assert!(qasm.contains("qubit[2] q;"));
         assert!(qasm.contains("bit[2] c;"));
         assert!(qasm.contains("h q[0];"));
         assert!(qasm.contains("cx q[0], q[1];"));
+    }
+
+    #[test]
+    fn test_emit_u_as_builtin() {
+        // `u` is not defined in stdgates.inc; the spec builtin is uppercase `U`.
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.u(0.1, 0.2, 0.3, QubitId(0)).unwrap();
+
+        let qasm = emit(&circuit).unwrap();
+        assert!(qasm.contains("U(0.100000, 0.200000, 0.300000) q[0];"));
+    }
+
+    #[test]
+    fn test_emit_nonstandard_gate_defs() {
+        // Gates outside stdgates.inc must carry an inline definition so the
+        // output is self-contained valid QASM3.
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.prx(0.5, 0.25, QubitId(0)).unwrap();
+        circuit.iswap(QubitId(0), QubitId(1)).unwrap();
+        circuit.sxdg(QubitId(0)).unwrap();
+        circuit.rxx(0.1, QubitId(0), QubitId(1)).unwrap();
+        circuit.ryy(0.2, QubitId(0), QubitId(1)).unwrap();
+        circuit.rzz(0.3, QubitId(0), QubitId(1)).unwrap();
+
+        let qasm = emit(&circuit).unwrap();
+        for def in [
+            "gate prx(",
+            "gate iswap ",
+            "gate sxdg ",
+            "gate rxx(",
+            "gate ryy(",
+            "gate rzz(",
+        ] {
+            assert!(qasm.contains(def), "missing definition {def} in:\n{qasm}");
+            assert_eq!(
+                qasm.matches(def).count(),
+                1,
+                "definition {def} emitted more than once"
+            );
+        }
+        // Definitions must precede declarations.
+        assert!(qasm.find("gate prx(").unwrap() < qasm.find("qubit[2]").unwrap());
+    }
+
+    #[test]
+    fn test_emit_no_defs_for_stdgates_only() {
+        let circuit = Circuit::bell().unwrap();
+        let qasm = emit(&circuit).unwrap();
+        assert!(!qasm.contains("\ngate "));
+    }
+
+    #[test]
+    fn test_emit_delay_with_dt_unit() {
+        // A bare integer duration is not valid QASM3; durations need a unit.
+        // IR durations are in device-specific units, which QASM3 spells `dt`.
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.delay(QubitId(0), 160).unwrap();
+
+        let qasm = emit(&circuit).unwrap();
+        assert!(qasm.contains("delay[160dt] q[0];"), "got:\n{qasm}");
+    }
+
+    #[test]
+    fn test_roundtrip_nonstandard_gates() {
+        // Arvak must be able to re-parse its own emitted output, including
+        // the inline gate definitions.
+        let mut circuit = Circuit::with_size("test", 2, 0);
+        circuit.prx(0.5, 0.25, QubitId(0)).unwrap();
+        circuit.iswap(QubitId(0), QubitId(1)).unwrap();
+        circuit.sxdg(QubitId(1)).unwrap();
+        circuit.rzz(0.3, QubitId(0), QubitId(1)).unwrap();
+
+        let qasm = emit(&circuit).unwrap();
+        let reparsed = crate::parse(&qasm).unwrap();
+        assert_eq!(reparsed.num_qubits(), 2);
+        assert_eq!(reparsed.dag().num_ops(), circuit.dag().num_ops());
+    }
+
+    #[test]
+    fn test_roundtrip_u_builtin() {
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.u(0.1, 0.2, 0.3, QubitId(0)).unwrap();
+
+        let qasm = emit(&circuit).unwrap();
+        let reparsed = crate::parse(&qasm).unwrap();
+        assert_eq!(reparsed.dag().num_ops(), 1);
+    }
+
+    #[test]
+    fn test_roundtrip_delay() {
+        let mut circuit = Circuit::with_size("test", 1, 0);
+        circuit.delay(QubitId(0), 160).unwrap();
+        circuit.x(QubitId(0)).unwrap();
+
+        let qasm = emit(&circuit).unwrap();
+        let reparsed = crate::parse(&qasm).unwrap();
+        assert_eq!(
+            reparsed.dag().num_ops(),
+            2,
+            "delay must survive the roundtrip"
+        );
     }
 
     #[test]
