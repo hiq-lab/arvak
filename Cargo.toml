@@ -29,18 +29,21 @@ arvak-hal = { path = "crates/arvak-hal" }
 arvak-sched = { path = "crates/arvak-sched" }
 arvak-types = { path = "crates/arvak-types" }
 arvak-auto = { path = "crates/arvak-auto" }
-arvak-dashboard = { path = "crates/arvak-dashboard" }
-arvak-bench = { path = "crates/arvak-bench" }
 arvak-eval = { path = "crates/arvak-eval" }
 arvak-sim = { path = "crates/arvak-sim" }
 
 # Adapter crates
 arvak-adapter-sim = { path = "adapters/arvak-adapter-sim" }
 arvak-adapter-ddsim = { path = "adapters/arvak-adapter-ddsim" }
+arvak-adapter-aqt = { path = "adapters/arvak-adapter-aqt" }
 arvak-adapter-braket = { path = "adapters/arvak-adapter-braket" }
 arvak-adapter-cudaq = { path = "adapters/arvak-adapter-cudaq" }
+arvak-adapter-ibm = { path = "adapters/arvak-adapter-ibm" }
 arvak-adapter-ionq = { path = "adapters/arvak-adapter-ionq" }
+arvak-adapter-iqm = { path = "adapters/arvak-adapter-iqm" }
 arvak-adapter-quandela = { path = "adapters/arvak-adapter-quandela" }
+arvak-adapter-quantinuum = { path = "adapters/arvak-adapter-quantinuum" }
+arvak-adapter-scaleway = { path = "adapters/arvak-adapter-scaleway" }
 
 # Async runtime — minimal workspace features; crates add extras as needed.
 tokio = { version = "1.43", features = ["macros", "rt-multi-thread", "sync", "time"] }

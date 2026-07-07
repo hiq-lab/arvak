@@ -6,7 +6,7 @@
 
 ```bash
 # Download latest release
-curl -LO https://github.com/arvak-project/arvak/releases/latest/download/arvak-linux-x86_64.tar.gz
+curl -LO https://github.com/hiq-lab/arvak/releases/latest/download/arvak-linux-x86_64.tar.gz
 
 # Extract
 tar xzf arvak-linux-x86_64.tar.gz
@@ -25,7 +25,7 @@ arvak --version
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone and build
-git clone https://github.com/arvak-project/arvak
+git clone https://github.com/hiq-lab/arvak
 cd arvak
 cargo build --release
 
@@ -278,5 +278,5 @@ arvak -vvv submit -i circuit.qasm --backend iqm
 ```
 
 For issues and questions:
-- GitHub Issues: https://github.com/arvak-project/arvak/issues
-- Documentation: https://arvak-project.github.io/arvak/
+- GitHub Issues: https://github.com/hiq-lab/arvak/issues
+- Documentation: https://hiq-lab.github.io/arvak/

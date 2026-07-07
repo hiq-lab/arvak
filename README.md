@@ -84,7 +84,7 @@ Arvak is **not** a Qiskit/Cirq/Qrisp replacement. It's a thin Rust HAL that sits
                               │
 ┌─────────────────────────────▼───────────────────────────────────────────────────┐
 │                         Backend Adapters + Plugin System                         │
-│  Sim │ IQM │ IBM │ Quantinuum │ AQT │ Quandela │ DDSIM │ Braket │ CUDA-Q │ QDMI │
+│  Sim │ IQM │ IBM │ Quantinuum │ AQT │ IonQ │ Quandela │ Scaleway │ DDSIM │ Braket │ CUDA-Q │ QDMI │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -557,12 +557,11 @@ arvak/
 │   ├── arvak-eval/        # Evaluator: compilation observability, QDMI contracts, emitter compliance
 │   ├── arvak-sched/       # HPC job scheduler (SLURM, PBS, workflows, routing)
 │   ├── arvak-dashboard/   # Web dashboard for visualization & monitoring
-│   ├── arvak-proj/        # MPS tensor-network circuit projection (large-qubit simulation)
 │   ├── arvak-bench/       # Benchmark suite (QV, CLOPS, Randomized Benchmarking)
 │   ├── arvak-types/       # Qrisp-like quantum types (QuantumInt, QuantumFloat)
 │   └── arvak-auto/        # Automatic uncomputation
 ├── grpc-client/
-│   └── arvak_grpc/        # gRPC Python client (v1.8.0)
+│   └── arvak_grpc/        # gRPC Python client (v1.6.0)
 │       ├── client.py               # Sync client
 │       ├── async_client.py         # Async client with connection pooling
 │       ├── job_future.py           # Promise-like job interface
@@ -581,6 +580,7 @@ arvak/
 │   ├── arvak-adapter-ibm/        # IBM Quantum API adapter
 │   ├── arvak-adapter-quantinuum/ # Quantinuum H1/H2 trapped-ion adapter
 │   ├── arvak-adapter-aqt/        # AQT trapped-ion adapter
+│   ├── arvak-adapter-ionq/       # IonQ trapped-ion adapter
 │   ├── arvak-adapter-quandela/   # Quandela photonic adapter
 │   ├── arvak-adapter-scaleway/   # Scaleway QaaS adapter (IQM hardware)
 │   ├── arvak-adapter-braket/     # AWS Braket adapter
@@ -588,8 +588,7 @@ arvak/
 │   └── arvak-adapter-qdmi/       # QDMI (Munich Quantum Software Stack) adapter
 ├── demos/               # Demo applications
 │   ├── bin/             # Grover, VQE, QAOA, QI-Nutshell, speed benchmarks
-│   ├── src/             # Shared circuits, problems, runners
-│   └── lumi-hybrid/     # LUMI quantum-HPC hybrid VQE demo
+│   └── src/             # Shared circuits, problems, runners
 └── examples/            # Example QASM circuits
 ```
 
@@ -890,31 +889,6 @@ cargo run --bin demo-speed-qaoa
 ```
 
 Each demo reports per-circuit compile times, gates/s throughput, and speedup vs. a 100ms/circuit baseline.
-
-### LUMI Hybrid VQE Demo
-
-Complete quantum-HPC hybrid workflow using VQE for H₂ molecule ground state energy:
-
-```bash
-# Local simulation
-cargo run -p lumi-hybrid -- --shots 1000 --iterations 20
-
-# Bond distance scan
-cargo run -p lumi-hybrid -- --mode bond-scan --start 0.5 --end 2.0 --points 10
-
-# On LUMI (via SLURM)
-cd demos/lumi-hybrid
-sbatch slurm/vqe_workflow.sh
-```
-
-**Features:**
-- UCCSD ansatz for H₂ molecule
-- Jordan-Wigner transformed Hamiltonian
-- Nelder-Mead optimizer (converges to chemical accuracy)
-- SLURM job scripts for LUMI-G (GPU) and LUMI-Q (quantum)
-- Python visualization for results
-
-See [demos/lumi-hybrid/README.md](demos/lumi-hybrid/README.md) for detailed setup.
 
 ## Web Dashboard
 

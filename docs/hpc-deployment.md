@@ -196,7 +196,7 @@ backend:
 
 ```bash
 # Download release binary
-curl -LO https://github.com/arvak-project/arvak/releases/latest/download/arvak-linux-x86_64.tar.gz
+curl -LO https://github.com/hiq-lab/arvak/releases/latest/download/arvak-linux-x86_64.tar.gz
 
 # Extract
 tar xzf arvak-linux-x86_64.tar.gz
@@ -216,7 +216,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 module load rust/1.83
 
 # Clone and build
-git clone https://github.com/arvak-project/arvak
+git clone https://github.com/hiq-lab/arvak
 cd arvak
 cargo build --release
 
