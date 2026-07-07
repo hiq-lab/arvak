@@ -262,7 +262,9 @@ impl Lowerer {
                 }
                 Ok(())
             }
-            "prx" => {
+            // `r` is the Qiskit/IQM name for the phased-RX rotation:
+            // R(theta, phi) = PRX(theta, phi).
+            "prx" | "r" => {
                 check_param_count("prx", &params, 2)?;
                 for q in qubits {
                     circuit.prx(params[0].clone(), params[1].clone(), q)?;
