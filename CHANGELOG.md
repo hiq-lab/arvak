@@ -5,6 +5,24 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-07-07
+
+### Fixed
+
+- **`CouplingMap::shortest_path()` falls back to BFS** when the predecessor
+  matrix has not been precomputed. Coupling maps built via `CouplingMap(n)`
+  + `add_edge()` (the natural construction path in the Python API) caused
+  `BasicRouting` (optimization level 0) to fail with
+  "Routing failed: qubits X and Y not connected" on connected devices.
+  Levels >= 1 (SABRE) were unaffected. Reported by IQM (reviewer bug #4).
+
+### Documentation
+
+- `docs/compilation.md` no longer describes `SabreRouting`, `DenseLayout`,
+  and `ConsolidateBlocks` as "Planned — Not Yet Implemented"; SABRE has
+  been the default routing pass at optimization level >= 1 since March,
+  and DenseLayout is used at level >= 2.
+
 ## [2.1.0] - 2026-07-07
 
 Fixes for the QASM3 emitter, parser, and compiler prompted by external
