@@ -481,7 +481,7 @@ impl CircuitDag {
         let node_count = self.graph.node_count();
         // Pre-allocate with expected capacity
         let mut depths: FxHashMap<NodeIndex, usize> =
-            FxHashMap::with_capacity_and_hasher(node_count, Default::default());
+            FxHashMap::with_capacity_and_hasher(node_count, rustc_hash::FxBuildHasher);
 
         let mut max_depth = 0usize;
 

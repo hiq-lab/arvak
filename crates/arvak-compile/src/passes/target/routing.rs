@@ -45,10 +45,12 @@ impl Pass for BasicRouting {
             .map(|(_, inst)| inst.clone())
             .collect();
 
-        // Build a new DAG with physical qubit wires.
-        // Each mapped logical qubit gets a wire labelled by its physical position.
+        // Build a new DAG with physical qubit wires spanning the whole
+        // device. Wires are labelled by physical position; covering
+        // 0..num_qubits keeps the circuit's qubit count consistent with the
+        // highest referenced index (emitters declare `qubit[n]`).
         let mut new_dag = CircuitDag::new();
-        for (_, physical) in layout.iter() {
+        for physical in 0..coupling_map.num_qubits() {
             new_dag.add_qubit(QubitId(physical));
         }
         for clbit in dag.clbits().collect::<Vec<_>>() {

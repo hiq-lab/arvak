@@ -122,7 +122,7 @@ fn translate_gate(
 
     match &gate.kind {
         GateKind::Standard(std_gate) => {
-            if is_iqm {
+            let direct = if is_iqm {
                 translate_to_iqm(std_gate, &instruction.qubits)
             } else if is_ibm {
                 translate_to_ibm(std_gate, &instruction.qubits)
@@ -140,6 +140,29 @@ fn translate_gate(
                     "{} (basis unrecognised)",
                     gate.name()
                 )))
+            };
+
+            match direct {
+                Ok(translated) => Ok(translated),
+                // Gate has no target-specific rule: decompose it into
+                // simpler standard gates and translate those recursively.
+                Err(CompileError::GateNotInBasis(original)) => {
+                    let Some(steps) = decompose_to_simpler(std_gate, &instruction.qubits) else {
+                        return Err(CompileError::GateNotInBasis(original));
+                    };
+                    let mut out = Vec::new();
+                    for step in steps {
+                        if let InstructionKind::Gate(g) = &step.kind {
+                            if is_in_basis(g, basis) {
+                                out.push(step);
+                                continue;
+                            }
+                        }
+                        out.extend(translate_gate(&step, basis)?);
+                    }
+                    Ok(out)
+                }
+                Err(e) => Err(e),
             }
         }
         GateKind::Custom(custom) => {
@@ -153,6 +176,215 @@ fn translate_gate(
             Err(CompileError::GateNotInBasis(gate.name().to_string()))
         }
     }
+}
+
+/// Decompose a standard gate without a target-specific translation rule into
+/// simpler standard gates (Rz/Ry/Rx/H/S/T/X/CX) that every target translator
+/// handles. Returns `None` for gates with no known decomposition.
+///
+/// All decompositions are exact up to global phase, which is unobservable.
+#[allow(clippy::too_many_lines)]
+fn decompose_to_simpler(
+    gate: &StandardGate,
+    qubits: &[arvak_ir::QubitId],
+) -> Option<Vec<Instruction>> {
+    use ParameterExpression as P;
+    let half = |p: &P| p.clone() / P::constant(2.0);
+    let single = Instruction::single_qubit_gate;
+    let two = Instruction::two_qubit_gate;
+
+    let q0 = *qubits.first()?;
+
+    Some(match gate {
+        // P(lambda) == Rz(lambda) up to global phase.
+        StandardGate::P(lambda) => vec![single(StandardGate::Rz(lambda.clone()), q0)],
+
+        // U(theta, phi, lambda) == Rz(phi) . Ry(theta) . Rz(lambda) up to
+        // global phase; circuit order applies Rz(lambda) first.
+        StandardGate::U(theta, phi, lambda) => vec![
+            single(StandardGate::Rz(lambda.clone()), q0),
+            single(StandardGate::Ry(theta.clone()), q0),
+            single(StandardGate::Rz(phi.clone()), q0),
+        ],
+
+        // SXdg == S . H . S up to global phase.
+        StandardGate::SXdg => vec![
+            single(StandardGate::S, q0),
+            single(StandardGate::H, q0),
+            single(StandardGate::S, q0),
+        ],
+
+        StandardGate::CY => {
+            let t = *qubits.get(1)?;
+            vec![
+                single(StandardGate::Sdg, t),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::S, t),
+            ]
+        }
+
+        StandardGate::CH => {
+            let t = *qubits.get(1)?;
+            vec![
+                single(StandardGate::S, t),
+                single(StandardGate::H, t),
+                single(StandardGate::T, t),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::Tdg, t),
+                single(StandardGate::H, t),
+                single(StandardGate::Sdg, t),
+            ]
+        }
+
+        StandardGate::CRz(theta) => {
+            let t = *qubits.get(1)?;
+            vec![
+                single(StandardGate::Rz(half(theta)), t),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::Rz(-half(theta)), t),
+                two(StandardGate::CX, q0, t),
+            ]
+        }
+
+        StandardGate::CRy(theta) => {
+            let t = *qubits.get(1)?;
+            vec![
+                single(StandardGate::Ry(half(theta)), t),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::Ry(-half(theta)), t),
+                two(StandardGate::CX, q0, t),
+            ]
+        }
+
+        // CRx == (I x H) . CRz . (I x H)
+        StandardGate::CRx(theta) => {
+            let t = *qubits.get(1)?;
+            vec![
+                single(StandardGate::H, t),
+                single(StandardGate::Rz(half(theta)), t),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::Rz(-half(theta)), t),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::H, t),
+            ]
+        }
+
+        StandardGate::CP(lambda) => {
+            let t = *qubits.get(1)?;
+            vec![
+                single(StandardGate::Rz(half(lambda)), q0),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::Rz(-half(lambda)), t),
+                two(StandardGate::CX, q0, t),
+                single(StandardGate::Rz(half(lambda)), t),
+            ]
+        }
+
+        StandardGate::RZZ(theta) => {
+            let q1 = *qubits.get(1)?;
+            vec![
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::Rz(theta.clone()), q1),
+                two(StandardGate::CX, q0, q1),
+            ]
+        }
+
+        // RXX == (H x H) . RZZ . (H x H)
+        StandardGate::RXX(theta) => {
+            let q1 = *qubits.get(1)?;
+            vec![
+                single(StandardGate::H, q0),
+                single(StandardGate::H, q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::Rz(theta.clone()), q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::H, q0),
+                single(StandardGate::H, q1),
+            ]
+        }
+
+        // RYY == (Rx(pi/2) x Rx(pi/2)) . RZZ . (Rx(-pi/2) x Rx(-pi/2))
+        StandardGate::RYY(theta) => {
+            let q1 = *qubits.get(1)?;
+            let quarter_turn = P::constant(PI / 2.0);
+            vec![
+                single(StandardGate::Rx(quarter_turn.clone()), q0),
+                single(StandardGate::Rx(quarter_turn.clone()), q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::Rz(theta.clone()), q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::Rx(-quarter_turn.clone()), q0),
+                single(StandardGate::Rx(-quarter_turn), q1),
+            ]
+        }
+
+        StandardGate::ISwap => {
+            let q1 = *qubits.get(1)?;
+            vec![
+                single(StandardGate::S, q0),
+                single(StandardGate::S, q1),
+                single(StandardGate::H, q0),
+                two(StandardGate::CX, q0, q1),
+                two(StandardGate::CX, q1, q0),
+                single(StandardGate::H, q1),
+            ]
+        }
+
+        // ECR == RZX(pi/4) . (X x I) . RZX(-pi/4) up to global phase,
+        // with RZX(t) == (I x H) . CX . (I x Rz(t)) . CX . (I x H).
+        StandardGate::ECR => {
+            let q1 = *qubits.get(1)?;
+            let eighth_turn = P::constant(PI / 4.0);
+            vec![
+                single(StandardGate::H, q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::Rz(eighth_turn.clone()), q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::H, q1),
+                single(StandardGate::X, q0),
+                single(StandardGate::H, q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::Rz(-eighth_turn), q1),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::H, q1),
+            ]
+        }
+
+        // Standard 6-CX Toffoli decomposition.
+        StandardGate::CCX => {
+            let q1 = *qubits.get(1)?;
+            let q2 = *qubits.get(2)?;
+            vec![
+                single(StandardGate::H, q2),
+                two(StandardGate::CX, q1, q2),
+                single(StandardGate::Tdg, q2),
+                two(StandardGate::CX, q0, q2),
+                single(StandardGate::T, q2),
+                two(StandardGate::CX, q1, q2),
+                single(StandardGate::Tdg, q2),
+                two(StandardGate::CX, q0, q2),
+                single(StandardGate::T, q1),
+                single(StandardGate::T, q2),
+                single(StandardGate::H, q2),
+                two(StandardGate::CX, q0, q1),
+                single(StandardGate::T, q0),
+                single(StandardGate::Tdg, q1),
+                two(StandardGate::CX, q0, q1),
+            ]
+        }
+
+        // Fredkin via Toffoli: CSwap(c, a, b) == CX(b,a) . CCX(c,a,b) . CX(b,a)
+        StandardGate::CSwap => {
+            let q1 = *qubits.get(1)?;
+            let q2 = *qubits.get(2)?;
+            let mut steps = vec![two(StandardGate::CX, q2, q1)];
+            steps.extend(decompose_to_simpler(&StandardGate::CCX, qubits)?);
+            steps.push(two(StandardGate::CX, q2, q1));
+            steps
+        }
+
+        _ => return None,
+    })
 }
 
 /// Decompose a custom 2-qubit gate (with a 4×4 unitary matrix) into standard

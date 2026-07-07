@@ -82,9 +82,10 @@ impl Parser {
         match token {
             Token::IntLiteral(v) => {
                 self.advance();
-                // Note: u64 to i64 cast may wrap for values > i64::MAX.
-                // Very large integer literals are uncommon in QASM3.
-                Ok(Expression::Int(v as i64))
+                let v = i64::try_from(v).map_err(|_| {
+                    ParseError::Generic(format!("integer literal {v} exceeds i64::MAX"))
+                })?;
+                Ok(Expression::Int(v))
             }
             Token::FloatLiteral(v) => {
                 self.advance();

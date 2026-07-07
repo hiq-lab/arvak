@@ -157,7 +157,7 @@ impl Pass for CancelCX {
             // so no index invalidation occurs for remaining lower-index nodes.
             let mut to_remove: Vec<NodeIndex> =
                 pairs.into_iter().flat_map(|(n1, n2)| [n1, n2]).collect();
-            to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+            to_remove.sort_unstable_by_key(|n| std::cmp::Reverse(n.index()));
             to_remove.dedup();
 
             for node in to_remove {
@@ -381,28 +381,25 @@ impl Pass for CommutativeCancellation {
             // Process only the first merge, then re-discover.
             let (node1, node2, merged) = &merges[0];
 
-            match merged {
-                Some(gate) => {
-                    // Replace first node with merged gate, then remove second.
-                    // Order matters: update node1 first while both indices are
-                    // still valid, then remove node2.
-                    let gate = gate.clone();
-                    if let Some(inst) = dag.get_instruction_mut(*node1) {
-                        *inst = Instruction::single_qubit_gate(gate, inst.qubits[0]);
-                    }
-                    dag.remove_op(*node2).map_err(CompileError::Ir)?;
+            if let Some(gate) = merged {
+                // Replace first node with merged gate, then remove second.
+                // Order matters: update node1 first while both indices are
+                // still valid, then remove node2.
+                let gate = gate.clone();
+                if let Some(inst) = dag.get_instruction_mut(*node1) {
+                    *inst = Instruction::single_qubit_gate(gate, inst.qubits[0]);
                 }
-                None => {
-                    // Gates cancel - remove both (higher index first to avoid
-                    // swap-remove invalidation).
-                    let (first, second) = if node1.index() > node2.index() {
-                        (*node1, *node2)
-                    } else {
-                        (*node2, *node1)
-                    };
-                    dag.remove_op(first).map_err(CompileError::Ir)?;
-                    dag.remove_op(second).map_err(CompileError::Ir)?;
-                }
+                dag.remove_op(*node2).map_err(CompileError::Ir)?;
+            } else {
+                // Gates cancel - remove both (higher index first to avoid
+                // swap-remove invalidation).
+                let (first, second) = if node1.index() > node2.index() {
+                    (*node1, *node2)
+                } else {
+                    (*node2, *node1)
+                };
+                dag.remove_op(first).map_err(CompileError::Ir)?;
+                dag.remove_op(second).map_err(CompileError::Ir)?;
             }
         }
 

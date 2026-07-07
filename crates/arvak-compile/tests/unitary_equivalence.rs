@@ -18,6 +18,12 @@ use arvak_compile::property::{BasisGates, CouplingMap};
 use arvak_compile::{Pass, PropertySet};
 use arvak_ir::{Circuit, QubitId};
 
+/// A named gate-insertion case for the per-basis test matrices.
+type GateCase<'a> = (&'a str, Box<dyn FnOnce(&mut Circuit)>);
+
+/// A (basis-constructor, name) pair for iterating all target bases.
+type BasisCase = (fn() -> BasisGates, &'static str);
+
 const THETA: f64 = 0.7345;
 
 /// Compile `circuit` with `BasisTranslation` for the given basis and verify
@@ -66,7 +72,7 @@ fn sandwich_2q(add_gate: impl FnOnce(&mut Circuit)) -> Circuit {
 /// Run the full per-basis gate matrix.
 fn check_basis_1q(basis: fn() -> BasisGates, name: &str) {
     let q = QubitId(0);
-    let cases: Vec<(&str, Box<dyn FnOnce(&mut Circuit)>)> = vec![
+    let cases: Vec<GateCase> = vec![
         ("x", Box::new(move |c| c.x(q).map(|_| ()).unwrap())),
         ("y", Box::new(move |c| c.y(q).map(|_| ()).unwrap())),
         ("z", Box::new(move |c| c.z(q).map(|_| ()).unwrap())),
@@ -153,6 +159,105 @@ fn test_cz_swap_unitary_equivalent_all_bases() {
 fn test_heron_rzz_unitary_equivalent() {
     let circuit = sandwich_2q(|c| c.rzz(THETA, QubitId(0), QubitId(1)).map(|_| ()).unwrap());
     assert_translation_preserves_semantics(&circuit, BasisGates::heron(), "heron/rzz");
+}
+
+/// Build a 3-qubit circuit with rotations before and after the 3-qubit gate.
+fn sandwich_3q(add_gate: impl FnOnce(&mut Circuit)) -> Circuit {
+    let mut c = Circuit::with_size("t", 3, 0);
+    c.ry(0.3, QubitId(0)).unwrap();
+    c.rx(0.5, QubitId(1)).unwrap();
+    c.ry(0.9, QubitId(2)).unwrap();
+    add_gate(&mut c);
+    c.ry(0.7, QubitId(0)).unwrap();
+    c.rx(1.1, QubitId(1)).unwrap();
+    c.ry(0.2, QubitId(2)).unwrap();
+    c
+}
+
+const ALL_BASES: [BasisCase; 5] = [
+    (BasisGates::ibm, "ibm"),
+    (BasisGates::eagle, "eagle"),
+    (BasisGates::heron, "heron"),
+    (BasisGates::iqm, "iqm"),
+    (BasisGates::neutral_atom, "neutral_atom"),
+];
+
+/// Gates without a target-specific rule must translate through the generic
+/// `decompose_to_simpler` fallback on every basis (Raphael/IQM bug #1:
+/// "compile() cannot decompose arbitrary gates into the target gate set").
+#[test]
+fn test_decomposed_1q_gates_unitary_equivalent_all_bases() {
+    let q = QubitId(0);
+    for (basis, name) in ALL_BASES {
+        let circuit = sandwich_1q(|c| c.p(THETA, q).map(|_| ()).unwrap());
+        assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/p"));
+
+        let circuit = sandwich_1q(|c| c.u(0.3, 0.2, 0.1, q).map(|_| ()).unwrap());
+        assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/u"));
+
+        let circuit = sandwich_1q(|c| c.sxdg(q).map(|_| ()).unwrap());
+        assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/sxdg"));
+    }
+}
+
+#[test]
+fn test_decomposed_2q_gates_unitary_equivalent_all_bases() {
+    let (a, b) = (QubitId(0), QubitId(1));
+    for (basis, name) in ALL_BASES {
+        let cases: Vec<GateCase> = vec![
+            ("cy", Box::new(move |c| c.cy(a, b).map(|_| ()).unwrap())),
+            ("ch", Box::new(move |c| c.ch(a, b).map(|_| ()).unwrap())),
+            (
+                "crx",
+                Box::new(move |c| c.crx(THETA, a, b).map(|_| ()).unwrap()),
+            ),
+            (
+                "cry",
+                Box::new(move |c| c.cry(THETA, a, b).map(|_| ()).unwrap()),
+            ),
+            (
+                "crz",
+                Box::new(move |c| c.crz(THETA, a, b).map(|_| ()).unwrap()),
+            ),
+            (
+                "cp",
+                Box::new(move |c| c.cp(THETA, a, b).map(|_| ()).unwrap()),
+            ),
+            (
+                "rxx",
+                Box::new(move |c| c.rxx(THETA, a, b).map(|_| ()).unwrap()),
+            ),
+            (
+                "ryy",
+                Box::new(move |c| c.ryy(THETA, a, b).map(|_| ()).unwrap()),
+            ),
+            (
+                "rzz",
+                Box::new(move |c| c.rzz(THETA, a, b).map(|_| ()).unwrap()),
+            ),
+            (
+                "iswap",
+                Box::new(move |c| c.iswap(a, b).map(|_| ()).unwrap()),
+            ),
+            ("ecr", Box::new(move |c| c.ecr(a, b).map(|_| ()).unwrap())),
+        ];
+        for (gate, add) in cases {
+            let circuit = sandwich_2q(add);
+            assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/{gate}"));
+        }
+    }
+}
+
+#[test]
+fn test_decomposed_3q_gates_unitary_equivalent_all_bases() {
+    let (a, b, t) = (QubitId(0), QubitId(1), QubitId(2));
+    for (basis, name) in ALL_BASES {
+        let circuit = sandwich_3q(|c| c.ccx(a, b, t).map(|_| ()).unwrap());
+        assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/ccx"));
+
+        let circuit = sandwich_3q(|c| c.cswap(a, b, t).map(|_| ()).unwrap());
+        assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/cswap"));
+    }
 }
 
 // ---------------------------------------------------------------------------
