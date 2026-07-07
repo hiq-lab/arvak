@@ -195,15 +195,21 @@ pub struct TrivialLayout;
 //         ...
 ```
 
-#### DenseLayout (Planned -- Not Yet Implemented)
+#### DenseLayout
 
-Selects physical qubits to minimize circuit depth based on error rates and connectivity. Currently only `TrivialLayout` is available.
+Selects a well-connected region of physical qubits based on circuit
+interaction weights and device connectivity. Used by the default pipeline
+at `optimization_level >= 2`; levels 0-1 use `TrivialLayout`.
+
+```rust
+pub struct DenseLayout;
+```
 
 ### Routing Stage
 
 #### BasicRouting
 
-Greedy routing pass that inserts SWAP gates to satisfy connectivity constraints. Uses BFS to find shortest paths between non-adjacent qubits and inserts SWAPs along the path.
+Greedy routing pass that inserts SWAP gates to satisfy connectivity constraints. Uses BFS to find shortest paths between non-adjacent qubits and inserts SWAPs along the path. Only used at `optimization_level = 0`; higher levels use `SabreRouting`.
 
 ```rust
 pub struct BasicRouting;
@@ -217,13 +223,19 @@ Routing pass for neutral-atom devices with zone-based qubit connectivity and shu
 pub struct NeutralAtomRouting;
 ```
 
-#### SabreRouting (Planned -- Not Yet Implemented)
+#### SabreRouting
 
-SWAP-based routing using the SABRE algorithm.
+SWAP-based routing using the SABRE algorithm (Li et al., ASPLOS 2019).
+This is the **default routing pass** at `optimization_level >= 1`.
 
-- Heuristic lookahead for SWAP selection
-- Bidirectional pass for improved results
-- Parameterized by lookahead depth
+- Maintains a front layer of executable gates
+- Scores candidate SWAPs with a lookahead into upcoming gates
+  ("extended set"), inserting far fewer SWAPs than `BasicRouting`
+- Parameterized by extended-set size and weight
+
+```rust
+pub struct SabreRouting;
+```
 
 ### Translation Stage
 
@@ -278,9 +290,11 @@ Uses gate commutation rules to merge adjacent same-type rotation gates (e.g., `R
 pub struct CommutativeCancellation;
 ```
 
-#### ConsolidateBlocks (Planned -- Not Yet Implemented)
+#### ConsolidateBlocks
 
-Consolidates sequences of gates into optimal decompositions.
+Consolidates runs of 2-qubit gates into single custom gates for KAK-based
+resynthesis. Implemented, but not part of the default pipeline (see the
+note in `manager.rs`).
 
 ## Custom Passes
 
@@ -407,9 +421,7 @@ match pm.run(&mut dag, &mut props) {
 
 | Pass | Stage | Description |
 |------|-------|-------------|
-| DenseLayout | Layout | Pack qubits into well-connected region |
 | SabreLayout | Layout | Error-aware qubit selection |
-| SabreRouting | Routing | SABRE SWAP insertion |
 | GateDirection | Translation | Respect native gate directions |
 | RemoveResetInZeroState | Optimization | Remove resets on |0⟩ |
 | OptimizeSwapBeforeMeasure | Optimization | Eliminate SWAPs before measurement |
