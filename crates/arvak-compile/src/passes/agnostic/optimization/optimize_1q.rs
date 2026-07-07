@@ -360,7 +360,7 @@ impl Pass for Optimize1qGates {
                     // Sort by descending index so swap-remove never invalidates
                     // a remaining node (the last node IS the one being removed).
                     let mut to_remove = nodes;
-                    to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+                    to_remove.sort_unstable_by_key(|n| std::cmp::Reverse(n.index()));
                     for node_idx in to_remove {
                         dag.remove_op(node_idx).map_err(CompileError::Ir)?;
                     }
@@ -378,7 +378,7 @@ impl Pass for Optimize1qGates {
                     // Remove extra nodes in descending index order to avoid
                     // swap-remove invalidation.
                     let mut to_remove: Vec<NodeIndex> = remove.to_vec();
-                    to_remove.sort_unstable_by(|a, b| b.index().cmp(&a.index()));
+                    to_remove.sort_unstable_by_key(|n| std::cmp::Reverse(n.index()));
                     for node_idx in to_remove {
                         dag.remove_op(node_idx).map_err(CompileError::Ir)?;
                     }

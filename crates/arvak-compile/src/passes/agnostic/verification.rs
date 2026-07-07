@@ -58,7 +58,7 @@ impl Pass for MeasurementBarrierVerification {
         // For each qubit, collect the ordered list of (position, instruction_kind).
         let num_qubits = dag.num_qubits();
         let mut qubit_ops: FxHashMap<QubitId, Vec<OpEntry>> =
-            FxHashMap::with_capacity_and_hasher(num_qubits, Default::default());
+            FxHashMap::with_capacity_and_hasher(num_qubits, rustc_hash::FxBuildHasher);
 
         for (position, (_node_idx, inst)) in dag.topological_ops().enumerate() {
             for &qubit in &inst.qubits {
@@ -124,7 +124,7 @@ impl Pass for MeasurementBarrierVerification {
         let num_ops = dag.num_ops();
         let topo_ops: Vec<_> = dag.topological_ops().collect();
         let mut topo_position: FxHashMap<arvak_ir::dag::NodeIndex, usize> =
-            FxHashMap::with_capacity_and_hasher(num_ops, Default::default());
+            FxHashMap::with_capacity_and_hasher(num_ops, rustc_hash::FxBuildHasher);
         for (pos, &(idx, _)) in topo_ops.iter().enumerate() {
             topo_position.insert(idx, pos);
         }
