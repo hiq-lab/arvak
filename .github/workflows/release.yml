@@ -18,6 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: hiq-lab/hal-contract-spec
+          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
+          path: .hal-contract
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -76,6 +83,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: hiq-lab/hal-contract-spec
+          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
+          path: .hal-contract
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -105,6 +119,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: hiq-lab/hal-contract-spec
+          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
+          path: .hal-contract
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -130,6 +151,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: hiq-lab/hal-contract-spec
+          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
+          path: .hal-contract
+
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
@@ -148,6 +176,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: hiq-lab/hal-contract-spec
+          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
+          path: .hal-contract
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -172,6 +207,13 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v5
+
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: hiq-lab/hal-contract-spec
+          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
+          path: .hal-contract
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
