@@ -395,6 +395,8 @@ impl CouplingMap {
     }
 
     /// Reconstruct shortest path from→to using the predecessor matrix.
+    /// Falls back to BFS if the matrix has not been precomputed (e.g. for
+    /// maps built via `new()` + `add_edge()`).
     /// Returns `None` if no path exists.
     pub fn shortest_path(&self, from: u32, to: u32) -> Option<Vec<u32>> {
         if from == to {
@@ -403,7 +405,15 @@ impl CouplingMap {
 
         let (f, t) = (from as usize, to as usize);
         if f >= self.pred_matrix.len() || t >= self.pred_matrix[f].len() {
-            return None;
+            // Fallback BFS (for manually-constructed maps without precompute).
+            // O(V+E) per call — call rebuild_caches() to precompute O(1) lookups.
+            tracing::warn!(
+                from,
+                to,
+                "CouplingMap: predecessor matrix not precomputed, falling back to BFS. \
+                 Call rebuild_caches() after manual construction to avoid performance cliffs."
+            );
+            return self.shortest_path_bfs(from, to);
         }
 
         if self.dist_matrix[f][t] == u32::MAX {
@@ -420,6 +430,39 @@ impl CouplingMap {
             }
             path.push(pred);
             current = pred;
+        }
+        path.reverse();
+        Some(path)
+    }
+
+    /// BFS fallback for shortest-path reconstruction.
+    fn shortest_path_bfs(&self, from: u32, to: u32) -> Option<Vec<u32>> {
+        let mut predecessor: FxHashMap<u32, u32> = FxHashMap::default();
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(from);
+        predecessor.insert(from, from);
+
+        'search: while let Some(current) = queue.pop_front() {
+            for &neighbor in self.adjacency.get(&current).into_iter().flatten() {
+                if let std::collections::hash_map::Entry::Vacant(e) = predecessor.entry(neighbor) {
+                    e.insert(current);
+                    if neighbor == to {
+                        break 'search;
+                    }
+                    queue.push_back(neighbor);
+                }
+            }
+        }
+
+        if !predecessor.contains_key(&to) {
+            return None;
+        }
+
+        let mut path = vec![to];
+        let mut current = to;
+        while current != from {
+            current = predecessor[&current];
+            path.push(current);
         }
         path.reverse();
         Some(path)
@@ -678,6 +721,27 @@ mod tests {
         assert_eq!(layout.get_physical(QubitId(2)), Some(0));
         assert_eq!(layout.get_logical(0), Some(QubitId(2)));
         assert_eq!(layout.get_logical(2), Some(QubitId(0)));
+    }
+
+    /// A coupling map built via `new()` + `add_edge()` (e.g. from the Python
+    /// bindings) has no precomputed predecessor matrix. `shortest_path` must
+    /// fall back to BFS instead of reporting connected qubits as unreachable
+    /// (IQM reviewer bug #4: BasicRouting failed with "qubits 0 and 4 not
+    /// connected" on a linear chain).
+    #[test]
+    fn test_shortest_path_without_precompute() {
+        let mut map = CouplingMap::new(5);
+        for (a, b) in [(0, 1), (1, 2), (2, 3), (3, 4)] {
+            map.add_edge(a, b);
+        }
+
+        assert_eq!(map.shortest_path(0, 4), Some(vec![0, 1, 2, 3, 4]));
+        assert_eq!(map.shortest_path(4, 0), Some(vec![4, 3, 2, 1, 0]));
+        assert_eq!(map.shortest_path(2, 2), Some(vec![2]));
+        // Disconnected qubit stays unreachable.
+        let mut sparse = CouplingMap::new(3);
+        sparse.add_edge(0, 1);
+        assert_eq!(sparse.shortest_path(0, 2), None);
     }
 
     #[test]
