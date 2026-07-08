@@ -35,7 +35,7 @@ impl Parser {
             }
             Token::Identifier(_) => self.parse_identifier_statement(),
             _ => Err(ParseError::UnexpectedToken {
-                line: self.line,
+                line: self.peek_line(),
                 expected: "statement".into(),
                 found: token.to_string(),
             }),
@@ -69,7 +69,7 @@ impl Parser {
             Some(Token::StringLiteral(s)) => s,
             Some(other) => {
                 return Err(ParseError::UnexpectedToken {
-                    line: self.line,
+                    line: self.line(),
                     expected: "string literal".into(),
                     found: other.to_string(),
                 });
