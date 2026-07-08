@@ -5,6 +5,43 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-07-08
+
+Compiler-correctness fixes found by Qrisp-driven stress testing
+(`benchmarks/qrisp_stress.py`), plus parser error-location fixes.
+
+### Fixed
+
+- **SABRE routing could spin forever**: `compile()` at optimization
+  level >= 1 never terminated on Qrisp ripple-carry adders (10-13
+  qubits, linear coupling) — deterministic min-score SWAP selection
+  oscillated (best SWAP of one iteration undone by the next). Fixed
+  with a decay penalty on recently swapped qubits plus a stagnation
+  escape that greedily routes the first front-layer gate after
+  2*num_qubits SWAPs without progress, making termination provable.
+- **`sxdg` leaked into IBM-basis output**: the `Ry -> SX.Rz.SXdg`
+  translation rule emitted a gate outside `BasisGates::ibm()`; now
+  expanded as `X.SX` (exact, `SX^3 = X.SX`).
+- **`ry`/`rz` leaked into IQM-basis output at level >= 1**:
+  `Optimize1qGates` resynthesizes in its ZYZ/ZSX working basis after
+  `BasisTranslation`; the pipeline now re-translates after the
+  optimizer (no-op when the bases match).
+- **Parse errors report the offending token's line** instead of
+  always "line 1" (line numbers are derived from lexer token spans).
+
+### Testing
+
+- New pipeline-invariant sweep (`tests/pipeline_invariants.rs`):
+  seven frozen Qrisp-generated fixtures x 5 bases x 4 optimization
+  levels x 4 coupling-map shapes, asserting termination, QASM3
+  re-parseability, basis conformance, coupling adjacency, register
+  consistency, and (for small circuits) layout-aware statevector
+  equivalence.
+- SABRE termination regression fixtures (the exact circuits that hung).
+- `VerifyCompilation` tolerance raised 1e-8 -> 1e-6: Euler-angle
+  extraction carries O(sqrt(f64::EPSILON)) ~ 1.5e-8 legitimate noise
+  per resynthesized run.
+
 ## [2.1.1] - 2026-07-07
 
 ### Fixed
