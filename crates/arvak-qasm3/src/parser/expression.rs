@@ -129,7 +129,7 @@ impl Parser {
                 Ok(Expression::Paren(Box::new(expr)))
             }
             _ => Err(ParseError::UnexpectedToken {
-                line: self.line,
+                line: self.peek_line(),
                 expected: "expression".into(),
                 found: token.to_string(),
             }),

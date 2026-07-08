@@ -35,8 +35,8 @@ pub(super) const MAX_EXPR_DEPTH: usize = 256;
 pub(super) struct Parser {
     pub(super) tokens: Vec<SpannedToken>,
     pub(super) pos: usize,
-    // TODO: Track line numbers by incrementing on newline tokens
-    pub(super) line: usize,
+    /// Byte offset of every `\n` in the source, for span → line lookup.
+    newline_offsets: Vec<usize>,
     /// Current expression recursion depth (guarded by `MAX_EXPR_DEPTH`).
     pub(super) expr_depth: usize,
 }
@@ -66,12 +66,40 @@ impl Parser {
             }
         }
 
+        let newline_offsets = source
+            .bytes()
+            .enumerate()
+            .filter_map(|(i, b)| (b == b'\n').then_some(i))
+            .collect();
+
         Ok(Self {
             tokens,
             pos: 0,
-            line: 1,
+            newline_offsets,
             expr_depth: 0,
         })
+    }
+
+    /// 1-based line number of a byte offset in the source.
+    fn line_of_offset(&self, offset: usize) -> usize {
+        self.newline_offsets.partition_point(|&nl| nl < offset) + 1
+    }
+
+    /// Line of the most recently consumed token — use for errors raised
+    /// after `advance()`/`expect()`.
+    pub(super) fn line(&self) -> usize {
+        let last = self.tokens.len().saturating_sub(1);
+        self.tokens
+            .get(self.pos.saturating_sub(1).min(last))
+            .map_or(1, |t| self.line_of_offset(t.span.start))
+    }
+
+    /// Line of the next (peeked) token — use for errors raised before
+    /// consuming it.
+    pub(super) fn peek_line(&self) -> usize {
+        self.tokens
+            .get(self.pos)
+            .map_or_else(|| self.line(), |t| self.line_of_offset(t.span.start))
     }
 
     /// Check if we've reached the end.
@@ -103,7 +131,7 @@ impl Parser {
 
         if std::mem::discriminant(&found) != std::mem::discriminant(&expected) {
             return Err(ParseError::UnexpectedToken {
-                line: self.line,
+                line: self.line(),
                 expected: expected.to_string(),
                 found: found.to_string(),
             });
@@ -170,7 +198,7 @@ impl Parser {
         match self.advance() {
             Some(Token::Identifier(s)) => Ok(s),
             Some(other) => Err(ParseError::UnexpectedToken {
-                line: self.line,
+                line: self.line(),
                 expected: "identifier".into(),
                 found: other.to_string(),
             }),
@@ -183,7 +211,7 @@ impl Parser {
         match self.advance() {
             Some(Token::IntLiteral(v)) => Ok(v),
             Some(other) => Err(ParseError::UnexpectedToken {
-                line: self.line,
+                line: self.line(),
                 expected: "integer".into(),
                 found: other.to_string(),
             }),
@@ -195,6 +223,33 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Parse errors must report the line of the offending token, not
+    /// always "line 1" (IQM reviewer feedback: the constant line number
+    /// made errors in longer programs impossible to locate).
+    #[test]
+    fn test_error_reports_correct_line_for_unexpected_statement() {
+        // `)` on line 4 cannot start a statement.
+        let source = "OPENQASM 3.0;\nqubit[2] q;\nh q[0];\n) q[0];\n";
+        let err = parse(source).unwrap_err().to_string();
+        assert!(err.contains("line 4"), "expected line 4 in: {err}");
+    }
+
+    #[test]
+    fn test_error_reports_correct_line_for_failed_expect() {
+        // Missing `]` on line 3.
+        let source = "OPENQASM 3.0;\nqubit[2] q;\nbit[2 c;\nh q[0];\n";
+        let err = parse(source).unwrap_err().to_string();
+        assert!(err.contains("line 3"), "expected line 3 in: {err}");
+    }
+
+    #[test]
+    fn test_error_reports_correct_line_for_bad_expression() {
+        // `;` where an expression is required, on line 5.
+        let source = "OPENQASM 3.0;\nqubit[1] q;\nh q[0];\nx q[0];\nrz(;) q[0];\n";
+        let err = parse(source).unwrap_err().to_string();
+        assert!(err.contains("line 5"), "expected line 5 in: {err}");
+    }
 
     #[test]
     fn test_parse_bell_state() {
