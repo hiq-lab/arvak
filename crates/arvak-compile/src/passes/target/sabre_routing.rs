@@ -211,10 +211,28 @@ fn sabre_pass(
         Ok(())
     };
 
+    // Oscillation / termination protection.
+    //
+    // Plain min-score SWAP selection can cycle: the best SWAP of one
+    // iteration is undone by the best SWAP of the next, forever (observed
+    // on Qrisp ripple-carry adders, see tests/sabre_termination.rs).
+    // Two counter-measures, following the SABRE literature:
+    //  * a decay penalty on recently swapped qubits breaks score ties and
+    //    discourages immediate undo;
+    //  * a stagnation escape guarantees progress: after too many SWAPs
+    //    without executing a single gate, the first front-layer gate is
+    //    routed greedily along the shortest path.
+    const DECAY_STEP: f64 = 0.01;
+    let mut decay: Vec<f64> = vec![1.0; coupling_map.num_qubits() as usize];
+    let mut swaps_since_progress: usize = 0;
+    let escape_threshold = (coupling_map.num_qubits() as usize).max(8) * 2;
+
     // Main loop.
     while !front_layer.is_empty() {
         // Emit any ready single-qubit ops.
         emit_ready_1q_ops(&mut emitted, &mut emitted_ops, &layout)?;
+
+        let mut progressed = false;
 
         // Try to execute gates in the front layer that are already adjacent.
         let mut executed_any = true;
@@ -246,6 +264,7 @@ fn sabre_pass(
                         *c += 1;
                     }
                     executed_any = true;
+                    progressed = true;
                 } else {
                     remaining_front.push(tq_idx);
                 }
@@ -277,6 +296,43 @@ fn sabre_pass(
         // If the front layer is empty, we're done.
         if front_layer.is_empty() {
             break;
+        }
+
+        if progressed {
+            decay.fill(1.0);
+            swaps_since_progress = 0;
+        }
+
+        // Stagnation escape: too many SWAPs without executing any gate
+        // means the heuristic is oscillating. Route the first front-layer
+        // gate greedily along the shortest path — that guarantees it
+        // executes on the next iteration, so the loop always terminates.
+        if swaps_since_progress >= escape_threshold {
+            let gate = &two_qubit_gates[front_layer[0]];
+            let p0 = layout
+                .get_physical(gate.q0)
+                .ok_or(CompileError::MissingLayout)?;
+            let p1 = layout
+                .get_physical(gate.q1)
+                .ok_or(CompileError::MissingLayout)?;
+            let path = coupling_map
+                .shortest_path(p0, p1)
+                .ok_or(CompileError::RoutingFailed {
+                    qubit1: p0,
+                    qubit2: p1,
+                })?;
+            for w in path.windows(2).take(path.len().saturating_sub(2)) {
+                emitted.push(Instruction::two_qubit_gate(
+                    StandardGate::Swap,
+                    QubitId(w[0]),
+                    QubitId(w[1]),
+                ));
+                layout.swap(w[0], w[1]);
+                swap_count += 1;
+            }
+            decay.fill(1.0);
+            swaps_since_progress = 0;
+            continue;
         }
 
         // Build the extended set: next gates after the front layer.
@@ -363,7 +419,11 @@ fn sabre_pass(
                     })
                     .sum();
 
-                let score = front_cost + extended_set_weight * extended_cost;
+                // The decay penalty on recently swapped qubits breaks the
+                // exact score ties that cause SWAP/un-SWAP oscillation.
+                let score = (front_cost + extended_set_weight * extended_cost)
+                    * decay[phys as usize]
+                    * decay[neighbor as usize];
 
                 if score < best_score {
                     best_score = score;
@@ -385,6 +445,9 @@ fn sabre_pass(
         ));
         layout.swap(sp1, sp2);
         swap_count += 1;
+        decay[sp1 as usize] += DECAY_STEP;
+        decay[sp2 as usize] += DECAY_STEP;
+        swaps_since_progress += 1;
     }
 
     // Emit any remaining ops (1q gates after the last 2q gate on their qubit).

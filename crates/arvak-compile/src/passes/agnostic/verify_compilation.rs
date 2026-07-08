@@ -37,7 +37,13 @@ const DEFAULT_MAX_QUBITS: usize = 20;
 const DEFAULT_NUM_TRIALS: usize = 8;
 
 /// Tolerance for statevector comparison.
-const TOLERANCE: f64 = 1e-8;
+///
+/// Euler-angle extraction in `Optimize1qGates` uses acos/atan2, whose
+/// precision near branch points is O(sqrt(f64::EPSILON)) ~ 1.5e-8 per
+/// resynthesized run; several runs accumulate. 1e-6 keeps ~100x headroom
+/// for that legitimate numerical noise while staying four-plus orders of
+/// magnitude below any real compiler bug (which manifests at O(1)).
+const TOLERANCE: f64 = 1e-6;
 
 /// Compilation verification pass.
 ///

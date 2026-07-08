@@ -173,6 +173,15 @@ impl PassManagerBuilder {
             } else {
                 pm.add_pass(Optimize1qGates::new());
             }
+
+            // Optimize1qGates resynthesizes runs in its own working basis
+            // (ZYZ / ZSX), which can reintroduce gates the target does not
+            // support (e.g. rz/ry for IQM's prx+cz set). Re-translate so the
+            // pipeline output is basis-conformant again; for targets whose
+            // basis matches the working basis this is a no-op.
+            if self.properties.basis_gates.is_some() {
+                pm.add_pass(BasisTranslation);
+            }
         }
 
         // Always add measurement barrier verification as the final pass

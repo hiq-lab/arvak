@@ -27,17 +27,32 @@ type BasisCase = (fn() -> BasisGates, &'static str);
 const THETA: f64 = 0.7345;
 
 /// Compile `circuit` with `BasisTranslation` for the given basis and verify
-/// statevector equivalence with the original on all basis inputs.
+/// (a) statevector equivalence with the original on all basis inputs, and
+/// (b) that every emitted gate is actually in the target basis — a
+/// unitarily-correct translation that leaks foreign gates (e.g. the old
+/// `Ry -> SX·Rz·SXdg` rule for IBM) is still wrong.
 fn assert_translation_preserves_semantics(circuit: &Circuit, basis: BasisGates, label: &str) {
     let mut dag = circuit.clone().into_dag();
     let num_trials = 1usize << circuit.num_qubits();
     let snapshot = VerifyCompilation::snapshot(&dag).with_num_trials(num_trials);
 
-    let mut props =
-        PropertySet::new().with_target(CouplingMap::full(circuit.num_qubits() as u32), basis);
+    let mut props = PropertySet::new().with_target(
+        CouplingMap::full(circuit.num_qubits() as u32),
+        basis.clone(),
+    );
     BasisTranslation
         .run(&mut dag, &mut props)
         .unwrap_or_else(|e| panic!("{label}: translation failed: {e}"));
+
+    for (_, inst) in dag.topological_ops() {
+        if let arvak_ir::InstructionKind::Gate(g) = &inst.kind {
+            assert!(
+                basis.contains(g.name()),
+                "{label}: translated output contains non-basis gate '{}'",
+                g.name()
+            );
+        }
+    }
 
     // The coupling map / layout were not used (no routing ran), so drop them
     // before verification to compare in the same qubit space.
@@ -365,6 +380,46 @@ fn test_optimize_1q_converges_and_reduces() {
     let before = dag.num_ops();
     Optimize1qGates::new().run(&mut dag, &mut props).unwrap();
     assert_eq!(dag.num_ops(), before, "optimizer is not at a fixed point");
+}
+
+/// The full default pipeline must end basis-conformant at every
+/// optimization level: Optimize1qGates runs after BasisTranslation and
+/// used to re-introduce ZYZ gates (ry/rz) into bases that lack them
+/// (found by benchmarks/qrisp_stress.py against the IQM basis).
+#[test]
+fn test_full_pipeline_output_stays_in_basis() {
+    use arvak_compile::PassManagerBuilder;
+
+    for (basis, name) in ALL_BASES {
+        for level in [0u8, 1, 2, 3] {
+            let mut c = Circuit::with_size("t", 2, 0);
+            c.h(QubitId(0)).unwrap();
+            c.t(QubitId(0)).unwrap();
+            c.rx(0.3, QubitId(1)).unwrap();
+            c.cx(QubitId(0), QubitId(1)).unwrap();
+            c.ry(0.8, QubitId(0)).unwrap();
+            c.rz(1.4, QubitId(1)).unwrap();
+
+            let mut dag = c.into_dag();
+            let reference = basis();
+            let (pm, mut props) = PassManagerBuilder::new()
+                .with_optimization_level(level)
+                .with_target(CouplingMap::full(2), basis())
+                .build();
+            pm.run(&mut dag, &mut props)
+                .unwrap_or_else(|e| panic!("{name}/o{level}: pipeline failed: {e}"));
+
+            for (_, inst) in dag.topological_ops() {
+                if let arvak_ir::InstructionKind::Gate(g) = &inst.kind {
+                    assert!(
+                        reference.contains(g.name()),
+                        "{name}/o{level}: pipeline output contains non-basis gate '{}'",
+                        g.name()
+                    );
+                }
+            }
+        }
+    }
 }
 
 /// Full default pipeline (translation + optimization) on a circuit with
