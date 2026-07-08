@@ -21,3 +21,4 @@ petgraph = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+arvak-qasm3 = { path = "../arvak-qasm3" }
