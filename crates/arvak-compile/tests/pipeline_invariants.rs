@@ -26,7 +26,10 @@ use arvak_compile::property::{BasisGates, CouplingMap};
 use arvak_compile::{Pass, PassManagerBuilder};
 use arvak_ir::{Circuit, InstructionKind};
 
-const ALL_BASES: [(fn() -> BasisGates, &str); 5] = [
+/// A (basis-constructor, name) pair for iterating all target bases.
+type BasisCase = (fn() -> BasisGates, &'static str);
+
+const ALL_BASES: [BasisCase; 5] = [
     (BasisGates::ibm, "ibm"),
     (BasisGates::eagle, "eagle"),
     (BasisGates::heron, "heron"),
@@ -91,17 +94,24 @@ fn coupling_maps(n: u32, device_extra: u32) -> Vec<(String, CouplingMap)> {
     maps
 }
 
-#[allow(clippy::cast_possible_truncation)]
-fn check_case(
-    fixture: &str,
-    circuit: &Circuit,
+/// One sweep configuration.
+struct CaseConfig<'a> {
+    fixture: &'a str,
     level: u8,
-    basis_name: &str,
-    basis: &BasisGates,
-    map_name: &str,
-    cmap: &CouplingMap,
+    basis_name: &'a str,
+    map_name: &'a str,
     check_semantics: bool,
-) {
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn check_case(circuit: &Circuit, basis: &BasisGates, cmap: &CouplingMap, cfg: &CaseConfig) {
+    let CaseConfig {
+        fixture,
+        level,
+        basis_name,
+        map_name,
+        check_semantics,
+    } = *cfg;
     let label = format!("{fixture}/{basis_name}/{map_name}/o{level}");
     let device_size = cmap.num_qubits();
 
@@ -174,29 +184,25 @@ fn sweep(fixture: &str) {
             // Circuit-sized device: all invariants incl. semantics (small n).
             let semantics = (n as usize) <= SEMANTICS_MAX_QUBITS;
             for (map_name, cmap) in coupling_maps(n, 0) {
-                check_case(
+                let cfg = CaseConfig {
                     fixture,
-                    &circuit,
                     level,
                     basis_name,
-                    &basis_fn(),
-                    &map_name,
-                    &cmap,
-                    semantics,
-                );
+                    map_name: &map_name,
+                    check_semantics: semantics,
+                };
+                check_case(&circuit, &basis_fn(), &cmap, &cfg);
             }
             // Oversized device: exercises layouts on high physical indices.
             for (map_name, cmap) in coupling_maps(n, 3) {
-                check_case(
+                let cfg = CaseConfig {
                     fixture,
-                    &circuit,
                     level,
                     basis_name,
-                    &basis_fn(),
-                    &map_name,
-                    &cmap,
-                    false,
-                );
+                    map_name: &map_name,
+                    check_semantics: false,
+                };
+                check_case(&circuit, &basis_fn(), &cmap, &cfg);
             }
         }
     }
