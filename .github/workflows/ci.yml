@@ -275,6 +275,14 @@ jobs:
       - name: Build Python bindings
         run: cd crates/arvak-python && maturin build
 
+      - name: Test documentation snippets
+        # Executes every ```python block in docs/quickstart.md and
+        # docs/python-api.md against the freshly built bindings, so
+        # published examples can never drift from the real API again.
+        run: |
+          pip install pytest target/wheels/*.whl
+          pytest crates/arvak-python/tests/test_doc_snippets.py -q
+
   security:
     name: Security Audit
     runs-on: ubuntu-latest

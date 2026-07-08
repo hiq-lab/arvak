@@ -1,282 +1,129 @@
-# Arvak Quick Start Guide
+# Quick Start
 
-## Installation
+Arvak is a Rust-native quantum compilation platform with Python bindings,
+a CLI, and adapters for eleven hardware backends.
 
-### From Pre-built Binary (Recommended)
+> Every Python snippet on this page is executed by CI
+> (`crates/arvak-python/tests/test_doc_snippets.py`). If you can read it,
+> it runs against the current code.
+
+## Install
 
 ```bash
-# Download latest release
-curl -LO https://github.com/arvak-project/arvak/releases/latest/download/arvak-linux-x86_64.tar.gz
+# Python API (recommended)
+pip install arvak
 
-# Extract
-tar xzf arvak-linux-x86_64.tar.gz
-
-# Move to PATH
-sudo mv arvak arvak-runner /usr/local/bin/
-
-# Verify installation
-arvak --version
+# With framework integrations
+pip install arvak[qiskit]      # also: arvak[qrisp], arvak[cirq], arvak[pennylane]
 ```
 
-### From Source
+Building the CLI from source requires the `hal-contract` sibling checkout
+(it is a workspace path dependency):
 
 ```bash
-# Prerequisites: Rust 1.83+
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Clone and build
-git clone https://github.com/arvak-project/arvak
-cd arvak
-cargo build --release
-
-# Install
+git clone https://github.com/hiq-lab/arvak
+git clone https://github.com/hiq-lab/hal-contract
+cd arvak && ln -s ../hal-contract .hal-contract
 cargo install --path crates/arvak-cli
 ```
 
-### Python Bindings
+## First circuit (Python)
 
-```bash
-pip install arvak-python
+```python
+import arvak
+
+# Build a Bell state
+circuit = arvak.Circuit("bell", num_qubits=2)
+circuit.h(0).cx(0, 1).measure_all()
+
+# Run on the built-in statevector simulator (no network, no backend setup)
+counts = arvak.run_sim(circuit, shots=1000)
+print(counts)  # e.g. {'00': 498, '11': 502}
+
+# Compile for IQM hardware (native prx/cz gate set)
+compiled = arvak.compile(
+    circuit,
+    basis_gates=arvak.BasisGates.iqm(),
+    optimization_level=2,
+)
+print(compiled.depth())
 ```
 
-## Your First Circuit
+See [python-api.md](python-api.md) for the full API surface.
 
-### Using the CLI
+## First circuit (CLI)
 
-Create a file `bell.qasm`:
+Create `bell.qasm`:
 
 ```qasm
 OPENQASM 3.0;
+include "stdgates.inc";
 qubit[2] q;
 bit[2] c;
-
 h q[0];
 cx q[0], q[1];
-
-c = measure q;
+c[0] = measure q[0];
+c[1] = measure q[1];
 ```
-
-Compile and run:
 
 ```bash
-# Compile for IQM
-arvak compile -i bell.qasm -o bell_compiled.qasm --target iqm
-
-# Run on simulator
-arvak run -i bell_compiled.qasm --backend simulator --shots 1000
-
-# Output:
-# Results (1000 shots):
-#   00: 498 (49.80%)
-#   11: 502 (50.20%)
+arvak run -i bell.qasm --shots 1024          # run on the local simulator
+arvak backends                               # list available backends
+arvak compile -i bell.qasm --target iqm \
+    --optimization-level 2 -o compiled.qasm  # compile for hardware
 ```
 
-### Using the Rust API
+See [cli.md](cli.md) for all commands and flags.
+
+## First circuit (Rust)
 
 ```rust
 use arvak_ir::Circuit;
-use arvak_compile::{PassManagerBuilder, PropertySet, CouplingMap, BasisGates};
 use arvak_hal::Backend;
 use arvak_adapter_sim::SimulatorBackend;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Create Bell state circuit
     let circuit = Circuit::bell()?;
-    println!("Created circuit with {} qubits", circuit.num_qubits());
 
-    // Setup compilation for IQM
-    let properties = PropertySet::new()
-        .with_target(
-            CouplingMap::star(5),
-            BasisGates::iqm(),
-        );
-
-    let (pm, mut props) = PassManagerBuilder::new()
-        .with_optimization_level(2)
-        .with_properties(properties)
-        .build();
-
-    // Compile
-    let mut dag = circuit.clone().into_dag();
-    pm.run(&mut dag, &mut props)?;
-    let compiled = Circuit::from_dag(dag);
-    println!("Compiled circuit depth: {}", compiled.depth());
-
-    // Run on simulator
     let backend = SimulatorBackend::new();
-    let job_id = backend.submit(&compiled, 1000).await?;
+    let job_id = backend.submit(&circuit, 1000, None).await?;
     let result = backend.wait(&job_id).await?;
 
-    // Print results
-    println!("\nResults ({} shots):", result.shots);
-    for (bitstring, count) in result.counts.iter() {
-        let prob = *count as f64 / result.shots as f64;
-        println!("  {}: {} ({:.2}%)", bitstring, count, prob * 100.0);
-    }
-
+    println!("Results: {:?}", result.counts);
     Ok(())
 }
 ```
 
-### Using the Python API
+## Submitting to real hardware
+
+Hardware access needs vendor credentials (environment variables, see the
+adapter READMEs under [`adapters/`](../adapters)). The workflow is the same
+for every vendor:
 
 ```python
-from arvak import Circuit, compile_for_backend, SimulatorBackend
+# doc-test: skip  (needs vendor credentials)
+import arvak
 
-# Create Bell state circuit
-circuit = Circuit.bell()
-print(f"Created circuit with {circuit.num_qubits()} qubits")
-
-# Compile for IQM
-compiled = compile_for_backend(circuit, "iqm", optimization_level=2)
-print(f"Compiled circuit depth: {compiled.depth()}")
-
-# Run on simulator
-backend = SimulatorBackend()
-result = backend.run(compiled, shots=1000)
-
-# Print results
-print(f"\nResults ({result.shots} shots):")
-for bitstring, count in result.counts.items():
-    prob = count / result.shots * 100
-    print(f"  {bitstring}: {count} ({prob:.2f}%)")
+backend = arvak.backend_for("iqm_garnet")   # or "ibm_marrakesh", "sim", ...
+result = backend.run(qasm_string, shots=1024)
+print(result.counts)
 ```
 
-## Common Operations
-
-### Create Custom Circuits
-
-```rust
-use arvak_ir::{Circuit, QubitId};
-use std::f64::consts::PI;
-
-let mut circuit = Circuit::new("my_circuit");
-
-// Add qubits and classical bits
-let q = circuit.add_qreg("q", 3);
-let c = circuit.add_creg("c", 3);
-
-// Apply gates
-circuit
-    .h(q[0])?
-    .cx(q[0], q[1])?
-    .cx(q[1], q[2])?
-    .rz(PI / 4.0, q[2])?
-    .measure(q[0], c[0])?
-    .measure(q[1], c[1])?
-    .measure(q[2], c[2])?;
-```
-
-### Compile for Different Backends
-
-```rust
-// For IQM (PRX + CZ basis)
-let iqm_props = PropertySet::new()
-    .with_target(CouplingMap::star(5), BasisGates::iqm());
-
-// For IBM (RZ + SX + X + CX basis)
-let ibm_props = PropertySet::new()
-    .with_target(CouplingMap::linear(5), BasisGates::ibm());
-```
-
-### Submit to Real Hardware
+Via the CLI, including HPC batch schedulers:
 
 ```bash
-# Set credentials
-export IQM_TOKEN="your-token-here"
-
-# Submit to IQM Resonance
-arvak submit -i circuit.qasm \
-    --backend iqm \
-    --shots 1024 \
-    --wait
-
-# Check status
-arvak status <job-id> --backend iqm
-
-# Get results
-arvak result <job-id> --backend iqm --format json
+arvak auth login --provider csc --project project_462000xxx
+arvak submit -i circuit.qasm --backend iqm \
+    --scheduler slurm --partition q_fiqci \
+    --account project_462000xxx --time "00:30:00" --wait
 ```
 
-### HPC Scheduler Integration
+See [hpc-deployment.md](hpc-deployment.md) for LUMI/LRZ specifics.
 
-```bash
-# Submit via Slurm
-arvak submit -i circuit.qasm \
-    --backend iqm \
-    --shots 1024 \
-    --scheduler slurm \
-    --partition quantum \
-    --account my-project \
-    --time 00:30:00
-```
+## Next steps
 
-## Configuration
-
-### Config File
-
-Create `~/.arvak/config.yaml`:
-
-```yaml
-# Default backend
-default_backend: simulator
-
-# Backend configurations
-backends:
-  simulator:
-    type: simulator
-
-  iqm:
-    type: iqm
-    endpoint: https://cocos.resonance.meetiqm.com
-    token: ${IQM_TOKEN}
-
-  ibm:
-    type: ibm
-    token: ${IBM_QUANTUM_TOKEN}
-
-# Scheduler configuration
-scheduler:
-  type: slurm
-  partition: quantum
-  account: my-project
-
-# Compilation defaults
-compilation:
-  optimization_level: 2
-  target: iqm
-```
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `IQM_TOKEN` | IQM Resonance API token |
-| `IBM_QUANTUM_TOKEN` | IBM Quantum API token |
-| `ARVAK_CONFIG` | Custom config file path |
-| `ARVAK_LOG` | Log level (error, warn, info, debug, trace) |
-
-## Next Steps
-
-- [Architecture Overview](architecture.md) — Understand the system design
-- [IR Specification](ir-specification.md) — Learn the circuit representation
-- [Compilation Guide](compilation.md) — Explore transpilation passes
-- [HPC Deployment](hpc-deployment.md) — Deploy on HPC clusters
-- [Contributing](../CONTRIBUTING.md) — Join the development
-
-## Getting Help
-
-```bash
-# CLI help
-arvak --help
-arvak compile --help
-arvak submit --help
-
-# Verbose output for debugging
-arvak -vvv submit -i circuit.qasm --backend iqm
-```
-
-For issues and questions:
-- GitHub Issues: https://github.com/arvak-project/arvak/issues
-- Documentation: https://arvak-project.github.io/arvak/
+- [Python API reference](python-api.md)
+- [CLI reference](cli.md)
+- [Compilation pipeline](compilation.md) — passes, optimization levels
+- [Architecture](architecture.md) — crate layout, HAL design
