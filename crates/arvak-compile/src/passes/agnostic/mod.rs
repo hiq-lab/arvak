@@ -6,6 +6,7 @@
 
 pub mod noise_injection;
 pub mod optimization;
+pub mod unroll_3q;
 pub mod verification;
 pub mod verify_compilation;
 
@@ -13,5 +14,6 @@ pub use noise_injection::NoiseInjectionPass;
 pub use optimization::{
     CancelCX, CommutativeCancellation, ConsolidateBlocks, OneQubitBasis, Optimize1qGates,
 };
+pub use unroll_3q::Unroll3q;
 pub use verification::{MeasurementBarrierVerification, VerificationResult};
 pub use verify_compilation::VerifyCompilation;

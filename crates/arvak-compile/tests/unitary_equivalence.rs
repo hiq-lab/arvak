@@ -212,6 +212,9 @@ fn test_decomposed_1q_gates_unitary_equivalent_all_bases() {
 
         let circuit = sandwich_1q(|c| c.sxdg(q).map(|_| ()).unwrap());
         assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/sxdg"));
+
+        let circuit = sandwich_1q(|c| c.prx(0.3, 0.7, q).map(|_| ()).unwrap());
+        assert_translation_preserves_semantics(&circuit, basis(), &format!("{name}/prx"));
     }
 }
 

@@ -85,6 +85,21 @@ fn sabre_pass(
     let mut emitted: Vec<Instruction> = Vec::new();
     let mut swap_count: usize = 0;
 
+    // SABRE only tracks 1q and 2q operations; a wider gate would be
+    // silently dropped from the output. Fail loudly instead — the default
+    // pipeline runs Unroll3q before routing.
+    if let Some(wide) = ops.iter().find(|inst| {
+        matches!(&inst.kind, arvak_ir::InstructionKind::Gate(_)) && inst.qubits.len() >= 3
+    }) {
+        return Err(CompileError::PassFailed {
+            name: "SabreRouting".into(),
+            reason: format!(
+                "cannot route {}-qubit gate; run Unroll3q before routing",
+                wide.qubits.len()
+            ),
+        });
+    }
+
     // Build dependency graph: for each two-qubit gate, track which gates
     // must execute before it (on the same qubit).
     let num_ops = ops.len();

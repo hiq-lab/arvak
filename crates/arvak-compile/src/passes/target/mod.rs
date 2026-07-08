@@ -17,3 +17,4 @@ pub use neutral_atom_routing::{NeutralAtomRouting, ZoneAssignment};
 pub use routing::BasicRouting;
 pub use sabre_routing::SabreRouting;
 pub use translation::BasisTranslation;
+pub(crate) use translation::decompose_to_simpler;
