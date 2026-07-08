@@ -651,11 +651,13 @@ fn translate_to_ibm(
             Instruction::single_qubit_gate(StandardGate::Rz((PI / 2.0).into()), q0),
         ],
 
-        // Ry(θ) = SX · Rz(θ) · SXdg
+        // Ry(θ) = SXdg · Rz(θ) · SX with SXdg expanded as X · SX
+        // (exact: SX^3 = X·SX), since sxdg is not in the IBM basis.
         StandardGate::Ry(theta) => vec![
             Instruction::single_qubit_gate(StandardGate::SX, q0),
             Instruction::single_qubit_gate(StandardGate::Rz(theta.clone()), q0),
-            Instruction::single_qubit_gate(StandardGate::SXdg, q0),
+            Instruction::single_qubit_gate(StandardGate::X, q0),
+            Instruction::single_qubit_gate(StandardGate::SX, q0),
         ],
 
         // Rz is native
