@@ -5,6 +5,33 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2026-07-09
+
+Fixes found by the new property-based pipeline fuzzer within minutes of
+its first run.
+
+### Fixed
+
+- **Three-qubit gates bypassed routing**: `BasicRouting` left `ccx`/
+  `cswap` operands on non-adjacent physical qubits, and `SabreRouting`
+  did not track gates wider than two qubits at all — they would be
+  silently dropped from the output. A new `Unroll3q` pass (following
+  Qiskit's `Unroll3qOrMore` design) expands wide standard gates into
+  one- and two-qubit gates before layout/routing; `SabreRouting` now
+  rejects >2-qubit input loudly instead of losing it.
+- **`sx`/`sxdg` failed to translate** to bases without sx (neutral
+  atom): added `SX == Rx(pi/2)` / `SXdg == Rx(-pi/2)` fallbacks.
+- **`prx` failed to translate** to any non-IQM basis: added
+  `PRX(theta, phi) == Rz(phi).Rx(theta).Rz(-phi)` (exact).
+
+### Testing
+
+- Property-based pipeline fuzzer (`tests/proptest_pipeline.rs`):
+  random circuits x random connected coupling maps x all bases x all
+  optimization levels against the six pipeline invariants. 32 cases in
+  PR CI, 512 in the nightly release job; failing seeds are persisted
+  as regression files.
+
 ## [2.1.2] - 2026-07-08
 
 Compiler-correctness fixes found by Qrisp-driven stress testing
