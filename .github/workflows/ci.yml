@@ -36,18 +36,12 @@ jobs:
           components: rustfmt, clippy
 
       - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-
-      - name: Cache cargo registry
-        uses: actions/cache@v5
+        uses: arduino/setup-protoc@v3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
 
       - name: Run tests
         run: cargo test --workspace --exclude arvak-python
@@ -98,18 +92,12 @@ jobs:
           components: clippy
 
       - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-
-      - name: Cache cargo registry
-        uses: actions/cache@v5
+        uses: arduino/setup-protoc@v3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-clippy-
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
         run: >
@@ -167,12 +155,12 @@ jobs:
           -A clippy::semicolon-if-nothing-returned
 
   build:
-    name: Build
-    runs-on: ${{ matrix.os }}
+    # Cross-platform compile check. Ubuntu debug is already covered by the
+    # Test Suite job and release builds by the nightly full-test matrix, so
+    # PR CI only builds macOS debug here.
+    name: Build (macOS)
+    runs-on: macos-latest
     timeout-minutes: 30
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -189,30 +177,16 @@ jobs:
         with:
           toolchain: nightly-2026-02-09
 
-      - name: Install protoc (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-
-      - name: Install protoc (macOS)
-        if: runner.os == 'macOS'
-        run: brew install protobuf
-
-      - name: Cache cargo registry
-        uses: actions/cache@v5
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: cargo build --workspace --exclude arvak-python
-
-      - name: Build release
-        run: cargo build --workspace --exclude arvak-python --release
 
   docs:
     name: Documentation
@@ -235,7 +209,12 @@ jobs:
           toolchain: nightly-2026-02-09
 
       - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
 
       - name: Check documentation
         run: cargo doc --workspace --exclude arvak-python --no-deps
@@ -262,12 +241,17 @@ jobs:
           components: rustfmt, clippy
 
       - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
 
       - name: Install maturin
         run: pip install maturin
