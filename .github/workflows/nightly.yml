@@ -220,6 +220,39 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
         run: PROPTEST_CASES=512 cargo test -p arvak-compile --release --test proptest_pipeline
 
+      # Downstream compatibility: arvak-lite (separate PyPI package with an
+      # open `arvak>=x` dependency) must keep working against the wheel
+      # built from this commit. The 2.0 CouplingMap constructor change
+      # silently broke arvak-lite 0.1.1 in the wild — this catches the
+      # next such break before users do.
+      - name: Downstream compat (arvak-lite)
+        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
+        run: |
+          pip install maturin
+          cd crates/arvak-python && maturin build --release --out ../../target/nightly-wheels
+          cd ../..
+          python -m venv /tmp/lite-compat
+          /tmp/lite-compat/bin/pip install "arvak-lite[qiskit]" qiskit_qasm3_import
+          /tmp/lite-compat/bin/pip install --force-reinstall --no-deps target/nightly-wheels/*.whl
+          /tmp/lite-compat/bin/python - <<'PY'
+          from qiskit import QuantumCircuit
+          from arvak_lite import transpile
+          import importlib.metadata as md
+          print("arvak", md.version("arvak"), "| arvak-lite", md.version("arvak-lite"))
+
+          qc = QuantumCircuit(3, 3)
+          qc.h(0); qc.ccx(0, 1, 2); qc.measure(range(3), range(3))
+          out = transpile(qc, coupling_map=[[0, 1], [1, 2]],
+                          basis_gates=["cx", "rz", "sx", "x"])
+          ops = out.count_ops()
+          assert "ccx" not in ops, f"ccx not decomposed: {ops}"
+          print("arvak-lite target path OK:", dict(ops))
+
+          from qiskit.compiler import transpile as qk
+          out2 = qk(qc, optimization_method="arvak")
+          print("qiskit plugin OK, depth", out2.depth())
+          PY
+
       # Adapter feature-flag builds (ubuntu release only — folded from adapter-compat)
       - name: Build CLI with all backends
         if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'

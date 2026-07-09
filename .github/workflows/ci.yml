@@ -275,13 +275,21 @@ jobs:
       - name: Build Python bindings
         run: cd crates/arvak-python && maturin build
 
-      - name: Test documentation snippets
-        # Executes every ```python block in docs/quickstart.md and
-        # docs/python-api.md against the freshly built bindings, so
-        # published examples can never drift from the real API again.
+      - name: Test Python bindings
+        # Core binding tests + qiskit integration + doc snippets against
+        # the freshly built wheel. Framework tests without their extra
+        # installed (qrisp/cirq/pennylane) skip; nathan needs heavy extras
+        # and is excluded here.
         run: |
-          pip install pytest target/wheels/*.whl
-          pytest crates/arvak-python/tests/test_doc_snippets.py -q
+          pip install pytest qiskit qiskit_qasm3_import target/wheels/*.whl
+          pytest -q \
+            crates/arvak-python/tests/test_circuit.py \
+            crates/arvak-python/tests/test_compile.py \
+            crates/arvak-python/tests/test_run_sim.py \
+            crates/arvak-python/tests/test_sim_bindings.py \
+            crates/arvak-python/tests/test_doc_snippets.py \
+            crates/arvak-python/tests/integrations \
+            --ignore=crates/arvak-python/tests/integrations/test_nathan.py
 
   security:
     name: Security Audit
