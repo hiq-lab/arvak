@@ -253,6 +253,18 @@ jobs:
           print("qiskit plugin OK, depth", out2.depth())
           PY
 
+      # Differential testing against Qiskit as an independent reference —
+      # catches gate-convention errors that Arvak's self-verification
+      # (compiler and simulator sharing a convention) cannot see.
+      # Reuses the wheel built by the downstream-compat step above.
+      - name: Differential vs Qiskit (extended)
+        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
+        run: |
+          python -m venv /tmp/diff-test
+          /tmp/diff-test/bin/pip install pytest qiskit qiskit_qasm3_import target/nightly-wheels/*.whl
+          ARVAK_DIFF_CASES=100 /tmp/diff-test/bin/python -m pytest \
+            crates/arvak-python/tests/test_differential_qiskit.py -q
+
       # Adapter feature-flag builds (ubuntu release only — folded from adapter-compat)
       - name: Build CLI with all backends
         if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'

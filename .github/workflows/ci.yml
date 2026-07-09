@@ -288,6 +288,7 @@ jobs:
             crates/arvak-python/tests/test_run_sim.py \
             crates/arvak-python/tests/test_sim_bindings.py \
             crates/arvak-python/tests/test_doc_snippets.py \
+            crates/arvak-python/tests/test_differential_qiskit.py \
             crates/arvak-python/tests/integrations \
             --ignore=crates/arvak-python/tests/integrations/test_nathan.py
 
