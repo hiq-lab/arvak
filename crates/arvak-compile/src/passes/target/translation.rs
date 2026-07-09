@@ -184,7 +184,7 @@ fn translate_gate(
 ///
 /// All decompositions are exact up to global phase, which is unobservable.
 #[allow(clippy::too_many_lines)]
-fn decompose_to_simpler(
+pub(crate) fn decompose_to_simpler(
     gate: &StandardGate,
     qubits: &[arvak_ir::QubitId],
 ) -> Option<Vec<Instruction>> {
@@ -207,11 +207,15 @@ fn decompose_to_simpler(
             single(StandardGate::Rz(phi.clone()), q0),
         ],
 
-        // SXdg == S . H . S up to global phase.
-        StandardGate::SXdg => vec![
-            single(StandardGate::S, q0),
-            single(StandardGate::H, q0),
-            single(StandardGate::S, q0),
+        // SX == Rx(pi/2), SXdg == Rx(-pi/2), both up to global phase.
+        StandardGate::SX => vec![single(StandardGate::Rx(P::constant(PI / 2.0)), q0)],
+        StandardGate::SXdg => vec![single(StandardGate::Rx(P::constant(-PI / 2.0)), q0)],
+
+        // PRX(theta, phi) == Rz(phi) . Rx(theta) . Rz(-phi)  (exact).
+        StandardGate::PRX(theta, phi) => vec![
+            single(StandardGate::Rz(-phi.clone()), q0),
+            single(StandardGate::Rx(theta.clone()), q0),
+            single(StandardGate::Rz(phi.clone()), q0),
         ],
 
         StandardGate::CY => {

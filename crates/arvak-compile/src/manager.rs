@@ -125,6 +125,12 @@ impl PassManagerBuilder {
         let mut pm = PassManager::new();
 
         // Add layout pass if we have a coupling map.
+        // The routing passes only understand 1q/2q operations; expand
+        // anything wider (ccx, cswap) before layout/routing.
+        if self.properties.coupling_map.is_some() {
+            pm.add_pass(crate::passes::Unroll3q);
+        }
+
         // Level >= 2 uses DenseLayout (topology-aware placement),
         // otherwise TrivialLayout (identity mapping).
         if self.properties.coupling_map.is_some() {
