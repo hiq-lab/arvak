@@ -40,8 +40,20 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
+      # Full-target cache incl. workspace artifacts: incremental rebuilds
+      # keep this job at ~3min. Swatinem/rust-cache deliberately drops
+      # workspace artifacts, which tripled the runtime here.
+      - name: Cache cargo (full target)
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-test-${{ hashFiles('**/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-test-
 
       - name: Run tests
         run: cargo test --workspace --exclude arvak-python
@@ -96,8 +108,18 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
+      # Full-target cache incl. workspace artifacts (see Test Suite note).
+      - name: Cache cargo (full target)
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-clippy-
 
       - name: Run clippy
         run: >
