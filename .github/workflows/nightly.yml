@@ -383,7 +383,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: build-ddsim
-          key: ddsim-pinned-v3.4.1-${{ runner.os }}-${{ hashFiles('crates/arvak-qdmi/ci/ddsim_shim/CMakeLists.txt') }}
+          key: ddsim-pinned-v3.7.0-${{ runner.os }}-${{ hashFiles('crates/arvak-qdmi/ci/ddsim_shim/CMakeLists.txt') }}
 
       - name: Build DDSIM shared library
         run: |
@@ -399,8 +399,8 @@ jobs:
                      -B build-ddsim \
                      -G Ninja \
                      -DCMAKE_BUILD_TYPE=Release \
-                     -DMQT_CORE_VERSION=v3.4.1 && \
-               cmake --build build-ddsim --target mqt_ddsim_qdmi_shared; then
+                     -DMQT_CORE_VERSION=v3.7.0 && \
+               cmake --build build-ddsim --target mqt-core-qdmi-ddsim-device; then
               echo "Build succeeded on attempt $attempt"
               SUCCESS=1
               break
@@ -421,10 +421,10 @@ jobs:
       - name: Locate DDSIM .so and verify symbols
         id: ddsim
         run: |
-          SO_PATH=$(find build-ddsim -name "libmqt_ddsim_qdmi_device.so" -print -quit)
+          SO_PATH=$(find build-ddsim -name "libmqt-core-qdmi-ddsim-device.so" -print -quit)
           SO_PATH=$(realpath "$SO_PATH")
           if [[ -z "$SO_PATH" ]]; then
-            echo "ERROR: libmqt_ddsim_qdmi_device.so not found"
+            echo "ERROR: libmqt-core-qdmi-ddsim-device.so not found"
             exit 1
           fi
           echo "path=$SO_PATH" >> $GITHUB_OUTPUT
