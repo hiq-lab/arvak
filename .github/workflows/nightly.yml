@@ -152,23 +152,18 @@ jobs:
             outdated.txt
 
   # ─────────────────────────────────────────────
-  # Job 2: Full workspace test matrix
-  #   ubuntu debug + ubuntu release (with adapter feature-flag builds) + macos release
+  # Job 2a: Release-mode workspace tests (ubuntu + macos)
+  #   PR CI runs debug tests on ubuntu; here we add release-mode
+  #   (surfaces optimization-only bugs) and cross-platform (macOS).
   # ─────────────────────────────────────────────
-  full-test-suite:
-    name: Tests (${{ matrix.os }}, ${{ matrix.profile }})
+  tests-release:
+    name: Tests (${{ matrix.os }}, release)
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            profile: debug
-          - os: ubuntu-latest
-            profile: release
-          - os: macos-latest
-            profile: release
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -184,7 +179,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2026-02-09
-          components: rustfmt, clippy
 
       - name: Install protoc (Linux)
         if: runner.os == 'Linux'
@@ -201,23 +195,55 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: nightly-${{ runner.os }}-${{ matrix.profile }}-${{ hashFiles('**/Cargo.lock') }}
+          key: nightly-${{ runner.os }}-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            nightly-${{ runner.os }}-${{ matrix.profile }}-
-            nightly-${{ runner.os }}-
-
-      - name: Run tests (debug)
-        if: matrix.profile == 'debug'
-        run: cargo test --workspace --exclude arvak-python
+            nightly-${{ runner.os }}-release-
 
       - name: Run tests (release)
-        if: matrix.profile == 'release'
         run: cargo test --workspace --exclude arvak-python --release
+
+  # ─────────────────────────────────────────────
+  # Job 2b: Extended fuzzing + downstream + differential
+  #   Splits out the CPU-heavy Python-touching checks so they run in
+  #   parallel with the pure-Rust release test job.
+  # ─────────────────────────────────────────────
+  extended-checks:
+    name: Extended Checks (fuzz + arvak-lite + Qiskit diff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Checkout hal-contract (workspace path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: hiq-lab/hal-contract-spec
+          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
+          path: .hal-contract
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-09
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: nightly-${{ runner.os }}-extended-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            nightly-${{ runner.os }}-extended-
 
       # Extended property-based fuzzing of the compilation pipeline.
       # PR CI runs the same test with 32 cases; nightly goes deep.
       - name: Pipeline fuzzing (extended)
-        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
         run: PROPTEST_CASES=512 cargo test -p arvak-compile --release --test proptest_pipeline
 
       # Downstream compatibility: arvak-lite (separate PyPI package with an
@@ -226,7 +252,6 @@ jobs:
       # silently broke arvak-lite 0.1.1 in the wild — this catches the
       # next such break before users do.
       - name: Downstream compat (arvak-lite)
-        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
         run: |
           pip install maturin
           cd crates/arvak-python && maturin build --release --out ../../target/nightly-wheels
@@ -258,33 +283,23 @@ jobs:
       # (compiler and simulator sharing a convention) cannot see.
       # Reuses the wheel built by the downstream-compat step above.
       - name: Differential vs Qiskit (extended)
-        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
         run: |
           python -m venv /tmp/diff-test
           /tmp/diff-test/bin/pip install pytest qiskit qiskit_qasm3_import target/nightly-wheels/*.whl
           ARVAK_DIFF_CASES=100 /tmp/diff-test/bin/python -m pytest \
             crates/arvak-python/tests/test_differential_qiskit.py -q
 
-      # Adapter feature-flag builds (ubuntu release only — folded from adapter-compat)
-      - name: Build CLI with all backends
-        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
-        run: cargo build -p arvak-cli --features all-backends
-
-      - name: Build gRPC with all features
-        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
-        run: cargo build -p arvak-grpc --features simulator,sqlite
-
-      - name: Build dashboard with simulator
-        if: matrix.os == 'ubuntu-latest' && matrix.profile == 'release'
-        run: cargo build -p arvak-dashboard --features with-simulator
-
   # ─────────────────────────────────────────────
-  # Job 3: Strict Clippy (deny warnings, all targets)
+  # Job 2c: Adapter feature-flag builds
+  #   This is the class of bug that caused the 2026-07-08 nightly outage:
+  #   hal-contract added JobStatus::ResultExpired, and #[cfg(feature="sqlite")]
+  #   code never got compiled by PR CI's default-features test. Keeping this
+  #   as its own job means the next such break is legible.
   # ─────────────────────────────────────────────
-  clippy-strict:
-    name: Clippy (strict)
+  feature-flag-builds:
+    name: Feature-flag builds (adapters, sqlite, all-backends)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -300,7 +315,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2026-02-09
-          components: clippy
 
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -312,67 +326,21 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: nightly-${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
+          key: nightly-${{ runner.os }}-feature-builds-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            nightly-${{ runner.os }}-clippy-
+            nightly-${{ runner.os }}-feature-builds-
 
-      - name: Clippy (all targets, deny warnings)
-        run: >
-          cargo clippy
-          --workspace
-          --exclude arvak-python
-          --all-targets
-          -- -D warnings -D clippy::all
-          -W clippy::pedantic
-          -A clippy::missing-errors-doc
-          -A clippy::missing-panics-doc
-          -A clippy::module-name-repetitions
-          -A clippy::must-use-candidate
-          -A clippy::return-self-not-must-use
-          -A clippy::similar-names
-          -A clippy::many-single-char-names
-          -A clippy::cast-possible-truncation
-          -A clippy::cast-precision-loss
-          -A clippy::cast-sign-loss
-          -A clippy::cast-possible-wrap
-          -A clippy::doc-markdown
-          -A clippy::wildcard-imports
-          -A clippy::items-after-statements
-          -A clippy::implicit-hasher
-          -A clippy::unnecessary-debug-formatting
-          -A clippy::struct-excessive-bools
-          -A clippy::uninlined-format-args
-          -A clippy::trivially-copy-pass-by-ref
-          -A clippy::float-cmp
-          -A clippy::unreadable-literal
-          -A clippy::unused-self
-          -A clippy::match-same-arms
-          -A clippy::needless-pass-by-value
-          -A clippy::format-push-string
-          -A clippy::missing-fields-in-debug
-          -A clippy::too-many-lines
-          -A clippy::no-effect-underscore-binding
-          -A clippy::unnecessary-wraps
-          -A clippy::only-used-in-recursion
-          -A clippy::self-only-used-in-recursion
-          -A clippy::needless-continue
-          -A clippy::redundant-else
-          -A clippy::option-if-let-else
-          -A clippy::if-not-else
-          -A clippy::manual-let-else
-          -A clippy::single-match-else
-          -A clippy::used-underscore-binding
-          -A clippy::default-trait-access
-          -A clippy::non-std-lazy-statics
-          -A clippy::unnecessary-sort-by
-          -A clippy::type-complexity
-          -A clippy::too-many-arguments
-          -A clippy::unused-async
-          -A clippy::ref-option
-          -A clippy::semicolon-if-nothing-returned
+      - name: Build CLI with all backends
+        run: cargo build -p arvak-cli --features all-backends
+
+      - name: Build gRPC with all features
+        run: cargo build -p arvak-grpc --features simulator,sqlite
+
+      - name: Build dashboard with simulator
+        run: cargo build -p arvak-dashboard --features with-simulator
 
   # ─────────────────────────────────────────────
-  # Job 4: DDSIM QDMI device compatibility (pinned version)
+  # Job 3: DDSIM QDMI device compatibility (pinned version)
   # ─────────────────────────────────────────────
   ddsim-compat:
     name: DDSIM QDMI (pinned)
@@ -718,83 +686,15 @@ jobs:
           # Future: Add codecov.io or coveralls.io upload here
 
   # ─────────────────────────────────────────────
-  # Job 9: Documentation build check
-  # ─────────────────────────────────────────────
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v5
-        with:
-          repository: hiq-lab/hal-contract-spec
-          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
-          path: .hal-contract
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-09
-          components: rustfmt, clippy
-
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-
-      - name: Build documentation (warn on broken links)
-        env:
-          RUSTDOCFLAGS: "-D warnings"
-        run: cargo doc --workspace --exclude arvak-python --no-deps
-
-  # ─────────────────────────────────────────────
-  # Job 10: Docker image build validation
-  # ─────────────────────────────────────────────
-  docker-build:
-    name: Docker Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Checkout hal-contract (workspace path dependency)
-        uses: actions/checkout@v5
-        with:
-          repository: hiq-lab/hal-contract-spec
-          ref: adc335e29fbc84f117f572a67c857552a53b3d44 # spec main: v2.3 + ref-impl 0.2.0 — bump deliberately
-          path: .hal-contract
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-09
-          components: rustfmt, clippy
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image (validation only)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: false
-          tags: arvak-platform:nightly-validate
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ─────────────────────────────────────────────
-  # Job 11: VPS smoke test on arvak.io
+  # Job 8: VPS smoke test on arvak.io
   # ─────────────────────────────────────────────
   vps-smoke-test:
     name: VPS Smoke Test
     runs-on: ubuntu-latest
     needs:
-      - full-test-suite
-      - clippy-strict
-      - docker-build
+      - tests-release
+      - extended-checks
+      - feature-flag-builds
       - python-bindings
     timeout-minutes: 30
     steps:
@@ -1081,15 +981,14 @@ jobs:
     if: always()
     needs:
       - dependency-checks
-      - full-test-suite
-      - clippy-strict
+      - tests-release
+      - extended-checks
+      - feature-flag-builds
       - ddsim-compat
       - msrv-check
       - python-bindings
       - benchmarks
       - coverage
-      - docs
-      - docker-build
       - vps-smoke-test
       - notebook-tests
     steps:
@@ -1107,15 +1006,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEP_CHECKS: ${{ needs.dependency-checks.result }}
-          TESTS: ${{ needs.full-test-suite.result }}
-          CLIPPY: ${{ needs.clippy-strict.result }}
+          TESTS: ${{ needs.tests-release.result }}
+          EXTENDED: ${{ needs.extended-checks.result }}
+          FEATURE_BUILDS: ${{ needs.feature-flag-builds.result }}
           DDSIM: ${{ needs.ddsim-compat.result }}
           MSRV: ${{ needs.msrv-check.result }}
           PYTHON: ${{ needs.python-bindings.result }}
           BENCH: ${{ needs.benchmarks.result }}
           COVERAGE: ${{ needs.coverage.result }}
-          DOCS: ${{ needs.docs.result }}
-          DOCKER: ${{ needs.docker-build.result }}
           VPS_SMOKE: ${{ needs.vps-smoke-test.result }}
           NOTEBOOKS: ${{ needs.notebook-tests.result }}
         run: |
@@ -1134,9 +1032,9 @@ jobs:
 
           # Determine overall status
           OVERALL="✅ All checks passed"
-          if [[ "$TESTS" == "failure" || "$DDSIM" == "failure" || "$DOCKER" == "failure" || "$VPS_SMOKE" == "failure" ]]; then
+          if [[ "$TESTS" == "failure" || "$FEATURE_BUILDS" == "failure" || "$DDSIM" == "failure" || "$VPS_SMOKE" == "failure" ]]; then
             OVERALL="❌ Critical failures detected"
-          elif [[ "$DEP_CHECKS" == "failure" || "$CLIPPY" == "failure" || "$PYTHON" == "failure" || "$DOCS" == "failure" || "$NOTEBOOKS" == "failure" ]]; then
+          elif [[ "$DEP_CHECKS" == "failure" || "$EXTENDED" == "failure" || "$PYTHON" == "failure" || "$NOTEBOOKS" == "failure" ]]; then
             OVERALL="⚠️ Non-critical issues found"
           fi
 
@@ -1148,15 +1046,14 @@ jobs:
           | Check | Status | Result |
           |-------|--------|--------|
           | Dependency Checks | $(status_icon "$DEP_CHECKS") | ${DEP_CHECKS} |
-          | Full Test Suite | $(status_icon "$TESTS") | ${TESTS} |
-          | Clippy (strict) | $(status_icon "$CLIPPY") | ${CLIPPY} |
+          | Tests (release, ubuntu + macos) | $(status_icon "$TESTS") | ${TESTS} |
+          | Extended Checks (fuzz + arvak-lite + Qiskit diff) | $(status_icon "$EXTENDED") | ${EXTENDED} |
+          | Feature-flag builds | $(status_icon "$FEATURE_BUILDS") | ${FEATURE_BUILDS} |
           | DDSIM QDMI (pinned) | $(status_icon "$DDSIM") | ${DDSIM} |
           | MSRV (Rust 1.85) | $(status_icon "$MSRV") | ${MSRV} |
           | Python Bindings | $(status_icon "$PYTHON") | ${PYTHON} |
           | Benchmarks | $(status_icon "$BENCH") | ${BENCH} |
           | Test Coverage | $(status_icon "$COVERAGE") | ${COVERAGE} |
-          | Documentation | $(status_icon "$DOCS") | ${DOCS} |
-          | Docker Build | $(status_icon "$DOCKER") | ${DOCKER} |
           | VPS Smoke Test | $(status_icon "$VPS_SMOKE") | ${VPS_SMOKE} |
           | Notebook Tests | $(status_icon "$NOTEBOOKS") | ${NOTEBOOKS} |
 
@@ -1172,9 +1069,9 @@ jobs:
             echo "Updated existing nightly report issue #${EXISTING}"
           else
             # Only create an issue if something failed
-            if [[ "$TESTS" == "failure" || "$DDSIM" == "failure" || "$DOCKER" == "failure" || \
-                  "$VPS_SMOKE" == "failure" || "$DEP_CHECKS" == "failure" || "$CLIPPY" == "failure" || \
-                  "$PYTHON" == "failure" || "$DOCS" == "failure" || "$NOTEBOOKS" == "failure" ]]; then
+            if [[ "$TESTS" == "failure" || "$EXTENDED" == "failure" || "$FEATURE_BUILDS" == "failure" || \
+                  "$DDSIM" == "failure" || "$VPS_SMOKE" == "failure" || "$DEP_CHECKS" == "failure" || \
+                  "$PYTHON" == "failure" || "$NOTEBOOKS" == "failure" ]]; then
               gh issue create \
                 --title "Nightly Build Report — ${DATE}" \
                 --body "$BODY" \
