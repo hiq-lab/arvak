@@ -66,10 +66,10 @@ pub struct DeviceCapabilities {
     pub supported_formats: Vec<CircuitFormat>,
 }
 
-/// Per-qubit properties (QDMI v1.2.1 spec-compliant).
+/// Per-qubit properties (QDMI v1.3.2 spec-compliant).
 #[derive(Debug, Clone, Default)]
 pub struct SiteProperties {
-    /// Site index (required in QDMI v1.2.1).
+    /// Site index (required in QDMI v1.3.2).
     pub index: Option<usize>,
     /// T₁ relaxation time.
     pub t1: Option<Duration>,
@@ -79,7 +79,7 @@ pub struct SiteProperties {
     pub name: Option<String>,
 }
 
-/// Per-gate properties (QDMI v1.2.1 spec-compliant).
+/// Per-gate properties (QDMI v1.3.2 spec-compliant).
 #[derive(Debug, Clone, Default)]
 pub struct OperationProperties {
     /// Gate name (e.g. "cx", "rz", "h").

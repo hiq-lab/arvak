@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Raw FFI constants and type definitions for the QDMI v1.2.1 **device** interface.
+//! Raw FFI constants and type definitions for the QDMI v1.3.2 **device** interface.
 //!
 //! These values must match the QDMI header definitions from
 //! <https://github.com/Munich-Quantum-Software-Stack/QDMI>.
@@ -8,8 +8,13 @@
 //! client/driver layer. This means all function pointers are resolved at runtime
 //! from the device shared library, not linked statically.
 //!
+//! QDMI 1.3.x is additive over 1.2.x on our surface: the 18 device functions
+//! keep identical C ABI (v1.3.0 added `QDMI_EXPORT` visibility attributes only),
+//! and constant values are unchanged — 1.3.x only appends new entries
+//! (CHILDDEVICE, CHILDDEVICES, BATCHJOB) which we don't currently use.
+//!
 //! Reference: `adapters/arvak-adapter-qdmi/src/ffi.rs` (client-side, verified
-//! against upstream QDMI v1.2.1 headers).
+//! against upstream QDMI v1.3.2 headers).
 
 use std::ffi::c_void;
 use std::os::raw::c_int;

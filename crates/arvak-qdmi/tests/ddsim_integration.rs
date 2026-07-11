@@ -2,16 +2,16 @@
 //! Integration tests against the real MQT Core DDSIM QDMI device.
 //!
 //! These tests only run when the `DDSIM_QDMI_DEVICE_PATH` environment
-//! variable points to a compiled `libmqt_ddsim_qdmi_device.so`.
+//! variable points to a compiled `libmqt-core-qdmi-ddsim-device.so`.
 //!
 //! In CI, this is built by the nightly `ddsim-compat` job using the `CMake`
-//! shim at `ci/ddsim_shim/`. Locally, you can build the `.so` yourself:
+//! wrapper at `ci/ddsim_shim/`. Locally, you can build the `.so` yourself:
 //!
 //! ```bash
 //! cmake -S crates/arvak-qdmi/ci/ddsim_shim -B build-ddsim \
 //!       -G Ninja -DCMAKE_BUILD_TYPE=Release
-//! cmake --build build-ddsim --target mqt_ddsim_qdmi_shared
-//! export DDSIM_QDMI_DEVICE_PATH=$(find build-ddsim -name 'libmqt_ddsim_qdmi_device.so')
+//! cmake --build build-ddsim --target mqt-core-qdmi-ddsim-device
+//! export DDSIM_QDMI_DEVICE_PATH=$(find build-ddsim -name 'libmqt-core-qdmi-ddsim-device.so')
 //! cargo test -p arvak-qdmi --test ddsim_integration
 //! ```
 

@@ -199,7 +199,7 @@ impl<'dev> DeviceSession<'dev> {
 
     /// Query an operation-level property. Returns raw bytes.
     ///
-    /// The QDMI v1.2.1 operation query takes additional site and parameter
+    /// The QDMI v1.3.2 operation query takes additional site and parameter
     /// arrays for site-dependent properties. Pass `(&[], &[])` for
     /// site/parameter-independent queries.
     #[allow(clippy::not_unsafe_ptr_arg_deref)] // opaque QDMI handles, deref is in C via FFI
