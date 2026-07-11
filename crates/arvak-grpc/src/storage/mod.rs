@@ -92,6 +92,7 @@ pub(crate) fn job_status_to_string(status: &JobStatus) -> String {
         JobStatus::Completed => "completed".to_string(),
         JobStatus::Failed(msg) => format!("failed:{}", msg),
         JobStatus::Cancelled => "cancelled".to_string(),
+        JobStatus::ResultExpired => "result_expired".to_string(),
     }
 }
 
@@ -106,6 +107,7 @@ pub(crate) fn job_status_from_string(s: &str) -> Result<JobStatus> {
         "running" => Ok(JobStatus::Running),
         "completed" => Ok(JobStatus::Completed),
         "cancelled" => Ok(JobStatus::Cancelled),
+        "result_expired" => Ok(JobStatus::ResultExpired),
         _ => {
             if let Some(msg) = s.strip_prefix("failed:") {
                 Ok(JobStatus::Failed(msg.to_string()))

@@ -294,7 +294,10 @@ impl ArvakServiceImpl {
 
                         // Check if job is in terminal state
                         match job.status {
-                            JobStatus::Completed | JobStatus::Failed(_) | JobStatus::Cancelled => {
+                            JobStatus::Completed
+                            | JobStatus::Failed(_)
+                            | JobStatus::Cancelled
+                            | JobStatus::ResultExpired => {
                                 // Job finished, close stream
                                 break;
                             }

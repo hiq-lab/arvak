@@ -256,7 +256,10 @@ impl JobStorage for SqliteStorage {
                         params![status_str, now, error_msg, job_id.0],
                     )?;
                 }
-                JobStatus::Completed | JobStatus::Failed(_) | JobStatus::Cancelled => {
+                JobStatus::Completed
+                | JobStatus::Failed(_)
+                | JobStatus::Cancelled
+                | JobStatus::ResultExpired => {
                     conn.execute(
                         "UPDATE jobs SET status = ?1, completed_at = ?2, error_message = ?3
                          WHERE job_id = ?4",

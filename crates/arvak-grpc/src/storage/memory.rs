@@ -55,7 +55,10 @@ impl JobStorage for MemoryStorage {
                 .filter(|(_, j)| {
                     matches!(
                         j.status,
-                        JobStatus::Completed | JobStatus::Failed(_) | JobStatus::Cancelled
+                        JobStatus::Completed
+                            | JobStatus::Failed(_)
+                            | JobStatus::Cancelled
+                            | JobStatus::ResultExpired
                     )
                 })
                 .min_by_key(|(_, j)| j.submitted_at)
@@ -97,7 +100,10 @@ impl JobStorage for MemoryStorage {
             JobStatus::Running if job.started_at.is_none() => {
                 job.started_at = Some(Utc::now());
             }
-            JobStatus::Completed | JobStatus::Failed(_) | JobStatus::Cancelled
+            JobStatus::Completed
+            | JobStatus::Failed(_)
+            | JobStatus::Cancelled
+            | JobStatus::ResultExpired
                 if job.completed_at.is_none() =>
             {
                 job.completed_at = Some(Utc::now());
