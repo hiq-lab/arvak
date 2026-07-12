@@ -84,14 +84,14 @@ class TestQrispToArvak:
 
     def test_qrisp_to_arvak_via_qasm(self, qrisp_bell_circuit):
         """Test converting Qrisp circuit to Arvak via QASM."""
-        from arvak.integrations.cirq.converter import _qasm2_to_qasm3
+        from arvak.integrations._qasm import qasm2_to_qasm3
 
         # Export to QASM (Qrisp produces QASM 2.0)
         qasm_str = qrisp_bell_circuit.qasm()
         assert qasm_str is not None
 
         # Up-convert to QASM 3.0 for Arvak
-        qasm3_str = _qasm2_to_qasm3(qasm_str)
+        qasm3_str = qasm2_to_qasm3(qasm_str)
 
         # Import to Arvak
         arvak_circuit = arvak.from_qasm(qasm3_str)
@@ -158,14 +158,14 @@ class TestArvakToQrisp:
 
     def test_arvak_to_qrisp_via_qasm(self, arvak_bell_circuit):
         """Test converting Arvak circuit to Qrisp via QASM."""
-        from arvak.integrations.cirq.converter import _qasm3_to_qasm2
+        from arvak.integrations._qasm import qasm3_to_qasm2
 
         # Export to QASM (Arvak produces QASM 3.0)
         qasm_str = arvak.to_qasm(arvak_bell_circuit)
         assert qasm_str is not None
 
         # Down-convert to QASM 2.0 for Qrisp
-        qasm2_str = _qasm3_to_qasm2(qasm_str)
+        qasm2_str = qasm3_to_qasm2(qasm_str)
 
         # Import to Qrisp
         qrisp_circuit = QuantumCircuit.from_qasm_str(qasm2_str)
@@ -290,6 +290,109 @@ class TestQrispSimulatorResults:
 
         for bitstring in results.keys():
             assert bitstring in ('000', '111'), f"Unexpected outcome: {bitstring}"
+
+
+class TestQrispHighLevelAPI:
+    """Tests for Qrisp's high-level API (QuantumVariable / get_measurement).
+
+    Regression tests: the pre-2.0 backend client crashed on shots=None,
+    which is what get_measurement passes to mean "backend default".
+    """
+
+    def test_backend_is_virtual_backend(self):
+        """ArvakBackendClient must subclass Qrisp's VirtualBackend."""
+        from qrisp.interface import VirtualBackend
+        from arvak.integrations.qrisp import ArvakBackendClient
+
+        backend = ArvakBackendClient('sim')
+        assert isinstance(backend, VirtualBackend)
+
+    def test_get_measurement_bell(self, qrisp_quantum_variable):
+        """get_measurement (shots=None path) works and returns Bell stats."""
+        from arvak.integrations.qrisp import ArvakBackendClient
+
+        backend = ArvakBackendClient('sim')
+        probs = qrisp_quantum_variable.get_measurement(backend=backend)
+
+        assert set(probs.keys()) <= {'00', '11'}
+        assert abs(sum(probs.values()) - 1.0) < 1e-9
+
+    def test_get_measurement_quantum_float(self):
+        """QuantumFloat arithmetic measured through the Arvak backend."""
+        from qrisp import QuantumFloat
+        from arvak.integrations.qrisp import ArvakBackendClient
+
+        backend = ArvakBackendClient('sim')
+        qf = QuantumFloat(3)
+        qf[:] = 4
+        probs = qf.get_measurement(backend=backend)
+
+        assert probs == {4: 1.0}
+
+    def test_get_measurement_quantum_float_addition(self):
+        """QuantumFloat addition emits composite gates (QFT blocks) — these
+        must be transpiled to elementary gates before hitting Arvak's parser."""
+        from qrisp import QuantumFloat
+        from arvak.integrations.qrisp import ArvakBackendClient
+
+        backend = ArvakBackendClient('sim')
+        a = QuantumFloat(3)
+        a[:] = 3
+        b = QuantumFloat(3)
+        b[:] = 4
+        c = a + b
+        probs = c.get_measurement(backend=backend)
+
+        assert probs == {7: 1.0}
+
+    def test_run_with_explicit_shots_none(self, qrisp_bell_circuit):
+        """run(qc, shots=None) falls back to DEFAULT_SHOTS instead of crashing."""
+        from arvak.integrations.qrisp import ArvakBackendClient
+        from arvak.integrations.qrisp.backend import DEFAULT_SHOTS
+
+        backend = ArvakBackendClient('sim')
+        counts = backend.run(qrisp_bell_circuit, shots=None)
+
+        assert sum(counts.values()) == DEFAULT_SHOTS
+
+
+class TestQrispBackendRegistry:
+    """Tests for the HAL-registry-backed provider."""
+
+    def test_provider_exposes_native_registry(self):
+        """Provider must offer every backend from arvak.list_backends()."""
+        from arvak.integrations.qrisp import ArvakProvider
+
+        available = ArvakProvider._available_backend_names()
+        for name in arvak.list_backends():
+            assert name in available
+
+    def test_legacy_aliases_still_available(self):
+        """The pre-2.0 alias names 'iqm' and 'scaleway' keep working."""
+        from arvak.integrations.qrisp import ArvakProvider
+
+        provider = ArvakProvider()
+        for alias in ('iqm', 'scaleway'):
+            backend = provider.get_backend(alias)
+            assert backend is not None
+            assert backend.backend_name == alias
+
+    def test_hardware_client_constructs_without_credentials(self):
+        """Constructing a hardware client must not require credentials."""
+        from arvak.integrations.qrisp import ArvakBackendClient
+
+        # No IBM_API_KEY in the test environment — construction stays cheap,
+        # only run() touches the native adapter.
+        backend = ArvakBackendClient('ibm_marrakesh')
+        assert backend.name == 'arvak_ibm_marrakesh'
+
+    def test_unknown_backend_rejected(self):
+        """Unknown names raise ValueError listing available backends."""
+        from arvak.integrations.qrisp import ArvakProvider
+
+        provider = ArvakProvider()
+        with pytest.raises(ValueError, match="Unknown backend"):
+            provider.get_backend('nonexistent_qpu')
 
 
 class TestQrispRoundTrip:

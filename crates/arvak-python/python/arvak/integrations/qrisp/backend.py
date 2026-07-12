@@ -1,100 +1,144 @@
 """Qrisp backend client for Arvak.
 
-This module implements Qrisp's backend interface, allowing users to execute
-Arvak circuits through Qrisp's backend API.
+This module implements Qrisp's :class:`~qrisp.interface.VirtualBackend`
+interface on top of Arvak's native HAL backends, allowing Qrisp programs
+(including the high-level ``QuantumVariable`` / ``get_measurement`` API)
+to execute on any backend known to ``arvak.backend_for()``.
 
-Supported backends:
-  - 'sim'      : Arvak's built-in Rust statevector simulator (no credentials)
-  - 'iqm'      : IQM Resonance QPU via the native arvak-adapter-iqm
-                 (requires IQM_TOKEN; no qiskit-iqm dependency)
-  - 'scaleway' : Scaleway QaaS (IQM QPU) via the native arvak-adapter-scaleway
-                 (requires SCALEWAY credentials; no requests-loop in Python)
+All submission, compilation (routing + gate translation), status polling,
+and result decoding happen in the native Rust adapters via PyO3 — there is
+no per-vendor Python code here. See
+``docs/RFC/0001-native-backend-unification.md`` for the architecture.
+
+Backend names are the same as on the Qiskit side (``arvak.list_backends()``):
+``sim``, ``iqm_sirius``, ``scaleway_garnet``, ``ibm_marrakesh``,
+``quantinuum_h2_emulator``, ``aqt_offline_sim``, ``ionq_simulator``, …
+
+Two legacy aliases remain supported:
+  - ``'iqm'``      → ``iqm_<IQM_COMPUTER>``          (default: ``iqm_sirius``)
+  - ``'scaleway'`` → ``scaleway_<SCALEWAY_PLATFORM>`` (default: ``scaleway_garnet``)
+
+Hardware backends read their credentials from the environment exactly like
+the Qiskit integration (``IQM_TOKEN``, ``SCALEWAY_SECRET_KEY`` /
+``SCALEWAY_PROJECT_ID`` / ``SCALEWAY_SESSION_ID``, ``IBM_API_KEY`` /
+``IBM_SERVICE_CRN``, ``QUANTINUUM_EMAIL`` / ``QUANTINUUM_PASSWORD``,
+``AQT_TOKEN``, ``IONQ_API_KEY``).
 """
 
 import os
-from typing import Optional, Union
+from typing import Optional
 
-# IQM topology coupling maps (qubit count and connectivity style)
-# Sirius  : 16-qubit  star topology  (QPU-SIRIUS-24PQ physical, 16 usable)
-# Garnet  : 20-qubit  crystal topology
-# Emerald : 54-qubit  crystal topology
-IQM_TOPOLOGIES = {
-    "sirius": {"qubits": 16, "topology": "star"},
-    "garnet": {"qubits": 20, "topology": "crystal"},
-    "emerald": {"qubits": 54, "topology": "crystal"},
+from qrisp.interface import VirtualBackend
+
+# Shots used when the caller passes shots=None. Qrisp's high-level API
+# (e.g. ``QuantumVariable.get_measurement``) passes None to mean "backend
+# default"; the native HAL layer requires a concrete integer.
+DEFAULT_SHOTS = 1024
+
+# Scaleway QaaS platform identifiers → arvak registry machine names.
+_SCALEWAY_PLATFORM_TO_MACHINE = {
+    'QPU-GARNET-20PQ': 'garnet',
+    'QPU-SIRIUS-24PQ': 'sirius',
+    'QPU-EMERALD-54PQ': 'emerald',
 }
 
-# Scaleway platform identifiers for IQM QPUs
-SCALEWAY_PLATFORMS = {
-    "QPU-SIRIUS-24PQ": {"qubits": 16, "topology": "star"},
-    "QPU-GARNET-20PQ": {"qubits": 20, "topology": "crystal"},
-    "QPU-EMERALD-54PQ": {"qubits": 54, "topology": "crystal"},
-}
+# Aliases kept for backwards compatibility with the pre-2.0 integration.
+_LEGACY_ALIASES = ('iqm', 'scaleway')
 
 
-class ArvakBackendClient:
+def _resolve_backend_name(name: str) -> str:
+    """Map legacy alias names to arvak registry names.
+
+    Reads ``IQM_COMPUTER`` / ``SCALEWAY_PLATFORM`` from the environment for
+    the legacy aliases; registry names pass through unchanged.
+    """
+    if name == 'iqm':
+        return f"iqm_{os.environ.get('IQM_COMPUTER', 'sirius')}"
+    if name == 'scaleway':
+        platform = os.environ.get('SCALEWAY_PLATFORM', 'QPU-GARNET-20PQ')
+        machine = _SCALEWAY_PLATFORM_TO_MACHINE.get(platform, 'garnet')
+        return f'scaleway_{machine}'
+    return name
+
+
+class ArvakBackendClient(VirtualBackend):
     """Arvak backend client for Qrisp.
 
-    Executes Qrisp circuits on Arvak backends:
-      - 'sim'      : Rust statevector simulator (up to ~20 qubits)
-      - 'iqm'      : IQM Resonance real QPU hardware
-      - 'scaleway' : Scaleway QaaS (IQM QPU) real hardware
+    Subclasses Qrisp's :class:`~qrisp.interface.VirtualBackend`, so it can be
+    passed anywhere Qrisp expects a backend — most importantly to
+    ``QuantumVariable.get_measurement(backend=...)``.
 
     Example (simulator)::
 
+        >>> from qrisp import QuantumVariable, h, cx
         >>> from arvak.integrations.qrisp import ArvakBackendClient
-        >>> from qrisp import QuantumCircuit
         >>> backend = ArvakBackendClient('sim')
-        >>> qc = QuantumCircuit(2)
-        >>> qc.h(0)
-        >>> qc.cx(0, 1)
-        >>> qc.measure_all()
-        >>> counts = backend.run(qc, shots=1000)
-        >>> print(counts)  # {'00': 512, '11': 488}
+        >>> qv = QuantumVariable(2)
+        >>> h(qv[0]); cx(qv[0], qv[1])
+        >>> qv.get_measurement(backend=backend)
+        {'00': 0.5, '11': 0.5}
 
     Example (IQM Resonance — requires credentials)::
 
         >>> import os
         >>> os.environ['IQM_TOKEN'] = '<your-resonance-token>'
-        >>> backend = ArvakBackendClient('iqm')
+        >>> backend = ArvakBackendClient('iqm_sirius')
         >>> counts = backend.run(qc, shots=1024)
     """
-
-    # Backends that route to real quantum hardware
-    _HARDWARE_BACKENDS = {'iqm', 'scaleway'}
 
     def __init__(self, backend_name: str = 'sim'):
         """Initialize the Arvak backend client.
 
         Args:
-            backend_name: Name of the backend to use.
-                          One of: 'sim', 'iqm', 'scaleway'. (default: 'sim')
+            backend_name: Any name from ``arvak.list_backends()`` (e.g.
+                          ``'sim'``, ``'iqm_sirius'``, ``'ibm_marrakesh'``)
+                          or a legacy alias (``'iqm'``, ``'scaleway'``).
+                          (default: ``'sim'``)
+
+        Construction is cheap and never touches the network; the native
+        backend (and its credential check) is created lazily on first use.
         """
         self.backend_name = backend_name
         self.name = f'arvak_{backend_name}'
+        self._native_backend = None
 
         if backend_name == 'sim':
             self.description = 'Arvak Rust statevector simulator'
-        elif backend_name == 'iqm':
-            self.description = 'IQM Resonance QPU (via Arvak)'
-        elif backend_name == 'scaleway':
-            self.description = 'Scaleway QaaS / IQM QPU (via Arvak)'
         else:
-            self.description = f'Arvak backend ({backend_name})'
+            self.description = (
+                f'Arvak native backend ({_resolve_backend_name(backend_name)})'
+            )
 
-    def run(self, circuit: Union['QuantumCircuit', 'QuantumSession'],
-            shots: int = 1024, **options) -> dict[str, int]:
+        super().__init__(run_func=self._run_qasm)
+
+    @property
+    def _native(self):
+        """The underlying ``arvak.Backend``, created on first access.
+
+        Lazy so that constructing a hardware client without credentials in
+        the environment does not raise — the error surfaces at ``run()``,
+        matching the previous behaviour of this class.
+        """
+        if self._native_backend is None:
+            import arvak
+            self._native_backend = arvak.backend_for(
+                _resolve_backend_name(self.backend_name)
+            )
+        return self._native_backend
+
+    def run(self, qc, shots: Optional[int] = None,
+            token: str = '') -> dict[str, int]:
         """Run a Qrisp circuit on the configured Arvak backend.
 
-        For the simulator ('sim') the circuit is executed locally in Rust with
-        no network calls.  For real hardware backends ('iqm', 'scaleway') the
-        circuit is compiled with Arvak's Rust compiler (routing + gate
-        translation) and then submitted via the appropriate API.
+        For ``'sim'`` the circuit executes locally in Rust with no network
+        calls. For hardware backends the circuit is compiled (routing +
+        basis translation) and submitted by the native Rust adapter.
 
         Args:
-            circuit: Qrisp QuantumCircuit or QuantumSession.
-            shots:   Number of measurement shots (default: 1024).
-            **options: Additional execution options passed to the backend.
+            qc:    Qrisp QuantumCircuit or QuantumSession.
+            shots: Number of measurement shots. ``None`` (as passed by
+                   Qrisp's high-level API) uses ``DEFAULT_SHOTS``.
+            token: Ignored — credentials come from the environment.
 
         Returns:
             Dictionary mapping bitstrings to measurement counts.
@@ -102,158 +146,26 @@ class ArvakBackendClient:
         Raises:
             RuntimeError: For hardware backends if required credentials are
                           not set in the environment.
-            ImportError:  For IQM backend if ``iqm-client`` / ``qiskit-iqm``
-                          are not installed.
         """
-        from .converter import qrisp_to_arvak
-        import arvak
+        from qrisp import QuantumSession, transpile
+        if isinstance(qc, QuantumSession):
+            qc = qc.compile()
+        # Flatten composite gates (e.g. Qrisp's QFT blocks from QuantumFloat
+        # arithmetic) into elementary gates — Arvak's QASM parser does not
+        # accept user-defined gate blocks.
+        qc = transpile(qc)
+        return super().run(qc, shots, token)
 
-        arvak_circuit = qrisp_to_arvak(circuit)
+    def _run_qasm(self, qasm2_str: str, shots: Optional[int] = None,
+                  token: str = '') -> dict[str, int]:
+        """``run_func`` for VirtualBackend: QASM 2.0 in, counts out."""
+        from .._qasm import qasm2_to_qasm3
 
-        if self.backend_name == 'sim':
-            return self._run_sim(arvak_circuit, shots)
-        elif self.backend_name == 'iqm':
-            return self._run_iqm(arvak_circuit, shots, **options)
-        elif self.backend_name == 'scaleway':
-            return self._run_scaleway(arvak_circuit, shots, **options)
-        else:
-            raise ValueError(
-                f"Unknown backend: {self.backend_name!r}. "
-                f"Available backends: sim, iqm, scaleway"
-            )
+        if not shots:
+            shots = DEFAULT_SHOTS
 
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
-
-    def _run_sim(self, arvak_circuit, shots: int) -> dict[str, int]:
-        """Execute locally on Arvak's Rust statevector simulator."""
-        import arvak
-        return arvak.run_sim(arvak_circuit, shots)
-
-    def _run_iqm(self, arvak_circuit, shots: int, **options) -> dict[str, int]:
-        """Compile with Arvak and submit to IQM Resonance via the native adapter.
-
-        Phase 2a: no longer imports ``iqm.qiskit_iqm``. Submission goes
-        through the native Rust ``arvak-adapter-iqm`` (REST against
-        ``https://api.resonance.meetiqm.com``) reached via
-        ``arvak.backend_for("iqm_<computer>")``.
-
-        Requires:
-          - ``IQM_TOKEN``    env var (Resonance bearer token)
-          - ``IQM_COMPUTER`` env var (default: ``'sirius'``;
-            options: ``garnet``, ``emerald``, ``crystal``)
-
-        The circuit is routed and gate-translated by Arvak's Rust compiler
-        for the selected IQM topology, then submitted via PyO3 to the
-        native adapter — no qiskit-iqm involved.
-        """
-        import arvak
-
-        token = os.environ.get('IQM_TOKEN')
-        if not token:
-            raise RuntimeError(
-                "IQM_TOKEN environment variable not set.\n"
-                "Get your token from https://resonance.meetiqm.com (account drawer)."
-            )
-
-        computer = options.get('computer', os.environ.get('IQM_COMPUTER', 'sirius'))
-        topo_info = IQM_TOPOLOGIES.get(computer, IQM_TOPOLOGIES['sirius'])
-        num_qubits = topo_info['qubits']
-        topology = topo_info['topology']
-
-        # Compile circuit with Arvak for the target IQM topology.
-        # This keeps the same per-vendor compile step the legacy code had —
-        # Arvak's compiler handles layout / routing / basis translation
-        # before the QASM3 is handed to the native adapter for HTTP submit.
-        if topology == 'star':
-            coupling = arvak.CouplingMap.star(num_qubits)
-        else:
-            coupling = arvak.CouplingMap.linear(num_qubits)
-
-        basis = arvak.BasisGates.iqm()
-        compiled = arvak.compile(
-            arvak_circuit,
-            coupling_map=coupling,
-            basis_gates=basis,
-            optimization_level=options.get('optimization_level', 1),
-        )
-
-        qasm_str = arvak.to_qasm(compiled)
-
-        # Submit to IQM Resonance via the native Rust adapter — no Qiskit /
-        # qiskit-iqm in the path. The adapter reads IQM_TOKEN itself.
-        backend = arvak.backend_for(f"iqm_{computer}")
-        handle = backend.submit(qasm_str, shots)
-        result = handle.result()  # blocks until done, no fixed timeout
-        return dict(result.counts)
-
-    def _run_scaleway(self, arvak_circuit, shots: int, **options) -> dict[str, int]:
-        """Compile with Arvak and submit to Scaleway QaaS via the native adapter.
-
-        Phase 3: no longer makes direct HTTP calls with `requests`.
-        Submission goes through the native Rust ``arvak-adapter-scaleway``
-        (REST against ``api.scaleway.com/qaas``) reached via
-        ``arvak.backend_for("scaleway_<machine>")``.
-
-        Requires:
-          - ``SCALEWAY_SECRET_KEY``  env var
-          - ``SCALEWAY_PROJECT_ID``  env var
-          - ``SCALEWAY_SESSION_ID``  env var (pre-created QaaS session)
-          - ``SCALEWAY_PLATFORM``    env var (optional; default: QPU-GARNET-20PQ)
-
-        The compile pass (PRX+CZ basis, topology-aware routing) runs
-        unchanged on the Arvak side; only the submission path moved to
-        Rust.
-        """
-        import arvak
-
-        # Validate env vars early with clear messages (the native adapter
-        # also checks but produces less context-rich errors at PyO3 layer).
-        for var in ("SCALEWAY_SECRET_KEY", "SCALEWAY_PROJECT_ID", "SCALEWAY_SESSION_ID"):
-            if not os.environ.get(var):
-                hint = ""
-                if var == "SCALEWAY_SESSION_ID":
-                    hint = ("\nCreate a session at "
-                            "console.scaleway.com > Quantum Computing > Sessions.")
-                raise RuntimeError(f"{var} environment variable not set.{hint}")
-
-        platform = options.get(
-            'platform',
-            os.environ.get('SCALEWAY_PLATFORM', 'QPU-GARNET-20PQ')
-        )
-        plat_info = SCALEWAY_PLATFORMS.get(platform, SCALEWAY_PLATFORMS['QPU-GARNET-20PQ'])
-        num_qubits = plat_info['qubits']
-        topology = plat_info['topology']
-
-        # Compile circuit with Arvak for the target IQM topology — unchanged.
-        if topology == 'star':
-            coupling = arvak.CouplingMap.star(num_qubits)
-        else:
-            coupling = arvak.CouplingMap.linear(num_qubits)
-
-        basis = arvak.BasisGates.iqm()
-        compiled = arvak.compile(
-            arvak_circuit,
-            coupling_map=coupling,
-            basis_gates=basis,
-            optimization_level=options.get('optimization_level', 1),
-        )
-
-        qasm_str = arvak.to_qasm(compiled)
-
-        # Map platform string to the arvak.backend_for registry name.
-        # The registry branch translates back to the QPU-* platform string
-        # for the native adapter — single mapping point.
-        machine = {
-            "QPU-GARNET-20PQ": "garnet",
-            "QPU-SIRIUS-24PQ": "sirius",
-            "QPU-EMERALD-54PQ": "emerald",
-        }.get(platform, "garnet")
-
-        backend = arvak.backend_for(f"scaleway_{machine}")
-        handle = backend.submit(qasm_str, shots)
-        result = handle.result()  # blocks until done
+        qasm3_str = qasm2_to_qasm3(qasm2_str)
+        result = self._native.run(qasm3_str, shots)
         return dict(result.counts)
 
     def __repr__(self) -> str:
@@ -263,12 +175,9 @@ class ArvakBackendClient:
 class ArvakProvider:
     """Arvak backend provider for Qrisp.
 
-    Allows Qrisp programs to discover and use Arvak backends.
-
-    Available backends:
-      - 'sim'      : Arvak statevector simulator (always available)
-      - 'iqm'      : IQM Resonance QPU (requires IQM_TOKEN + qiskit-iqm)
-      - 'scaleway' : Scaleway QaaS / IQM QPU (requires SCALEWAY credentials)
+    Allows Qrisp programs to discover and use Arvak backends. The available
+    names come directly from the native registry (``arvak.list_backends()``)
+    plus the legacy aliases ``'iqm'`` and ``'scaleway'``.
 
     Example::
 
@@ -286,7 +195,8 @@ class ArvakProvider:
         """Get a specific backend by name.
 
         Args:
-            name: Backend name — one of 'sim', 'iqm', 'scaleway'. (default: 'sim')
+            name: Any name from ``arvak.list_backends()`` or a legacy alias
+                  (``'iqm'``, ``'scaleway'``). (default: ``'sim'``)
 
         Returns:
             ArvakBackendClient instance.
@@ -312,9 +222,9 @@ class ArvakProvider:
             **filters: Additional filters (currently unused).
 
         Returns:
-            List of ArvakBackendClient instances.
+            List of ArvakBackendClient instances. Construction is lazy and
+            credential-free, so this is safe without any vendor tokens set.
         """
-        # Ensure all backends are instantiated
         for backend_name in self._available_backend_names():
             if backend_name not in self._backends:
                 self._backends[backend_name] = ArvakBackendClient(backend_name)
@@ -327,8 +237,9 @@ class ArvakProvider:
 
     @staticmethod
     def _available_backend_names() -> list[str]:
-        """Return list of all supported backend names."""
-        return ['sim', 'iqm', 'scaleway']
+        """All supported backend names: native registry + legacy aliases."""
+        import arvak
+        return list(arvak.list_backends()) + list(_LEGACY_ALIASES)
 
     def __repr__(self) -> str:
         return f"<ArvakProvider(backends={self._available_backend_names()})>"

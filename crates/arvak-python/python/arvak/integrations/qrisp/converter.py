@@ -36,7 +36,7 @@ def qrisp_to_arvak(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'arvak
         >>> arvak_circuit = qrisp_to_arvak(qc)
     """
     try:
-        from qrisp import QuantumCircuit, QuantumSession
+        from qrisp import QuantumCircuit, QuantumSession, transpile
     except ImportError:
         raise ImportError(
             "Qrisp is required for this operation. "
@@ -49,12 +49,16 @@ def qrisp_to_arvak(circuit: Union['QuantumCircuit', 'QuantumSession']) -> 'arvak
     if isinstance(circuit, QuantumSession):
         circuit = circuit.compile()
 
+    # Flatten composite gates (e.g. QFT blocks) into elementary gates —
+    # Arvak's QASM parser does not accept user-defined gate blocks.
+    circuit = transpile(circuit)
+
     # Convert Qrisp circuit to OpenQASM 2.0, then up-convert to 3.0
     # (Arvak's parser only supports QASM 3.0 declaration syntax)
-    from arvak.integrations.cirq.converter import _qasm2_to_qasm3
+    from .._qasm import qasm2_to_qasm3
 
     qasm2_str = circuit.qasm()
-    qasm3_str = _qasm2_to_qasm3(qasm2_str)
+    qasm3_str = qasm2_to_qasm3(qasm2_str)
 
     # Import into Arvak
     arvak_circuit = arvak.from_qasm(qasm3_str)
@@ -93,11 +97,11 @@ def arvak_to_qrisp(circuit: 'arvak.Circuit') -> 'QuantumCircuit':
         )
 
     import arvak
-    from arvak.integrations.cirq.converter import _qasm3_to_qasm2
+    from .._qasm import qasm3_to_qasm2
 
     # Export Arvak circuit to OpenQASM 3.0, then down-convert to 2.0
     qasm3_str = arvak.to_qasm(circuit)
-    qasm2_str = _qasm3_to_qasm2(qasm3_str)
+    qasm2_str = qasm3_to_qasm2(qasm3_str)
 
     # Import into Qrisp (only supports QASM 2.0)
     qrisp_circuit = QuantumCircuit.from_qasm_str(qasm2_str)

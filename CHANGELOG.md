@@ -5,6 +5,33 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Qrisp `get_measurement` crashed** with `TypeError` on every call:
+  Qrisp's high-level API passes `shots=None` (meaning "backend
+  default"), which the backend client forwarded unchanged into PyO3.
+  `None` now falls back to 1024 shots.
+- **Qrisp composite gates failed to parse**: circuits from
+  `QuantumFloat` arithmetic (QFT blocks etc.) are now flattened with
+  `qrisp.transpile` before QASM export — Arvak's parser does not
+  accept user-defined gate blocks.
+
+### Changed
+
+- **Qrisp integration rebuilt on the native HAL path** (mirrors the
+  Qiskit 2.0 unification): `ArvakBackendClient` now subclasses Qrisp's
+  `VirtualBackend` and submits QASM3 to `arvak.backend_for(name)` —
+  the per-vendor Python compile/submit code (hand-rolled IQM/Scaleway
+  coupling maps, including a wrong linear approximation of the crystal
+  topology) is gone. All registry backends (IBM, Quantinuum, AQT,
+  IonQ, Braket, …) are now reachable from Qrisp, not just
+  sim/IQM/Scaleway. Legacy alias names `'iqm'` and `'scaleway'`
+  (with `IQM_COMPUTER` / `SCALEWAY_PLATFORM` env vars) keep working.
+- QASM 2.0 ↔ 3.0 helpers moved from `integrations/cirq/converter.py`
+  to shared `integrations/_qasm.py` (old import path re-exported).
+
 ## [2.1.3] - 2026-07-09
 
 Fixes found by the new property-based pipeline fuzzer within minutes of

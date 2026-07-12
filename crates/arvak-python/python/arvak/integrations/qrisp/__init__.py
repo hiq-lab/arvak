@@ -10,19 +10,20 @@ Qrisp is a high-level quantum programming framework that emphasizes:
 - High-level quantum data structures (QuantumVariable)
 - Quantum sessions and compilation
 
+The backend client subclasses Qrisp's ``VirtualBackend``, so it plugs
+directly into the high-level API. All backends known to
+``arvak.list_backends()`` are available — sim, IQM, Scaleway, IBM,
+Quantinuum, AQT, IonQ, and more.
+
 Example:
-    >>> from qrisp import QuantumCircuit
-    >>> from arvak.integrations.qrisp import qrisp_to_arvak, ArvakBackendClient
+    >>> from qrisp import QuantumVariable, h, cx
+    >>> from arvak.integrations.qrisp import ArvakBackendClient
     >>>
-    >>> # Convert Qrisp circuit to Arvak
-    >>> qc = QuantumCircuit(2)
-    >>> qc.h(0)
-    >>> qc.cx(0, 1)
-    >>> arvak_circuit = qrisp_to_arvak(qc)
-    >>>
-    >>> # Use Arvak as Qrisp backend
     >>> backend = ArvakBackendClient('sim')
-    >>> results = backend.run(qc, shots=1000)
+    >>> qv = QuantumVariable(2)
+    >>> h(qv[0]); cx(qv[0], qv[1])
+    >>> qv.get_measurement(backend=backend)
+    {'00': 0.5, '11': 0.5}
 """
 
 from .._base import FrameworkIntegration
