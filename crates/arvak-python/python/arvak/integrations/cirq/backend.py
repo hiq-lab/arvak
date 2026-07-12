@@ -1,26 +1,36 @@
 """Cirq sampler for Arvak.
 
-This module implements Cirq's Sampler interface, allowing users to execute
-Arvak circuits through Cirq's sampling API.
+This module implements Cirq's ``cirq.Sampler`` interface on top of Arvak's
+native HAL backends. ``ArvakSampler`` is a real Sampler subclass, so it
+works anywhere Cirq expects one (``sampler.sample``, ``run_batch``, pandas
+result data, plotting helpers, …) and returns standard ``cirq.ResultDict``
+objects.
 
-The sampler calls Arvak's built-in Rust statevector simulator directly
-via PyO3, returning real simulation results.
+Circuits are serialized to OpenQASM with ``cirq.qasm`` and executed via
+``arvak.backend_for(name)`` — any backend from ``arvak.list_backends()``
+works: ``sim`` (default, local Rust statevector simulator), IQM, Scaleway,
+IBM, Quantinuum, AQT, IonQ, … Hardware backends read credentials from the
+environment exactly like the Qiskit / Qrisp / PennyLane integrations.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Optional, Sequence, TYPE_CHECKING
 
+import cirq
+
 if TYPE_CHECKING:
-    import cirq
+    import numpy as np
 
 
-class ArvakSampler:
-    """Arvak sampler implementing Cirq's Sampler interface.
+class ArvakSampler(cirq.Sampler):
+    """Arvak sampler implementing Cirq's ``cirq.Sampler`` interface.
 
-    Executes Cirq circuits on Arvak's built-in Rust statevector simulator.
-    Circuits are converted to OpenQASM, parsed in Rust, and simulated with
-    exact statevector simulation (up to ~20 qubits).
+    Args:
+        backend_name: Arvak backend name from ``arvak.list_backends()``
+            (default: ``'sim'``). Construction is cheap and credential-free;
+            hardware backends resolve lazily on first run.
 
     Example:
         >>> from arvak.integrations.cirq import ArvakSampler
@@ -39,146 +49,125 @@ class ArvakSampler:
     """
 
     def __init__(self, backend_name: str = 'sim'):
-        """Initialize the Arvak sampler.
-
-        Args:
-            backend_name: Name of the backend to use (default: 'sim')
-        """
         self.backend_name = backend_name
         self.name = f'arvak_{backend_name}'
+        self._native_backend = None
 
-    def run(self, program: 'cirq.Circuit',
-            repetitions: int = 1,
-            param_resolver: Optional['cirq.ParamResolver'] = None) -> 'ArvakResult':
-        """Run the supplied Circuit on Arvak's statevector simulator.
+    @property
+    def _native(self):
+        """The underlying ``arvak.Backend``, created on first access."""
+        if self._native_backend is None:
+            import arvak
+            self._native_backend = arvak.backend_for(self.backend_name)
+        return self._native_backend
 
-        Args:
-            program: Cirq Circuit to execute
-            repetitions: Number of times to execute the circuit
-            param_resolver: Parameters to resolve in the circuit
-
-        Returns:
-            ArvakResult with real measurement outcomes
-        """
-        import cirq
-        import numpy as np
-
-        # Resolve parameters if provided
-        if param_resolver is not None:
-            program = cirq.resolve_parameters(program, param_resolver)
-
-        # Convert to Arvak and simulate
-        from .converter import cirq_to_arvak
-        import arvak
-
-        arvak_circuit = cirq_to_arvak(program)
-        counts = arvak.run_sim(arvak_circuit, repetitions)
-
-        # Get measurement keys and qubit count from circuit
-        measurement_keys = list(cirq.protocols.measurement_key_names(program))
-        if not measurement_keys:
-            measurement_keys = ['result']
-
-        num_qubits = len(program.all_qubits())
-
-        # Convert counts dict → numpy measurement arrays
-        # counts is like {'00': 487, '11': 513}
-        measurements = {}
-        for key in measurement_keys:
-            # Build bitstring array from counts
-            rows = []
-            for bitstring, count in counts.items():
-                bits = [int(b) for b in bitstring]
-                # Pad to num_qubits if needed
-                while len(bits) < num_qubits:
-                    bits.insert(0, 0)
-                for _ in range(count):
-                    rows.append(bits[:num_qubits])
-
-            measurements[key] = np.array(rows, dtype=int)
-
-        return ArvakResult(
-            params=cirq.ParamResolver({}),
-            measurements=measurements,
-            repetitions=repetitions
-        )
-
-    def run_sweep(self, program: 'cirq.Circuit',
+    def run_sweep(self, program: 'cirq.AbstractCircuit',
                   params: 'cirq.Sweepable',
-                  repetitions: int = 1) -> Sequence['ArvakResult']:
-        """Run the supplied Circuit for various parameter sweeps.
+                  repetitions: int = 1) -> Sequence['cirq.Result']:
+        """Run the circuit for every parameter resolver in the sweep.
 
         Args:
-            program: Cirq Circuit to execute
-            params: Parameters to sweep over
-            repetitions: Number of times to execute each circuit
+            program: Cirq circuit to execute. All measurements must be
+                terminal.
+            params: Parameters to sweep over (``None`` for none).
+            repetitions: Number of shots per resolver.
 
         Returns:
-            List of ArvakResult objects
+            List of ``cirq.ResultDict``, one per resolver.
         """
-        import cirq
         results = []
         for resolver in cirq.to_resolvers(params):
-            results.append(self.run(program, repetitions=repetitions, param_resolver=resolver))
+            resolved = cirq.resolve_parameters(program, resolver)
+            measurements = self._sample(resolved, repetitions)
+            results.append(
+                cirq.ResultDict(params=resolver, measurements=measurements)
+            )
         return results
+
+    def _sample(self, program: 'cirq.AbstractCircuit',
+                repetitions: int) -> dict[str, 'np.ndarray']:
+        """Execute one resolved circuit; return per-key measurement arrays.
+
+        The circuit is exported with ``cirq.qasm`` (one classical register
+        per measurement key) and run on the native backend. Arvak returns
+        counts keyed by the concatenated classical bits — declaration
+        order, bit 0 rightmost — which are mapped back to each key's
+        qubits by parsing the emitted ``measure`` statements.
+        """
+        import numpy as np
+        from .._qasm import qasm2_to_qasm3
+
+        if not program.are_all_measurements_terminal():
+            raise ValueError(
+                "ArvakSampler only supports terminal measurements; "
+                "mid-circuit measurement is not supported."
+            )
+
+        # key → measured qubits, in the measurement gate's qubit order
+        key_qubits: dict[str, tuple] = {}
+        for op in program.all_operations():
+            if cirq.is_measurement(op):
+                key = cirq.measurement_key_name(op)
+                if key in key_qubits:
+                    raise ValueError(
+                        f"Duplicate measurement key {key!r} is not supported."
+                    )
+                key_qubits[key] = tuple(op.qubits)
+        if not key_qubits:
+            raise ValueError(
+                "Circuit has no measurements — add cirq.measure(...) "
+                "before sampling."
+            )
+
+        qasm2 = cirq.qasm(program)
+
+        # Global classical-bit index for each measured QASM qubit index.
+        # cirq.qasm declares one creg per measurement key; Arvak's counts
+        # bitstring concatenates all classical bits in declaration order
+        # with bit 0 rightmost.
+        creg_offset: dict[str, int] = {}
+        total_clbits = 0
+        qubit_to_clbit: dict[int, int] = {}
+        for line in qasm2.splitlines():
+            line = line.strip()
+            m = re.match(r'creg\s+(\w+)\[(\d+)\];', line)
+            if m:
+                creg_offset[m.group(1)] = total_clbits
+                total_clbits += int(m.group(2))
+                continue
+            m = re.match(r'measure\s+\w+\[(\d+)\]\s*->\s*(\w+)\[(\d+)\];', line)
+            if m:
+                qubit_to_clbit[int(m.group(1))] = \
+                    creg_offset[m.group(2)] + int(m.group(3))
+
+        result = self._native.run(qasm2_to_qasm3(qasm2), repetitions)
+
+        # cirq.qasm indexes qubits in sorted order
+        qubit_index = {q: i for i, q in enumerate(sorted(program.all_qubits()))}
+
+        rows: dict[str, list] = {key: [] for key in key_qubits}
+        for bitstring, count in result.counts.items():
+            bs = bitstring.zfill(total_clbits)
+            for key, qubits in key_qubits.items():
+                bits = [
+                    int(bs[-1 - qubit_to_clbit[qubit_index[q]]])
+                    for q in qubits
+                ]
+                rows[key].extend([bits] * count)
+
+        return {
+            key: np.array(r, dtype=np.uint8) for key, r in rows.items()
+        }
 
     def __repr__(self) -> str:
         return f"<ArvakSampler('{self.name}')>"
 
 
-class ArvakResult:
-    """Result from Arvak sampler execution.
-
-    Contains real measurement data from the Rust statevector simulator,
-    stored as numpy arrays compatible with Cirq's Result interface.
-    """
-
-    def __init__(self, params, measurements: dict, repetitions: int):
-        """Initialize the result.
-
-        Args:
-            params: Parameter resolver used
-            measurements: Dict mapping measurement keys to numpy arrays
-            repetitions: Number of repetitions
-        """
-        self.params = params
-        self.measurements = measurements
-        self.repetitions = repetitions
-
-    def histogram(self, key: str = 'result') -> dict[int, int]:
-        """Get histogram of measurement outcomes.
-
-        Args:
-            key: Measurement key
-
-        Returns:
-            Dictionary mapping integer outcomes to counts
-        """
-        if key not in self.measurements:
-            return {}
-
-        from collections import Counter
-
-        data = self.measurements[key]
-        outcomes = [''.join(map(str, row)) for row in data]
-        counts = Counter(outcomes)
-
-        return {int(k, 2): v for k, v in counts.items()}
-
-    def multi_measurement_histogram(self, keys: Optional[list[str]] = None) -> dict:
-        """Get histograms for multiple measurements."""
-        if keys is None:
-            keys = list(self.measurements.keys())
-        return {key: self.histogram(key) for key in keys}
-
-    def __repr__(self) -> str:
-        return f"<ArvakResult(repetitions={self.repetitions}, keys={list(self.measurements.keys())})>"
-
-
 class ArvakEngine:
     """Arvak engine for Cirq.
 
-    Provides access to Arvak backends through Cirq's Engine interface.
+    Thin convenience wrapper that hands out :class:`ArvakSampler`
+    instances via an Engine-shaped ``get_sampler`` call.
     """
 
     def __init__(self, backend_name: str = 'sim'):

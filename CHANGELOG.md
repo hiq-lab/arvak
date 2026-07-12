@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Cirq sampler returned wrong measurement outcomes**: bits were read
+  in reversed qubit order (X on q0 gave histogram key 1 instead of 2 —
+  hidden by the symmetric Bell/GHZ test states), and every measurement
+  key received the bits of *all* qubits instead of its own. Both fixed
+  and regression-tested against `cirq.Simulator`.
 - **PennyLane device produced wrong expectation values**: measurement
   bits were read in reversed wire order (X on wire 0 returned
   `<Z0> = +1` instead of `-1`), and every observable was measured in
@@ -20,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Cirq integration rebuilt on the native HAL path** (completes the
+  RFC-0001 series for all four framework integrations): `ArvakSampler`
+  now subclasses `cirq.Sampler` (works everywhere Cirq expects one —
+  `sample`, `run_batch`, pandas `result.data`) and returns standard
+  `cirq.ResultDict` objects; the custom `ArvakResult` class is gone.
+  Execution routes through `arvak.backend_for(name)`, so all registry
+  backends are selectable. Mid-circuit measurement and circuits
+  without measurements now raise clear errors.
 - **PennyLane integration rebuilt on the native HAL path** (completes
   the RFC-0001 series: Qiskit 2.0, Qrisp 2.2, now PennyLane):
   `ArvakDevice` subclasses the modern `qml.devices.Device`, serializes

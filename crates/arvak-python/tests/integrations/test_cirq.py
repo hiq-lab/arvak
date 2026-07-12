@@ -286,6 +286,114 @@ class TestCirqSimulatorResults:
             assert outcome in (0, 7), f"Unexpected outcome: {outcome} (binary: {outcome:03b})"
 
 
+class TestCirqSamplerInterface:
+    """ArvakSampler as a real cirq.Sampler with correct bit semantics.
+
+    Regression tests: the pre-2.3 sampler was not a cirq.Sampler subclass,
+    read measurement bits in reversed qubit order (X on q0 gave histogram
+    key 1 instead of 2 — hidden by symmetric Bell/GHZ tests), and dumped
+    all qubits into every measurement key.
+    """
+
+    def test_is_cirq_sampler(self):
+        """ArvakSampler must subclass cirq.Sampler, results cirq.Result."""
+        from arvak.integrations.cirq import ArvakSampler
+
+        sampler = ArvakSampler('sim')
+        assert isinstance(sampler, cirq.Sampler)
+
+        qubits = cirq.LineQubit.range(2)
+        circuit = cirq.Circuit(cirq.X(qubits[0]),
+                               cirq.measure(*qubits, key='m'))
+        result = sampler.run(circuit, repetitions=10)
+        assert isinstance(result, cirq.study.Result)
+
+    def test_asymmetric_state_bit_order(self):
+        """Bit-order regression: X on q0 → histogram {2: N}, exactly."""
+        from arvak.integrations.cirq import ArvakSampler
+
+        qubits = cirq.LineQubit.range(2)
+        circuit = cirq.Circuit(cirq.X(qubits[0]),
+                               cirq.measure(*qubits, key='result'))
+
+        result = ArvakSampler('sim').run(circuit, repetitions=100)
+        reference = cirq.Simulator().run(circuit, repetitions=100)
+
+        assert dict(result.histogram(key='result')) == \
+            dict(reference.histogram(key='result')) == {2: 100}
+
+    def test_multiple_measurement_keys(self):
+        """Each key gets exactly its own qubits' bits."""
+        from arvak.integrations.cirq import ArvakSampler
+
+        q = cirq.LineQubit.range(3)
+        circuit = cirq.Circuit(
+            cirq.X(q[0]),
+            cirq.H(q[2]),
+            cirq.measure(q[0], q[1], key='ab'),
+            cirq.measure(q[2], key='c'),
+        )
+
+        result = ArvakSampler('sim').run(circuit, repetitions=400)
+
+        assert result.measurements['ab'].shape == (400, 2)
+        assert result.measurements['c'].shape == (400, 1)
+        # q0=1, q1=0 deterministically → key 'ab' is always 0b10 = 2
+        assert dict(result.histogram(key='ab')) == {2: 400}
+        # q2 is in superposition → both outcomes present
+        h_c = dict(result.histogram(key='c'))
+        assert set(h_c.keys()) == {0, 1}
+
+    def test_parameter_sweep(self):
+        """run_sweep resolves sympy parameters per resolver."""
+        import numpy as np
+        import sympy
+        from arvak.integrations.cirq import ArvakSampler
+
+        theta = sympy.Symbol('t')
+        q = cirq.LineQubit.range(1)
+        circuit = cirq.Circuit(cirq.rx(theta)(q[0]),
+                               cirq.measure(q[0], key='m'))
+
+        results = ArvakSampler('sim').run_sweep(
+            circuit, cirq.Linspace('t', 0, np.pi, 3), repetitions=400
+        )
+
+        p1 = [r.measurements['m'].mean() for r in results]
+        assert p1[0] == 0.0
+        assert abs(p1[1] - 0.5) < 0.15
+        assert p1[2] == 1.0
+
+    def test_mid_circuit_measurement_rejected(self):
+        """Non-terminal measurements raise instead of returning garbage."""
+        from arvak.integrations.cirq import ArvakSampler
+
+        q = cirq.LineQubit.range(1)
+        circuit = cirq.Circuit(
+            cirq.measure(q[0], key='early'),
+            cirq.X(q[0]),
+            cirq.measure(q[0], key='late'),
+        )
+        with pytest.raises(ValueError, match="terminal"):
+            ArvakSampler('sim').run(circuit, repetitions=10)
+
+    def test_no_measurement_rejected(self):
+        """Circuits without measurements raise a clear error."""
+        from arvak.integrations.cirq import ArvakSampler
+
+        q = cirq.LineQubit.range(1)
+        circuit = cirq.Circuit(cirq.H(q[0]))
+        with pytest.raises(ValueError, match="no measurements"):
+            ArvakSampler('sim').run(circuit, repetitions=10)
+
+    def test_hardware_sampler_constructs_without_credentials(self):
+        """Constructing a hardware sampler must not require credentials."""
+        from arvak.integrations.cirq import ArvakSampler
+
+        sampler = ArvakSampler('ibm_marrakesh')
+        assert sampler.backend_name == 'ibm_marrakesh'
+
+
 class TestCirqRoundTrip:
     """Tests for round-trip conversion (Cirq -> Arvak -> Cirq)."""
 
