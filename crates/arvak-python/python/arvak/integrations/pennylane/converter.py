@@ -1,11 +1,16 @@
 """PennyLane circuit conversion utilities.
 
-This module provides functions to convert between PennyLane and Arvak circuit formats
-using OpenQASM as an interchange format.
+This module provides functions to convert between PennyLane and Arvak
+circuit formats using OpenQASM as an interchange format. The
+PennyLane → Arvak direction uses PennyLane's built-in ``qml.to_openqasm``
+serializer (which decomposes composite operations itself); the reverse
+direction parses the gate set Arvak's QASM3 emitter produces.
 """
 
 from __future__ import annotations
 
+import math
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,7 +22,7 @@ def pennylane_to_arvak(qnode_or_tape, *args, **kwargs) -> 'arvak.Circuit':
 
     This function uses OpenQASM as an interchange format:
     1. Construct quantum tape from QNode or use provided tape
-    2. Export tape to QASM
+    2. Serialize with ``qml.to_openqasm`` (decomposes composite gates)
     3. Import QASM into Arvak
 
     Args:
@@ -51,28 +56,20 @@ def pennylane_to_arvak(qnode_or_tape, *args, **kwargs) -> 'arvak.Circuit':
         )
 
     import arvak
+    from .._qasm import qasm2_to_qasm3
 
-    # Handle QNode - execute to get tape
+    # Handle QNode - construct the tape with the provided arguments
     if isinstance(qnode_or_tape, qml.QNode):
-        # Construct the tape by executing the QNode with provided arguments
-        qnode_or_tape.construct(list(args), kwargs)
-        # PennyLane >=0.44 uses _tape; older versions use qtape
-        if hasattr(qnode_or_tape, 'qtape'):
-            tape = qnode_or_tape.qtape
-        else:
-            tape = qnode_or_tape._tape
+        from pennylane.workflow import construct_tape
+        tape = construct_tape(qnode_or_tape)(*args, **kwargs)
     else:
         tape = qnode_or_tape
 
-    # Convert PennyLane tape to QASM
-    # Note: PennyLane doesn't have direct QASM export in all versions
-    # We'll create a simple circuit and export via a workaround
-    qasm_str = _tape_to_qasm(tape)
+    # rotations=False: export the circuit as written; observables'
+    # diagonalizing gates are an execution concern (see backend.py).
+    qasm2_str = qml.to_openqasm(tape, rotations=False, measure_all=True)
 
-    # Import into Arvak
-    arvak_circuit = arvak.from_qasm(qasm_str)
-
-    return arvak_circuit
+    return arvak.from_qasm(qasm2_to_qasm3(qasm2_str))
 
 
 def arvak_to_pennylane(circuit: 'arvak.Circuit', device_name: str = 'default.qubit'):
@@ -92,7 +89,7 @@ def arvak_to_pennylane(circuit: 'arvak.Circuit', device_name: str = 'default.qub
 
     Raises:
         ImportError: If pennylane is not installed
-        ValueError: If circuit cannot be converted
+        ValueError: If the QASM contains a gate with no PennyLane mapping
 
     Example:
         >>> import arvak
@@ -128,163 +125,113 @@ def arvak_to_pennylane(circuit: 'arvak.Circuit', device_name: str = 'default.qub
     return qnode
 
 
-def _tape_to_qasm(tape) -> str:
-    """Convert PennyLane tape to OpenQASM 3.0 string.
+def _make_gate_table():
+    """Gate-name → PennyLane-constructor table for the QASM gate set
+    Arvak's QASM3 emitter produces. Each entry: (n_params, callable)."""
+    import pennylane as qml
 
-    Args:
-        tape: PennyLane QuantumTape
+    def adj(op_cls):
+        return lambda params, wires: qml.adjoint(op_cls(wires=wires))
 
-    Returns:
-        OpenQASM 3.0 string compatible with Arvak's parser
-    """
-    # Get number of wires
-    wires = tape.wires
-    num_wires = len(wires)
-
-    # Build QASM 3.0 header
-    qasm_lines = [
-        "OPENQASM 3.0;",
-        "",
-        f"qubit[{num_wires}] q;",
-        f"bit[{num_wires}] c;",
-        ""
-    ]
-
-    # Wire mapping
-    wire_map = {wire: idx for idx, wire in enumerate(sorted(wires))}
-
-    # Convert operations to QASM, decomposing composite gates to primitives
-    for op in tape.operations:
-        _op_to_qasm_lines(op, wire_map, qasm_lines)
-
-    return "\n".join(qasm_lines)
-
-
-def _op_to_qasm_lines(op, wire_map: dict, qasm_lines: list):
-    """Convert a PennyLane operation to QASM line(s), decomposing if needed.
-
-    Composite operations (DoubleExcitation, SingleExcitation, AllSinglesDoubles,
-    etc.) are recursively decomposed to primitive gates that have direct QASM
-    representations.
-    """
-    qasm_op = _operation_to_qasm(op, wire_map)
-    if qasm_op and not qasm_op.startswith("// Unsupported"):
-        qasm_lines.append(qasm_op)
-    else:
-        # Try to decompose the composite operation
-        try:
-            decomp = op.decomposition()
-            for sub_op in decomp:
-                _op_to_qasm_lines(sub_op, wire_map, qasm_lines)
-        except (NotImplementedError, AttributeError, TypeError):
-            raise ValueError(
-                f"Unsupported PennyLane operation '{op.name}' cannot be decomposed "
-                f"to QASM-compatible gates. Use qml.compile() to decompose first."
-            )
+    return {
+        # single-qubit, no params
+        'id':    (0, lambda p, w: qml.Identity(wires=w)),
+        'h':     (0, lambda p, w: qml.Hadamard(wires=w)),
+        'x':     (0, lambda p, w: qml.PauliX(wires=w)),
+        'y':     (0, lambda p, w: qml.PauliY(wires=w)),
+        'z':     (0, lambda p, w: qml.PauliZ(wires=w)),
+        's':     (0, lambda p, w: qml.S(wires=w)),
+        'sdg':   (0, adj(qml.S)),
+        't':     (0, lambda p, w: qml.T(wires=w)),
+        'tdg':   (0, adj(qml.T)),
+        'sx':    (0, lambda p, w: qml.SX(wires=w)),
+        'sxdg':  (0, adj(qml.SX)),
+        # single-qubit, parameterized
+        'rx':    (1, lambda p, w: qml.RX(p[0], wires=w)),
+        'ry':    (1, lambda p, w: qml.RY(p[0], wires=w)),
+        'rz':    (1, lambda p, w: qml.RZ(p[0], wires=w)),
+        'p':     (1, lambda p, w: qml.PhaseShift(p[0], wires=w)),
+        'u3':    (3, lambda p, w: qml.U3(p[0], p[1], p[2], wires=w)),
+        # prx(theta, phi) == Rz(phi) . Rx(theta) . Rz(-phi)
+        'prx':   (2, lambda p, w: [qml.RZ(-p[1], wires=w),
+                                   qml.RX(p[0], wires=w),
+                                   qml.RZ(p[1], wires=w)]),
+        # two-qubit
+        'cx':    (0, lambda p, w: qml.CNOT(wires=w)),
+        'cy':    (0, lambda p, w: qml.CY(wires=w)),
+        'cz':    (0, lambda p, w: qml.CZ(wires=w)),
+        'ch':    (0, lambda p, w: qml.CH(wires=w)),
+        'swap':  (0, lambda p, w: qml.SWAP(wires=w)),
+        'iswap': (0, lambda p, w: qml.ISWAP(wires=w)),
+        'ecr':   (0, lambda p, w: qml.ECR(wires=w)),
+        'cp':    (1, lambda p, w: qml.ControlledPhaseShift(p[0], wires=w)),
+        'crx':   (1, lambda p, w: qml.CRX(p[0], wires=w)),
+        'cry':   (1, lambda p, w: qml.CRY(p[0], wires=w)),
+        'crz':   (1, lambda p, w: qml.CRZ(p[0], wires=w)),
+        'rxx':   (1, lambda p, w: qml.IsingXX(p[0], wires=w)),
+        'ryy':   (1, lambda p, w: qml.IsingYY(p[0], wires=w)),
+        'rzz':   (1, lambda p, w: qml.IsingZZ(p[0], wires=w)),
+        # three-qubit
+        'ccx':   (0, lambda p, w: qml.Toffoli(wires=w)),
+        'cswap': (0, lambda p, w: qml.CSWAP(wires=w)),
+    }
 
 
-def _operation_to_qasm(op, wire_map: dict) -> str:
-    """Convert PennyLane operation to QASM.
-
-    Args:
-        op: PennyLane operation
-        wire_map: Mapping from wire labels to indices
-
-    Returns:
-        QASM string for the operation
-    """
-    name = op.name
-    wires = [wire_map.get(w, w) for w in op.wires]
-
-    # State preparation
-    if name == "BasisState":
-        state = op.parameters[0]
-        lines = []
-        for i, bit in enumerate(state):
-            if int(bit) == 1:
-                lines.append(f"x q[{wires[i]}];")
-        return "\n".join(lines) if lines else None
-
-    # Single-qubit gates
-    if name == "Hadamard":
-        return f"h q[{wires[0]}];"
-    elif name == "PauliX":
-        return f"x q[{wires[0]}];"
-    elif name == "PauliY":
-        return f"y q[{wires[0]}];"
-    elif name == "PauliZ":
-        return f"z q[{wires[0]}];"
-    elif name == "S":
-        return f"s q[{wires[0]}];"
-    elif name == "T":
-        return f"t q[{wires[0]}];"
-    elif name == "SX":
-        return f"sx q[{wires[0]}];"
-
-    # Rotation gates
-    elif name == "RX" and len(op.parameters) > 0:
-        angle = op.parameters[0]
-        return f"rx({angle}) q[{wires[0]}];"
-    elif name == "RY" and len(op.parameters) > 0:
-        angle = op.parameters[0]
-        return f"ry({angle}) q[{wires[0]}];"
-    elif name == "RZ" and len(op.parameters) > 0:
-        angle = op.parameters[0]
-        return f"rz({angle}) q[{wires[0]}];"
-
-    # Phase gate
-    elif name == "PhaseShift" and len(op.parameters) > 0:
-        angle = op.parameters[0]
-        return f"rz({angle}) q[{wires[0]}];"
-
-    # Two-qubit gates
-    elif name == "CNOT":
-        return f"cx q[{wires[0]}],q[{wires[1]}];"
-    elif name == "CZ":
-        return f"cz q[{wires[0]}], q[{wires[1]}];"
-    elif name == "SWAP":
-        return f"swap q[{wires[0]}], q[{wires[1]}];"
-
-    # Default: unsupported (will be decomposed by caller)
-    return f"// Unsupported operation: {name}"
+def _parse_param(expr: str) -> float:
+    """Evaluate a QASM angle expression (numbers, pi, + - * /, parens)."""
+    allowed = set('0123456789.eE+-*/() ')
+    if not set(expr.replace('pi', '')) <= allowed:
+        raise ValueError(f"Unsupported QASM parameter expression: {expr!r}")
+    return float(eval(expr, {"__builtins__": {}}, {"pi": math.pi}))  # noqa: S307
 
 
 def _apply_qasm_to_pennylane(qasm_str: str, num_wires: int):
-    """Apply QASM operations to current PennyLane context.
+    """Apply QASM operations to the current PennyLane queuing context.
+
+    Supports the full gate set Arvak's QASM3 emitter produces. Raises
+    ``ValueError`` for gate lines with no PennyLane mapping instead of
+    silently dropping them.
 
     Args:
-        qasm_str: OpenQASM string
+        qasm_str: OpenQASM string (2.0 or 3.0 declarations)
         num_wires: Number of wires
     """
-    import pennylane as qml
-    import re
+    table = _make_gate_table()
 
-    # Parse QASM and apply operations
+    skip = re.compile(
+        r'^(//|OPENQASM|include|qreg|creg|qubit|bit|barrier|measure'
+        r'|\w+\[\d+\]\s*=\s*measure)'
+    )
+    gate_re = re.compile(
+        r'^([a-z][a-z0-9_]*)\s*(?:\(([^)]*)\))?\s+(.+);$'
+    )
+    wire_re = re.compile(r'\w+\[(\d+)\]')
+
     for line in qasm_str.split('\n'):
         line = line.strip()
-        if not line or line.startswith('//') or line.startswith('OPENQASM') or \
-           line.startswith('include') or line.startswith('qreg') or \
-           line.startswith('creg') or line.startswith('measure') or \
-           line.startswith('qubit') or line.startswith('bit') or \
-           re.match(r'\w+\[\d+\]\s*=\s*measure', line):
+        if not line or skip.match(line):
             continue
 
-        # Parse operation
-        if match := re.match(r'h q\[(\d+)\];', line):
-            qml.Hadamard(wires=int(match.group(1)))
-        elif match := re.match(r'x q\[(\d+)\];', line):
-            qml.PauliX(wires=int(match.group(1)))
-        elif match := re.match(r'y q\[(\d+)\];', line):
-            qml.PauliY(wires=int(match.group(1)))
-        elif match := re.match(r'z q\[(\d+)\];', line):
-            qml.PauliZ(wires=int(match.group(1)))
-        elif match := re.match(r'cx q\[(\d+)\],\s*q\[(\d+)\];', line):
-            qml.CNOT(wires=[int(match.group(1)), int(match.group(2))])
-        elif match := re.match(r'cz q\[(\d+)\],\s*q\[(\d+)\];', line):
-            qml.CZ(wires=[int(match.group(1)), int(match.group(2))])
-        elif match := re.match(r'rx\(([\d.eE+-]+)\) q\[(\d+)\];', line):
-            qml.RX(float(match.group(1)), wires=int(match.group(2)))
-        elif match := re.match(r'ry\(([\d.eE+-]+)\) q\[(\d+)\];', line):
-            qml.RY(float(match.group(1)), wires=int(match.group(2)))
-        elif match := re.match(r'rz\(([\d.eE+-]+)\) q\[(\d+)\];', line):
-            qml.RZ(float(match.group(1)), wires=int(match.group(2)))
+        m = gate_re.match(line)
+        if not m:
+            raise ValueError(f"Cannot parse QASM line: {line!r}")
+
+        name, param_str, args = m.group(1), m.group(2), m.group(3)
+        if name not in table:
+            raise ValueError(
+                f"QASM gate '{name}' has no PennyLane mapping "
+                f"(line: {line!r})"
+            )
+
+        n_params, ctor = table[name]
+        params = []
+        if param_str is not None:
+            params = [_parse_param(p) for p in param_str.split(',')]
+        if len(params) != n_params:
+            raise ValueError(
+                f"Gate '{name}' expects {n_params} parameter(s), "
+                f"got {len(params)} (line: {line!r})"
+            )
+
+        wires = [int(w) for w in wire_re.findall(args)]
+        ctor(params, wires if len(wires) > 1 else wires[0])

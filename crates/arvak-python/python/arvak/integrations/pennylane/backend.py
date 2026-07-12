@@ -1,224 +1,177 @@
 """PennyLane device for Arvak.
 
-This module implements PennyLane's Device interface, allowing users to execute
-PennyLane QNodes on Arvak backends.
+This module implements PennyLane's modern ``qml.devices.Device`` interface
+on top of Arvak's native HAL backends. QNodes attach directly::
 
-The device calls Arvak's built-in Rust statevector simulator directly
-via PyO3, returning real simulation results. Expectation values are
-computed from measurement samples.
+    dev = ArvakDevice(wires=2)
+
+    @qml.qnode(dev)
+    def circuit(x):
+        qml.RX(x, wires=0)
+        qml.CNOT(wires=[0, 1])
+        return qml.expval(qml.PauliZ(0))
+
+Execution is sampling-based: circuits are serialized to OpenQASM (with
+diagonalizing rotations for non-Z-basis observables), run on the selected
+Arvak backend via ``arvak.backend_for(name)``, and all measurement
+statistics (expval / var / probs / counts / sample) are computed from the
+returned counts by PennyLane's ``measurements_from_counts`` machinery.
+Non-commuting observables — e.g. molecular Hamiltonians — are split into
+separate executions automatically. Parameter-shift gradients work, so
+VQE optimization can run entirely on Arvak backends.
+
+Any backend from ``arvak.list_backends()`` is available: ``sim`` (default,
+local Rust statevector simulator), IQM, Scaleway, IBM, Quantinuum, AQT,
+IonQ, … Hardware backends read credentials from the environment exactly
+like the Qiskit and Qrisp integrations.
 """
 
 from __future__ import annotations
 
 from typing import Optional
-import numpy as np
+
+import pennylane as qml
+from pennylane.devices import Device, ExecutionConfig
+from pennylane.devices.preprocess import (
+    measurements_from_counts,
+    validate_device_wires,
+)
+from pennylane.transforms import split_non_commuting
+from pennylane.transforms.core import TransformProgram
+
+# Shots used when neither the tape nor the device specifies a count.
+# This is a sampling device — there is no analytic mode; "no shots"
+# falls back to this default.
+DEFAULT_SHOTS = 1024
 
 
-class ArvakDevice:
-    """Arvak device implementing PennyLane's Device interface.
+@qml.transform
+def _ensure_shots(tape, default_shots: int = DEFAULT_SHOTS):
+    """Give analytic tapes (shots=None) a concrete shot count.
 
-    Executes PennyLane circuits on Arvak's built-in Rust statevector
-    simulator. Circuits are converted to OpenQASM, simulated in Rust,
-    and expectation values are computed from measurement counts.
+    This device always samples. The downstream transforms
+    (``split_non_commuting``, ``measurements_from_counts``) treat
+    analytic tapes as pass-through, so shots must be set before they
+    run. Tapes that already carry shots are left untouched.
+    """
+    if tape.shots.total_shots is None:
+        tape = tape.copy(shots=default_shots)
 
-    Supports circuits up to ~20 qubits (exact statevector simulation).
+    def null_postprocessing(results):
+        return results[0]
+
+    return [tape], null_postprocessing
+
+
+class ArvakDevice(Device):
+    """Arvak device implementing PennyLane's modern Device interface.
+
+    Args:
+        wires: Number of wires or an iterable of wire labels. ``None``
+            (default) accepts any wires used by the circuit.
+        shots: Default shot count for tapes that carry none. This device
+            always samples; ``None`` means ``DEFAULT_SHOTS``.
+        backend: Arvak backend name from ``arvak.list_backends()``
+            (default: ``'sim'``).
 
     Example:
         >>> import pennylane as qml
         >>> from arvak.integrations.pennylane import ArvakDevice
-        >>>
-        >>> dev = ArvakDevice(wires=2, shots=1000, backend='sim')
-        >>>
+        >>> dev = ArvakDevice(wires=2)
         >>> @qml.qnode(dev)
-        >>> def circuit(x):
+        ... def circuit(x):
         ...     qml.RX(x, wires=0)
         ...     qml.CNOT(wires=[0, 1])
         ...     return qml.expval(qml.PauliZ(0))
-        >>>
-        >>> result = circuit(0.5)
+        >>> circuit(0.5)
     """
 
-    name = "Arvak Device"
-    short_name = "arvak.qpu"
-    pennylane_requires = ">=0.32.0"
-    version = "1.0.0"
-    author = "Arvak Team"
+    name = "arvak.qpu"
 
-    operations = {
-        "Hadamard", "PauliX", "PauliY", "PauliZ",
-        "S", "T", "SX",
-        "RX", "RY", "RZ", "PhaseShift",
-        "CNOT", "CZ", "SWAP", "Toffoli",
-        "QubitUnitary"
-    }
-
-    observables = {
-        "PauliX", "PauliY", "PauliZ",
-        "Hadamard", "Hermitian", "Identity"
-    }
-
-    def __init__(self, wires: int = 1, shots: Optional[int] = None,
+    def __init__(self, wires=None, shots: Optional[int] = None,
                  backend: str = 'sim'):
-        """Initialize the Arvak device.
-
-        Args:
-            wires: Number of wires (qubits)
-            shots: Number of shots for sampling (None defaults to 1024)
-            backend: Arvak backend to use (default: 'sim')
-        """
-        self.num_wires = wires
-        self.shots = shots if shots is not None else 1024
+        # `shots` is managed here, not by the base class — passing it to
+        # Device.__init__ is deprecated since PennyLane 0.45.
+        super().__init__(wires=wires)
+        self._default_shots = shots if shots else DEFAULT_SHOTS
         self.backend_name = backend
-        self._counts = None
+        self._native_backend = None
 
     @property
-    def wires(self):
-        """Return the number of wires."""
-        return self.num_wires
+    def _native(self):
+        """The underlying ``arvak.Backend``, created on first access.
 
-    def _run_circuit(self, operations):
-        """Execute operations on the simulator and store counts.
-
-        Args:
-            operations: List of PennyLane operations
+        Lazy so that constructing a hardware device without credentials in
+        the environment does not raise — the error surfaces on execution.
         """
-        from .converter import _operation_to_qasm
-        import arvak
+        if self._native_backend is None:
+            import arvak
+            self._native_backend = arvak.backend_for(self.backend_name)
+        return self._native_backend
 
-        # Build QASM from operations
-        num_qubits = self.num_wires
-        wire_map = {i: i for i in range(num_qubits)}
+    def preprocess(self, execution_config: Optional[ExecutionConfig] = None):
+        """Transform program: validate wires, split non-commuting
+        observables (molecular Hamiltonians become multiple executions),
+        and reduce every measurement to counts."""
+        config = execution_config or ExecutionConfig()
+        program = TransformProgram()
+        program.add_transform(validate_device_wires, self.wires, name=self.name)
+        program.add_transform(_ensure_shots, default_shots=self._default_shots)
+        program.add_transform(split_non_commuting)
+        program.add_transform(measurements_from_counts)
+        return program, config
 
-        lines = [
-            'OPENQASM 3.0;',
-            f'qubit[{num_qubits}] q;',
-            f'bit[{num_qubits}] c;',
-        ]
+    def execute(self, circuits, execution_config: Optional[ExecutionConfig] = None):
+        is_single = isinstance(circuits, qml.tape.QuantumScript)
+        if is_single:
+            circuits = [circuits]
+        results = [self._execute_tape(tape) for tape in circuits]
+        return results[0] if is_single else tuple(results)
 
-        for op in operations:
-            qasm_line = _operation_to_qasm(op, wire_map)
-            if qasm_line:
-                lines.append(qasm_line)
+    def _execute_tape(self, tape):
+        """Run one tape on the native backend and return counts-derived results."""
+        from .._qasm import qasm2_to_qasm3
 
-        # Add measurements
-        for i in range(num_qubits):
-            lines.append(f'c[{i}] = measure q[{i}];')
+        shots = tape.shots.total_shots or self._default_shots
 
-        qasm_str = '\n'.join(lines)
+        # rotations=True appends each observable's diagonalizing gates, so
+        # the Z-basis samples below are taken in the correct eigenbasis.
+        qasm2 = qml.to_openqasm(tape, rotations=True, measure_all=True)
+        result = self._native.run(qasm2_to_qasm3(qasm2), shots)
 
-        # Simulate
-        arvak_circuit = arvak.from_qasm(qasm_str)
-        self._counts = arvak.run_sim(arvak_circuit, self.shots)
+        # Arvak bitstrings put q[0] rightmost (Qiskit convention);
+        # PennyLane counts keys put the first wire leftmost — reverse.
+        n = len(tape.wires)
+        pl_counts: dict[str, int] = {}
+        for bitstring, count in result.counts.items():
+            key = bitstring.zfill(n)[::-1][:n]
+            pl_counts[key] = pl_counts.get(key, 0) + count
 
-    def _counts_to_samples(self):
-        """Convert measurement counts to a numpy sample array.
+        wire_order = list(tape.wires)
+        out = []
+        for m in tape.measurements:
+            if not isinstance(m, qml.measurements.CountsMP):
+                raise NotImplementedError(
+                    f"ArvakDevice.execute received measurement {m}; expected "
+                    f"counts only. The preprocess transform program must run "
+                    f"before execute — use this device through a QNode, or "
+                    f"apply `dev.preprocess()[0]` to the tape manually."
+                )
+            # Restrict the full-register counts to the measurement's wires.
+            m_wires = m.wires if len(m.wires) else tape.wires
+            idx = [wire_order.index(w) for w in m_wires]
+            sub: dict[str, int] = {}
+            for key, count in pl_counts.items():
+                k = ''.join(key[i] for i in idx)
+                sub[k] = sub.get(k, 0) + count
+            out.append(sub)
 
-        Returns:
-            np.ndarray of shape (shots, num_wires) with 0/1 values
-        """
-        if self._counts is None:
-            return np.zeros((self.shots, self.num_wires), dtype=int)
-
-        rows = []
-        for bitstring, count in self._counts.items():
-            bits = [int(b) for b in bitstring]
-            while len(bits) < self.num_wires:
-                bits.insert(0, 0)
-            for _ in range(count):
-                rows.append(bits[:self.num_wires])
-
-        return np.array(rows, dtype=int)
-
-    def apply(self, operations, **kwargs):
-        """Apply quantum operations and simulate.
-
-        Args:
-            operations: List of PennyLane operations
-        """
-        self._run_circuit(operations)
-
-    def expval(self, observable, **kwargs):
-        """Return the expectation value of an observable.
-
-        Computed from measurement samples using the observable's eigenvalues.
-
-        Args:
-            observable: PennyLane observable
-
-        Returns:
-            float: Expectation value
-        """
-        samples = self._counts_to_samples()
-        wire = observable.wires[0] if hasattr(observable, 'wires') else 0
-
-        # For Pauli-Z: eigenvalues are +1 (|0⟩) and -1 (|1⟩)
-        wire_samples = samples[:, wire]
-        eigenvalues = 1.0 - 2.0 * wire_samples  # maps 0→+1, 1→-1
-        return float(np.mean(eigenvalues))
-
-    def var(self, observable, **kwargs):
-        """Return the variance of an observable.
-
-        Args:
-            observable: PennyLane observable
-
-        Returns:
-            float: Variance
-        """
-        samples = self._counts_to_samples()
-        wire = observable.wires[0] if hasattr(observable, 'wires') else 0
-
-        wire_samples = samples[:, wire]
-        eigenvalues = 1.0 - 2.0 * wire_samples
-        return float(np.var(eigenvalues))
-
-    def sample(self, observable, **kwargs):
-        """Return samples of an observable.
-
-        Args:
-            observable: PennyLane observable
-
-        Returns:
-            np.ndarray: Array of sample outcomes
-        """
-        samples = self._counts_to_samples()
-        wire = observable.wires[0] if hasattr(observable, 'wires') else 0
-
-        wire_samples = samples[:, wire]
-        return 1.0 - 2.0 * wire_samples  # Pauli-Z eigenvalues
-
-    def execute(self, circuit, **kwargs):
-        """Execute a quantum circuit (tape).
-
-        Args:
-            circuit: PennyLane quantum tape
-            **kwargs: Additional arguments
-
-        Returns:
-            Execution results (single value or list)
-        """
-        self.apply(circuit.operations)
-
-        import pennylane as qml
-
-        results = []
-        for m in circuit.measurements:
-            cls_name = type(m).__name__
-            if cls_name == 'ExpectationMP':
-                results.append(self.expval(m.obs))
-            elif cls_name == 'VarianceMP':
-                results.append(self.var(m.obs))
-            elif cls_name == 'SampleMP':
-                results.append(self.sample(m.obs))
-            elif cls_name == 'CountsMP':
-                results.append(self._counts or {})
-            else:
-                results.append(self.expval(m.obs))
-
-        return results if len(results) > 1 else results[0] if results else None
+        return out[0] if len(out) == 1 else tuple(out)
 
     def __repr__(self) -> str:
-        return f"<ArvakDevice(wires={self.num_wires}, backend='{self.backend_name}', shots={self.shots})>"
+        return (f"<ArvakDevice(wires={self.wires}, "
+                f"backend='{self.backend_name}', "
+                f"shots={self._default_shots})>")
 
 
 def create_device(backend: str = 'sim', **kwargs) -> ArvakDevice:

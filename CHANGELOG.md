@@ -5,6 +5,41 @@ All notable changes to Arvak will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **PennyLane device produced wrong expectation values**: measurement
+  bits were read in reversed wire order (X on wire 0 returned
+  `<Z0> = +1` instead of `-1`), and every observable was measured in
+  the Z basis without diagonalizing gates (`expval(PauliX)` was
+  wrong for any non-Z eigenstate). Both fixed; regression-tested.
+- **PennyLane QNodes could not attach to `ArvakDevice`** — the class
+  did not implement PennyLane's device interface and every
+  `@qml.qnode(dev)` failed with "Invalid device".
+
+### Changed
+
+- **PennyLane integration rebuilt on the native HAL path** (completes
+  the RFC-0001 series: Qiskit 2.0, Qrisp 2.2, now PennyLane):
+  `ArvakDevice` subclasses the modern `qml.devices.Device`, serializes
+  tapes with `qml.to_openqasm` (rotations included), executes via
+  `arvak.backend_for(name)`, and derives all statistics from counts
+  through PennyLane's `measurements_from_counts`. Non-commuting
+  observables (molecular Hamiltonians) split automatically;
+  parameter-shift gradients work, so VQE optimization runs entirely
+  on Arvak backends. All registry backends are selectable via
+  `backend=`.
+- `ArvakDevice` registers as the PennyLane device plugin
+  ``'arvak.qpu'`` — `qml.device('arvak.qpu', wires=2)` now works.
+- PennyLane→Arvak conversion uses `qml.to_openqasm` (handles
+  composite-gate decomposition); Arvak→PennyLane parses the full
+  QASM3 emitter gate set and raises on unknown gates instead of
+  silently dropping them (QFT's `cp`/`swap` were previously lost).
+- Notebooks 05 (H₂ VQE) and 06 (LiH/H₂O chemistry) updated and fully
+  re-executed: both now measure the optimized molecular energy
+  shot-based on the Arvak simulator through the `arvak.qpu` device.
+
 ## [2.2.0] - 2026-07-12
 
 ### Fixed

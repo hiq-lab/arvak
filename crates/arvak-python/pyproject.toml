@@ -50,6 +50,9 @@ all = ["arvak[qiskit,qrisp,cirq,pennylane,chemistry,notebook,nathan,optimize-skl
 [project.scripts]
 arvak-demo = "arvak.demo:main"
 
+[project.entry-points."pennylane.plugins"]
+"arvak.qpu" = "arvak.integrations.pennylane:ArvakDevice"
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "python"

@@ -37,20 +37,6 @@ def pennylane_bell_qnode():
 
 
 @pytest.fixture
-def pennylane_parametrized_qnode():
-    """Create a parametrized QNode."""
-    dev = qml.device('default.qubit', wires=2)
-
-    @qml.qnode(dev)
-    def circuit(theta):
-        qml.RX(theta, wires=0)
-        qml.CNOT(wires=[0, 1])
-        return qml.expval(qml.PauliZ(0))
-
-    return circuit
-
-
-@pytest.fixture
 def arvak_bell_circuit():
     """Create a simple Bell state circuit in Arvak."""
     return arvak.Circuit.bell()
@@ -95,13 +81,33 @@ class TestPennyLaneToArvak:
         assert arvak_circuit is not None
         assert arvak_circuit.num_qubits == 2
 
-    def test_convert_preserves_gate_count(self, pennylane_bell_qnode):
-        """Test that conversion preserves gates."""
-        integration = arvak.get_integration('pennylane')
-        arvak_circuit = integration.to_arvak(pennylane_bell_qnode)
+    def test_convert_parameterized_qnode(self):
+        """Parameterized QNodes convert with concrete arguments."""
+        from arvak.integrations.pennylane import pennylane_to_arvak
 
-        # Bell: H + CNOT on at least 2 qubits
-        assert arvak_circuit.num_qubits >= 2
+        dev = qml.device('default.qubit', wires=2)
+
+        @qml.qnode(dev)
+        def circuit(theta):
+            qml.RX(theta, wires=0)
+            qml.CNOT(wires=[0, 1])
+            return qml.expval(qml.PauliZ(0))
+
+        arvak_circuit = pennylane_to_arvak(circuit, 0.5)
+        assert arvak_circuit.num_qubits == 2
+
+    def test_convert_composite_gates(self):
+        """Composite ops (DoubleExcitation etc.) decompose during export."""
+        from arvak.integrations.pennylane import pennylane_to_arvak
+
+        with qml.tape.QuantumTape() as tape:
+            qml.BasisState(np.array([1, 1, 0, 0]), wires=range(4))
+            qml.DoubleExcitation(0.2, wires=[0, 1, 2, 3])
+            qml.expval(qml.PauliZ(0))
+
+        arvak_circuit = pennylane_to_arvak(tape)
+        assert arvak_circuit.num_qubits == 4
+        assert arvak_circuit.depth() > 1
 
     def test_convert_produces_valid_qasm(self, pennylane_bell_qnode):
         """Test that converted circuit produces valid QASM."""
@@ -110,8 +116,6 @@ class TestPennyLaneToArvak:
 
         qasm = arvak.to_qasm(arvak_circuit)
         assert 'OPENQASM' in qasm
-        # Arvak to_qasm input goes through QASM 2.0 (from _tape_to_qasm), so
-        # the round-tripped output may have qreg or qubit depending on version
         assert 'qreg' in qasm or 'qubit' in qasm
 
     def test_direct_converter_function(self, pennylane_bell_qnode):
@@ -142,30 +146,162 @@ class TestArvakToPennyLane:
         result = qnode()
         assert result is not None
 
-    def test_converted_qnode_returns_expectation(self, arvak_bell_circuit):
-        """Test that converted QNode returns numeric expectation values."""
-        integration = arvak.get_integration('pennylane')
-        qnode = integration.from_arvak(arvak_bell_circuit)
+    def test_qft_gates_not_dropped(self):
+        """QFT emits cp/swap — previously silently dropped by the parser.
 
-        result = qnode()
-        # Should return an array or list of expectation values
-        if isinstance(result, (list, np.ndarray)):
-            for val in result:
-                assert isinstance(float(val), float)
-        else:
-            assert isinstance(float(result), float)
-
-    def test_direct_converter_function(self, arvak_bell_circuit):
-        """Test the direct converter function."""
+        The identity check: QFT then measuring in the uniform superposition
+        gives <Z_i> = 0 on every wire. With cp/swap dropped the parser bug
+        went unnoticed; this asserts the converted circuit is non-trivial
+        and executable.
+        """
         from arvak.integrations.pennylane import arvak_to_pennylane
 
-        qnode = arvak_to_pennylane(arvak_bell_circuit)
-        assert qnode is not None
-        assert callable(qnode)
+        qnode = arvak_to_pennylane(arvak.Circuit.qft(3))
+        result = np.array(qnode())
+        assert np.allclose(result, 0.0, atol=1e-9)
+
+    def test_unknown_gate_raises(self):
+        """QASM lines with unmapped gates raise instead of silent dropping."""
+        from arvak.integrations.pennylane.converter import (
+            _apply_qasm_to_pennylane,
+        )
+
+        qasm = 'OPENQASM 3.0;\nqubit[1] q;\nfancy_gate q[0];'
+        with qml.queuing.AnnotatedQueue():
+            with pytest.raises(ValueError, match="no PennyLane mapping"):
+                _apply_qasm_to_pennylane(qasm, 1)
 
 
-class TestPennyLaneDevice:
-    """Tests for ArvakDevice as PennyLane device."""
+class TestArvakDeviceQNode:
+    """QNodes attached directly to ArvakDevice — the primary use case.
+
+    Regression tests: the pre-2.2 device was not a valid PennyLane device
+    (QNode attachment failed), measured every observable in the Z basis,
+    and read measurement bits in reversed wire order.
+    """
+
+    def test_qnode_attaches(self):
+        """ArvakDevice is a valid PennyLane device for QNodes."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=2)
+
+        @qml.qnode(dev)
+        def circuit():
+            qml.Hadamard(wires=0)
+            return qml.expval(qml.PauliZ(0))
+
+        assert isinstance(dev, qml.devices.Device)
+        assert abs(circuit()) < 0.15
+
+    def test_expval_z_after_x_is_minus_one(self):
+        """Bit-order regression: X on wire 0 → <Z_0> = -1 exactly."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=2, shots=500)
+
+        @qml.qnode(dev)
+        def circuit():
+            qml.PauliX(wires=0)
+            return qml.expval(qml.PauliZ(0))
+
+        assert circuit() == -1.0
+
+    def test_expval_x_uses_diagonalizing_gates(self):
+        """Basis regression: H|0> is the +1 eigenstate of X → <X_0> = +1."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=1, shots=500)
+
+        @qml.qnode(dev)
+        def circuit():
+            qml.Hadamard(wires=0)
+            return qml.expval(qml.PauliX(0))
+
+        assert circuit() == 1.0
+
+    def test_bell_probs(self):
+        """Bell state probabilities concentrate on |00> and |11>."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=2, shots=2000)
+
+        @qml.qnode(dev)
+        def circuit():
+            qml.Hadamard(wires=0)
+            qml.CNOT(wires=[0, 1])
+            return qml.probs(wires=[0, 1])
+
+        probs = circuit()
+        assert probs[1] == 0.0 and probs[2] == 0.0
+        assert abs(probs[0] - 0.5) < 0.1
+        assert abs(probs[3] - 0.5) < 0.1
+
+    def test_hamiltonian_expval(self):
+        """Non-commuting Hamiltonian terms split into separate executions."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=2, shots=4000)
+        H = qml.Hamiltonian(
+            [0.5, 0.3, 0.2],
+            [qml.PauliZ(0), qml.PauliX(0), qml.PauliZ(0) @ qml.PauliZ(1)],
+        )
+
+        @qml.qnode(dev)
+        def circuit():
+            qml.Hadamard(wires=0)
+            return qml.expval(H)
+
+        # H|0> on wire 0: <Z0>=0, <X0>=1, <Z0 Z1>=0  →  0.3
+        assert abs(circuit() - 0.3) < 0.1
+
+    def test_parameter_shift_gradient(self):
+        """Parameter-shift gradients work — enables VQE on Arvak."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=1, shots=4000)
+
+        @qml.qnode(dev, diff_method='parameter-shift')
+        def circuit(x):
+            qml.RX(x, wires=0)
+            return qml.expval(qml.PauliZ(0))
+
+        grad = qml.grad(circuit)(qml.numpy.array(0.5))
+        assert abs(grad - (-np.sin(0.5))) < 0.1
+
+    def test_counts_measurement(self):
+        """counts() returns a dict with PennyLane bit ordering."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=2, shots=300)
+
+        @qml.qnode(dev)
+        def circuit():
+            qml.PauliX(wires=0)
+            return qml.counts(wires=[0, 1])
+
+        counts = circuit()
+        # wire 0 is leftmost in PennyLane keys: X on wire 0 → '10'
+        assert counts == {'10': 300}
+
+    def test_analytic_qnode_falls_back_to_default_shots(self):
+        """Tapes without shots sample DEFAULT_SHOTS instead of failing."""
+        from arvak.integrations.pennylane import ArvakDevice
+        from arvak.integrations.pennylane.backend import DEFAULT_SHOTS
+
+        dev = ArvakDevice(wires=1)
+
+        @qml.qnode(dev)
+        def circuit():
+            qml.PauliX(wires=0)
+            return qml.counts(wires=[0])
+
+        counts = circuit()
+        assert sum(counts.values()) == DEFAULT_SHOTS
+
+
+class TestArvakDeviceConfig:
+    """Device construction and backend registry."""
 
     def test_create_device(self):
         """Test creating an ArvakDevice."""
@@ -173,15 +309,8 @@ class TestPennyLaneDevice:
 
         dev = ArvakDevice(wires=2, shots=100, backend='sim')
         assert dev is not None
-        assert dev.wires == 2
-        assert dev.shots == 100
-
-    def test_device_default_shots(self):
-        """Test device default shots."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=2)
-        assert dev.shots == 1024
+        assert len(dev.wires) == 2
+        assert dev.backend_name == 'sim'
 
     def test_device_repr(self):
         """Test device string representation."""
@@ -192,113 +321,28 @@ class TestPennyLaneDevice:
         assert 'ArvakDevice' in repr_str
         assert 'sim' in repr_str
 
-    def test_device_operations(self):
-        """Test that device advertises supported operations."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=2)
-        assert 'Hadamard' in dev.operations
-        assert 'CNOT' in dev.operations
-        assert 'RX' in dev.operations
-        assert 'RY' in dev.operations
-        assert 'RZ' in dev.operations
-
-    def test_device_observables(self):
-        """Test that device advertises supported observables."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=2)
-        assert 'PauliX' in dev.observables
-        assert 'PauliY' in dev.observables
-        assert 'PauliZ' in dev.observables
-
-    def test_device_apply_and_expval(self):
-        """Test applying operations and computing expectation value."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=1, shots=1000)
-
-        # Apply X gate — should flip |0⟩ to |1⟩
-        # PauliZ on |1⟩ should give expval = -1
-        x_op = qml.PauliX(wires=0)
-        dev.apply([x_op])
-
-        z_obs = qml.PauliZ(wires=0)
-        expval = dev.expval(z_obs)
-
-        # Should be close to -1.0
-        assert abs(expval - (-1.0)) < 0.1, f"Expected ~-1.0, got {expval}"
-
-    def test_device_apply_h_gate(self):
-        """Test H gate gives ~0 expectation for PauliZ."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=1, shots=10000)
-
-        h_op = qml.Hadamard(wires=0)
-        dev.apply([h_op])
-
-        z_obs = qml.PauliZ(wires=0)
-        expval = dev.expval(z_obs)
-
-        # H|0⟩ = |+⟩, expval of Z should be ~0
-        assert abs(expval) < 0.1, f"Expected ~0.0, got {expval}"
-
-    def test_device_variance(self):
-        """Test variance computation."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=1, shots=10000)
-
-        h_op = qml.Hadamard(wires=0)
-        dev.apply([h_op])
-
-        z_obs = qml.PauliZ(wires=0)
-        var = dev.var(z_obs)
-
-        # H|0⟩ = |+⟩, variance of Z should be ~1.0
-        assert abs(var - 1.0) < 0.15, f"Expected ~1.0, got {var}"
-
-    def test_device_sample(self):
-        """Test sample returns correct shape."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=1, shots=100)
-
-        h_op = qml.Hadamard(wires=0)
-        dev.apply([h_op])
-
-        z_obs = qml.PauliZ(wires=0)
-        samples = dev.sample(z_obs)
-
-        assert len(samples) == 100
-        # All samples should be +1 or -1
-        for s in samples:
-            assert s in (1.0, -1.0), f"Unexpected sample value: {s}"
-
-    def test_device_execute_tape(self):
-        """Test executing a full quantum tape."""
-        from arvak.integrations.pennylane import ArvakDevice
-
-        dev = ArvakDevice(wires=2, shots=1000)
-
-        # Create a tape for Bell state
-        with qml.tape.QuantumTape() as tape:
-            qml.Hadamard(wires=0)
-            qml.CNOT(wires=[0, 1])
-            qml.expval(qml.PauliZ(0))
-
-        result = dev.execute(tape)
-        assert isinstance(float(result), float)
-
     def test_create_device_factory(self):
         """Test create_device factory function."""
         from arvak.integrations.pennylane import create_device
 
         dev = create_device('sim', wires=3, shots=500)
         assert dev is not None
-        assert dev.wires == 3
-        assert dev.shots == 500
+        assert len(dev.wires) == 3
+
+    def test_hardware_device_constructs_without_credentials(self):
+        """Constructing a hardware device must not require credentials."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        dev = ArvakDevice(wires=2, backend='ibm_marrakesh')
+        assert dev.backend_name == 'ibm_marrakesh'
+
+    def test_registry_backends_accepted(self):
+        """Every name from arvak.list_backends() is constructible."""
+        from arvak.integrations.pennylane import ArvakDevice
+
+        for name in arvak.list_backends():
+            dev = ArvakDevice(wires=1, backend=name)
+            assert dev.backend_name == name
 
 
 class TestPennyLaneRoundTrip:
@@ -308,75 +352,22 @@ class TestPennyLaneRoundTrip:
         """Test that round-trip conversion preserves qubit count."""
         integration = arvak.get_integration('pennylane')
 
-        # PennyLane -> Arvak
         arvak_circuit = integration.to_arvak(pennylane_bell_qnode)
-
-        # Arvak -> PennyLane
         qnode_back = integration.from_arvak(arvak_circuit)
 
-        # Execute both and verify results
         result_back = qnode_back()
         assert result_back is not None
 
     def test_roundtrip_bell_state(self, pennylane_bell_qnode):
-        """Test round-trip for Bell state."""
+        """Round-trip Bell: both wires have <Z> = 0."""
         integration = arvak.get_integration('pennylane')
 
-        # PennyLane -> Arvak
         arvak_circuit = integration.to_arvak(pennylane_bell_qnode)
         assert arvak_circuit.num_qubits == 2
 
-        # Arvak -> PennyLane
         qnode_back = integration.from_arvak(arvak_circuit)
-        result = qnode_back()
-        assert result is not None
-
-
-class TestPennyLaneConverter:
-    """Tests for converter functions."""
-
-    def test_tape_to_qasm_bell(self, pennylane_bell_qnode):
-        """Test tape to QASM conversion for Bell state."""
-        from arvak.integrations.pennylane.converter import _tape_to_qasm
-
-        # Get tape (PennyLane >=0.44 uses _tape)
-        pennylane_bell_qnode.construct([], {})
-        tape = getattr(pennylane_bell_qnode, 'qtape', None) or pennylane_bell_qnode._tape
-
-        qasm = _tape_to_qasm(tape)
-
-        assert 'OPENQASM' in qasm
-        assert 'h q[0]' in qasm
-        assert 'cx q[0],q[1]' in qasm
-
-    def test_operation_to_qasm_gates(self):
-        """Test individual gate conversions."""
-        from arvak.integrations.pennylane.converter import _operation_to_qasm
-
-        wire_map = {0: 0, 1: 1}
-
-        # Test each gate type
-        assert _operation_to_qasm(qml.Hadamard(wires=0), wire_map) == 'h q[0];'
-        assert _operation_to_qasm(qml.PauliX(wires=0), wire_map) == 'x q[0];'
-        assert _operation_to_qasm(qml.PauliY(wires=0), wire_map) == 'y q[0];'
-        assert _operation_to_qasm(qml.PauliZ(wires=0), wire_map) == 'z q[0];'
-        assert _operation_to_qasm(qml.CNOT(wires=[0, 1]), wire_map) == 'cx q[0],q[1];'
-
-    def test_operation_to_qasm_rotation(self):
-        """Test rotation gate conversions."""
-        from arvak.integrations.pennylane.converter import _operation_to_qasm
-
-        wire_map = {0: 0}
-
-        rx_qasm = _operation_to_qasm(qml.RX(1.57, wires=0), wire_map)
-        assert rx_qasm.startswith('rx(')
-        assert 'q[0]' in rx_qasm
-
-        ry_qasm = _operation_to_qasm(qml.RY(0.5, wires=0), wire_map)
-        assert ry_qasm.startswith('ry(')
-
-        rz_qasm = _operation_to_qasm(qml.RZ(3.14, wires=0), wire_map)
-        assert rz_qasm.startswith('rz(')
+        result = np.array(qnode_back())
+        assert np.allclose(result, 0.0, atol=1e-9)
 
 
 if __name__ == '__main__':

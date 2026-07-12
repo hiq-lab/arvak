@@ -11,15 +11,19 @@ PennyLane is a quantum machine learning library that emphasizes:
 - **QML algorithms**: Built-in quantum machine learning tools
 - **Quantum gradients**: Parameter-shift rules and backpropagation
 
+``ArvakDevice`` implements PennyLane's modern Device interface and is
+registered as the device plugin ``'arvak.qpu'``. Any backend from
+``arvak.list_backends()`` works (sim, IQM, IBM, Quantinuum, AQT, IonQ, …);
+Hamiltonian expectation values and parameter-shift gradients are supported,
+so VQE optimization can run entirely on Arvak backends.
+
 Example:
     >>> import pennylane as qml
-    >>> from arvak.integrations.pennylane import ArvakDevice, pennylane_to_arvak
     >>>
-    >>> # Use Arvak as PennyLane device
-    >>> dev = ArvakDevice(wires=2, backend='sim')
+    >>> dev = qml.device('arvak.qpu', wires=2, shots=2000)
     >>>
     >>> @qml.qnode(dev)
-    >>> def circuit(x):
+    ... def circuit(x):
     ...     qml.RX(x, wires=0)
     ...     qml.CNOT(wires=[0, 1])
     ...     return qml.expval(qml.PauliZ(0))
