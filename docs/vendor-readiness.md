@@ -30,7 +30,7 @@ checklist.
 |--------|-----------|---------|---------------|
 | **QuiX Quantum** (Bia) | Photonic | ❌ Not ready | 2, 3 |
 | **SaxonQ** | NV centres (diamond) | ✅ Ready — **via DLR QCI Connect**, not via SaxonQ | none (7 is gated on an account) |
-| Pasqal | Neutral atoms | 🟡 Partial | 3 (analog-native) |
+| Pasqal | Neutral atoms | 🟡 Partial — **compile/emit half already in tree**, Backend half missing | 3 (analog-native) |
 | OQC | Superconducting | ✅ Ready | none |
 | Alice & Bob | Cat qubits | ✅ Ready | none |
 | Rigetti | Superconducting | 🟡 Medium effort | 3 (Quil, not QASM) |
@@ -125,6 +125,43 @@ Four things to get right when we do:
 4. **Access is application-based.** Gate 7 needs a DLR QCI Connect project
    before we can run the live round-trip test we hold other adapters to.
 
+### What is already in tree for Pasqal
+
+Worth stating explicitly, because it is not in `adapters/` and not in the
+`backend_for()` registry, so a naive search misses it. The **compile-and-emit
+half of Pasqal support already exists**; only the runtime half does not.
+
+Present today:
+
+- `arvak.integrations.pulser` — a `FrameworkIntegration` (same registry as
+  Qiskit/Cirq/Qrisp/PennyLane), converting a compiled Arvak circuit into a
+  Pulser `Sequence` on `DigitalAnalogDevice`. Single-qubit gates decompose to
+  `raman_local` pulses, two-qubit gates to `rydberg_global` blockade pulses.
+- `arvak.integrations.pulser.calibrate` — empirical gate-to-pulse calibration.
+  It shoots the same QASM3 at a gate-model ground truth **through qBraid
+  Runtime** (`QbraidProvider`, default device `azure:ionq:sim:simulator`) and
+  at the Pulser emulator, scores the two distributions by Bhattacharyya
+  fidelity, sweeps pulse parameters, and writes `calibration_rules.json`.
+- Rust side: `GateSet::neutral_atom()` / `Topology::neutral_atom()` and the
+  `Capabilities::neutral_atom()` factory with `shuttling` + `zoned` features,
+  plus the RZ/RX/RY/CZ neutral-atom translation basis in
+  `arvak-compile`, which `translation.rs` documents as targeting planqc and
+  Pasqal digital mode.
+
+Missing: a HAL `Backend`. There is no `submit()`/`status()`/`result()` against
+Pasqal Cloud and no `arvak.backend_for("pasqal_…")` entry — nothing in the tree
+talks to `pasqal-cloud`. So today we can compile *for* Pasqal and emit
+something Pulser will run locally; we cannot dispatch a job to Fresnel and get
+counts back through the HAL.
+
+That makes Pasqal a cheaper adapter than its row in the verdict table suggests:
+the hard part for a neutral-atom vendor is usually the gate-to-pulse story, and
+that is done and calibrated. What is left is an ordinary REST client against
+`/api/v1`+`/api/v2` with Auth0, which is the part we have written eleven times.
+Note the calibration path deliberately targets Pulser's **local emulator**, so
+none of it is evidence that the cloud path works — gate 7 is still unproven for
+Pasqal.
+
 ### Others worth tracking
 
 **Buildable today, ordinary REST adapters.** OQC (`https://cloud.oqc.app/`,
@@ -138,7 +175,8 @@ vendor-native features and independence from AWS.
 **Partial fits — the mismatch is the HAL, not the vendor.** Pasqal has a clean
 REST API (`/api/v1`, `/api/v2`, Auth0, `pasqal-cloud` 0.24.0) but its native
 mode is analog pulse programming via Pulser; the digital gate surface is the
-narrow part. Xanadu (`strawberryfields`, `xanadu-cloud-client`) is
+narrow part. We have already built against that native mode — see
+[What is already in tree for Pasqal](#what-is-already-in-tree-for-pasqal). Xanadu (`strawberryfields`, `xanadu-cloud-client`) is
 continuous-variable. Rigetti is well-documented but ingests Quil over QCS/gRPC,
 so it needs an IR emitter, not just a client.
 
@@ -173,7 +211,8 @@ potential *users* of a HAL, not backends behind one.
 | QC Challengers: IQM, Quandela | Direct adapters in tree |
 | QC Challengers: Rigetti, QuEra | Reachable today through `arvak-adapter-braket` |
 | QC Emerging: AQT | Direct adapter in tree |
-| QC Challengers/Emerging: Pasqal, Atom Computing, QCI | **Not covered — all three sit behind Azure Quantum** |
+| QC Challengers: Pasqal | Partly covered — Pulser emitter and neutral-atom compile target in tree; no HAL `Backend` yet (see below) |
+| QC Emerging: Atom Computing, QCI | **Not covered — both sit behind Azure Quantum** |
 | QC Emerging: Infleqtion, Quantum Brilliance | See [Others](#others-worth-tracking) |
 | Majors: Google, Microsoft topological, PsiQ, Intel | No public QPU access by design; Cirq is already handled as a *framework*, not a backend |
 | D-Wave (annealing), Xanadu, Orca, Photonic Inc. | Fail gate 3 — not gate-based |
@@ -206,9 +245,14 @@ work rather than assuming it is a Braket clone.
 
 **qBraid** is the other gateway worth noting — `GET
 https://api.qbraid.com/api/quantum-devices`, 20+ devices across 11 providers
-including OQC, with API-key auth and a simpler wire shape than Azure. Lower
-priority, because it overlaps heavily with Braket and Azure and adds a
-commercial dependency between us and the hardware.
+including OQC, with API-key auth and a simpler wire shape than Azure. Note we
+already depend on it: `arvak.integrations.pulser.calibrate` drives
+`QbraidProvider` to produce ground-truth distributions. That lowers the cost of
+a qBraid Backend (the account and the API shape are already familiar) without
+raising its priority much, since its device list overlaps heavily with Braket
+and Azure and routing production traffic through it puts a commercial
+intermediary between us and the hardware. Calibration tooling is a fine place
+for that dependency; the run path is not.
 
 **Neither QuiX Quantum nor SaxonQ appears anywhere on this map.** GQI's
 color-centre box is Quantum Brilliance; its photonic boxes are Xanadu,
@@ -266,3 +310,12 @@ contracts rather than marketing pages:
 To re-run: probe PyPI for the vendor SDK, and if one exists pull its sdist and
 read the generated client for the wire contract. That is the fastest way to
 tell a real API from a press release.
+
+One trap worth naming, because this assessment fell into it on the first pass:
+**existing vendor support is not all in `adapters/`**. Pasqal support lives in
+`crates/arvak-python/python/arvak/integrations/` and in the compiler's
+translation bases, and qBraid is a dependency of the calibration tooling —
+neither shows up in `ls adapters/` or in the `backend_for()` registry. Grep the
+whole tree for a vendor name before calling it uncovered, and say which *half*
+(compile/emit vs. runtime) is missing rather than treating coverage as a
+boolean.
