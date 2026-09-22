@@ -16,6 +16,7 @@
 | [Integration Guide](INTEGRATION_GUIDE.md) | Adding a framework integration (Qiskit/Qrisp/Cirq/PennyLane pattern) |
 | [HAL Contract](hal-contract.md) | The backend abstraction every adapter implements |
 | [HAL Specification](hal-specification.md) | Formal HAL semantics |
+| [Vendor Readiness](vendor-readiness.md) | Which not-yet-integrated vendors are buildable against the HAL, and what blocks the rest |
 
 ## Internals
 
