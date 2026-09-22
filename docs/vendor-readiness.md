@@ -147,20 +147,98 @@ neutral-atom system in Garching; cloud access stated as a plan, nothing on
 PyPI), eleQtron (no public SDK; reachable through German national programmes),
 Quantum Brilliance (on-prem NV, same shape as SaxonQ).
 
+## Reading the GQI landscape map as adapter surface
+
+Checked against Global Quantum Intelligence's "established players, challengers
+and startups" sector map (© 2025). Most of that map is **not** adapter surface,
+and separating the parts that are changes the priority order.
+
+**Only the hardware-stack columns are Backend targets.** The PaaS Challengers
+(BlueQubit, Strangeworks, Terra Quantum, Horizon Quantum, QCentroid, qBraid),
+the Midstack Specialists (Classiq, Q-CTRL, Qedma, Riverlane, ParityQC, NuQ,
+Iceberg) and the control-plane vendors (Qblox, Quantum Machines, Zurich
+Instruments) are not backends. Arvak sits in that same midstack column — those
+boxes are neighbours and integration surfaces, not things to write adapters
+for. The error-mitigation specialists in particular overlap directly with the
+Phase 12 ZNE/readout-correction item, and the control-plane vendors overlap
+with the pulse-level control item. The Emerging Q SaaS/AaaS row (SandboxAQ,
+Multiverse, QC Ware, QunaSys, Qunova, Phasecraft, Algorithmiq, Kipu) are
+potential *users* of a HAL, not backends behind one.
+
+**Coverage against the hardware columns:**
+
+| Map grouping | Status for Arvak |
+|--------------|------------------|
+| Quantum Majors: IBM, IonQ (incl. Oxford Ionics), Quantinuum, AWS, Nvidia | Direct adapters in tree |
+| QC Challengers: IQM, Quandela | Direct adapters in tree |
+| QC Challengers: Rigetti, QuEra | Reachable today through `arvak-adapter-braket` |
+| QC Emerging: AQT | Direct adapter in tree |
+| QC Challengers/Emerging: Pasqal, Atom Computing, QCI | **Not covered — all three sit behind Azure Quantum** |
+| QC Emerging: Infleqtion, Quantum Brilliance | See [Others](#others-worth-tracking) |
+| Majors: Google, Microsoft topological, PsiQ, Intel | No public QPU access by design; Cirq is already handled as a *framework*, not a backend |
+| D-Wave (annealing), Xanadu, Orca, Photonic Inc. | Fail gate 3 — not gate-based |
+| OriginQ, QuantumCTek | SDKs exist (`pyqpanda`), but procurement and export posture is a business question before it is a technical one |
+| SeeQC, Universal Quantum, Equal1, Diraq, Nord Quantique, planqc, eleQtron, Quantum Art, ZuriQ, Aegiq, Quantum Source, QuantWare, Atlantic Quantum, Planckian, Quilimanjaro | Pre-cloud — fail gates 1 and 2 |
+
+**The gap this exposes: we have three gateway adapters and are missing the
+broadest one.** In tree today: Braket (Rigetti, IonQ, IQM, QuEra), Scaleway
+(IQM Garnet/Emerald), and the half-finished QDMI path. Missing: **Azure
+Quantum**, which carries IonQ, Quantinuum, Rigetti, Pasqal, Atom Computing and
+QCI. One adapter converts four otherwise-uncovered boxes on this map into
+covered ones — a better return than any single-vendor adapter on the list, and
+better than the QCI Connect adapter in raw device count (though not in
+strategic access to the European fleet).
+
+It is a clean Rust target — a documented data-plane REST API, not a Python-only
+SDK:
+
+- `PUT /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Quantum/workspaces/{ws}/jobs/{jobId}?api-version=2025-09-01-preview`
+- Entra ID bearer token, scope `https://quantum.microsoft.com/.default`
+- Jobs list/get, sessions, provider status and quotas alongside it
+
+One wrinkle to design around before committing to it: job input and output go
+through blob storage, not inline in the request. The adapter has to request a
+SAS URI (`POST .../storage/sasUri`), upload the circuit, submit a job
+referencing the blob, then download the output blob on `result()`. That is
+meaningfully more machinery than the `POST /job/submit` shape of every other
+adapter we have, and it is the main reason to scope this as its own piece of
+work rather than assuming it is a Braket clone.
+
+**qBraid** is the other gateway worth noting — `GET
+https://api.qbraid.com/api/quantum-devices`, 20+ devices across 11 providers
+including OQC, with API-key auth and a simpler wire shape than Azure. Lower
+priority, because it overlaps heavily with Braket and Azure and adds a
+commercial dependency between us and the hardware.
+
+**Neither QuiX Quantum nor SaxonQ appears anywhere on this map.** GQI's
+color-centre box is Quantum Brilliance; its photonic boxes are Xanadu,
+Quandela, PsiQ, Photonic Inc., Orca, Aegiq and Quantum Source. That is
+corroboration rather than proof, but it is consistent with what the gate checks
+found directly: neither company is yet in the tier where commercial programmatic
+access is the product.
+
+(Labels on the right-hand side of the map are partly obscured in the source
+photo and some small text is uncertain; the groupings above reflect what is
+legible.)
+
 ## The structural conclusion
 
 Two observations matter more than any single vendor:
 
 1. **Gateways beat one-off adapters right now.** The European vendors worth
    having — SaxonQ, planqc, eleQtron — are not building public clouds; they are
-   attaching to national platforms. That makes the two gateway paths already in
-   this tree the highest-leverage work: the Phase 12 QDMI driver-discovery item
-   (the `arvak-qdmi` consumer layer is done and CI-verified against an MQT DDSIM
-   device — only the registry surface is missing), and a new QCI Connect
-   adapter. One adapter per N vendors, versus one adapter per pre-API vendor.
-2. **Our HAL is gate-based and shot-based, and three of the interesting new
-   players are not.** QuiX, Xanadu and analog-mode Pasqal all fail gate 3 for
-   the same reason. Whether to model non-gate backends is a HAL-level decision,
+   attaching to national platforms, and the broadest commercial fleets sit
+   behind hyperscaler gateways. One adapter per N vendors beats one adapter per
+   pre-API vendor. In priority order: **Azure Quantum** (six vendors, four of
+   them otherwise uncovered), **QCI Connect** (SaxonQ plus the DLR fleet, and
+   the only route to the German national hardware), and the Phase 12 **QDMI**
+   driver-discovery item (the `arvak-qdmi` consumer layer is done and
+   CI-verified against an MQT DDSIM device — only the registry surface is
+   missing, so it is the cheapest of the three).
+2. **Our HAL is gate-based and shot-based, and a whole class of players is
+   not.** QuiX, Xanadu, Orca, analog-mode Pasqal and the entire annealing
+   column (D-Wave) all fail gate 3 for the same reason — this is one decision,
+   not five vendor problems. Whether to model non-gate backends is a HAL-level decision,
    not an adapter detail. Worth noting that QCI Connect's own API already makes
    that split explicitly — separate analog device and analog job endpoints, and
    a `Primitive` enum of `sampling` vs `quantum_state`. If we decide to support
@@ -180,6 +258,10 @@ contracts rather than marketing pages:
   models quoted above come from that package, not from prose.
 - Product positioning, deployment status and roadmap dates from vendor
   announcements and trade press.
+- Sector groupings cross-checked against Global Quantum Intelligence's
+  published sector map (© 2025), used for coverage gaps and for which vendors
+  are tracked as commercially relevant — not as evidence of API readiness,
+  which every entry above was checked for independently.
 
 To re-run: probe PyPI for the vendor SDK, and if one exists pull its sdist and
 read the generated client for the wire contract. That is the fastest way to
