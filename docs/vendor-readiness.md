@@ -162,6 +162,36 @@ Note the calibration path deliberately targets Pulser's **local emulator**, so
 none of it is evidence that the cloud path works — gate 7 is still unproven for
 Pasqal.
 
+### What the Braket and Quantinuum adapters actually cover
+
+Stated precisely, because "covered by Braket" was used too loosely above before
+this was checked.
+
+**Braket** (`arvak-adapter-braket`) submits `braket.ir.openqasm.program` — gate
+model only. `device.rs` holds seven presets (Rigetti Ankaa-3, IonQ Aria-1/2,
+IonQ Forte-1, IQM Garnet, Amazon SV1/TN1/DM1), and `BraketBackend::connect()`
+falls back to `get_device()` + `build_capabilities_from_info()` for any ARN not
+in that table. So in Rust, **any gate-based Braket device works today**, listed
+or not; the Python registry exposes eight names. Results are staged through S3,
+so `ARVAK_BRAKET_S3_BUCKET` is required.
+
+The consequence for this assessment: **QuEra is not reachable through it.**
+Aquila is an analog Hamiltonian simulation device and takes
+`braket.ir.ahs.program`, which this adapter does not emit. QuEra belongs with
+D-Wave, Xanadu and QuiX in the gate-3 group, not in the covered group — adding
+it is the same HAL-level decision as the rest of that class, not a device-table
+edit.
+
+**Quantinuum** (`arvak-adapter-quantinuum`) talks to
+`https://qapi.quantinuum.com/v1/`, exchanging `QUANTINUUM_EMAIL` /
+`QUANTINUUM_PASSWORD` for a JWT and refreshing on expiry, and submits QASM 2.0
+for Quantinuum to compile to its native ion-trap set (ZZMax, ZZPhase, U1q, Rz).
+The crate documents five systems — H2-1LE, H2-1E, H1-1E, H2-1, H1-1 — but the
+Python registry names only three (`quantinuum_h2`, `quantinuum_h2_emulator`,
+`quantinuum_h1_emulator`). H1-1 hardware and the noisy H2-1E emulator are
+reachable from Rust but not via `backend_for()`; adding them is a registry
+entry, not adapter work.
+
 ### Others worth tracking
 
 **Buildable today, ordinary REST adapters.** OQC (`https://cloud.oqc.app/`,
@@ -209,18 +239,19 @@ potential *users* of a HAL, not backends behind one.
 |--------------|------------------|
 | Quantum Majors: IBM, IonQ (incl. Oxford Ionics), Quantinuum, AWS, Nvidia | Direct adapters in tree |
 | QC Challengers: IQM, Quandela | Direct adapters in tree |
-| QC Challengers: Rigetti, QuEra | Reachable today through `arvak-adapter-braket` |
+| QC Challengers: Rigetti | Reachable today through `arvak-adapter-braket` |
+| QC Challengers: QuEra | **Not** reachable through Braket — Aquila is analog Hamiltonian simulation; our Braket adapter emits `braket.ir.openqasm.program` only |
 | QC Emerging: AQT | Direct adapter in tree |
 | QC Challengers: Pasqal | Partly covered — Pulser emitter and neutral-atom compile target in tree; no HAL `Backend` yet (see below) |
 | QC Emerging: Atom Computing, QCI | **Not covered — both sit behind Azure Quantum** |
 | QC Emerging: Infleqtion, Quantum Brilliance | See [Others](#others-worth-tracking) |
 | Majors: Google, Microsoft topological, PsiQ, Intel | No public QPU access by design; Cirq is already handled as a *framework*, not a backend |
-| D-Wave (annealing), Xanadu, Orca, Photonic Inc. | Fail gate 3 — not gate-based |
+| D-Wave (annealing), Xanadu, Orca, Photonic Inc., QuEra | Fail gate 3 — not gate-based |
 | OriginQ, QuantumCTek | SDKs exist (`pyqpanda`), but procurement and export posture is a business question before it is a technical one |
 | SeeQC, Universal Quantum, Equal1, Diraq, Nord Quantique, planqc, eleQtron, Quantum Art, ZuriQ, Aegiq, Quantum Source, QuantWare, Atlantic Quantum, Planckian, Quilimanjaro | Pre-cloud — fail gates 1 and 2 |
 
 **The gap this exposes: we have three gateway adapters and are missing the
-broadest one.** In tree today: Braket (Rigetti, IonQ, IQM, QuEra), Scaleway
+broadest one.** In tree today: Braket (Rigetti, IonQ, IQM), Scaleway
 (IQM Garnet/Emerald), and the half-finished QDMI path. Missing: **Azure
 Quantum**, which carries IonQ, Quantinuum, Rigetti, Pasqal, Atom Computing and
 QCI. One adapter converts four otherwise-uncovered boxes on this map into
@@ -235,13 +266,14 @@ SDK:
 - Entra ID bearer token, scope `https://quantum.microsoft.com/.default`
 - Jobs list/get, sessions, provider status and quotas alongside it
 
-One wrinkle to design around before committing to it: job input and output go
-through blob storage, not inline in the request. The adapter has to request a
-SAS URI (`POST .../storage/sasUri`), upload the circuit, submit a job
-referencing the blob, then download the output blob on `result()`. That is
-meaningfully more machinery than the `POST /job/submit` shape of every other
-adapter we have, and it is the main reason to scope this as its own piece of
-work rather than assuming it is a Braket clone.
+One wrinkle to design around: job input and output go through blob storage,
+not inline in the request. The adapter has to request a SAS URI
+(`POST .../storage/sasUri`), upload the circuit, submit a job referencing the
+blob, then download the output blob on `result()`. That is more machinery than
+the `POST /job/submit` shape most adapters use — but we have done it before:
+`arvak-adapter-braket` already routes results through S3 and requires
+`ARVAK_BRAKET_S3_BUCKET`. Azure is the same pattern with a different object
+store, so this is a known shape rather than new ground.
 
 **qBraid** is the other gateway worth noting — `GET
 https://api.qbraid.com/api/quantum-devices`, 20+ devices across 11 providers
