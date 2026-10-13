@@ -303,19 +303,12 @@ impl IbmBackend {
 
     /// Convert circuit to `OpenQASM` 3.0 string.
     ///
-    /// Adds `include "stdgates.inc";` after the version header so that
-    /// IBM's QASM loader can resolve standard gate definitions.
+    /// The emitter already writes `include "stdgates.inc";` and a definition for
+    /// every non-stdgates gate it uses (e.g. `rzz`), matching what Qiskit's
+    /// `qasm3.dumps` sends in IBM's REST guide. Adding either again makes the
+    /// program unparseable (`'p' is already defined`), so it is passed through.
     fn circuit_to_qasm(circuit: &Circuit) -> IbmResult<String> {
-        let qasm = emit(circuit).map_err(|e| IbmError::CircuitError(e.to_string()))?;
-        // Insert stdgates include and rzz gate definition after OPENQASM version line.
-        // IBM's stdgates.inc does not define rzz, so we supply the definition here.
-        // The same approach is used in the Python backend.
-        Ok(qasm.replacen(
-            "OPENQASM 3.0;",
-            "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n\
-             gate rzz(theta) a, b { cx a, b; rz(theta) b; cx a, b; }",
-            1,
-        ))
+        emit(circuit).map_err(|e| IbmError::CircuitError(e.to_string()))
     }
 
     /// Convert measurement results to counts.
@@ -991,6 +984,40 @@ mod tests {
             }
             other => panic!("expected Invalid, got {other:?}"),
         }
+    }
+
+    /// Regression: the adapter re-inserted `include "stdgates.inc"` and an `rzz`
+    /// definition on top of the emitter's own, which Qiskit's QASM3 importer
+    /// rejects (`'p' is already defined`) — for every circuit.
+    #[test]
+    fn qasm_has_single_include_and_rzz_definition() {
+        let mut circuit = Circuit::with_size("t", 2, 2);
+        circuit.h(arvak_ir::QubitId(0)).unwrap();
+        circuit
+            .rzz(0.4, arvak_ir::QubitId(0), arvak_ir::QubitId(1))
+            .unwrap();
+        circuit
+            .measure(arvak_ir::QubitId(0), arvak_ir::ClbitId(0))
+            .unwrap();
+        let qasm = IbmBackend::circuit_to_qasm(&circuit).unwrap();
+        if let Ok(path) = std::env::var("ARVAK_DUMP_IBM_QASM") {
+            std::fs::write(path, &qasm).unwrap();
+        }
+        assert_eq!(
+            qasm.matches("include \"stdgates.inc\"").count(),
+            1,
+            "{qasm}"
+        );
+        assert_eq!(qasm.matches("gate rzz(").count(), 1, "{qasm}");
+
+        let plain = Circuit::with_size("bell", 2, 0);
+        let qasm = IbmBackend::circuit_to_qasm(&plain).unwrap();
+        assert_eq!(
+            qasm.matches("include \"stdgates.inc\"").count(),
+            1,
+            "{qasm}"
+        );
+        assert!(!qasm.contains("gate rzz("), "{qasm}");
     }
 
     #[test]
