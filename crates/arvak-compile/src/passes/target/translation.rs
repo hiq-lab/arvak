@@ -1,6 +1,6 @@
 //! Basis translation passes.
 
-use std::f64::consts::PI;
+use std::f64::consts::{FRAC_PI_2, PI};
 
 use arvak_ir::{
     CircuitDag, Gate, GateKind, Instruction, InstructionKind, ParameterExpression, StandardGate,
@@ -75,8 +75,89 @@ impl Pass for BasisTranslation {
 }
 
 /// Check if a gate is in the target basis.
+///
+/// On IBM Heron, `rzz` is a fractional gate that only executes for
+/// `0 < θ ≤ π/2`, so it counts as in-basis only with a concrete angle in that
+/// range; everything else goes through [`fold_rzz_for_heron`] or, for
+/// symbolic angles, the CZ decomposition.
 fn is_in_basis(gate: &Gate, basis: &crate::property::BasisGates) -> bool {
-    basis.contains(gate.name())
+    if !basis.contains(gate.name()) {
+        return false;
+    }
+    match &gate.kind {
+        GateKind::Standard(StandardGate::RZZ(theta)) if has_range_limited_rzz(basis) => theta
+            .as_f64()
+            .is_some_and(|t| t > 0.0 && t <= RZZ_MAX_NATIVE_ANGLE),
+        _ => true,
+    }
+}
+
+/// Largest angle IBM accepts for native (fractional) RZZ; the range is (0, π/2].
+const RZZ_MAX_NATIVE_ANGLE: f64 = FRAC_PI_2;
+
+/// Folded RZZ angles at or below this are dropped as identity.
+const RZZ_IDENTITY_EPS: f64 = 1e-12;
+
+/// IBM Heron basis with native fractional `rzz` (CZ + SX + RZ, no CX).
+fn has_range_limited_rzz(basis: &crate::property::BasisGates) -> bool {
+    basis.contains("rzz")
+        && basis.contains("cz")
+        && basis.contains("sx")
+        && basis.contains("rz")
+        && !basis.contains("cx")
+}
+
+/// Rewrite `RZZ(θ)` with concrete `θ` so the one remaining native `rzz`
+/// angle lies in `(0, π/2]` (IBM fractional-gate constraint), equivalent to
+/// Qiskit's `FoldRzzAngle`. Identities used, all up to global phase:
+///
+/// - `RZZ(θ + 2π) = RZZ(θ)`
+/// - `RZZ(θ) = (Z ⊗ Z) · RZZ(θ − π)` (`RZZ(π) = −i Z⊗Z` commutes with RZZ)
+/// - `X₀ · RZZ(φ) · X₀ = RZZ(−φ)`
+fn fold_rzz_for_heron(
+    theta: f64,
+    q0: arvak_ir::QubitId,
+    q1: arvak_ir::QubitId,
+) -> Vec<Instruction> {
+    // Wrap into (−π, π].
+    let mut t = theta.rem_euclid(2.0 * PI);
+    if t > PI {
+        t -= 2.0 * PI;
+    }
+    // Pull |t| into [0, π/2] by splitting off RZZ(±π) = Z⊗Z.
+    let needs_zz = t.abs() > RZZ_MAX_NATIVE_ANGLE;
+    if needs_zz {
+        t -= PI.copysign(t);
+    }
+    // Remaining sign is absorbed by conjugating with X on q0.
+    let flip = t < 0.0;
+    let t = t.abs().min(RZZ_MAX_NATIVE_ANGLE);
+
+    let mut out = Vec::with_capacity(6);
+    if t > RZZ_IDENTITY_EPS {
+        if flip {
+            out.push(Instruction::single_qubit_gate(StandardGate::X, q0));
+        }
+        out.push(Instruction::two_qubit_gate(
+            StandardGate::RZZ(t.into()),
+            q0,
+            q1,
+        ));
+        if flip {
+            out.push(Instruction::single_qubit_gate(StandardGate::X, q0));
+        }
+    }
+    if needs_zz {
+        out.push(Instruction::single_qubit_gate(
+            StandardGate::Rz(PI.into()),
+            q0,
+        ));
+        out.push(Instruction::single_qubit_gate(
+            StandardGate::Rz(PI.into()),
+            q1,
+        ));
+    }
+    out
 }
 
 /// Translate a gate instruction to the target basis.
@@ -121,6 +202,13 @@ fn translate_gate(
         && !is_iqm;
 
     match &gate.kind {
+        GateKind::Standard(StandardGate::RZZ(theta)) if has_range_limited_rzz(basis) => {
+            match (theta.as_f64(), instruction.qubits.get(1)) {
+                (Some(t), Some(&q1)) => Ok(fold_rzz_for_heron(t, instruction.qubits[0], q1)),
+                // Symbolic angle: range unknown at compile time → CZ decomposition.
+                _ => translate_to_heron(&StandardGate::RZZ(theta.clone()), &instruction.qubits),
+            }
+        }
         GateKind::Standard(std_gate) => {
             let direct = if is_iqm {
                 translate_to_iqm(std_gate, &instruction.qubits)

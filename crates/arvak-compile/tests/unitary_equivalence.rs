@@ -176,6 +176,84 @@ fn test_heron_rzz_unitary_equivalent() {
     assert_translation_preserves_semantics(&circuit, BasisGates::heron(), "heron/rzz");
 }
 
+/// IBM executes native (fractional) RZZ only for 0 < θ ≤ π/2. Every angle
+/// must therefore be folded into that range — semantics preserved, and no
+/// emitted `rzz` may carry an angle IBM would reject.
+#[test]
+fn test_heron_rzz_out_of_range_angles_are_folded() {
+    use std::f64::consts::PI;
+    let angles = [
+        0.3,
+        PI / 2.0,
+        PI / 2.0 + 1e-9,
+        1.9,
+        PI,
+        2.8,
+        -0.3,
+        -PI / 2.0,
+        -1.9,
+        -PI,
+        3.0 * PI / 2.0,
+        5.0,
+        -5.0,
+        2.0 * PI + 0.4,
+        -7.5,
+        1e-15,
+    ];
+    for theta in angles {
+        let circuit = sandwich_2q(|c| c.rzz(theta, QubitId(0), QubitId(1)).map(|_| ()).unwrap());
+        let label = format!("heron/rzz({theta})");
+        assert_translation_preserves_semantics(&circuit, BasisGates::heron(), &label);
+
+        let mut dag = circuit.into_dag();
+        let mut props = PropertySet::new().with_target(CouplingMap::full(2), BasisGates::heron());
+        BasisTranslation.run(&mut dag, &mut props).unwrap();
+        let mut rzz_count = 0;
+        for (_, inst) in dag.topological_ops() {
+            if let Some(arvak_ir::GateKind::Standard(arvak_ir::StandardGate::RZZ(p))) =
+                inst.as_gate().map(|g| &g.kind)
+            {
+                let a = p.as_f64().expect("folded rzz angle must be concrete");
+                assert!(
+                    a > 0.0 && a <= PI / 2.0,
+                    "{label}: emitted rzz({a}) outside (0, π/2]"
+                );
+                rzz_count += 1;
+            }
+            assert!(
+                inst.as_gate().is_none_or(|g| g.name() != "cz"),
+                "{label}: concrete rzz must use native rzz, not a CZ decomposition"
+            );
+        }
+        assert!(rzz_count <= 1, "{label}: expected at most one native rzz");
+    }
+}
+
+/// A symbolic RZZ angle cannot be range-checked at compile time, so it must
+/// not reach IBM as native `rzz` — it is decomposed via CZ instead.
+#[test]
+fn test_heron_symbolic_rzz_is_decomposed() {
+    let mut c = Circuit::with_size("t", 2, 0);
+    c.rzz(
+        arvak_ir::ParameterExpression::symbol("gamma"),
+        QubitId(0),
+        QubitId(1),
+    )
+    .unwrap();
+    let mut dag = c.into_dag();
+    let mut props = PropertySet::new().with_target(CouplingMap::full(2), BasisGates::heron());
+    BasisTranslation.run(&mut dag, &mut props).unwrap();
+    let names: Vec<String> = dag
+        .topological_ops()
+        .filter_map(|(_, i)| i.as_gate().map(|g| g.name().to_string()))
+        .collect();
+    assert!(
+        !names.iter().any(|n| n == "rzz"),
+        "symbolic rzz leaked: {names:?}"
+    );
+    assert_eq!(names.iter().filter(|n| *n == "cz").count(), 2);
+}
+
 /// Build a 3-qubit circuit with rotations before and after the 3-qubit gate.
 fn sandwich_3q(add_gate: impl FnOnce(&mut Circuit)) -> Circuit {
     let mut c = Circuit::with_size("t", 3, 0);

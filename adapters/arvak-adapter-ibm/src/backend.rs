@@ -109,6 +109,25 @@ fn topology_for_backend(info: &BackendInfo) -> Topology {
     }
 }
 
+/// IBM runs native `rzz` (fractional gate) only for `0 < θ ≤ π/2` and fails the
+/// whole job otherwise. Arvak's Heron translation folds angles into that range;
+/// this catches uncompiled or symbolic `rzz` before submission.
+fn rzz_angle_violation(gate: &arvak_ir::Gate) -> Option<String> {
+    let arvak_ir::GateKind::Standard(arvak_ir::StandardGate::RZZ(theta)) = &gate.kind else {
+        return None;
+    };
+    match theta.as_f64() {
+        Some(t) if t > 0.0 && t <= std::f64::consts::FRAC_PI_2 => None,
+        Some(t) => Some(format!(
+            "rzz({t}) outside IBM's native range (0, π/2]; compile for the Heron basis to fold it"
+        )),
+        None => Some(
+            "rzz with unbound parameter: IBM requires 0 < θ ≤ π/2, bind parameters and compile first"
+                .to_string(),
+        ),
+    }
+}
+
 /// Return a `Capabilities` built from the backend configuration fetched from the API.
 fn capabilities_from_real_info(target: &str, info: &BackendInfo) -> Capabilities {
     let num_qubits = u32::try_from(info.num_qubits).unwrap_or(133);
@@ -512,6 +531,10 @@ impl Backend for IbmBackend {
         for (_, inst) in circuit.dag().topological_ops() {
             if let Some(gate) = inst.as_gate() {
                 let name = gate.name();
+                if let Some(reason) = rzz_angle_violation(gate) {
+                    reasons.push(reason);
+                    break;
+                }
                 if !gate_set.contains(name) {
                     // On Eagle, CZ/CX are not native but can be synthesised to ECR.
                     if is_eagle && (name == "cz" || name == "cx") {
@@ -1018,6 +1041,45 @@ mod tests {
             "{qasm}"
         );
         assert!(!qasm.contains("gate rzz("), "{qasm}");
+    }
+
+    #[tokio::test]
+    async fn validate_rejects_rzz_outside_native_range() {
+        let config = BackendConfig::new("ibm").with_token("test-token");
+        let backend = IbmBackend::with_config(config).unwrap();
+
+        for (theta, ok) in [
+            (0.4, true),
+            (std::f64::consts::FRAC_PI_2, true),
+            (2.0, false),
+            (-0.4, false),
+        ] {
+            let mut circuit = Circuit::with_size("t", 2, 0);
+            circuit
+                .rzz(theta, arvak_ir::QubitId(0), arvak_ir::QubitId(1))
+                .unwrap();
+            let result = backend.validate(&circuit, 100).await.unwrap();
+            match (ok, result) {
+                (true, ValidationResult::Valid) => {}
+                (false, ValidationResult::Invalid { reasons }) => {
+                    assert!(reasons.iter().any(|r| r.contains("rzz")), "{reasons:?}");
+                }
+                (_, other) => panic!("rzz({theta}): unexpected {other:?}"),
+            }
+        }
+
+        let mut symbolic = Circuit::with_size("t", 2, 0);
+        symbolic
+            .rzz(
+                arvak_ir::ParameterExpression::symbol("g"),
+                arvak_ir::QubitId(0),
+                arvak_ir::QubitId(1),
+            )
+            .unwrap();
+        assert!(matches!(
+            backend.validate(&symbolic, 100).await.unwrap(),
+            ValidationResult::Invalid { .. }
+        ));
     }
 
     #[test]
