@@ -65,21 +65,58 @@ fn capabilities_stub(target: &str, num_qubits: u32) -> Capabilities {
     }
 }
 
-/// Return a `Capabilities` for a backend where the real qubit count is known.
+/// Processor families laid out on IBM's heavy-hex lattice.
+const HEAVY_HEX_FAMILIES: &[&str] = &["Falcon", "Hummingbird", "Eagle", "Heron"];
+
+/// Return the gate set for a backend whose configuration was fetched from the API.
 ///
-/// Uses `num_qubits <= 127` to distinguish Eagle from Heron when the target
-/// name is not in the known lists (e.g., fresh backends not yet in this list).
-fn capabilities_from_real_info(target: &str, num_qubits: u32, topology: Topology) -> Capabilities {
-    let gate_set = if EAGLE_BACKENDS.contains(&target) || num_qubits <= 127 {
+/// The backend's own `basis_gates` decide: ECR → Eagle, CZ → Heron-style CZ set
+/// (also Nighthawk). Only if the API reports neither do we fall back to the
+/// name list. Qubit count is deliberately NOT used — Nighthawk has 120 qubits
+/// but is CZ-native, so a `<= 127 → Eagle` rule misclassifies it.
+fn gate_set_for_backend(target: &str, basis_gates: &[String]) -> GateSet {
+    if basis_gates.iter().any(|g| g == "ecr") {
         GateSet::ibm_eagle()
-    } else {
+    } else if basis_gates.iter().any(|g| g == "cz") {
         GateSet::ibm_heron()
-    };
+    } else {
+        gate_set_for_target(target)
+    }
+}
+
+/// Build the topology from the API coupling map.
+///
+/// Only known heavy-hex families are labelled `HeavyHex`; anything else
+/// (e.g. Nighthawk's square lattice) is `Custom`. Routing uses the edge list
+/// either way, so the label never changes compilation — it must not lie, though.
+fn topology_for_backend(info: &BackendInfo) -> Topology {
+    let edges = info
+        .coupling_map
+        .iter()
+        .map(|&[a, b]| (u32::try_from(a).unwrap_or(0), u32::try_from(b).unwrap_or(0)))
+        .collect();
+    let is_heavy_hex = info
+        .processor_type
+        .as_ref()
+        .is_some_and(|p| HEAVY_HEX_FAMILIES.contains(&p.family.as_str()));
+    Topology {
+        kind: if is_heavy_hex {
+            TopologyKind::HeavyHex
+        } else {
+            TopologyKind::Custom
+        },
+        edges,
+    }
+}
+
+/// Return a `Capabilities` built from the backend configuration fetched from the API.
+fn capabilities_from_real_info(target: &str, info: &BackendInfo) -> Capabilities {
+    let num_qubits = u32::try_from(info.num_qubits).unwrap_or(133);
     Capabilities {
         name: target.to_string(),
         num_qubits,
-        gate_set,
-        topology,
+        gate_set: gate_set_for_backend(target, &info.basis_gates),
+        topology: topology_for_backend(info),
         max_shots: 100_000,
         max_circuit_ops: None,
         is_simulator: false,
@@ -165,16 +202,7 @@ impl IbmBackend {
 
             // Eagerly fetch backend info for real topology
             let info = client.get_backend(&target).await?;
-            let num_qubits = u32::try_from(info.num_qubits).unwrap_or(133);
-            let topology = Topology {
-                kind: TopologyKind::HeavyHex,
-                edges: info
-                    .coupling_map
-                    .iter()
-                    .map(|&[a, b]| (u32::try_from(a).unwrap_or(0), u32::try_from(b).unwrap_or(0)))
-                    .collect(),
-            };
-            let capabilities = capabilities_from_real_info(&target, num_qubits, topology);
+            let capabilities = capabilities_from_real_info(&target, &info);
 
             // Pre-cache the backend info
             let backend_info = Arc::new(RwLock::new(Some((info, Instant::now()))));
@@ -665,6 +693,149 @@ impl Backend for IbmBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::{BackendStatus, ProcessorType};
+
+    fn backend_info(
+        name: &str,
+        num_qubits: usize,
+        family: Option<&str>,
+        basis_gates: &[&str],
+        coupling_map: Vec<[usize; 2]>,
+    ) -> BackendInfo {
+        BackendInfo {
+            name: name.into(),
+            num_qubits,
+            status: BackendStatus {
+                operational: true,
+                status_msg: None,
+                pending_jobs: None,
+            },
+            processor_type: family.map(|f| ProcessorType {
+                family: f.into(),
+                revision: None,
+            }),
+            basis_gates: basis_gates.iter().map(|g| (*g).to_string()).collect(),
+            coupling_map,
+            simulator: false,
+            max_shots: None,
+            max_circuits: None,
+        }
+    }
+
+    /// Bidirectional nearest-neighbour edges of a `rows × cols` square lattice.
+    fn square_lattice(rows: usize, cols: usize) -> Vec<[usize; 2]> {
+        let mut edges = Vec::new();
+        for r in 0..rows {
+            for c in 0..cols {
+                let q = r * cols + c;
+                if c + 1 < cols {
+                    edges.extend([[q, q + 1], [q + 1, q]]);
+                }
+                if r + 1 < rows {
+                    edges.extend([[q, q + cols], [q + cols, q]]);
+                }
+            }
+        }
+        edges
+    }
+
+    fn max_degree(topology: &Topology) -> usize {
+        let mut degree: HashMap<u32, usize> = HashMap::new();
+        for &(a, _) in &topology.edges {
+            *degree.entry(a).or_default() += 1;
+        }
+        degree.into_values().max().unwrap_or(0)
+    }
+
+    #[test]
+    fn real_heron_config_yields_cz_gate_set_and_heavy_hex() {
+        // Live ibm_fez configuration (trimmed), fetched 2026-10-13.
+        let raw: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/ibm_fez_configuration.json"))
+                .unwrap();
+        let basis: Vec<&str> = raw["basis_gates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|g| g.as_str().unwrap())
+            .collect();
+        let coupling: Vec<[usize; 2]> =
+            serde_json::from_value(raw["coupling_map"].clone()).unwrap();
+        let info = backend_info(
+            "ibm_fez",
+            raw["n_qubits"].as_u64().unwrap() as usize,
+            raw["processor_type"]["family"].as_str(),
+            &basis,
+            coupling,
+        );
+
+        let caps = capabilities_from_real_info("ibm_fez", &info);
+
+        assert_eq!(caps.num_qubits, 156);
+        assert!(caps.gate_set.contains("cz"));
+        assert!(!caps.gate_set.contains("ecr"));
+        assert_eq!(caps.topology.kind, TopologyKind::HeavyHex);
+        assert_eq!(caps.topology.edges.len(), 352);
+        assert_eq!(max_degree(&caps.topology), 3);
+    }
+
+    /// Regression: 120-qubit Nighthawk was classified as Eagle (ECR) by the old
+    /// `num_qubits <= 127` rule. The config here is SYNTHETIC (10×12 square
+    /// lattice, CZ basis) — no live Nighthawk config was available to us.
+    #[test]
+    fn nighthawk_like_config_is_cz_native_and_not_heavy_hex() {
+        let info = backend_info(
+            "ibm_miami",
+            120,
+            Some("Nighthawk"),
+            &["cz", "id", "rx", "rz", "rzz", "sx", "x"],
+            square_lattice(10, 12),
+        );
+
+        let caps = capabilities_from_real_info("ibm_miami", &info);
+
+        assert!(caps.gate_set.contains("cz"));
+        assert!(!caps.gate_set.contains("ecr"));
+        assert_eq!(caps.topology.kind, TopologyKind::Custom);
+        assert_eq!(max_degree(&caps.topology), 4);
+    }
+
+    #[test]
+    fn ecr_basis_selects_eagle_gate_set() {
+        let info = backend_info(
+            "ibm_brisbane",
+            127,
+            Some("Eagle"),
+            &["ecr", "rz", "sx", "x"],
+            vec![],
+        );
+        let caps = capabilities_from_real_info("ibm_brisbane", &info);
+        assert!(caps.gate_set.contains("ecr"));
+        assert_eq!(caps.topology.kind, TopologyKind::HeavyHex);
+    }
+
+    #[test]
+    fn missing_basis_gates_falls_back_to_name_not_qubit_count() {
+        let unknown = backend_info("ibm_newbird", 120, None, &[], vec![]);
+        assert!(
+            !capabilities_from_real_info("ibm_newbird", &unknown)
+                .gate_set
+                .contains("ecr")
+        );
+        assert_eq!(
+            capabilities_from_real_info("ibm_newbird", &unknown)
+                .topology
+                .kind,
+            TopologyKind::Custom
+        );
+
+        let eagle = backend_info("ibm_kyoto", 127, None, &[], vec![]);
+        assert!(
+            capabilities_from_real_info("ibm_kyoto", &eagle)
+                .gate_set
+                .contains("ecr")
+        );
+    }
 
     #[test]
     fn test_hex_to_binary() {
