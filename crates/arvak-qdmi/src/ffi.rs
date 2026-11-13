@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Raw FFI constants and type definitions for the QDMI v1.3.2 **device** interface.
+//! Raw FFI constants and type definitions for the QDMI **device** interface,
+//! covering both the v1.4 ABI and the legacy v1.2/v1.3 ABI.
 //!
 //! These values must match the QDMI header definitions from
 //! <https://github.com/Munich-Quantum-Software-Stack/QDMI>.
@@ -8,13 +9,24 @@
 //! client/driver layer. This means all function pointers are resolved at runtime
 //! from the device shared library, not linked statically.
 //!
-//! QDMI 1.3.x is additive over 1.2.x on our surface: the 18 device functions
-//! keep identical C ABI (v1.3.0 added `QDMI_EXPORT` visibility attributes only),
-//! and constant values are unchanged — 1.3.x only appends new entries
-//! (CHILDDEVICE, CHILDDEVICES, BATCHJOB) which we don't currently use.
+//! # QDMI 1.4 vs. 1.3
 //!
-//! Reference: `adapters/arvak-adapter-qdmi/src/ffi.rs` (client-side, verified
-//! against upstream QDMI v1.3.2 headers).
+//! QDMI 1.4.0 breaks the device ABI (verified against the upstream v1.3.2 and
+//! v1.4.0 headers):
+//!
+//! - `QDMI_device_job_get_results` takes a `size_t program_index` right after
+//!   the job handle ([`FnJobGetResults`] vs. [`FnJobGetResultsV13`]).
+//! - Programs are set with `QDMI_device_job_set_programs` (one format, a list
+//!   of programs). The `PROGRAMFORMAT` / `PROGRAM` job parameters, the
+//!   `PROGRAM` job property and the `BATCHJOB` / `CALIBRATION` program formats
+//!   are removed; their numeric values stay reserved and return
+//!   `QDMI_ERROR_NOTSUPPORTED` on 1.4 devices.
+//! - Devices must export `set_programs`, `get_program` and
+//!   `get_program_status`; `session_retrieve_device_job_by_id` is new.
+//!
+//! The numeric values of all remaining enum members are unchanged. Constants
+//! that only exist up to 1.3 are kept below (marked "QDMI ≤ 1.3") because the
+//! loader still drives 1.3 devices through the legacy path.
 
 use std::ffi::c_void;
 use std::os::raw::c_int;
@@ -74,7 +86,9 @@ pub const QDMI_DEVICE_PROPERTY_QUBITSNUM: QdmiDeviceProperty = 4;
 pub const QDMI_DEVICE_PROPERTY_SITES: QdmiDeviceProperty = 5;
 pub const QDMI_DEVICE_PROPERTY_OPERATIONS: QdmiDeviceProperty = 6;
 pub const QDMI_DEVICE_PROPERTY_COUPLINGMAP: QdmiDeviceProperty = 7;
+/// QDMI ≤ 1.3 only; value 8 is reserved in 1.4.
 pub const QDMI_DEVICE_PROPERTY_NEEDSCALIBRATION: QdmiDeviceProperty = 8;
+/// QDMI ≤ 1.3 only; value 9 is reserved in 1.4.
 pub const QDMI_DEVICE_PROPERTY_PULSESUPPORT: QdmiDeviceProperty = 9;
 pub const QDMI_DEVICE_PROPERTY_LENGTHUNIT: QdmiDeviceProperty = 10;
 pub const QDMI_DEVICE_PROPERTY_LENGTHSCALEFACTOR: QdmiDeviceProperty = 11;
@@ -82,6 +96,11 @@ pub const QDMI_DEVICE_PROPERTY_DURATIONUNIT: QdmiDeviceProperty = 12;
 pub const QDMI_DEVICE_PROPERTY_DURATIONSCALEFACTOR: QdmiDeviceProperty = 13;
 pub const QDMI_DEVICE_PROPERTY_MINATOMDISTANCE: QdmiDeviceProperty = 14;
 pub const QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS: QdmiDeviceProperty = 15;
+pub const QDMI_DEVICE_PROPERTY_CHILDDEVICES: QdmiDeviceProperty = 16;
+/// QDMI ≥ 1.4: `size_t` number of jobs queued on the device.
+pub const QDMI_DEVICE_PROPERTY_QUEUELENGTH: QdmiDeviceProperty = 17;
+/// QDMI ≥ 1.4: `char*` stable, opaque device ID (optional for devices).
+pub const QDMI_DEVICE_PROPERTY_ID: QdmiDeviceProperty = 18;
 
 // ===========================================================================
 // Site property keys (QDMI_SITE_PROPERTY_T)
@@ -140,8 +159,11 @@ pub const QDMI_DEVICE_SESSION_PARAMETER_PASSWORD: QdmiDeviceSessionParameter = 5
 
 pub type QdmiDeviceJobParameter = c_int;
 
+/// QDMI ≤ 1.3 only; replaced by `QDMI_device_job_set_programs` in 1.4.
 pub const QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT: QdmiDeviceJobParameter = 0;
+/// QDMI ≤ 1.3 only; replaced by `QDMI_device_job_set_programs` in 1.4.
 pub const QDMI_DEVICE_JOB_PARAMETER_PROGRAM: QdmiDeviceJobParameter = 1;
+/// `size_t` shots per program.
 pub const QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM: QdmiDeviceJobParameter = 2;
 
 // ===========================================================================
@@ -152,8 +174,13 @@ pub type QdmiDeviceJobProperty = c_int;
 
 pub const QDMI_DEVICE_JOB_PROPERTY_ID: QdmiDeviceJobProperty = 0;
 pub const QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT: QdmiDeviceJobProperty = 1;
+/// QDMI ≤ 1.3 only; use `QDMI_device_job_get_program` in 1.4.
 pub const QDMI_DEVICE_JOB_PROPERTY_PROGRAM: QdmiDeviceJobProperty = 2;
 pub const QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM: QdmiDeviceJobProperty = 3;
+/// QDMI ≥ 1.4: `size_t` jobs ahead of this one (only while QUEUED).
+pub const QDMI_DEVICE_JOB_PROPERTY_QUEUEPOSITION: QdmiDeviceJobProperty = 4;
+/// QDMI ≥ 1.4: `size_t` number of programs in the job.
+pub const QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM: QdmiDeviceJobProperty = 5;
 
 // ===========================================================================
 // Job status (QDMI_JOB_STATUS_T)
@@ -194,9 +221,28 @@ pub const QDMI_PROGRAM_FORMAT_QIRBASESTRING: QdmiProgramFormat = 2;
 pub const QDMI_PROGRAM_FORMAT_QIRBASEMODULE: QdmiProgramFormat = 3;
 pub const QDMI_PROGRAM_FORMAT_QIRADAPTIVESTRING: QdmiProgramFormat = 4;
 pub const QDMI_PROGRAM_FORMAT_QIRADAPTIVEMODULE: QdmiProgramFormat = 5;
+/// QDMI ≤ 1.3 only; value 6 is reserved in 1.4.
 pub const QDMI_PROGRAM_FORMAT_CALIBRATION: QdmiProgramFormat = 6;
 pub const QDMI_PROGRAM_FORMAT_QPY: QdmiProgramFormat = 7;
 pub const QDMI_PROGRAM_FORMAT_IQMJSON: QdmiProgramFormat = 8;
+/// QDMI ≤ 1.3 only; value 9 is reserved in 1.4 (use multi-program jobs).
+pub const QDMI_PROGRAM_FORMAT_BATCHJOB: QdmiProgramFormat = 9;
+
+/// Whether programs of this format are NUL-terminated text.
+///
+/// QDMI 1.4 requires text programs passed to `set_programs` to end with
+/// exactly one `'\0'`; binary formats (QIR modules, QPY) are copied as-is.
+#[inline]
+pub fn is_text_program_format(format: QdmiProgramFormat) -> bool {
+    matches!(
+        format,
+        QDMI_PROGRAM_FORMAT_QASM2
+            | QDMI_PROGRAM_FORMAT_QASM3
+            | QDMI_PROGRAM_FORMAT_QIRBASESTRING
+            | QDMI_PROGRAM_FORMAT_QIRADAPTIVESTRING
+            | QDMI_PROGRAM_FORMAT_IQMJSON
+    )
+}
 
 // ===========================================================================
 // Job result types (QDMI_JOB_RESULT_T)
@@ -217,8 +263,9 @@ pub const QDMI_JOB_RESULT_PROBABILITIESSPARSEVALUES: QdmiJobResultType = 8;
 // ===========================================================================
 // Function pointer types — QDMI device interface
 //
-// Every QDMI device library exports 18 functions with a device-specific
-// prefix. For example the "MOCK" device exports:
+// Every QDMI 1.2/1.3 device library exports 18 functions with a
+// device-specific prefix; QDMI 1.4 adds four more (see "QDMI 1.4 additions"
+// below). For example a 1.3 "MOCK" device exports:
 //   MOCK_QDMI_device_initialize
 //   MOCK_QDMI_device_finalize
 //   MOCK_QDMI_device_session_alloc
@@ -337,8 +384,20 @@ pub type FnJobCheck = unsafe extern "C" fn(job: QdmiDeviceJob, status: *mut Qdmi
 /// `int PREFIX_QDMI_device_job_wait(job, timeout_ms)`
 pub type FnJobWait = unsafe extern "C" fn(job: QdmiDeviceJob, timeout_ms: usize) -> c_int;
 
-/// `int PREFIX_QDMI_device_job_get_results(job, result_type, size, value, size_ret)`
+/// QDMI ≥ 1.4:
+/// `int PREFIX_QDMI_device_job_get_results(job, program_index, result_type, size, value, size_ret)`
 pub type FnJobGetResults = unsafe extern "C" fn(
+    job: QdmiDeviceJob,
+    program_index: usize,
+    result_type: QdmiJobResultType,
+    size: usize,
+    value: *mut c_void,
+    size_ret: *mut usize,
+) -> c_int;
+
+/// QDMI ≤ 1.3:
+/// `int PREFIX_QDMI_device_job_get_results(job, result_type, size, value, size_ret)`
+pub type FnJobGetResultsV13 = unsafe extern "C" fn(
     job: QdmiDeviceJob,
     result_type: QdmiJobResultType,
     size: usize,
@@ -348,3 +407,40 @@ pub type FnJobGetResults = unsafe extern "C" fn(
 
 /// `void PREFIX_QDMI_device_job_free(job)`
 pub type FnJobFree = unsafe extern "C" fn(job: QdmiDeviceJob);
+
+// -- QDMI 1.4 additions (4) -------------------------------------------------
+
+/// `int PREFIX_QDMI_device_job_set_programs(job, format, count, sizes, programs)`
+///
+/// With `programs == NULL` this is a support check for `format` and `count`
+/// that leaves the job unchanged.
+pub type FnJobSetPrograms = unsafe extern "C" fn(
+    job: QdmiDeviceJob,
+    format: QdmiProgramFormat,
+    count: usize,
+    sizes: *const usize,
+    programs: *const *const c_void,
+) -> c_int;
+
+/// `int PREFIX_QDMI_device_job_get_program(job, program_index, size, data, size_ret)`
+pub type FnJobGetProgram = unsafe extern "C" fn(
+    job: QdmiDeviceJob,
+    program_index: usize,
+    size: usize,
+    data: *mut c_void,
+    size_ret: *mut usize,
+) -> c_int;
+
+/// `int PREFIX_QDMI_device_job_get_program_status(job, program_index, status_out)`
+pub type FnJobGetProgramStatus = unsafe extern "C" fn(
+    job: QdmiDeviceJob,
+    program_index: usize,
+    status: *mut QdmiJobStatus,
+) -> c_int;
+
+/// `int PREFIX_QDMI_device_session_retrieve_device_job_by_id(session, job_id, job_out)`
+pub type FnRetrieveDeviceJobById = unsafe extern "C" fn(
+    session: QdmiDeviceSession,
+    job_id: *const std::os::raw::c_char,
+    job_out: *mut QdmiDeviceJob,
+) -> c_int;

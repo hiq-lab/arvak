@@ -1,17 +1,24 @@
 /**
  * SPDX-License-Identifier: Apache-2.0
  *
- * Mock QDMI v1.2.1 device implementation for testing arvak-qdmi.
+ * Mock QDMI device implementation for testing arvak-qdmi.
  *
  * Prefix: MOCK
  * Simulates: 5-qubit linear topology with realistic properties.
  *
- * Implements all 18 device interface functions per the QDMI v1.2.1 spec:
- *   - 2 device lifecycle (initialize, finalize)
- *   - 4 session lifecycle (alloc, set_parameter, init, free)
- *   - 3 query interface (device, site, operation)
- *   - 9 job interface (create, set_parameter, query_property, submit,
- *                       cancel, check, wait, get_results, free)
+ * Built twice by build.rs:
+ *
+ *   default            QDMI 1.2/1.3 ABI — the 18 device functions:
+ *                        - 2 device lifecycle (initialize, finalize)
+ *                        - 4 session lifecycle (alloc, set_parameter, init, free)
+ *                        - 3 query interface (device, site, operation)
+ *                        - 9 job interface (create, set_parameter, query_property,
+ *                          submit, cancel, check, wait, get_results, free)
+ *
+ *   -DMOCK_QDMI_V14    QDMI 1.4 ABI — additionally set_programs, get_program,
+ *                      get_program_status and retrieve_device_job_by_id;
+ *                      get_results takes a program index; the PROGRAMFORMAT /
+ *                      PROGRAM job parameters return NOTSUPPORTED.
  */
 
 #include <stddef.h>
@@ -21,7 +28,7 @@
 #include <stdatomic.h>
 
 /* -----------------------------------------------------------------------
- * QDMI v1.2.1 status codes (must match ffi.rs)
+ * QDMI status codes (must match ffi.rs)
  * ----------------------------------------------------------------------- */
 
 #define QDMI_SUCCESS                0
@@ -39,7 +46,7 @@
 #define QDMI_ERROR_TIMEOUT        -11
 
 /* -----------------------------------------------------------------------
- * QDMI v1.2.1 property keys (must match ffi.rs)
+ * QDMI property keys (must match ffi.rs)
  * ----------------------------------------------------------------------- */
 
 /* Device properties */
@@ -91,6 +98,12 @@
 
 /* Device job properties */
 #define QDMI_DEVICE_JOB_PROPERTY_ID             0
+#define QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT  1
+#define QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM       3
+#define QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM    5
+
+/* Upper bound on programs per job in the 1.4 mock. */
+#define MAX_PROGRAMS 4
 
 /* Job result types */
 #define QDMI_JOB_RESULT_HISTKEYS   1
@@ -174,9 +187,21 @@ typedef struct {
 typedef struct {
     int status;
     int program_format;
-    char* program;
+    char* program;          /* QDMI 1.3: single program */
     size_t shots;
+    char* programs[MAX_PROGRAMS];   /* QDMI 1.4: program list */
+    size_t program_sizes[MAX_PROGRAMS];
+    size_t num_programs;
 } MockJob;
+
+static void free_programs(MockJob *j) {
+    for (size_t i = 0; i < j->num_programs; i++) {
+        free(j->programs[i]);
+        j->programs[i] = NULL;
+        j->program_sizes[i] = 0;
+    }
+    j->num_programs = 0;
+}
 
 /* -----------------------------------------------------------------------
  * Helper: find the index of a site/operation by its sentinel value
@@ -444,6 +469,7 @@ int MOCK_QDMI_device_job_set_parameter(
     MockJob *j = (MockJob*)job;
 
     switch (param) {
+#ifndef MOCK_QDMI_V14
     case QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT:
         if (value && size >= sizeof(int32_t)) {
             j->program_format = *(const int32_t*)value;
@@ -456,6 +482,7 @@ int MOCK_QDMI_device_job_set_parameter(
         memcpy(j->program, value, size);
         j->program[size] = '\0';
         return QDMI_SUCCESS;
+#endif
     case QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM:
         if (value && size >= sizeof(size_t)) {
             j->shots = *(const size_t*)value;
@@ -477,6 +504,16 @@ int MOCK_QDMI_device_job_query_property(
         const char *id = "mock-job-001";
         return write_property(id, strlen(id) + 1, size, value, size_ret);
     }
+    case QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM:
+        return write_property(&j->shots, sizeof(size_t), size, value, size_ret);
+#ifdef MOCK_QDMI_V14
+    case QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT:
+        if (j->num_programs == 0) return QDMI_ERROR_BADSTATE;
+        return write_property(&j->program_format, sizeof(int), size, value, size_ret);
+    case QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM:
+        if (j->num_programs == 0) return QDMI_ERROR_BADSTATE;
+        return write_property(&j->num_programs, sizeof(size_t), size, value, size_ret);
+#endif
     default:
         (void)j;
         return QDMI_ERROR_NOTSUPPORTED;
@@ -512,6 +549,34 @@ int MOCK_QDMI_device_job_wait(void *job, size_t timeout_ms) {
     return QDMI_SUCCESS;
 }
 
+#ifdef MOCK_QDMI_V14
+int MOCK_QDMI_device_job_get_results(
+    void *job, size_t program_index, int result_type,
+    size_t size, void *value, size_t *size_ret
+) {
+    if (!job) return QDMI_ERROR_INVALIDARGUMENT;
+    MockJob *j = (MockJob*)job;
+    if (j->status != QDMI_JOB_STATUS_DONE) return QDMI_ERROR_BADSTATE;
+    if (program_index >= j->num_programs) return QDMI_ERROR_OUTOFRANGE;
+
+    switch (result_type) {
+    case QDMI_JOB_RESULT_HISTKEYS: {
+        const char *keys = "00000\011111\0";
+        size_t keys_len = 12;
+        return write_property(keys, keys_len, size, value, size_ret);
+    }
+    case QDMI_JOB_RESULT_HISTVALUES: {
+        /* Split the configured shots; program i gets i extra |11111> counts
+         * so tests can tell results of different programs apart. */
+        size_t ones = j->shots / 2 + program_index;
+        size_t counts[2] = { j->shots - ones, ones };
+        return write_property(counts, sizeof(counts), size, value, size_ret);
+    }
+    default:
+        return QDMI_ERROR_NOTSUPPORTED;
+    }
+}
+#else
 int MOCK_QDMI_device_job_get_results(
     void *job, int result_type, size_t size, void *value, size_t *size_ret
 ) {
@@ -534,11 +599,98 @@ int MOCK_QDMI_device_job_get_results(
         return QDMI_ERROR_NOTSUPPORTED;
     }
 }
+#endif
 
 void MOCK_QDMI_device_job_free(void *job) {
     if (job) {
         MockJob *j = (MockJob*)job;
         if (j->program) free(j->program);
+        free_programs(j);
         free(job);
     }
 }
+
+#ifdef MOCK_QDMI_V14
+/* =======================================================================
+ * QDMI 1.4 additions (4 functions)
+ * ======================================================================= */
+
+static int is_text_format(int format) {
+    return format == QDMI_PROGRAM_FORMAT_QASM2 || format == QDMI_PROGRAM_FORMAT_QASM3;
+}
+
+int MOCK_QDMI_device_job_set_programs(
+    void *job, int format, size_t count, const size_t *sizes,
+    const void *const *programs
+) {
+    if (!job || count == 0) return QDMI_ERROR_INVALIDARGUMENT;
+    MockJob *j = (MockJob*)job;
+    if (!is_text_format(format)) return QDMI_ERROR_NOTSUPPORTED;
+    if (count > MAX_PROGRAMS) return QDMI_ERROR_NOTSUPPORTED;
+    if (!programs) return QDMI_SUCCESS; /* support check only */
+    if (j->status != QDMI_JOB_STATUS_CREATED) return QDMI_ERROR_BADSTATE;
+    if (!sizes) return QDMI_ERROR_INVALIDARGUMENT;
+
+    /* Validate everything before touching the job (atomic replace). */
+    for (size_t i = 0; i < count; i++) {
+        const char *p = (const char*)programs[i];
+        if (!p || sizes[i] == 0) return QDMI_ERROR_INVALIDARGUMENT;
+        /* Text programs: exactly one '\0', as the final byte. */
+        if (p[sizes[i] - 1] != '\0' || memchr(p, '\0', sizes[i] - 1) != NULL)
+            return QDMI_ERROR_INVALIDARGUMENT;
+    }
+
+    char *copies[MAX_PROGRAMS] = { NULL };
+    for (size_t i = 0; i < count; i++) {
+        copies[i] = (char*)malloc(sizes[i]);
+        if (!copies[i]) {
+            for (size_t k = 0; k < i; k++) free(copies[k]);
+            return QDMI_ERROR_OUTOFMEM;
+        }
+        memcpy(copies[i], programs[i], sizes[i]);
+    }
+
+    free_programs(j);
+    for (size_t i = 0; i < count; i++) {
+        j->programs[i] = copies[i];
+        j->program_sizes[i] = sizes[i];
+    }
+    j->num_programs = count;
+    j->program_format = format;
+    return QDMI_SUCCESS;
+}
+
+int MOCK_QDMI_device_job_get_program(
+    void *job, size_t program_index, size_t size, void *data, size_t *size_ret
+) {
+    if (!job) return QDMI_ERROR_INVALIDARGUMENT;
+    MockJob *j = (MockJob*)job;
+    if (j->num_programs == 0) return QDMI_ERROR_BADSTATE;
+    if (program_index >= j->num_programs) return QDMI_ERROR_OUTOFRANGE;
+    return write_property(
+        j->programs[program_index], j->program_sizes[program_index],
+        size, data, size_ret
+    );
+}
+
+int MOCK_QDMI_device_job_get_program_status(
+    void *job, size_t program_index, int *status
+) {
+    if (!job) return QDMI_ERROR_INVALIDARGUMENT;
+    MockJob *j = (MockJob*)job;
+    if (j->num_programs == 0) return QDMI_ERROR_BADSTATE;
+    if (program_index >= j->num_programs) return QDMI_ERROR_OUTOFRANGE;
+    if (!status) return QDMI_ERROR_INVALIDARGUMENT;
+    *status = j->status;
+    return QDMI_SUCCESS;
+}
+
+int MOCK_QDMI_device_session_retrieve_device_job_by_id(
+    void *session, const char *job_id, void **job_out
+) {
+    if (!session || !job_id || !job_out || job_id[0] == '\0')
+        return QDMI_ERROR_INVALIDARGUMENT;
+    /* The mock keeps no job registry. */
+    return QDMI_ERROR_NOTFOUND;
+}
+#endif
