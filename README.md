@@ -1048,7 +1048,7 @@ fn main() -> anyhow::Result<()> {
 | Scaleway Adapter (`arvak-adapter-scaleway`) | ✅ Complete | Scaleway QaaS: IQM Garnet, Emerald, Sirius |
 | Braket Adapter (`arvak-adapter-braket`) | ✅ Complete | AWS Braket: IonQ, Rigetti, IQM, simulators |
 | CUDA-Q Adapter (`arvak-adapter-cudaq`) | ✅ Complete | NVIDIA GPU-accelerated simulation |
-| QDMI Adapter (`arvak-adapter-qdmi`) | 🟡 Rust crate complete, registry pending | QDMI v1.2.1 device interface + prefix-aware dlsym in Rust. CI nightly job `ddsim-compat` builds MQT DDSIM as a QDMI device and exercises the loader end-to-end. Not yet exposed in `arvak.backend_for()` — that's the Phase 12 driver-discovery item below. |
+| QDMI Adapter (`arvak-adapter-qdmi`) | 🟡 Rust crate complete, registry pending | QDMI 1.4 device interface (with automatic 1.2/1.3 fallback) + prefix-aware dlsym in Rust. CI nightly job `ddsim-compat` builds MQT DDSIM as a QDMI 1.4 and a QDMI 1.3 device and exercises the loader end-to-end against both. Not yet exposed in `arvak.backend_for()` — that's the Phase 12 driver-discovery item below. |
 | HPC Scheduler (`arvak-sched`) | ✅ Complete | SLURM & PBS, workflows, message broker, job routing |
 | Dashboard (`arvak-dashboard`) | ✅ Complete | Web UI for circuit visualization, compilation, job monitoring |
 | Python Bindings (`arvak-python`) | ✅ Complete | PyO3 bindings + 4 framework integrations + real simulator |
@@ -1130,7 +1130,7 @@ python tests/verify_integration_system.py
 - [x] Compilation speed demos: VQE (5K circuits), QML (20K+), QAOA (6K+ with depth sweep)
 - [x] Noise-as-infrastructure model (`NoiseModel`, `NoiseChannel`) in `arvak-ir`
 - [x] QI-Nutshell demo: BB84, BBM92, PCCM quantum communication protocols
-- [x] QDMI v1.2.1 Rust consumer (`arvak-qdmi`): dlopen + prefix-aware dlsym, sessions, properties, jobs. CI-verified against an MQT DDSIM device shim.
+- [x] QDMI 1.4 Rust consumer (`arvak-qdmi`): dlopen + prefix-aware dlsym, sessions, properties, jobs (incl. multi-program jobs); detects the device ABI at load time and falls back to QDMI 1.2/1.3. CI-verified against MQT DDSIM (mqt-core v3.12.0 and v3.7.0).
 - [x] Real simulator backends for all Python frameworks (Qiskit, Qrisp, Cirq, PennyLane)
 - [x] End-to-end smoke test (`scripts/smoke-test.sh`)
 - [x] Compile-time metrics in dashboard
@@ -1175,7 +1175,7 @@ python tests/verify_integration_system.py
 - [x] Parameter binding across all 11 backends (HAL DEBT-25)
 
 ### Phase 12: Community & Ecosystem
-- [ ] **QDMI driver-discovery for `arvak.backend_for()`** — wrap the existing `arvak-qdmi` consumer layer as a HAL `Backend` and wire it into the Python registry so users can submit to any QDMI v1.2.1 device through the unified API. The Rust loader + DDSIM-against-real-device CI test are already in place; this is the registry-surface piece.
+- [ ] **QDMI driver-discovery for `arvak.backend_for()`** — wrap the existing `arvak-qdmi` consumer layer as a HAL `Backend` and wire it into the Python registry so users can submit to any QDMI device through the unified API. The Rust loader + DDSIM-against-real-device CI test are already in place; this is the registry-surface piece.
 - [ ] Error mitigation (ZNE, readout correction, Pauli twirling)
 - [ ] Pulse-level control for IQM/IBM
 - [ ] Plugin marketplace for community integrations
@@ -1242,12 +1242,12 @@ cargo run -p arvak-bench
 
 ## QDMI Integration (Munich Quantum Software Stack)
 
-Arvak interoperates with [QDMI v1.2.1](https://github.com/Munich-Quantum-Software-Stack/QDMI) — the Quantum Device Management Interface from the Munich Quantum Software Stack (MQSS) — at three different layers:
+Arvak interoperates with [QDMI 1.4](https://github.com/Munich-Quantum-Software-Stack/QDMI) (and the 1.2/1.3 ABI as a fallback) — the Quantum Device Management Interface from the Munich Quantum Software Stack (MQSS) — at three different layers:
 
 | Layer | Crate | Status |
 |---|---|---|
-| **Consumer**: `dlopen()` an external QDMI device `.so` and drive its session/properties/jobs API from Rust | `arvak-qdmi` | ✅ Complete. Nightly CI builds MQT Core's DDSIM device as a QDMI v1.2.1 `.so` and runs `tests/ddsim_integration.rs` against it. |
-| **Provider**: expose Arvak's gRPC server *as* a QDMI device so MQSS-shaped clients can call into our stack | `arvak-qdmi-device` | ✅ Complete (Rust `Backend` impl + FFI shim). Integration test gated on `ARVAK_QDMI_TEST_URL` pointing at a live `arvak-grpc-server`. |
+| **Consumer**: `dlopen()` an external QDMI device `.so` and drive its session/properties/jobs API from Rust | `arvak-qdmi` | ✅ Complete. Detects QDMI 1.4 vs. 1.2/1.3 per device (by the `set_programs` export) and drives either ABI. Nightly CI builds MQT Core's DDSIM device for QDMI 1.4 (v3.12.0) and 1.3 (v3.7.0) and runs `tests/ddsim_integration.rs` against both. |
+| **Provider**: expose Arvak's gRPC server *as* a QDMI device so MQSS-shaped clients can call into our stack | `arvak-qdmi-device` | ✅ Complete (Rust `Backend` impl + FFI shim). Exports the QDMI 1.4 interface by default; `--features qdmi-v1-3` builds the legacy 1.2/1.3 ABI (releases ship `libqdmi_arvak` and `libqdmi_arvak_qdmi13`). Integration test gated on `ARVAK_QDMI_TEST_URL` pointing at a live `arvak-grpc-server`. |
 | **HAL Backend wrapper**: surface QDMI devices through the unified Python registry as `arvak.backend_for("qdmi:…")` so a Python user gets a regular `Backend` over any QDMI-compliant device | (not in tree) | ⏳ Deferred — Phase 12 driver-discovery sprint. |
 
 So today, from Rust:
@@ -1258,7 +1258,8 @@ use arvak_qdmi::session::DeviceSession;
 use std::path::Path;
 
 let device = QdmiDevice::load(Path::new("libmqt_ddsim_qdmi_device.so"), "MQT_DDSIM")?;
-let session = DeviceSession::new(&device)?;
+let session = DeviceSession::open(&device)?;
+println!("{}", device.abi()); // "QDMI 1.4" or "QDMI 1.2/1.3"
 // query capabilities, submit jobs, etc. — see crates/arvak-qdmi/tests/ddsim_integration.rs
 ```
 
