@@ -25,7 +25,7 @@ project(arvak-ddsim-fetch LANGUAGES C CXX)
 
 # Which mqt-core version to build against. Nightly CI overrides this via
 # workflow input; local builds default to the pinned release tag.
-set(MQT_CORE_VERSION "v3.7.0" CACHE STRING "mqt-core git tag or branch")
+set(MQT_CORE_VERSION "v3.12.0" CACHE STRING "mqt-core git tag or branch")
 
 message(STATUS "Fetching mqt-core ${MQT_CORE_VERSION}")
 
@@ -36,8 +36,13 @@ set(BUILD_MQT_CORE_TESTS      OFF CACHE BOOL "" FORCE)
 set(BUILD_MQT_CORE_BINDINGS   OFF CACHE BOOL "" FORCE)
 set(BUILD_MQT_CORE_BENCHMARKS OFF CACHE BOOL "" FORCE)
 
-# mqt-core v3.7.0 self-fetches nlohmann_json, spdlog, QDMI (v1.3.2), and Boost.
-# No manual pre-fetching needed.
+# Since v3.12 the QDMI devices default to ${PROJECT_IS_TOP_LEVEL}, which is
+# OFF under FetchContent — enable the DDSIM device explicitly.
+set(BUILD_MQT_CORE_QDMI_DDSIM_DEVICE ON  CACHE BOOL "" FORCE)
+set(BUILD_MQT_CORE_QDMI_SC_DEVICE    OFF CACHE BOOL "" FORCE)
+
+# mqt-core self-fetches nlohmann_json, spdlog, QDMI, and Boost
+# (v3.7.0 → QDMI 1.3.2, v3.12.0 → QDMI 1.4.0). No manual pre-fetching needed.
 FetchContent_Declare(
   mqt-core
   GIT_REPOSITORY https://github.com/munich-quantum-toolkit/core.git

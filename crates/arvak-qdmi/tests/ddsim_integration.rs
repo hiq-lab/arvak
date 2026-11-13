@@ -5,7 +5,9 @@
 //! variable points to a compiled `libmqt-core-qdmi-ddsim-device.so`.
 //!
 //! In CI, this is built by the nightly `ddsim-compat` job using the `CMake`
-//! wrapper at `ci/ddsim_shim/`. Locally, you can build the `.so` yourself:
+//! wrapper at `ci/ddsim_shim/` (mqt-core v3.12.0 → QDMI 1.4; pass
+//! `-DMQT_CORE_VERSION=v3.7.0` for a QDMI 1.3 device). The tests are
+//! ABI-agnostic. Locally, you can build the `.so` yourself:
 //!
 //! ```bash
 //! cmake -S crates/arvak-qdmi/ci/ddsim_shim -B build-ddsim \
@@ -18,7 +20,7 @@
 use std::path::Path;
 
 use arvak_qdmi::capabilities::DeviceCapabilities;
-use arvak_qdmi::device_loader::QdmiDevice;
+use arvak_qdmi::device_loader::{QdmiAbi, QdmiDevice};
 use arvak_qdmi::ffi;
 use arvak_qdmi::format::CircuitFormat;
 use arvak_qdmi::session::DeviceSession;
@@ -219,14 +221,6 @@ fn test_ddsim_bell_state_qasm2() {
 
     let job = session.create_job().expect("create_job failed");
 
-    // Set program format to QASM2
-    let fmt = ffi::QDMI_PROGRAM_FORMAT_QASM2;
-    job.set_parameter(
-        ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
-        &fmt.to_ne_bytes(),
-    )
-    .expect("set format failed");
-
     // Bell state circuit in OpenQASM 2.0
     let program = b"OPENQASM 2.0;\n\
                     include \"qelib1.inc\";\n\
@@ -235,7 +229,7 @@ fn test_ddsim_bell_state_qasm2() {
                     h q[0];\n\
                     cx q[0],q[1];\n\
                     measure q -> c;\n";
-    job.set_parameter(ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM, program)
+    job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM2, program)
         .expect("set program failed");
 
     // 1024 shots
@@ -335,14 +329,6 @@ fn test_ddsim_bell_state_qasm3() {
 
     let job = session.create_job().expect("create_job failed");
 
-    // Set format to QASM3
-    let fmt = ffi::QDMI_PROGRAM_FORMAT_QASM3;
-    job.set_parameter(
-        ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
-        &fmt.to_ne_bytes(),
-    )
-    .expect("set format failed");
-
     // Bell state in OpenQASM 3
     let program = b"OPENQASM 3;\n\
                     include \"stdgates.inc\";\n\
@@ -351,7 +337,7 @@ fn test_ddsim_bell_state_qasm3() {
                     h q[0];\n\
                     cx q[0], q[1];\n\
                     c = measure q;\n";
-    job.set_parameter(ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM, program)
+    job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM3, program)
         .expect("set program failed");
 
     let shots: usize = 512;
@@ -396,4 +382,79 @@ fn test_ddsim_bell_state_qasm3() {
         num_entries, 2,
         "Bell state via QASM3 should produce 2 outcomes, got {num_entries}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// QDMI 1.4: ABI detection and program round-trip
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_ddsim_abi_detected() {
+    let device = require_ddsim!();
+    eprintln!("DDSIM device ABI: {}", device.abi());
+    if let Ok(expected) = std::env::var("DDSIM_EXPECTED_ABI") {
+        let expected = match expected.as_str() {
+            "1.3" => QdmiAbi::V1_3,
+            "1.4" => QdmiAbi::V1_4,
+            other => panic!("DDSIM_EXPECTED_ABI must be 1.3 or 1.4, got {other}"),
+        };
+        assert_eq!(device.abi(), expected);
+    }
+}
+
+#[test]
+fn test_ddsim_v14_program_roundtrip() {
+    let device = require_ddsim!();
+    if device.abi() != QdmiAbi::V1_4 {
+        eprintln!("DDSIM device is {} — skipping 1.4-only test", device.abi());
+        return;
+    }
+    let session = DeviceSession::open(&device).unwrap();
+    let job = session.create_job().unwrap();
+
+    // No trailing NUL here: set_program must add exactly one for text formats.
+    let program = b"OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[1];\ncreg c[1];\nx q[0];\nmeasure q -> c;\n";
+    job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM2, program)
+        .expect("set_programs failed");
+
+    let stored = job.get_program(0).expect("get_program failed");
+    assert_eq!(stored.last(), Some(&0), "text program must end with NUL");
+    assert_eq!(&stored[..stored.len() - 1], &program[..]);
+
+    let num = job
+        .query_property(ffi::QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM)
+        .expect("PROGRAMSNUM query failed");
+    assert_eq!(usize::from_ne_bytes(num[..8].try_into().unwrap()), 1);
+
+    let shots: usize = 100;
+    job.set_parameter(
+        ffi::QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
+        &shots.to_ne_bytes(),
+    )
+    .unwrap();
+    job.submit().unwrap();
+    job.wait(30).unwrap();
+    assert_eq!(job.check().unwrap(), ffi::QDMI_JOB_STATUS_DONE);
+
+    // |1> deterministically: one histogram entry with all shots.
+    let values = job
+        .get_program_results(0, ffi::QDMI_JOB_RESULT_HISTVALUES)
+        .unwrap();
+    assert_eq!(values.len(), std::mem::size_of::<usize>());
+    assert_eq!(usize::from_ne_bytes(values[..8].try_into().unwrap()), 100);
+    let keys = job
+        .get_program_results(0, ffi::QDMI_JOB_RESULT_HISTKEYS)
+        .unwrap();
+    eprintln!("HISTKEYS raw = {:?}", String::from_utf8_lossy(&keys));
+    assert!(String::from_utf8_lossy(&keys).contains('1'));
+
+    // Index 1 does not exist in a single-program job.
+    let err = job
+        .get_program_results(1, ffi::QDMI_JOB_RESULT_HISTVALUES)
+        .unwrap_err();
+    eprintln!("index 1 → {err:?}");
+    assert!(matches!(
+        err,
+        arvak_qdmi::QdmiError::DeviceError(ffi::QDMI_ERROR_OUTOFRANGE)
+    ));
 }

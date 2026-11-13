@@ -14,15 +14,27 @@ fn main() {
         return;
     }
 
-    let lib_name = if cfg!(target_os = "macos") {
-        "libmock_qdmi_device.dylib"
+    // Build the mock twice: once with the QDMI 1.2/1.3 ABI and once with
+    // the QDMI 1.4 ABI, so tests exercise both loader paths.
+    let ext = if cfg!(target_os = "macos") {
+        "dylib"
     } else {
-        "libmock_qdmi_device.so"
+        "so"
     };
-    let so_path = out_dir.join(lib_name);
+    let variants = [
+        ("MOCK_QDMI_DEVICE_PATH", "libmock_qdmi_device", None),
+        (
+            "MOCK_QDMI_DEVICE_V14_PATH",
+            "libmock_qdmi_device_v14",
+            Some("-DMOCK_QDMI_V14"),
+        ),
+    ];
 
-    let status = Command::new("cc")
-        .args([
+    for (env_var, stem, define) in variants {
+        let so_path = out_dir.join(format!("{stem}.{ext}"));
+
+        let mut cmd = Command::new("cc");
+        cmd.args([
             "-shared",
             "-fPIC",
             "-o",
@@ -31,20 +43,20 @@ fn main() {
             "-Wall",
             "-Wextra",
             "-O2",
-        ])
-        .status()
-        .expect("failed to invoke C compiler");
+        ]);
+        if let Some(define) = define {
+            cmd.arg(define);
+        }
+        let status = cmd.status().expect("failed to invoke C compiler");
 
-    assert!(
-        status.success(),
-        "failed to compile mock QDMI device: {status}"
-    );
+        assert!(
+            status.success(),
+            "failed to compile mock QDMI device ({stem}): {status}"
+        );
 
-    // Tell cargo where to find the compiled mock device.
-    println!(
-        "cargo:rustc-env=MOCK_QDMI_DEVICE_PATH={}",
-        so_path.display()
-    );
+        // Tell cargo where to find the compiled mock device.
+        println!("cargo:rustc-env={env_var}={}", so_path.display());
+    }
 
     // Re-run if the mock device source changes.
     println!("cargo:rerun-if-changed={mock_src}");

@@ -72,7 +72,7 @@ pub mod session;
 
 // Re-export the most commonly used types at crate root.
 pub use capabilities::{CouplingMap, DeviceCapabilities, OperationId, SiteId};
-pub use device_loader::QdmiDevice;
+pub use device_loader::{QdmiAbi, QdmiDevice};
 pub use error::QdmiError;
 pub use format::CircuitFormat;
 pub use session::{DeviceJob, DeviceSession};
