@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Integration test for all 18 QDMI device interface functions.
+//! Integration test for the QDMI device interface functions.
 //!
-//! Connects to a live Arvak gRPC server and exercises every function
-//! in the QDMI v1.2.1 device interface with the `ARVAK_` prefix.
+//! Connects to a live Arvak gRPC server and exercises every function of the
+//! device interface with the `ARVAK_` prefix: the 18 shared by all QDMI
+//! versions plus, in the default (QDMI 1.4) build, the four 1.4 additions.
+//! Run with `--features qdmi-v1-3` to test the legacy ABI build.
 //!
 //! Requires `ARVAK_QDMI_TEST_URL` to be set to a reachable
 //! `http://host:port` of an `arvak-grpc` server. Without it the test
@@ -64,7 +66,60 @@ unsafe fn query_cint(f: impl Fn(usize, *mut c_void, *mut usize) -> c_int) -> c_i
     c_int::from_ne_bytes(buf[..std::mem::size_of::<c_int>()].try_into().unwrap())
 }
 
-// All 18 functions tested in a single sequential test because they share
+/// `get_results` for the first program, independent of the built ABI.
+unsafe fn get_results(
+    job: *mut c_void,
+    result: c_int,
+    size: usize,
+    value: *mut c_void,
+    size_ret: *mut usize,
+) -> c_int {
+    #[cfg(feature = "qdmi-v1-3")]
+    {
+        ARVAK_QDMI_device_job_get_results(job, result, size, value, size_ret)
+    }
+    #[cfg(not(feature = "qdmi-v1-3"))]
+    {
+        ARVAK_QDMI_device_job_get_results(job, 0, result, size, value, size_ret)
+    }
+}
+
+/// Set a NUL-terminated QASM3 program through the built ABI's mechanism.
+unsafe fn set_qasm3(job: *mut c_void, qasm: &[u8]) -> c_int {
+    #[cfg(feature = "qdmi-v1-3")]
+    {
+        let format = ffi::QDMI_PROGRAM_FORMAT_QASM3;
+        let ret = ARVAK_QDMI_device_job_set_parameter(
+            job,
+            ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
+            std::mem::size_of::<c_int>(),
+            (&raw const format).cast(),
+        );
+        if ret != ffi::QDMI_SUCCESS {
+            return ret;
+        }
+        ARVAK_QDMI_device_job_set_parameter(
+            job,
+            ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
+            qasm.len(),
+            qasm.as_ptr().cast(),
+        )
+    }
+    #[cfg(not(feature = "qdmi-v1-3"))]
+    {
+        let sizes = [qasm.len()];
+        let programs = [qasm.as_ptr().cast::<c_void>()];
+        ARVAK_QDMI_device_job_set_programs(
+            job,
+            ffi::QDMI_PROGRAM_FORMAT_QASM3,
+            1,
+            sizes.as_ptr(),
+            programs.as_ptr(),
+        )
+    }
+}
+
+// All functions tested in a single sequential test because they share
 // global state (OnceLock) and must run in lifecycle order.
 #[test]
 fn test_all_18_qdmi_functions() {
@@ -426,38 +481,96 @@ fn test_all_18_qdmi_functions() {
         assert_eq!(ret, ffi::QDMI_SUCCESS);
         assert!(!job.is_null());
 
-        // ── Function 11: job_set_parameter ───────────────────────────
-        eprintln!("[11/18] job_set_parameter");
+        // ── Function 11: job_set_parameter / set_programs ────────────
+        eprintln!("[11/18] job_set_parameter + program");
 
-        // PROGRAMFORMAT = QASM3
-        let format = ffi::QDMI_PROGRAM_FORMAT_QASM3;
-        let ret = ARVAK_QDMI_device_job_set_parameter(
-            job,
-            ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
-            std::mem::size_of::<c_int>(),
-            (&raw const format).cast(),
-        );
-        assert_eq!(ret, ffi::QDMI_SUCCESS);
-
-        // PROGRAM = Bell state QASM3
+        // Bell state QASM3
         let qasm = b"OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[2] q;\nbit[2] c;\nh q[0];\ncx q[0], q[1];\nc = measure q;\n\0";
-        let ret = ARVAK_QDMI_device_job_set_parameter(
-            job,
-            ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
-            qasm.len(),
-            qasm.as_ptr().cast(),
-        );
+        let ret = set_qasm3(job, qasm);
         assert_eq!(ret, ffi::QDMI_SUCCESS);
 
-        // SHOTSNUM = 512
-        let shots: c_int = 512;
+        // SHOTSNUM = 512 (`size_t` per the QDMI spec)
+        let shots: usize = 512;
         let ret = ARVAK_QDMI_device_job_set_parameter(
             job,
             ffi::QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
-            std::mem::size_of::<c_int>(),
+            std::mem::size_of::<usize>(),
             (&raw const shots).cast(),
         );
         assert_eq!(ret, ffi::QDMI_SUCCESS);
+
+        #[cfg(not(feature = "qdmi-v1-3"))]
+        {
+            eprintln!("[1.4] removed parameters, set_programs validation, get_program");
+            // PROGRAMFORMAT / PROGRAM are reserved in QDMI 1.4.
+            let format = ffi::QDMI_PROGRAM_FORMAT_QASM3;
+            for param in [
+                ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
+                ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
+            ] {
+                let ret = ARVAK_QDMI_device_job_set_parameter(
+                    job,
+                    param,
+                    std::mem::size_of::<c_int>(),
+                    (&raw const format).cast(),
+                );
+                assert_eq!(ret, ffi::QDMI_ERROR_NOTSUPPORTED, "param {param}");
+            }
+
+            // One gRPC job per QDMI job: lists of two are not supported.
+            let ret = ARVAK_QDMI_device_job_set_programs(
+                job,
+                ffi::QDMI_PROGRAM_FORMAT_QASM3,
+                2,
+                std::ptr::null(),
+                std::ptr::null(),
+            );
+            assert_eq!(ret, ffi::QDMI_ERROR_NOTSUPPORTED);
+            // QASM2 is not offered (SUPPORTEDPROGRAMFORMATS = [QASM3]).
+            let ret = ARVAK_QDMI_device_job_set_programs(
+                job,
+                ffi::QDMI_PROGRAM_FORMAT_QASM2,
+                1,
+                std::ptr::null(),
+                std::ptr::null(),
+            );
+            assert_eq!(ret, ffi::QDMI_ERROR_NOTSUPPORTED);
+            // Text without the trailing NUL is invalid.
+            let unterminated = &qasm[..qasm.len() - 1];
+            let sizes = [unterminated.len()];
+            let programs = [unterminated.as_ptr().cast::<c_void>()];
+            let ret = ARVAK_QDMI_device_job_set_programs(
+                job,
+                ffi::QDMI_PROGRAM_FORMAT_QASM3,
+                1,
+                sizes.as_ptr(),
+                programs.as_ptr(),
+            );
+            assert_eq!(ret, ffi::QDMI_ERROR_INVALIDARGUMENT);
+
+            // The failed calls left the valid program in place.
+            let stored =
+                query_bytes(|sz, val, szr| ARVAK_QDMI_device_job_get_program(job, 0, sz, val, szr));
+            assert_eq!(stored, qasm.to_vec());
+            let n = query_usize(|sz, val, szr| {
+                ARVAK_QDMI_device_job_query_property(
+                    job,
+                    ffi::QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM,
+                    sz,
+                    val,
+                    szr,
+                )
+            });
+            assert_eq!(n, 1);
+            let ret = ARVAK_QDMI_device_job_get_program(
+                job,
+                1,
+                0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+            assert_eq!(ret, ffi::QDMI_ERROR_OUTOFRANGE);
+        }
 
         // Invalid parameter
         let ret = ARVAK_QDMI_device_job_set_parameter(job, 99, 0, std::ptr::null());
@@ -496,7 +609,7 @@ fn test_all_18_qdmi_functions() {
 
         // HISTKEYS (null-separated bitstrings)
         let keys_buf = query_bytes(|sz, val, szr| {
-            ARVAK_QDMI_device_job_get_results(job, ffi::QDMI_JOB_RESULT_HISTKEYS, sz, val, szr)
+            get_results(job, ffi::QDMI_JOB_RESULT_HISTKEYS, sz, val, szr)
         });
         let keys: Vec<&str> = std::str::from_utf8(&keys_buf)
             .unwrap()
@@ -508,7 +621,7 @@ fn test_all_18_qdmi_functions() {
 
         // HISTVALUES (array of u64)
         let vals_buf = query_bytes(|sz, val, szr| {
-            ARVAK_QDMI_device_job_get_results(job, ffi::QDMI_JOB_RESULT_HISTVALUES, sz, val, szr)
+            get_results(job, ffi::QDMI_JOB_RESULT_HISTVALUES, sz, val, szr)
         });
         let num_vals = vals_buf.len() / std::mem::size_of::<u64>();
         let values: Vec<u64> = (0..num_vals)
@@ -521,9 +634,8 @@ fn test_all_18_qdmi_functions() {
         assert_eq!(keys.len(), values.len());
 
         // SHOTS
-        let shots_buf = query_bytes(|sz, val, szr| {
-            ARVAK_QDMI_device_job_get_results(job, ffi::QDMI_JOB_RESULT_SHOTS, sz, val, szr)
-        });
+        let shots_buf =
+            query_bytes(|sz, val, szr| get_results(job, ffi::QDMI_JOB_RESULT_SHOTS, sz, val, szr));
         let total_shots = u64::from_ne_bytes(shots_buf[..8].try_into().unwrap());
         eprintln!("       SHOTS = {total_shots}");
         assert_eq!(total_shots, 512);
@@ -545,17 +657,87 @@ fn test_all_18_qdmi_functions() {
         eprintln!("       Bell fidelity: {:.1}%", bell_frac * 100.0);
         assert!(bell_frac > 0.95, "Bell fidelity too low: {bell_frac:.3}");
 
-        // ── Function 17: job_query_property (stub) ───────────────────
-        eprintln!("[17/18] job_query_property (expected: NOTSUPPORTED)");
-        let mut sz_ret: usize = 0;
-        let ret = ARVAK_QDMI_device_job_query_property(
-            job,
-            ffi::QDMI_DEVICE_JOB_PROPERTY_ID,
-            0,
-            std::ptr::null_mut(),
-            &raw mut sz_ret,
-        );
-        assert_eq!(ret, ffi::QDMI_ERROR_NOTSUPPORTED);
+        // ── Function 17: job_query_property ──────────────────────────
+        eprintln!("[17/18] job_query_property");
+        let job_id = query_string(|sz, val, szr| {
+            ARVAK_QDMI_device_job_query_property(
+                job,
+                ffi::QDMI_DEVICE_JOB_PROPERTY_ID,
+                sz,
+                val,
+                szr,
+            )
+        });
+        eprintln!("       ID = {job_id}");
+        assert!(!job_id.is_empty());
+        let job_shots = query_usize(|sz, val, szr| {
+            ARVAK_QDMI_device_job_query_property(
+                job,
+                ffi::QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM,
+                sz,
+                val,
+                szr,
+            )
+        });
+        assert_eq!(job_shots, 512);
+
+        // A submitted job is immutable.
+        let ret = set_qasm3(job, qasm);
+        assert_eq!(ret, ffi::QDMI_ERROR_BADSTATE);
+
+        #[cfg(not(feature = "qdmi-v1-3"))]
+        {
+            eprintln!("[1.4] program index, program status, retrieve by ID");
+            let ret = ARVAK_QDMI_device_job_get_results(
+                job,
+                1,
+                ffi::QDMI_JOB_RESULT_SHOTS,
+                0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+            assert_eq!(ret, ffi::QDMI_ERROR_OUTOFRANGE);
+
+            let mut prog_status: c_int = -1;
+            let ret = ARVAK_QDMI_device_job_get_program_status(job, 0, &raw mut prog_status);
+            assert_eq!(ret, ffi::QDMI_SUCCESS);
+            assert_eq!(prog_status, ffi::QDMI_JOB_STATUS_DONE);
+
+            // Re-attach to the finished job through a fresh handle.
+            let c_id = std::ffi::CString::new(job_id.clone()).unwrap();
+            let mut job3: *mut c_void = std::ptr::null_mut();
+            let ret = ARVAK_QDMI_device_session_retrieve_device_job_by_id(
+                session,
+                c_id.as_ptr(),
+                &raw mut job3,
+            );
+            assert_eq!(ret, ffi::QDMI_SUCCESS);
+            let shots3 = query_bytes(|sz, val, szr| {
+                get_results(job3, ffi::QDMI_JOB_RESULT_SHOTS, sz, val, szr)
+            });
+            assert_eq!(u64::from_ne_bytes(shots3[..8].try_into().unwrap()), 512);
+            // The original program is not recoverable from a retrieved job.
+            let ret = ARVAK_QDMI_device_job_get_program(
+                job3,
+                0,
+                0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+            assert_eq!(ret, ffi::QDMI_ERROR_NOTSUPPORTED);
+            // ...and it cannot be resubmitted.
+            assert_eq!(ARVAK_QDMI_device_job_submit(job3), ffi::QDMI_ERROR_BADSTATE);
+            assert_eq!(ARVAK_QDMI_device_job_free(job3), ffi::QDMI_SUCCESS);
+
+            let unknown = c"00000000-0000-0000-0000-000000000000";
+            let ret = ARVAK_QDMI_device_session_retrieve_device_job_by_id(
+                session,
+                unknown.as_ptr(),
+                &raw mut job3,
+            );
+            eprintln!("       retrieve unknown ID → {ret}");
+            assert_eq!(ret, ffi::QDMI_ERROR_NOTFOUND);
+        }
 
         // ── Function 15: job_cancel (test with a second job) ─────────
         eprintln!("[15/18] job_cancel");
@@ -568,12 +750,7 @@ fn test_all_18_qdmi_functions() {
         assert_eq!(ret, ffi::QDMI_SUCCESS);
 
         // Submit and then cancel
-        let ret = ARVAK_QDMI_device_job_set_parameter(
-            job2,
-            ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
-            qasm.len(),
-            qasm.as_ptr().cast(),
-        );
+        let ret = set_qasm3(job2, qasm);
         assert_eq!(ret, ffi::QDMI_SUCCESS);
         let ret = ARVAK_QDMI_device_job_submit(job2);
         assert_eq!(ret, ffi::QDMI_SUCCESS);
@@ -603,6 +780,6 @@ fn test_all_18_qdmi_functions() {
         let ret = ARVAK_QDMI_device_session_alloc(&raw mut session);
         assert_eq!(ret, ffi::QDMI_ERROR_BADSTATE);
 
-        eprintln!("\n=== ALL 18 QDMI FUNCTIONS TESTED SUCCESSFULLY ===");
+        eprintln!("\n=== ALL QDMI DEVICE FUNCTIONS TESTED SUCCESSFULLY ===");
     }
 }
