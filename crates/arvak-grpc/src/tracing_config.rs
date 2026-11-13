@@ -5,6 +5,7 @@
 //! - JSON structured logging (production)
 //! - OpenTelemetry export via OTLP (distributed tracing)
 
+use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler};
@@ -126,24 +127,24 @@ pub fn init_tracing(config: TracingConfig) -> Result<(), Box<dyn std::error::Err
     // Setup OpenTelemetry if endpoint is configured
     if let Some(endpoint) = config.otlp_endpoint {
         // Create OTLP exporter
-        let otlp_exporter = opentelemetry_otlp::new_exporter()
-            .tonic()
-            .with_endpoint(endpoint);
+        let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
+            .with_tonic()
+            .with_endpoint(endpoint)
+            .build()?;
 
-        // Create tracer
-        let tracer = opentelemetry_otlp::new_pipeline()
-            .tracing()
-            .with_exporter(otlp_exporter)
-            .with_trace_config(
-                opentelemetry_sdk::trace::config()
-                    .with_sampler(Sampler::AlwaysOn)
-                    .with_id_generator(RandomIdGenerator::default())
-                    .with_resource(Resource::new(vec![opentelemetry::KeyValue::new(
-                        "service.name",
-                        config.service_name,
-                    )])),
-            )
-            .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+        // Create tracer provider; registering it globally keeps the batch
+        // processor alive for the lifetime of the process.
+        let provider = opentelemetry_sdk::trace::TracerProvider::builder()
+            .with_batch_exporter(otlp_exporter, opentelemetry_sdk::runtime::Tokio)
+            .with_sampler(Sampler::AlwaysOn)
+            .with_id_generator(RandomIdGenerator::default())
+            .with_resource(Resource::new(vec![opentelemetry::KeyValue::new(
+                "service.name",
+                config.service_name.clone(),
+            )]))
+            .build();
+        let tracer = provider.tracer(config.service_name);
+        opentelemetry::global::set_tracer_provider(provider);
 
         // Create OpenTelemetry tracing layer
         let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);

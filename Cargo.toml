@@ -85,7 +85,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # RUSTSEC-2026-0098/-0099/-0104.
 aws-config = { version = "1", features = ["behavior-version-latest"] }
 aws-sdk-braket = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
-aws-sdk-s3 = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio", "sigv4a", "http-1x"] }
+aws-sdk-s3 = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio", "http-1x"] }
 
 # Hashing
 rustc-hash = "2.1"
