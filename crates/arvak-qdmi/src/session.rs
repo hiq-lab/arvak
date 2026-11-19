@@ -10,10 +10,11 @@
 //!
 //! Sessions are automatically freed when dropped (RAII via `session_free`).
 
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::ffi::c_void;
+use std::ffi::{CString, c_void};
 
-use crate::device_loader::QdmiDevice;
+use crate::device_loader::{JobGetResultsFn, QdmiAbi, QdmiDevice};
 use crate::error::{QdmiError, Result};
 use crate::ffi;
 
@@ -440,6 +441,33 @@ impl<'dev> DeviceSession<'dev> {
             session: self,
         })
     }
+
+    /// Re-attach to an existing job by the ID from [`DeviceJob::id`].
+    ///
+    /// QDMI ≥ 1.4 only; returns [`QdmiError::NotSupported`] on 1.3 devices
+    /// and on 1.4 devices that cannot reconstruct the job.
+    pub fn retrieve_job(&self, job_id: &str) -> Result<DeviceJob<'_, 'dev>> {
+        let retrieve_fn = self
+            .device
+            .fn_retrieve_device_job_by_id
+            .ok_or(QdmiError::NotSupported)?;
+        let c_id = CString::new(job_id).map_err(|_| QdmiError::InvalidArgument)?;
+
+        let mut job: ffi::QdmiDeviceJob = std::ptr::null_mut();
+        let ret = unsafe { retrieve_fn(self.handle, c_id.as_ptr(), &raw mut job) };
+        check_qdmi_result(ret)?;
+
+        if job.is_null() {
+            return Err(QdmiError::SessionError(
+                "retrieve_device_job_by_id returned null handle".into(),
+            ));
+        }
+
+        Ok(DeviceJob {
+            handle: job,
+            session: self,
+        })
+    }
 }
 
 impl Drop for DeviceSession<'_> {
@@ -459,7 +487,8 @@ impl Drop for DeviceSession<'_> {
 ///
 /// Jobs follow a multi-step lifecycle:
 /// 1. Create via [`DeviceSession::create_job`]
-/// 2. Set parameters (program, format, shots) via [`DeviceJob::set_parameter`]
+/// 2. Set the program via [`DeviceJob::set_program`] and shots via
+///    [`DeviceJob::set_parameter`]
 /// 3. Submit via [`DeviceJob::submit`]
 /// 4. Poll via [`DeviceJob::check`] or block via [`DeviceJob::wait`]
 /// 5. Retrieve results via [`DeviceJob::get_results`]
@@ -471,7 +500,84 @@ pub struct DeviceJob<'sess, 'dev> {
 }
 
 impl DeviceJob<'_, '_> {
-    /// Set a job parameter (e.g. program format, program, shots).
+    /// Set a single program for this job, independent of the device's ABI.
+    ///
+    /// On QDMI 1.4 devices this calls `set_programs` with one program; on
+    /// 1.2/1.3 devices it sets the `PROGRAMFORMAT` and `PROGRAM` parameters.
+    pub fn set_program(&self, format: ffi::QdmiProgramFormat, program: &[u8]) -> Result<()> {
+        self.set_programs(format, &[program])
+    }
+
+    /// Set an ordered list of programs sharing one format and shot count.
+    ///
+    /// Results for program `i` are read with [`DeviceJob::get_program_results`].
+    /// QDMI 1.2/1.3 devices accept exactly one program; longer lists return
+    /// [`QdmiError::NotSupported`], as do 1.4 devices without list support.
+    ///
+    /// Text formats get the single trailing `'\0'` that QDMI 1.4 requires
+    /// appended if it is missing.
+    pub fn set_programs(&self, format: ffi::QdmiProgramFormat, programs: &[&[u8]]) -> Result<()> {
+        if programs.is_empty() || programs.iter().any(|p| p.is_empty()) {
+            return Err(QdmiError::InvalidArgument);
+        }
+
+        match self.session.device.abi() {
+            QdmiAbi::V1_4 => self.set_programs_v14(format, programs),
+            QdmiAbi::V1_3 => {
+                let [program] = programs else {
+                    return Err(QdmiError::NotSupported);
+                };
+                self.set_parameter(
+                    ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
+                    &format.to_ne_bytes(),
+                )?;
+                self.set_parameter(ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM, program)
+            }
+        }
+    }
+
+    fn set_programs_v14(&self, format: ffi::QdmiProgramFormat, programs: &[&[u8]]) -> Result<()> {
+        let set_fn = self
+            .session
+            .device
+            .fn_job_set_programs
+            .ok_or(QdmiError::NotSupported)?;
+
+        let payloads: Vec<Cow<'_, [u8]>> = programs
+            .iter()
+            .map(|p| {
+                if ffi::is_text_program_format(format) && p.last() != Some(&0) {
+                    Cow::Owned([*p, &[0u8]].concat())
+                } else {
+                    Cow::Borrowed(*p)
+                }
+            })
+            .collect();
+        let sizes: Vec<usize> = payloads.iter().map(|p| p.len()).collect();
+        let ptrs: Vec<*const c_void> = payloads
+            .iter()
+            .map(|p| p.as_ptr().cast::<c_void>())
+            .collect();
+
+        // SAFETY: `sizes` and `ptrs` both hold `payloads.len()` elements and
+        // every pointer refers to a live buffer of the matching size; the
+        // device deep-copies all data before returning.
+        let ret = unsafe {
+            set_fn(
+                self.handle,
+                format,
+                payloads.len(),
+                sizes.as_ptr(),
+                ptrs.as_ptr(),
+            )
+        };
+        check_qdmi_result(ret)
+    }
+
+    /// Set a raw job parameter (e.g. `SHOTSNUM`, which takes a `size_t`).
+    ///
+    /// Prefer [`DeviceJob::set_program`] for programs: the `PROGRAMFORMAT` and
+    /// `PROGRAM` parameters only exist up to QDMI 1.3.
     pub fn set_parameter(&self, param: ffi::QdmiDeviceJobParameter, value: &[u8]) -> Result<()> {
         let set_fn = self
             .session
@@ -542,45 +648,103 @@ impl DeviceJob<'_, '_> {
         check_qdmi_result(ret)
     }
 
-    /// Get results from a completed job. Uses the two-phase query pattern.
+    /// Get results from a completed job (first program). Uses the two-phase
+    /// query pattern.
     pub fn get_results(&self, result_type: ffi::QdmiJobResultType) -> Result<Vec<u8>> {
+        self.get_program_results(0, result_type)
+    }
+
+    /// Get results for the program at `program_index` (zero-based).
+    ///
+    /// On QDMI 1.2/1.3 devices only index 0 exists; other indices return
+    /// `QDMI_ERROR_OUTOFRANGE` as a [`QdmiError::DeviceError`].
+    pub fn get_program_results(
+        &self,
+        program_index: usize,
+        result_type: ffi::QdmiJobResultType,
+    ) -> Result<Vec<u8>> {
         let get_fn = self
             .session
             .device
             .fn_job_get_results
             .ok_or(QdmiError::NotSupported)?;
 
-        // Phase 1: size probe
-        let mut size: usize = 0;
-        let ret = unsafe {
-            get_fn(
-                self.handle,
-                result_type,
-                0,
-                std::ptr::null_mut(),
-                &raw mut size,
-            )
-        };
-        check_qdmi_result(ret)?;
-
-        if size == 0 {
-            return Ok(Vec::new());
+        if matches!(get_fn, JobGetResultsFn::V1_3(_)) && program_index != 0 {
+            return Err(QdmiError::from_code(ffi::QDMI_ERROR_OUTOFRANGE));
         }
 
-        // Phase 2: data read
-        let mut buf = vec![0u8; size];
-        let ret = unsafe {
-            get_fn(
-                self.handle,
-                result_type,
-                size,
-                buf.as_mut_ptr().cast::<c_void>(),
-                std::ptr::null_mut(),
-            )
+        // SAFETY: the variant was resolved with the signature matching the
+        // device's ABI; `value`/`size_ret` follow the two-phase contract.
+        let call = |size: usize, value: *mut c_void, size_ret: *mut usize| unsafe {
+            match get_fn {
+                JobGetResultsFn::V1_4(f) => f(
+                    self.handle,
+                    program_index,
+                    result_type,
+                    size,
+                    value,
+                    size_ret,
+                ),
+                JobGetResultsFn::V1_3(f) => f(self.handle, result_type, size, value, size_ret),
+            }
         };
-        check_qdmi_result(ret)?;
+        two_phase_read(call)
+    }
 
-        Ok(buf)
+    /// Fetch the bytes of the program at `program_index` back from the device.
+    ///
+    /// QDMI ≥ 1.4 only; text programs include their trailing `'\0'`.
+    pub fn get_program(&self, program_index: usize) -> Result<Vec<u8>> {
+        let get_fn = self
+            .session
+            .device
+            .fn_job_get_program
+            .ok_or(QdmiError::NotSupported)?;
+
+        // SAFETY: signature resolved from a QDMI 1.4 device; two-phase contract.
+        two_phase_read(|size, data, size_ret| unsafe {
+            get_fn(self.handle, program_index, size, data, size_ret)
+        })
+    }
+
+    /// Status of a single program within the job.
+    ///
+    /// QDMI ≥ 1.4 only, and optional for devices: returns
+    /// [`QdmiError::NotSupported`] if the device only reports aggregate status
+    /// (use [`DeviceJob::check`] then).
+    pub fn program_status(&self, program_index: usize) -> Result<ffi::QdmiJobStatus> {
+        let status_fn = self
+            .session
+            .device
+            .fn_job_get_program_status
+            .ok_or(QdmiError::NotSupported)?;
+
+        let mut status: ffi::QdmiJobStatus = 0;
+        let ret = unsafe { status_fn(self.handle, program_index, &raw mut status) };
+        check_qdmi_result(ret)?;
+        Ok(status)
+    }
+
+    /// Query a raw job property. Uses the two-phase query pattern.
+    pub fn query_property(&self, prop: ffi::QdmiDeviceJobProperty) -> Result<Vec<u8>> {
+        let query_fn = self
+            .session
+            .device
+            .fn_job_query_property
+            .ok_or(QdmiError::NotSupported)?;
+
+        // SAFETY: two-phase contract of `QDMI_device_job_query_property`.
+        two_phase_read(|size, value, size_ret| unsafe {
+            query_fn(self.handle, prop, size, value, size_ret)
+        })
+    }
+
+    /// The job's device-assigned ID (`QDMI_DEVICE_JOB_PROPERTY_ID`).
+    pub fn id(&self) -> Result<String> {
+        let buf = self.query_property(ffi::QDMI_DEVICE_JOB_PROPERTY_ID)?;
+        let end = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+        String::from_utf8(buf[..end].to_vec())
+            .map_err(|e| QdmiError::ParseError(format!("job ID is not UTF-8: {e}")))
     }
 }
 
@@ -596,6 +760,24 @@ impl Drop for DeviceJob<'_, '_> {
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
+
+/// Run the QDMI two-phase buffer query: size probe, then data read.
+fn two_phase_read(call: impl Fn(usize, *mut c_void, *mut usize) -> i32) -> Result<Vec<u8>> {
+    let mut size: usize = 0;
+    check_qdmi_result(call(0, std::ptr::null_mut(), &raw mut size))?;
+
+    if size == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut buf = vec![0u8; size];
+    check_qdmi_result(call(
+        size,
+        buf.as_mut_ptr().cast::<c_void>(),
+        std::ptr::null_mut(),
+    ))?;
+    Ok(buf)
+}
 
 fn check_qdmi_result(code: i32) -> Result<()> {
     if ffi::is_success(code) {

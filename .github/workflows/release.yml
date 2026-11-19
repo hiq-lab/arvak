@@ -190,17 +190,27 @@ jobs:
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
-      - name: Build QDMI device library
+      # Default build: QDMI 1.4 device ABI. The `qdmi-v1-3` build serves
+      # drivers that still speak QDMI 1.2/1.3 (one ABI per library).
+      - name: Build QDMI device library (QDMI 1.4)
         run: cargo build -p arvak-qdmi-device --release
 
-      - name: Rename artifact
+      - name: Rename artifact (QDMI 1.4)
         run: cp target/release/libarvak_qdmi_device.so libqdmi_arvak.so
+
+      - name: Build QDMI device library (QDMI 1.3 legacy ABI)
+        run: cargo build -p arvak-qdmi-device --release --features qdmi-v1-3
+
+      - name: Rename artifact (QDMI 1.3)
+        run: cp target/release/libarvak_qdmi_device.so libqdmi_arvak_qdmi13.so
 
       - name: Upload QDMI library
         uses: actions/upload-artifact@v5
         with:
           name: qdmi-linux-x86_64
-          path: libqdmi_arvak.so
+          path: |
+            libqdmi_arvak.so
+            libqdmi_arvak_qdmi13.so
 
   qdmi-macos:
     name: QDMI Device Library (macOS ARM)
@@ -221,17 +231,27 @@ jobs:
       - name: Install protoc
         run: brew install protobuf
 
-      - name: Build QDMI device library
+      # Default build: QDMI 1.4 device ABI. The `qdmi-v1-3` build serves
+      # drivers that still speak QDMI 1.2/1.3 (one ABI per library).
+      - name: Build QDMI device library (QDMI 1.4)
         run: cargo build -p arvak-qdmi-device --release
 
-      - name: Rename artifact
+      - name: Rename artifact (QDMI 1.4)
         run: cp target/release/libarvak_qdmi_device.dylib libqdmi_arvak.dylib
+
+      - name: Build QDMI device library (QDMI 1.3 legacy ABI)
+        run: cargo build -p arvak-qdmi-device --release --features qdmi-v1-3
+
+      - name: Rename artifact (QDMI 1.3)
+        run: cp target/release/libarvak_qdmi_device.dylib libqdmi_arvak_qdmi13.dylib
 
       - name: Upload QDMI library
         uses: actions/upload-artifact@v5
         with:
           name: qdmi-macos-aarch64
-          path: libqdmi_arvak.dylib
+          path: |
+            libqdmi_arvak.dylib
+            libqdmi_arvak_qdmi13.dylib
 
   release:
     name: Release
@@ -257,5 +277,7 @@ jobs:
         with:
           files: |
             qdmi-linux-x86_64/libqdmi_arvak.so
+            qdmi-linux-x86_64/libqdmi_arvak_qdmi13.so
             qdmi-macos-aarch64/libqdmi_arvak.dylib
+            qdmi-macos-aarch64/libqdmi_arvak_qdmi13.dylib
           generate_release_notes: true

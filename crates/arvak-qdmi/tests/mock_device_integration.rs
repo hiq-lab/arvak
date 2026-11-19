@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Integration tests using the compiled mock QDMI v1.2.1 device.
+//! Integration tests using the compiled mock QDMI devices.
 //!
-//! The build.rs compiles `examples/mock_device/mock_device.c` into
-//! `libmock_qdmi_device.so` and exports its path via the
-//! `MOCK_QDMI_DEVICE_PATH` env var.
+//! The build.rs compiles `examples/mock_device/mock_device.c` twice:
+//! `libmock_qdmi_device` (QDMI 1.2/1.3 ABI, `MOCK_QDMI_DEVICE_PATH`) and
+//! `libmock_qdmi_device_v14` (QDMI 1.4 ABI, `MOCK_QDMI_DEVICE_V14_PATH`).
 
 use std::path::Path;
 
 use arvak_qdmi::capabilities::DeviceCapabilities;
-use arvak_qdmi::device_loader::QdmiDevice;
+use arvak_qdmi::device_loader::{QdmiAbi, QdmiDevice};
 use arvak_qdmi::format::CircuitFormat;
 use arvak_qdmi::session::DeviceSession;
 use arvak_qdmi::{QdmiError, ffi};
@@ -21,6 +21,17 @@ fn mock_device_path() -> &'static str {
 fn load_mock() -> QdmiDevice {
     QdmiDevice::load(Path::new(mock_device_path()), "MOCK")
         .expect("failed to load mock QDMI device")
+}
+
+fn load_mock_v14() -> QdmiDevice {
+    QdmiDevice::load(Path::new(env!("MOCK_QDMI_DEVICE_V14_PATH")), "MOCK")
+        .expect("failed to load QDMI 1.4 mock device")
+}
+
+fn hist_values(buf: &[u8]) -> Vec<usize> {
+    buf.chunks_exact(std::mem::size_of::<usize>())
+        .map(|c| usize::from_ne_bytes(c.try_into().unwrap()))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -512,17 +523,9 @@ fn test_job_lifecycle() {
     // Create job
     let job = session.create_job().expect("create_job failed");
 
-    // Set program format (QASM2)
-    let fmt = ffi::QDMI_PROGRAM_FORMAT_QASM2;
-    job.set_parameter(
-        ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
-        &fmt.to_ne_bytes(),
-    )
-    .expect("set format failed");
-
-    // Set program
+    // Set program (QASM2) — legacy device: PROGRAMFORMAT + PROGRAM parameters
     let program = b"OPENQASM 2.0;\nqreg q[2];\nh q[0];\ncx q[0],q[1];";
-    job.set_parameter(ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAM, program)
+    job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM2, program)
         .expect("set program failed");
 
     // Set shots
@@ -596,4 +599,208 @@ fn test_unsupported_result_type() {
         matches!(result, Err(QdmiError::NotSupported)),
         "expected NotSupported, got {result:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// ABI detection & legacy (QDMI 1.2/1.3) fallback
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_abi_detection() {
+    assert_eq!(load_mock().abi(), QdmiAbi::V1_3);
+    assert_eq!(load_mock_v14().abi(), QdmiAbi::V1_4);
+}
+
+#[test]
+fn test_v13_rejects_multi_program_and_index() {
+    let device = load_mock();
+    let session = DeviceSession::open(&device).unwrap();
+    let job = session.create_job().unwrap();
+
+    let progs: [&[u8]; 2] = [b"OPENQASM 2.0;", b"OPENQASM 2.0;"];
+    let result = job.set_programs(ffi::QDMI_PROGRAM_FORMAT_QASM2, &progs);
+    assert!(matches!(result, Err(QdmiError::NotSupported)), "{result:?}");
+
+    job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM2, b"OPENQASM 2.0;")
+        .unwrap();
+    job.submit().unwrap();
+    let result = job.get_program_results(1, ffi::QDMI_JOB_RESULT_HISTVALUES);
+    assert!(
+        matches!(
+            result,
+            Err(QdmiError::DeviceError(ffi::QDMI_ERROR_OUTOFRANGE))
+        ),
+        "{result:?}"
+    );
+
+    // 1.4-only calls are unavailable on a 1.3 device.
+    assert!(matches!(job.get_program(0), Err(QdmiError::NotSupported)));
+    assert!(matches!(
+        job.program_status(0),
+        Err(QdmiError::NotSupported)
+    ));
+    assert!(matches!(
+        session.retrieve_job("mock-job-001"),
+        Err(QdmiError::NotSupported)
+    ));
+}
+
+#[test]
+fn test_set_programs_rejects_empty_input() {
+    let device = load_mock_v14();
+    let session = DeviceSession::open(&device).unwrap();
+    let job = session.create_job().unwrap();
+
+    assert!(matches!(
+        job.set_programs(ffi::QDMI_PROGRAM_FORMAT_QASM2, &[]),
+        Err(QdmiError::InvalidArgument)
+    ));
+    assert!(matches!(
+        job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM2, b""),
+        Err(QdmiError::InvalidArgument)
+    ));
+}
+
+// ---------------------------------------------------------------------------
+// QDMI 1.4 job interface
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_v14_single_program_lifecycle() {
+    let device = load_mock_v14();
+    let session = DeviceSession::open(&device).unwrap();
+    let job = session.create_job().unwrap();
+
+    // The removed 1.3 parameters are reserved and rejected by 1.4 devices.
+    let fmt = ffi::QDMI_PROGRAM_FORMAT_QASM2;
+    let result = job.set_parameter(
+        ffi::QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
+        &fmt.to_ne_bytes(),
+    );
+    assert!(matches!(result, Err(QdmiError::NotSupported)), "{result:?}");
+
+    // No trailing NUL: the mock rejects text without exactly one, so this
+    // only passes if set_program appends it.
+    let program = b"OPENQASM 2.0;\nqreg q[2];\nh q[0];\ncx q[0],q[1];";
+    job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM2, program)
+        .expect("set_programs failed");
+
+    let stored = job.get_program(0).unwrap();
+    assert_eq!(stored, [&program[..], b"\0"].concat());
+
+    let shots: usize = 1000;
+    job.set_parameter(
+        ffi::QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
+        &shots.to_ne_bytes(),
+    )
+    .unwrap();
+    job.submit().unwrap();
+    job.wait(5000).unwrap();
+    assert_eq!(job.check().unwrap(), ffi::QDMI_JOB_STATUS_DONE);
+    assert_eq!(job.program_status(0).unwrap(), ffi::QDMI_JOB_STATUS_DONE);
+
+    let counts = hist_values(&job.get_results(ffi::QDMI_JOB_RESULT_HISTVALUES).unwrap());
+    assert_eq!(counts, vec![500, 500]);
+    assert_eq!(job.id().unwrap(), "mock-job-001");
+}
+
+#[test]
+fn test_v14_text_program_with_nul_is_passed_through() {
+    let device = load_mock_v14();
+    let session = DeviceSession::open(&device).unwrap();
+    let job = session.create_job().unwrap();
+
+    let program = b"OPENQASM 3;\nqubit q;\0";
+    job.set_program(ffi::QDMI_PROGRAM_FORMAT_QASM3, program)
+        .unwrap();
+    assert_eq!(job.get_program(0).unwrap(), program.to_vec());
+}
+
+#[test]
+fn test_v14_multi_program_results_are_indexed() {
+    let device = load_mock_v14();
+    let session = DeviceSession::open(&device).unwrap();
+    let job = session.create_job().unwrap();
+
+    let progs: [&[u8]; 3] = [
+        b"OPENQASM 2.0; // a",
+        b"OPENQASM 2.0; // b",
+        b"OPENQASM 2.0; // c",
+    ];
+    job.set_programs(ffi::QDMI_PROGRAM_FORMAT_QASM2, &progs)
+        .unwrap();
+
+    let num = job
+        .query_property(ffi::QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM)
+        .unwrap();
+    assert_eq!(hist_values(&num), vec![3]);
+    assert_eq!(
+        job.get_program(2).unwrap(),
+        b"OPENQASM 2.0; // c\0".to_vec()
+    );
+
+    let shots: usize = 100;
+    job.set_parameter(
+        ffi::QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
+        &shots.to_ne_bytes(),
+    )
+    .unwrap();
+    job.submit().unwrap();
+
+    // The mock gives program i `i` extra |11111> counts.
+    for i in 0..3 {
+        let counts = hist_values(
+            &job.get_program_results(i, ffi::QDMI_JOB_RESULT_HISTVALUES)
+                .unwrap(),
+        );
+        assert_eq!(counts, vec![50 - i, 50 + i], "program {i}");
+    }
+
+    let result = job.get_program_results(3, ffi::QDMI_JOB_RESULT_HISTVALUES);
+    assert!(
+        matches!(
+            result,
+            Err(QdmiError::DeviceError(ffi::QDMI_ERROR_OUTOFRANGE))
+        ),
+        "{result:?}"
+    );
+}
+
+#[test]
+fn test_v14_unsupported_list_size_and_format() {
+    let device = load_mock_v14();
+    let session = DeviceSession::open(&device).unwrap();
+    let job = session.create_job().unwrap();
+
+    // The mock caps lists at 4 programs.
+    let progs: Vec<&[u8]> = vec![b"OPENQASM 2.0;"; 5];
+    let result = job.set_programs(ffi::QDMI_PROGRAM_FORMAT_QASM2, &progs);
+    assert!(matches!(result, Err(QdmiError::NotSupported)), "{result:?}");
+
+    let result = job.set_program(ffi::QDMI_PROGRAM_FORMAT_QPY, &[0x51, 0x50, 0x59]);
+    assert!(matches!(result, Err(QdmiError::NotSupported)), "{result:?}");
+
+    // A failed setter leaves the job without programs.
+    let result = job.query_property(ffi::QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM);
+    assert!(matches!(result, Err(QdmiError::BadState)), "{result:?}");
+}
+
+#[test]
+fn test_v14_retrieve_unknown_job() {
+    let device = load_mock_v14();
+    let session = DeviceSession::open(&device).unwrap();
+
+    let result = session.retrieve_job("does-not-exist");
+    assert!(
+        matches!(
+            result,
+            Err(QdmiError::DeviceError(ffi::QDMI_ERROR_NOTFOUND))
+        ),
+        "{:?}",
+        result.err()
+    );
+    assert!(matches!(
+        session.retrieve_job("bad\0id"),
+        Err(QdmiError::InvalidArgument)
+    ));
 }

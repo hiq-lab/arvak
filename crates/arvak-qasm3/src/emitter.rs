@@ -302,7 +302,7 @@ impl Emitter {
                 } else if (*v + pi / 4.0).abs() < 1e-10 {
                     "-pi/4".into()
                 } else {
-                    format!("{v:.6}")
+                    format_angle(*v)
                 }
             }
             ParameterExpression::Symbol(name) => name.clone(),
@@ -578,7 +578,7 @@ impl Qasm2Emitter {
                 } else if (*v + pi / 4.0).abs() < 1e-10 {
                     "-pi/4".into()
                 } else {
-                    format!("{v:.6}")
+                    format_angle(*v)
                 }
             }
             ParameterExpression::Symbol(name) => name.clone(),
@@ -613,6 +613,21 @@ impl Qasm2Emitter {
     }
 }
 
+/// Format an angle so that parsing it back yields the identical `f64`.
+///
+/// Rust's `Display` for `f64` prints the shortest decimal that round-trips
+/// exactly and never uses exponent notation, so the literal is valid in both
+/// OpenQASM 2 and 3. A decimal point is kept so integral angles stay float
+/// literals (`2.0`, not `2`).
+fn format_angle(v: f64) -> String {
+    let s = format!("{v}");
+    if s.contains('.') || !v.is_finite() {
+        s
+    } else {
+        format!("{s}.0")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -638,7 +653,55 @@ mod tests {
         circuit.u(0.1, 0.2, 0.3, QubitId(0)).unwrap();
 
         let qasm = emit(&circuit).unwrap();
-        assert!(qasm.contains("U(0.100000, 0.200000, 0.300000) q[0];"));
+        assert!(qasm.contains("U(0.1, 0.2, 0.3) q[0];"));
+    }
+
+    /// Angles must survive emit → parse bit-for-bit. A fixed 6-decimal format
+    /// rounded every angle by up to 5e-7 on each QASM round trip (e.g. through
+    /// the Qiskit plugin), which shows up in exact expectation values.
+    #[test]
+    fn test_emitted_angles_round_trip_exactly() {
+        let angles = [
+            0.123_456_789_012_345,
+            -2.718_281_828_459_1,
+            1e-9,
+            2.0,
+            7.25e-5,
+            std::f64::consts::PI / 3.0,
+            -123.456_789,
+        ];
+        let mut circuit = Circuit::with_size("t", 1, 0);
+        for &a in &angles {
+            circuit.rx(a, QubitId(0)).unwrap();
+        }
+
+        let qasm = emit(&circuit).unwrap();
+        let parsed = crate::parse(&qasm).unwrap();
+        let got: Vec<f64> = parsed
+            .dag()
+            .topological_ops()
+            .filter_map(|(_, i)| match i.as_gate().map(|g| &g.kind) {
+                Some(arvak_ir::GateKind::Standard(s)) => s.parameters()[0].as_f64(),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(got.len(), angles.len(), "{qasm}");
+        for (g, a) in got.iter().zip(angles) {
+            assert!(
+                g.to_bits() == a.to_bits(),
+                "rx({a}) came back as {g}\n{qasm}"
+            );
+        }
+        assert!(qasm.contains("rx(2.0) q[0];"), "{qasm}");
+    }
+
+    #[test]
+    fn test_qasm2_angles_full_precision() {
+        let mut circuit = Circuit::with_size("t", 1, 0);
+        circuit.rx(0.123_456_789_012_345, QubitId(0)).unwrap();
+        let qasm = emit_qasm2(&circuit).unwrap();
+        assert!(qasm.contains("rx(0.123456789012345) q[0];"), "{qasm}");
     }
 
     #[test]

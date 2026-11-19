@@ -19,3 +19,11 @@ tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde_json = { workspace = true }
+
+[features]
+default = []
+# Export the legacy QDMI 1.2/1.3 device ABI instead of QDMI 1.4: programs via
+# the PROGRAMFORMAT/PROGRAM job parameters and `get_results` without a program
+# index. A device library can only implement one ABI, so this is a build-time
+# choice; release builds ship both variants.
+qdmi-v1-3 = []

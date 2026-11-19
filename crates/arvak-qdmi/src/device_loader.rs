@@ -17,6 +17,13 @@
 //!
 //! This module handles the `dlopen` + prefix-aware `dlsym` dance, following the
 //! same pattern as MQT Core's `Driver.cpp`.
+//!
+//! # ABI detection
+//!
+//! QDMI 1.4 changed the signature of `QDMI_device_job_get_results` without
+//! renaming it, so the ABI cannot be inferred from that symbol. Instead we
+//! key on `QDMI_device_job_set_programs`, which every 1.4 device must export
+//! and no 1.2/1.3 device has. See [`QdmiAbi`].
 
 use std::path::Path;
 
@@ -24,6 +31,36 @@ use libloading::{Library, Symbol};
 
 use crate::error::{QdmiError, Result};
 use crate::ffi;
+
+// ---------------------------------------------------------------------------
+// ABI version
+// ---------------------------------------------------------------------------
+
+/// The QDMI device-interface ABI a loaded library implements.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum QdmiAbi {
+    /// QDMI 1.2.x / 1.3.x: programs via `PROGRAMFORMAT` / `PROGRAM` job
+    /// parameters, `get_results` without a program index.
+    V1_3,
+    /// QDMI 1.4.x: programs via `set_programs`, indexed `get_results`.
+    V1_4,
+}
+
+impl std::fmt::Display for QdmiAbi {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::V1_3 => f.write_str("QDMI 1.2/1.3"),
+            Self::V1_4 => f.write_str("QDMI 1.4"),
+        }
+    }
+}
+
+/// `get_results` resolved with the signature matching the device's ABI.
+#[derive(Clone, Copy)]
+pub(crate) enum JobGetResultsFn {
+    V1_3(ffi::FnJobGetResultsV13),
+    V1_4(ffi::FnJobGetResults),
+}
 
 // ---------------------------------------------------------------------------
 // QDMI device function table
@@ -42,6 +79,9 @@ pub struct QdmiDevice {
 
     /// Path the library was loaded from (for diagnostics).
     library_path: String,
+
+    /// Device-interface ABI detected at load time.
+    abi: QdmiAbi,
 
     // -- Device lifecycle ----------------------------------------------------
     #[allow(dead_code)]
@@ -62,14 +102,19 @@ pub struct QdmiDevice {
     // -- Job interface (optional — some devices are query-only) ---------------
     pub(crate) fn_create_device_job: Option<ffi::FnCreateDeviceJob>,
     pub(crate) fn_job_set_parameter: Option<ffi::FnJobSetParameter>,
-    #[allow(dead_code)]
     pub(crate) fn_job_query_property: Option<ffi::FnJobQueryProperty>,
     pub(crate) fn_job_submit: Option<ffi::FnJobSubmit>,
     pub(crate) fn_job_cancel: Option<ffi::FnJobCancel>,
     pub(crate) fn_job_check: Option<ffi::FnJobCheck>,
     pub(crate) fn_job_wait: Option<ffi::FnJobWait>,
-    pub(crate) fn_job_get_results: Option<ffi::FnJobGetResults>,
+    pub(crate) fn_job_get_results: Option<JobGetResultsFn>,
     pub(crate) fn_job_free: Option<ffi::FnJobFree>,
+
+    // -- QDMI 1.4 job interface (always `None` on 1.3 devices) ----------------
+    pub(crate) fn_job_set_programs: Option<ffi::FnJobSetPrograms>,
+    pub(crate) fn_job_get_program: Option<ffi::FnJobGetProgram>,
+    pub(crate) fn_job_get_program_status: Option<ffi::FnJobGetProgramStatus>,
+    pub(crate) fn_retrieve_device_job_by_id: Option<ffi::FnRetrieveDeviceJobById>,
 }
 
 impl QdmiDevice {
@@ -185,13 +230,62 @@ impl QdmiDevice {
             resolve_optional::<ffi::FnJobCheck>(&library, prefix, "QDMI_device_job_check");
         let fn_job_wait =
             resolve_optional::<ffi::FnJobWait>(&library, prefix, "QDMI_device_job_wait");
-        let fn_job_get_results = resolve_optional::<ffi::FnJobGetResults>(
-            &library,
-            prefix,
-            "QDMI_device_job_get_results",
-        );
         let fn_job_free =
             resolve_optional::<ffi::FnJobFree>(&library, prefix, "QDMI_device_job_free");
+
+        // -- QDMI 1.4 additions + ABI detection ---------------------------------
+
+        let fn_job_set_programs = resolve_optional::<ffi::FnJobSetPrograms>(
+            &library,
+            prefix,
+            "QDMI_device_job_set_programs",
+        );
+        let abi = if fn_job_set_programs.is_some() {
+            QdmiAbi::V1_4
+        } else {
+            QdmiAbi::V1_3
+        };
+
+        let (fn_job_get_program, fn_job_get_program_status, fn_retrieve_device_job_by_id) =
+            if abi == QdmiAbi::V1_4 {
+                (
+                    resolve_optional::<ffi::FnJobGetProgram>(
+                        &library,
+                        prefix,
+                        "QDMI_device_job_get_program",
+                    ),
+                    resolve_optional::<ffi::FnJobGetProgramStatus>(
+                        &library,
+                        prefix,
+                        "QDMI_device_job_get_program_status",
+                    ),
+                    resolve_optional::<ffi::FnRetrieveDeviceJobById>(
+                        &library,
+                        prefix,
+                        "QDMI_device_session_retrieve_device_job_by_id",
+                    ),
+                )
+            } else {
+                (None, None, None)
+            };
+
+        // The symbol name is identical across ABIs; only the signature differs.
+        let fn_job_get_results = match abi {
+            QdmiAbi::V1_4 => resolve_optional::<ffi::FnJobGetResults>(
+                &library,
+                prefix,
+                "QDMI_device_job_get_results",
+            )
+            .map(JobGetResultsFn::V1_4),
+            QdmiAbi::V1_3 => resolve_optional::<ffi::FnJobGetResultsV13>(
+                &library,
+                prefix,
+                "QDMI_device_job_get_results",
+            )
+            .map(JobGetResultsFn::V1_3),
+        };
+
+        tracing::info!("device '{prefix}' implements {abi}");
 
         if fn_create_device_job.is_none() {
             tracing::warn!("device '{prefix}' does not export job submission functions");
@@ -212,6 +306,7 @@ impl QdmiDevice {
             _library: library,
             prefix: prefix.to_string(),
             library_path: path_str,
+            abi,
             fn_device_initialize,
             fn_device_finalize,
             fn_session_alloc,
@@ -230,6 +325,10 @@ impl QdmiDevice {
             fn_job_wait,
             fn_job_get_results,
             fn_job_free,
+            fn_job_set_programs,
+            fn_job_get_program,
+            fn_job_get_program_status,
+            fn_retrieve_device_job_by_id,
         })
     }
 
@@ -246,6 +345,11 @@ impl QdmiDevice {
     /// Whether the device supports job submission.
     pub fn supports_jobs(&self) -> bool {
         self.fn_create_device_job.is_some()
+    }
+
+    /// The device-interface ABI detected at load time.
+    pub fn abi(&self) -> QdmiAbi {
+        self.abi
     }
 }
 
@@ -270,6 +374,7 @@ impl std::fmt::Debug for QdmiDevice {
         f.debug_struct("QdmiDevice")
             .field("prefix", &self.prefix)
             .field("library_path", &self.library_path)
+            .field("abi", &self.abi)
             .field("supports_jobs", &self.supports_jobs())
             .finish_non_exhaustive()
     }
