@@ -42,7 +42,7 @@ rustc-hash = { workspace = true }
 tracing = { workspace = true }
 
 # SQLite for persistence
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "macros"] }

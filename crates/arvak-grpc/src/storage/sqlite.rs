@@ -502,6 +502,7 @@ mod tests {
             started_at: None,
             completed_at: None,
             result: None,
+            parameters: None,
         };
 
         // Store job
@@ -567,6 +568,7 @@ mod tests {
                 started_at: None,
                 completed_at: None,
                 result: None,
+                parameters: None,
             };
             storage.store_job(&job).await.unwrap();
         }

@@ -38,7 +38,7 @@ arvak-adapter-aqt = { path = "../../adapters/arvak-adapter-aqt", optional = true
 arvak-adapter-quandela = { workspace = true, optional = true }
 
 # Storage backends (feature-gated)
-rusqlite = { version = "0.31", features = ["bundled"], optional = true }
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"], optional = true }
 
 # Data structures
 rustc-hash = { workspace = true }
@@ -62,10 +62,10 @@ anyhow = { workspace = true }
 # Logging & Tracing
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["json", "env-filter"] }
-opentelemetry = "0.21"
-opentelemetry-otlp = { version = "0.14", features = ["grpc-tonic"] }
-opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
-tracing-opentelemetry = "0.22"
+opentelemetry = "0.27"
+opentelemetry-otlp = { version = "0.27", features = ["grpc-tonic"] }
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
+tracing-opentelemetry = "0.28"
 
 # Metrics
 prometheus = "0.14"
