@@ -177,6 +177,77 @@ async fn test_full_job_lifecycle() {
     assert_eq!(total, 1000);
 }
 
+/// With compilation enabled the circuit is laid out on the simulator's full
+/// 20-qubit topology; result keys must still match the 2-bit classical
+/// register, not the physical qubit count.
+#[tokio::test]
+async fn test_compiled_simulator_counts_keep_register_width() {
+    let addr = start_test_server().await;
+    let mut client = ArvakServiceClient::connect(addr).await.unwrap();
+
+    let qasm = "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[2] q;\nbit[2] c;\n\
+                h q[0];\ncx q[0], q[1];\nc = measure q;\n";
+    let job_id = client
+        .submit_job(Request::new(SubmitJobRequest {
+            circuit: Some(CircuitPayload {
+                format: Some(circuit_payload::Format::Qasm3(qasm.to_string())),
+            }),
+            backend_id: "simulator".to_string(),
+            shots: 1000,
+            optimization_level: 1,
+        }))
+        .await
+        .unwrap()
+        .into_inner()
+        .job_id;
+
+    let mut completed = false;
+    for _ in 0..50 {
+        let job = client
+            .get_job_status(Request::new(GetJobStatusRequest {
+                job_id: job_id.clone(),
+            }))
+            .await
+            .unwrap()
+            .into_inner()
+            .job
+            .unwrap();
+        let state = JobState::try_from(job.state).unwrap();
+        if state == JobState::Completed {
+            completed = true;
+            break;
+        }
+        assert!(
+            state != JobState::Failed,
+            "job failed: {}",
+            job.error_message
+        );
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+    assert!(completed, "compiled job should complete within 5 seconds");
+
+    let result = client
+        .get_job_result(Request::new(GetJobResultRequest { job_id }))
+        .await
+        .unwrap()
+        .into_inner()
+        .result
+        .unwrap();
+
+    for key in result.counts.keys() {
+        assert_eq!(key.len(), 2, "key {key:?} is not 2 bits wide");
+    }
+    let bell: u64 = ["00", "11"]
+        .iter()
+        .map(|k| result.counts.get(*k).copied().unwrap_or(0))
+        .sum();
+    assert_eq!(
+        bell, 1000,
+        "Bell state must only yield 00/11: {:?}",
+        result.counts
+    );
+}
+
 #[tokio::test]
 async fn test_submit_batch() {
     let addr = start_test_server().await;

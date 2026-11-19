@@ -11,7 +11,7 @@ use arvak_hal::{
     Backend, BackendAvailability, BackendConfig, BackendFactory, Capabilities, Counts,
     ExecutionResult, HalError, HalResult, Job, JobId, JobStatus, ValidationResult,
 };
-use arvak_ir::Circuit;
+use arvak_ir::{Circuit, Instruction, InstructionKind};
 
 use crate::statevector::Statevector;
 
@@ -128,7 +128,13 @@ pub fn run_simulation_seeded(
 
     let has_reset = instructions
         .iter()
-        .any(|inst| matches!(inst.kind, arvak_ir::InstructionKind::Reset));
+        .any(|inst| matches!(inst.kind, InstructionKind::Reset));
+
+    let readout = clbit_readout(&instructions, circuit.num_clbits());
+    let key = |sv: &Statevector, outcome: usize| match &readout {
+        Some(sources) => clbits_to_bitstring(sources, outcome),
+        None => sv.outcome_to_bitstring(outcome),
+    };
 
     let mut counts = Counts::new();
 
@@ -141,7 +147,7 @@ pub fn run_simulation_seeded(
                 sv.apply(inst, &mut rng)?;
             }
             let outcome = sv.sample(&mut rng);
-            counts.insert(sv.outcome_to_bitstring(outcome), 1);
+            counts.insert(key(&sv, outcome), 1);
 
             if shot > 0 && shot % 1000 == 0 {
                 debug!("Completed {} shots", shot);
@@ -154,7 +160,7 @@ pub fn run_simulation_seeded(
             sv.apply(inst, &mut rng)?;
         }
         for (outcome, count) in sv.sample_counts(shots, &mut rng) {
-            counts.insert(sv.outcome_to_bitstring(outcome), count.into());
+            counts.insert(key(&sv, outcome), count.into());
         }
     }
 
@@ -162,6 +168,46 @@ pub fn run_simulation_seeded(
     debug!("Simulation completed in {:?}", elapsed);
 
     Ok(ExecutionResult::new(counts, shots).with_execution_time(elapsed.as_millis() as u64))
+}
+
+/// For each classical bit, the qubit last measured into it.
+///
+/// Returns `None` for circuits without measurements, whose results keep
+/// covering the full qubit register. Measurements are read from the final
+/// state, like before; a qubit acted on after its measurement reports its
+/// final value.
+fn clbit_readout(instructions: &[Instruction], num_clbits: usize) -> Option<Vec<Option<usize>>> {
+    let mut sources: Vec<Option<usize>> = vec![None; num_clbits];
+    let mut any = false;
+    for inst in instructions {
+        if !matches!(inst.kind, InstructionKind::Measure) {
+            continue;
+        }
+        for (qubit, clbit) in inst.qubits.iter().zip(&inst.clbits) {
+            let clbit = clbit.0 as usize;
+            if clbit >= sources.len() {
+                sources.resize(clbit + 1, None);
+            }
+            sources[clbit] = Some(qubit.0 as usize);
+            any = true;
+        }
+    }
+    any.then_some(sources)
+}
+
+/// Classical register value of a sampled basis state.
+///
+/// HAL Contract bit order: clbit 0 is the rightmost character. Clbits that
+/// were never measured read 0.
+fn clbits_to_bitstring(sources: &[Option<usize>], outcome: usize) -> String {
+    sources
+        .iter()
+        .rev()
+        .map(|source| match source {
+            Some(qubit) if (outcome >> qubit) & 1 == 1 => '1',
+            _ => '0',
+        })
+        .collect()
 }
 
 impl Default for SimulatorBackend {
@@ -358,6 +404,7 @@ impl BackendFactory for SimulatorBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arvak_ir::{ClbitId, QubitId};
 
     #[tokio::test]
     async fn test_simulator_capabilities() {
@@ -387,6 +434,55 @@ mod tests {
             "X(q0) must produce \"01\" — q0 is the rightmost bit"
         );
         assert_eq!(result.counts.get("10"), 0);
+    }
+
+    #[test]
+    fn test_counts_keyed_by_measured_clbits() {
+        // Bell pair on physical qubits 5 and 7 of a 20-qubit device, read
+        // into a 2-bit register — the shape a routed/laid-out circuit has.
+        // Keys must be 2 characters wide, not 20.
+        let mut circuit = Circuit::with_size("routed_bell", 20, 2);
+        circuit.h(QubitId(5)).unwrap();
+        circuit.cx(QubitId(5), QubitId(7)).unwrap();
+        circuit.measure(QubitId(5), ClbitId(0)).unwrap();
+        circuit.measure(QubitId(7), ClbitId(1)).unwrap();
+
+        let result = run_simulation_seeded(&circuit, 1000, Some(7)).unwrap();
+        assert!(result.counts.iter().all(|(k, _)| k.len() == 2));
+        assert_eq!(result.counts.get("00") + result.counts.get("11"), 1000);
+    }
+
+    #[test]
+    fn test_counts_follow_clbit_not_qubit_order() {
+        // X on q0, measured into c1: clbit 1 is set → "10" (c0 rightmost).
+        let mut circuit = Circuit::with_size("swapped_readout", 2, 2);
+        circuit.x(QubitId(0)).unwrap();
+        circuit.measure(QubitId(0), ClbitId(1)).unwrap();
+        circuit.measure(QubitId(1), ClbitId(0)).unwrap();
+
+        let result = run_simulation_seeded(&circuit, 100, Some(1)).unwrap();
+        assert_eq!(result.counts.get("10"), 100);
+    }
+
+    #[test]
+    fn test_unmeasured_clbits_read_zero() {
+        let mut circuit = Circuit::with_size("partial", 2, 3);
+        circuit.x(QubitId(0)).unwrap();
+        circuit.x(QubitId(1)).unwrap();
+        circuit.measure(QubitId(1), ClbitId(2)).unwrap();
+
+        let result = run_simulation_seeded(&circuit, 50, Some(1)).unwrap();
+        assert_eq!(result.counts.get("100"), 50);
+    }
+
+    #[test]
+    fn test_counts_without_measurements_cover_all_qubits() {
+        // No measure instructions: keep reporting the full register.
+        let mut circuit = Circuit::with_size("no_measure", 3, 0);
+        circuit.x(QubitId(2)).unwrap();
+
+        let result = run_simulation_seeded(&circuit, 10, Some(1)).unwrap();
+        assert_eq!(result.counts.get("100"), 10);
     }
 
     #[tokio::test]
